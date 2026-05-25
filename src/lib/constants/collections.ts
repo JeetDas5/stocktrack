@@ -6,4 +6,5 @@ export const COLLECTIONS = {
   SUPPLIERS: "suppliers",
   STOCK_COUNT_SESSIONS: "stock_count_sessions",
   PURCHASE_ORDERS: "purchase_orders",
+  CATEGORIES: "categories",
 };

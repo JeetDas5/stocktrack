@@ -18,7 +18,7 @@ const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 // export const storage = getStorage(app);
-export const analytics = getAnalytics(app);
+export const analytics = typeof window !== "undefined" ? getAnalytics(app) : null;
 
 if (process.env.NODE_ENV === "development") {
   connectFirestoreEmulator(db, "127.0.0.1", 8080);

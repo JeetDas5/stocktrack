@@ -4,7 +4,7 @@ import { onAuthStateChanged, User } from "firebase/auth";
 import { createContext, useContext, useEffect, useState } from "react";
 import { auth } from "@/lib/firebase/client";
 import { AppUser } from "@/types/user";
-import { getUserProfile } from "@/lib/repositories/user.repository";
+import { getUserProfile, createUserProfile } from "@/lib/repositories/user.repository";
 
 interface AuthContextType {
   user: User | null;
@@ -38,7 +38,22 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
         setUser(firebaseUser);
 
-        const userProfile = await getUserProfile(firebaseUser.uid);
+        let userProfile = await getUserProfile(firebaseUser.uid);
+
+        if (!userProfile) {
+          const newProfile: AppUser = {
+            uid: firebaseUser.uid,
+            fullName: firebaseUser.displayName || firebaseUser.email?.split("@")[0] || "Admin User",
+            email: firebaseUser.email || undefined,
+            role: "admin",
+            isActive: true,
+            businessIds: [],
+            createdAt: new Date().toISOString(),
+            last_login_at: new Date().toISOString(),
+          };
+          await createUserProfile(newProfile);
+          userProfile = newProfile;
+        }
 
         setProfile(userProfile);
       } catch (error) {
