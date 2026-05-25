@@ -35,12 +35,13 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (!activeBusinessId) return;
+    const businessId = activeBusinessId;
 
     async function loadDashboardData() {
       try {
         setLoading(true);
         // 1. Fetch stock items to calculate low stock & total
-        const itemsRef = collection(db, "businesses", activeBusinessId, "stock_items");
+        const itemsRef = collection(db, "businesses", businessId, "stock_items");
         const itemsSnap = await getDocs(itemsRef);
         const allItems = itemsSnap.docs.map((d) => ({ id: d.id, ...d.data() } as any));
         
@@ -55,13 +56,13 @@ export default function DashboardPage() {
         });
 
         // 2. Fetch recent count sessions
-        const sessionsRef = collection(db, "businesses", activeBusinessId, "stock_count_sessions");
+        const sessionsRef = collection(db, "businesses", businessId, "stock_count_sessions");
         const sessionsQuery = query(sessionsRef, orderBy("submittedAt", "desc"), limit(5));
         const sessionsSnap = await getDocs(sessionsQuery);
         const sessions = sessionsSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
 
         // 3. Fetch active POs
-        const poRef = collection(db, "businesses", activeBusinessId, "purchase_orders");
+        const poRef = collection(db, "businesses", businessId, "purchase_orders");
         const poSnap = await getDocs(poRef);
         const pos = poSnap.docs.map((d) => ({ id: d.id, ...d.data() } as any));
         const activePos = pos.filter((po) => po.status === "Sent" || po.status === "Draft");

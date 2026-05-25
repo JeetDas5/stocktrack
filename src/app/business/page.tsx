@@ -13,7 +13,7 @@ import { logoutUser } from "@/lib/services/auth.service";
 import { Business } from "@/types/business";
 
 export default function BusinessSelectionPage() {
-  const { user, profile, loading: authLoading } = useAuth();
+  const { user, profile, loading: authLoading, refreshProfile } = useAuth();
   const { setActiveBusiness } = useBusinessStore();
   const router = useRouter();
 
@@ -37,8 +37,9 @@ export default function BusinessSelectionPage() {
         const data = await getUserBusinesses(profile.businessIds || []);
         setBusinesses(data);
         
-        // Auto-select if there is exactly 1 business and it is already set
-        if (data.length === 1) {
+        // Auto-select if there is exactly 1 business and no active business is already selected
+        const persistedActiveId = typeof window !== "undefined" ? localStorage.getItem("stocktrack_active_business_id") : null;
+        if (data.length === 1 && !persistedActiveId) {
           const singleBus = data[0];
           setActiveBusiness(singleBus.id);
           localStorage.setItem("stocktrack_active_business_id", singleBus.id);
@@ -72,6 +73,9 @@ export default function BusinessSelectionPage() {
       
       const created = await createBusinessAndLink(user.uid, newBusinessName.trim());
       
+      // Refresh global profile context to include the new businessId
+      await refreshProfile();
+
       // Update state
       const updatedBusinesses = [...businesses, {
         id: created.id,

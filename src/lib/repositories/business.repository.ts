@@ -3,7 +3,7 @@ import {
   addDoc,
   doc,
   getDoc,
-  updateDoc,
+  setDoc,
   arrayUnion,
 } from "firebase/firestore";
 
@@ -20,9 +20,9 @@ export const createBusinessAndLink = async (userId: string, name: string) => {
   });
 
   const userRef = doc(db, "users", userId);
-  await updateDoc(userRef, {
+  await setDoc(userRef, {
     businessIds: arrayUnion(docRef.id),
-  });
+  }, { merge: true });
 
   return { id: docRef.id, name };
 };
