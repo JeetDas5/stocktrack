@@ -1,36 +1,27 @@
 export interface Category {
   id: string;
-
   businessId: string;
-
   name: string;
-
   description?: string;
-
   isActive: boolean;
-
   createdAt: string;
 }
 
 export type LocationType =
-  | "store"
   | "warehouse"
+  | "store"
   | "kitchen"
-  | "storage";
+  | "cold_storage"
+  | "other";
 
 export interface Location {
   id: string;
-
   businessId: string;
-
   name: string;
-
   type: LocationType;
-
+  description?: string;
   address?: string;
-
   isActive: boolean;
-
   createdAt: string;
 }
 

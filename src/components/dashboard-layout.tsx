@@ -27,6 +27,11 @@ import {
   Menu,
   X,
   Loader2,
+  Search,
+  Bell,
+  GripVertical,
+  Settings,
+  ChevronsLeft,
 } from "lucide-react";
 
 interface SidebarLink {
@@ -82,7 +87,7 @@ export default function DashboardLayout({
           setActiveBusinessDoc(activeDoc);
         }
       } catch (err) {
-        console.error("Error loading businesses switcher:", err);
+        console.error(err);
       } finally {
         setLoading(false);
       }
@@ -109,11 +114,55 @@ export default function DashboardLayout({
     router.push("/login");
   };
 
+  const getHeaderBreadcrumb = (path: string) => {
+    switch (path) {
+      case "/dashboard/locations":
+        return { title: "Locations" };
+      case "/dashboard/stock-items":
+        return { title: "Stock Items" };
+      case "/dashboard/categories":
+        return { title: "Categories" };
+      case "/dashboard/recipes":
+        return { title: "Recipes" };
+      case "/dashboard/suppliers":
+        return { title: "Suppliers" };
+      case "/dashboard/refill-planner":
+        return { title: "Refill Planner" };
+      case "/dashboard/deliveries":
+        return { title: "Deliveries" };
+      case "/dashboard/sales":
+        return { title: "Sales Entry" };
+      case "/dashboard/purchase-orders":
+        return { title: "Purchase Orders" };
+      case "/dashboard/reconciliation":
+        return { title: "Reconciliation" };
+      case "/dashboard/reports":
+        return { title: "Reports" };
+      case "/dashboard/users":
+        return { title: "Users" };
+      default:
+        return { title: "Dashboard" };
+    }
+  };
+
+  const breadcrumb = getHeaderBreadcrumb(pathname);
+
+  const pinnedLinks: SidebarLink[] = [
+    { name: "Refill Planner", href: "/dashboard/refill-planner", icon: ClipboardList },
+    { name: "Purchase Orders", href: "/dashboard/purchase-orders", icon: FileText },
+    { name: "Deliveries", href: "/dashboard/deliveries", icon: PackageOpen },
+  ];
+
+  const overviewLinks: SidebarLink[] = [
+    { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+    { name: "Businesses", href: "/business", icon: Building2 },
+  ];
+
   const masterDataLinks: SidebarLink[] = [
     { name: "Locations", href: "/dashboard/locations", icon: MapPin },
-    { name: "Categories", href: "/dashboard/categories", icon: Layers },
     { name: "Stock Items", href: "/dashboard/stock-items", icon: Package },
     { name: "Suppliers", href: "/dashboard/suppliers", icon: Truck },
+    { name: "Categories", href: "/dashboard/categories", icon: Layers },
     { name: "Recipes", href: "/dashboard/recipes", icon: ChefHat },
   ];
 
@@ -121,21 +170,28 @@ export default function DashboardLayout({
     { name: "Refill Planner", href: "/dashboard/refill-planner", icon: ClipboardList },
     { name: "Purchase Orders", href: "/dashboard/purchase-orders", icon: FileText },
     { name: "Deliveries", href: "/dashboard/deliveries", icon: PackageOpen },
-    { name: "Sales & CSV Import", href: "/dashboard/sales", icon: TrendingUp },
+    { name: "Stock Counts", href: "/dashboard/counts", icon: ClipboardList },
+  ];
+
+  const salesLinks: SidebarLink[] = [
+    { name: "Sales Entry", href: "/dashboard/sales", icon: TrendingUp },
+    { name: "Sales Imports", href: "/dashboard/sales-imports", icon: TrendingUp },
+    { name: "Consumption", href: "/dashboard/consumption", icon: TrendingUp },
   ];
 
   const analysisLinks: SidebarLink[] = [
-    { name: "Variance Reconciliation", href: "/dashboard/reconciliation", icon: Scale },
-    { name: "Printable Reports", href: "/dashboard/reports", icon: BarChart3 },
+    { name: "Reconciliation", href: "/dashboard/reconciliation", icon: Scale },
+    { name: "Reports", href: "/dashboard/reports", icon: BarChart3 },
   ];
 
   const adminLinks: SidebarLink[] = [
-    { name: "Staff Roster", href: "/dashboard/users", icon: Users },
+    { name: "Users", href: "/dashboard/users", icon: Users },
+    { name: "Settings", href: "/dashboard/settings", icon: Settings },
   ];
 
   const isActive = (href: string) => pathname === href;
 
-  const renderLink = (link: SidebarLink) => {
+  const renderLink = (link: SidebarLink, hasGrip = false) => {
     const active = isActive(link.href);
     return (
       <a
@@ -146,14 +202,19 @@ export default function DashboardLayout({
           router.push(link.href);
           setMobileSidebarOpen(false);
         }}
-        className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all duration-200 cursor-pointer ${
+        className={`flex items-center justify-between px-3 py-2 rounded-lg text-xs font-bold transition-all duration-200 cursor-pointer ${
           active
-            ? "bg-[#DCFCE7] border border-[#16A34A]/25 text-[#16A34A] font-extrabold"
-            : "text-zinc-600 hover:text-[#0F172A] hover:bg-zinc-200/50 border border-transparent"
+            ? "bg-[#DCFCE7] text-[#16A34A]"
+            : "text-zinc-600 hover:text-[#0F172A] hover:bg-zinc-200/50"
         }`}
       >
-        <link.icon className={`h-4.5 w-4.5 transition-colors ${active ? "text-[#16A34A]" : "text-zinc-400"}`} />
-        {link.name}
+        <div className="flex items-center gap-2.5">
+          <link.icon className={`h-4.5 w-4.5 ${active ? "text-[#16A34A]" : "text-zinc-400"}`} />
+          <span>{link.name}</span>
+        </div>
+        {hasGrip && (
+          <GripVertical className="h-3.5 w-3.5 text-zinc-300 opacity-0 group-hover:opacity-100 transition-opacity" />
+        )}
       </a>
     );
   };
@@ -171,146 +232,108 @@ export default function DashboardLayout({
 
   return (
     <div className="relative min-h-screen flex bg-white text-[#0F172A] font-sans overflow-x-hidden">
-      
-      <aside className="hidden lg:flex flex-col w-64 border-r border-zinc-200 bg-[#F1F5F9] shrink-0 sticky top-0 h-screen p-5 z-20">
-        
-        <div className="flex items-center gap-2 mb-6">
-          <div className="h-7 w-7 rounded-lg bg-[#DCFCE7] border border-[#16A34A]/20 flex items-center justify-center shadow-sm">
-            <span className="text-[#16A34A] font-extrabold text-base tracking-tighter">S</span>
+      <aside className="hidden lg:flex flex-col w-60 border-r border-zinc-200 bg-[#F1F5F9] shrink-0 sticky top-0 h-screen p-4 z-20 overflow-y-auto">
+        <div className="flex items-center justify-between mb-5">
+          <div className="flex items-center gap-2">
+            <div className="h-7 w-7 rounded-lg bg-[#DCFCE7] border border-[#16A34A]/20 flex items-center justify-center shadow-sm">
+              <span className="text-[#16A34A] font-extrabold text-base tracking-tighter">S</span>
+            </div>
+            <span className="font-extrabold text-base tracking-tight text-[#0F172A]">StockTrack</span>
           </div>
-          <span className="font-extrabold text-base tracking-tight text-[#0F172A]">StockTrack</span>
-          <span className="text-[9px] uppercase font-extrabold px-1.5 py-0.5 rounded bg-white text-[#64748B] border border-zinc-200 shadow-sm ml-auto">
-            V2
+          <button className="p-1 rounded-lg hover:bg-zinc-200/50 text-zinc-400 hover:text-zinc-600">
+            <ChevronsLeft className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="relative mb-5">
+          <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-zinc-400">
+            <Search className="h-4 w-4" />
+          </span>
+          <input
+            type="text"
+            readOnly
+            placeholder="Quick Find..."
+            className="w-full bg-white border border-zinc-200 rounded-xl py-2 pl-9 pr-8 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none cursor-pointer"
+          />
+          <span className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-[10px] text-zinc-400 font-bold">
+            ⌘K
           </span>
         </div>
 
-        <div className="relative mb-6">
-          <button
-            onClick={() => setShowBusinessDropdown(!showBusinessDropdown)}
-            className="w-full bg-white hover:bg-zinc-50 border border-zinc-200 rounded-xl p-3 flex justify-between items-center text-left transition-all duration-200 cursor-pointer focus:outline-none focus:border-[#16A34A]/30 group shadow-sm"
-          >
-            <div className="flex items-center gap-2.5 min-w-0">
-              <div className="h-7 w-7 rounded-lg bg-[#DCFCE7] text-[#16A34A] border border-[#16A34A]/10 flex items-center justify-center shrink-0">
-                <Building2 className="h-4 w-4" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-[10px] text-[#64748B] font-bold uppercase tracking-wider leading-none">Venue</p>
-                <p className="text-xs font-extrabold text-[#0F172A] truncate mt-1">
-                  {activeBusiness?.name || "Select Business"}
-                </p>
-              </div>
+        <div className="flex-1 space-y-5">
+          <div className="space-y-1">
+            <span className="text-[9px] uppercase font-extrabold tracking-widest text-[#64748B] px-3 block">
+              Pinned
+            </span>
+            <div className="space-y-0.5">
+              {pinnedLinks.map((link) => (
+                <div key={link.href} className="group relative">
+                  {renderLink(link, true)}
+                </div>
+              ))}
             </div>
-            <ChevronDown className="h-4 w-4 text-[#64748B] shrink-0 group-hover:text-[#0F172A] transition-colors" />
-          </button>
+          </div>
 
-          {showBusinessDropdown && (
-            <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-zinc-200 rounded-xl shadow-xl overflow-hidden z-30">
-              <div className="max-h-48 overflow-y-auto py-1">
-                {businesses
-                  .filter((b) => b.id !== activeBusinessId)
-                  .map((b) => (
-                    <button
-                      key={b.id}
-                      onClick={() => handleBusinessChange(b.id)}
-                      className="w-full text-left px-4 py-2.5 text-xs font-bold text-zinc-700 hover:bg-zinc-100 hover:text-[#0F172A] transition-colors truncate block cursor-pointer"
-                    >
-                      {b.name}
-                    </button>
-                  ))}
-              </div>
-              <div className="border-t border-zinc-200 p-1.5 bg-zinc-50">
-                <a
-                  href="/business"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    router.push("/business");
-                  }}
-                  className="w-full text-center py-2 text-[10px] uppercase font-bold tracking-wider text-[#16A34A] hover:text-[#16A34A] block hover:bg-[#DCFCE7] rounded-lg transition-colors cursor-pointer"
-                >
-                  Manage/Switch Business
-                </a>
-              </div>
+          <div className="space-y-1">
+            <span className="text-[9px] uppercase font-extrabold tracking-widest text-[#64748B] px-3 block">
+              Overview
+            </span>
+            <div className="space-y-0.5">{overviewLinks.map((link) => renderLink(link))}</div>
+          </div>
+
+          <div className="space-y-1">
+            <span className="text-[9px] uppercase font-extrabold tracking-widest text-[#64748B] px-3 block">
+              Inventory Setup
+            </span>
+            <div className="space-y-0.5">{masterDataLinks.map((link) => renderLink(link))}</div>
+          </div>
+
+          <div className="space-y-1">
+            <span className="text-[9px] uppercase font-extrabold tracking-widest text-[#64748B] px-3 block">
+              Stock Operations
+            </span>
+            <div className="space-y-0.5">{operationsLinks.map((link) => renderLink(link))}</div>
+          </div>
+
+          <div className="space-y-1">
+            <span className="text-[9px] uppercase font-extrabold tracking-widest text-[#64748B] px-3 block">
+              Sales & Usage
+            </span>
+            <div className="space-y-0.5">{salesLinks.map((link) => renderLink(link))}</div>
+          </div>
+
+          <div className="space-y-1">
+            <span className="text-[9px] uppercase font-extrabold tracking-widest text-[#64748B] px-3 block">
+              Analysis
+            </span>
+            <div className="space-y-0.5">{analysisLinks.map((link) => renderLink(link))}</div>
+          </div>
+
+          <div className="space-y-1">
+            <span className="text-[9px] uppercase font-extrabold tracking-widest text-[#64748B] px-3 block">
+              Admin
+            </span>
+            <div className="space-y-0.5">
+              {adminLinks.map((link) => renderLink(link))}
+              <button
+                onClick={handleLogout}
+                className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-bold text-zinc-600 hover:text-[#EF4444] hover:bg-rose-50/50 transition-all cursor-pointer"
+              >
+                <LogOut className="h-4.5 w-4.5 text-zinc-400" />
+                <span>Log Out</span>
+              </button>
             </div>
-          )}
-        </div>
-
-        <div className="flex-1 overflow-y-auto space-y-5 pr-1 py-1 custom-scrollbar">
-          <div>
-            <a
-              href="/dashboard"
-              onClick={(e) => {
-                e.preventDefault();
-                router.push("/dashboard");
-              }}
-              className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all duration-200 cursor-pointer ${
-                isActive("/dashboard")
-                  ? "bg-[#DCFCE7] border border-[#16A34A]/25 text-[#16A34A] font-extrabold"
-                  : "text-zinc-600 hover:text-[#0F172A] hover:bg-zinc-200/50 border border-transparent"
-              }`}
-            >
-              <LayoutDashboard className="h-4.5 w-4.5 shrink-0" />
-              Overview Dashboard
-            </a>
-          </div>
-
-          <div className="space-y-1.5">
-            <span className="text-[9px] uppercase font-extrabold tracking-widest text-[#64748B] px-3.5 block">
-              Master Data
-            </span>
-            <div className="space-y-1">{masterDataLinks.map(renderLink)}</div>
-          </div>
-
-          <div className="space-y-1.5">
-            <span className="text-[9px] uppercase font-extrabold tracking-widest text-[#64748B] px-3.5 block">
-              Operations
-            </span>
-            <div className="space-y-1">{operationsLinks.map(renderLink)}</div>
-          </div>
-
-          <div className="space-y-1.5">
-            <span className="text-[9px] uppercase font-extrabold tracking-widest text-[#64748B] px-3.5 block">
-              Analytics
-            </span>
-            <div className="space-y-1">{analysisLinks.map(renderLink)}</div>
-          </div>
-
-          <div className="space-y-1.5">
-            <span className="text-[9px] uppercase font-extrabold tracking-widest text-[#64748B] px-3.5 block">
-              Roster & Admin
-            </span>
-            <div className="space-y-1">{adminLinks.map(renderLink)}</div>
           </div>
         </div>
 
-        <div className="mt-auto pt-4 border-t border-zinc-200 flex flex-col gap-3">
-          <div className="flex items-center justify-between min-w-0">
-            <div className="flex items-center gap-2.5 min-w-0">
-              <div className="h-8.5 w-8.5 rounded-full bg-white border border-zinc-200 flex items-center justify-center shrink-0 text-[#0F172A] font-extrabold text-xs shadow-sm">
-                {profile?.fullName?.substring(0, 2).toUpperCase() || "OP"}
-              </div>
-              <div className="min-w-0">
-                <p className="text-xs font-bold text-[#0F172A] truncate leading-none">
-                  {profile?.fullName || "Admin User"}
-                </p>
-                <p className="text-[9px] font-bold text-[#64748B] uppercase tracking-wide truncate mt-1">
-                  {profile?.role || "Administrator"}
-                </p>
-              </div>
-            </div>
-          </div>
-          <button
-            onClick={handleLogout}
-            className="w-full flex items-center justify-center gap-2 text-[#64748B] hover:text-[#EF4444] hover:bg-rose-50 hover:border-rose-200 bg-white border border-zinc-200 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer shadow-sm"
-          >
-            <LogOut className="h-3.5 w-3.5" />
-            Logout System
-          </button>
+        <div className="pt-4 border-t border-zinc-200 mt-4 text-[10px] font-bold text-[#64748B]">
+          v1.0.0
         </div>
       </aside>
 
       {mobileSidebarOpen && (
         <div className="lg:hidden fixed inset-0 bg-black/40 backdrop-blur-xs z-30 flex">
-          <aside className="w-64 bg-[#F1F5F9] border-r border-zinc-200 p-5 flex flex-col h-full z-45 relative">
+          <aside className="w-60 bg-[#F1F5F9] border-r border-zinc-200 p-4 flex flex-col h-full z-45 relative overflow-y-auto">
             <button
               onClick={() => setMobileSidebarOpen(false)}
               className="absolute top-4 right-4 text-zinc-500 hover:text-zinc-900 cursor-pointer"
@@ -318,75 +341,71 @@ export default function DashboardLayout({
               <X className="h-5 w-5" />
             </button>
 
-            <div className="flex items-center gap-2 mb-6">
+            <div className="flex items-center gap-2 mb-5">
               <div className="h-7 w-7 rounded-lg bg-[#DCFCE7] border border-[#16A34A]/20 flex items-center justify-center">
                 <span className="text-[#16A34A] font-extrabold text-base tracking-tighter">S</span>
               </div>
               <span className="font-extrabold text-base tracking-tight text-[#0F172A]">StockTrack</span>
             </div>
 
-            <div className="bg-white border border-zinc-200 rounded-xl p-3.5 mb-6 shadow-sm">
-              <p className="text-[9px] text-[#64748B] font-bold uppercase tracking-wider leading-none">Selected Venue</p>
-              <p className="text-sm font-extrabold text-[#0F172A] truncate mt-1">{activeBusiness?.name || "None Selected"}</p>
-            </div>
-
-            <div className="flex-1 overflow-y-auto space-y-5 pr-1 py-1 custom-scrollbar">
-              <div>
-                <a
-                  href="/dashboard"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    router.push("/dashboard");
-                    setMobileSidebarOpen(false);
-                  }}
-                  className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all duration-200 cursor-pointer ${
-                    isActive("/dashboard")
-                      ? "bg-[#DCFCE7] border border-[#16A34A]/25 text-[#16A34A] font-extrabold"
-                      : "text-zinc-600 hover:text-[#0F172A] hover:bg-zinc-200/50 border border-transparent"
-                  }`}
-                >
-                  <LayoutDashboard className="h-4.5 w-4.5" />
-                  Overview Dashboard
-                </a>
-              </div>
-
-              <div className="space-y-1.5">
-                <span className="text-[9px] uppercase font-extrabold tracking-widest text-[#64748B] px-3.5 block">
-                  Master Data
+            <div className="flex-1 space-y-5">
+              <div className="space-y-1">
+                <span className="text-[9px] uppercase font-extrabold tracking-widest text-[#64748B] px-3 block">
+                  Pinned
                 </span>
-                <div className="space-y-1">{masterDataLinks.map(renderLink)}</div>
+                <div className="space-y-0.5">{pinnedLinks.map((link) => renderLink(link))}</div>
               </div>
 
-              <div className="space-y-1.5">
-                <span className="text-[9px] uppercase font-extrabold tracking-widest text-[#64748B] px-3.5 block">
-                  Operations
+              <div className="space-y-1">
+                <span className="text-[9px] uppercase font-extrabold tracking-widest text-[#64748B] px-3 block">
+                  Overview
                 </span>
-                <div className="space-y-1">{operationsLinks.map(renderLink)}</div>
+                <div className="space-y-0.5">{overviewLinks.map((link) => renderLink(link))}</div>
               </div>
 
-              <div className="space-y-1.5">
-                <span className="text-[9px] uppercase font-extrabold tracking-widest text-[#64748B] px-3.5 block">
-                  Analytics
+              <div className="space-y-1">
+                <span className="text-[9px] uppercase font-extrabold tracking-widest text-[#64748B] px-3 block">
+                  Inventory Setup
                 </span>
-                <div className="space-y-1">{analysisLinks.map(renderLink)}</div>
+                <div className="space-y-0.5">{masterDataLinks.map((link) => renderLink(link))}</div>
               </div>
 
-              <div className="space-y-1.5">
-                <span className="text-[9px] uppercase font-extrabold tracking-widest text-[#64748B] px-3.5 block">
-                  Roster & Admin
+              <div className="space-y-1">
+                <span className="text-[9px] uppercase font-extrabold tracking-widest text-[#64748B] px-3 block">
+                  Stock Operations
                 </span>
-                <div className="space-y-1">{adminLinks.map(renderLink)}</div>
+                <div className="space-y-0.5">{operationsLinks.map((link) => renderLink(link))}</div>
               </div>
-            </div>
 
-            <div className="mt-auto pt-4 border-t border-zinc-200">
-              <button
-                onClick={handleLogout}
-                className="w-full flex items-center justify-center gap-2 text-[#64748B] hover:text-[#EF4444] bg-white border border-zinc-200 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider cursor-pointer shadow-sm"
-              >
-                <LogOut className="h-3.5 w-3.5" />
-                Logout System
-              </button>
+              <div className="space-y-1">
+                <span className="text-[9px] uppercase font-extrabold tracking-widest text-[#64748B] px-3 block">
+                  Sales & Usage
+                </span>
+                <div className="space-y-0.5">{salesLinks.map((link) => renderLink(link))}</div>
+              </div>
+
+              <div className="space-y-1">
+                <span className="text-[9px] uppercase font-extrabold tracking-widest text-[#64748B] px-3 block">
+                  Analysis
+                </span>
+                <div className="space-y-0.5">{analysisLinks.map((link) => renderLink(link))}</div>
+              </div>
+
+              <div className="space-y-1">
+                <span className="text-[9px] uppercase font-extrabold tracking-widest text-[#64748B] px-3 block">
+                  Admin
+                </span>
+                <div className="space-y-0.5">
+                  {adminLinks.map((link) => renderLink(link))}
+                  <button
+                    onClick={handleLogout}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-bold text-[#64748B] hover:text-[#EF4444] cursor-pointer"
+                  >
+                    <LogOut className="h-4.5 w-4.5 text-zinc-400" />
+                    <span>Log Out</span>
+                  </button>
+                </div>
+              </div>
             </div>
           </aside>
           <div className="flex-1" onClick={() => setMobileSidebarOpen(false)} />
@@ -394,7 +413,7 @@ export default function DashboardLayout({
       )}
 
       <div className="flex-1 flex flex-col min-w-0 relative bg-white">
-        <header className="sticky top-0 z-15 bg-white/80 backdrop-blur-md border-b border-zinc-200 px-6 py-4 flex items-center justify-between">
+        <header className="sticky top-0 z-15 bg-white border-b border-zinc-200 px-6 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <button
               onClick={() => setMobileSidebarOpen(true)}
@@ -402,29 +421,73 @@ export default function DashboardLayout({
             >
               <Menu className="h-4.5 w-4.5" />
             </button>
-            <div>
-              <span className="text-[10px] uppercase font-extrabold text-[#16A34A] bg-[#DCFCE7] border border-[#16A34A]/10 px-2 py-0.5 rounded-full tracking-wider leading-none shadow-sm">
-                {activeBusiness?.name || "Active Session"}
-              </span>
+            <div className="text-xs font-extrabold text-[#0F172A]">
+              <span className="text-[#0F172A]">{breadcrumb.title}</span>
             </div>
           </div>
 
-          <div className="flex items-center gap-4">
-            <span className="hidden sm:inline text-xs font-semibold text-[#64748B]">
-              Session Ref: <span className="font-mono text-[#0F172A] font-extrabold">#{activeBusinessId?.substring(0, 6) || "none"}</span>
-            </span>
-            <div className="h-4.5 w-px bg-zinc-200" />
-            <a
-              href="/business"
-              className="flex items-center gap-1.5 text-xs text-[#64748B] hover:text-[#16A34A] transition-colors font-bold"
-            >
-              <Building2 className="h-3.5 w-3.5 text-zinc-400" />
-              Switch Venue
-            </a>
+          <div className="flex items-center gap-5">
+            <button className="relative p-1.5 rounded-full hover:bg-zinc-100 text-zinc-600 transition-colors cursor-pointer">
+              <Bell className="h-5 w-5" />
+              <span className="absolute top-0 right-0 h-4 w-4 bg-[#EF4444] text-white text-[9px] font-extrabold flex items-center justify-center rounded-full ring-2 ring-white">
+                5
+              </span>
+            </button>
+            <div className="h-5 w-px bg-zinc-200" />
+            <div className="flex items-center gap-3 relative">
+              <div className="h-9 w-9 rounded-full bg-[#16A34A] text-white flex items-center justify-center font-extrabold text-xs shadow-sm border border-[#16A34A]/10">
+                {profile?.fullName?.split(" ").map((n) => n[0]).join("").toUpperCase().substring(0, 2) || "SM"}
+              </div>
+              <div className="hidden md:block text-left">
+                <p className="text-xs font-extrabold text-[#0F172A] leading-tight">
+                  {profile?.fullName || "Sujit Mohanty"}
+                </p>
+                <p className="text-[10px] font-bold text-[#64748B]">
+                  {profile?.email || "sujit@gmail.com"}
+                </p>
+              </div>
+              <button
+                onClick={() => setShowBusinessDropdown(!showBusinessDropdown)}
+                className="p-1 rounded-md hover:bg-zinc-100 text-zinc-400 hover:text-zinc-600 cursor-pointer"
+              >
+                <ChevronDown className="h-4 w-4" />
+              </button>
+
+              {showBusinessDropdown && (
+                <div className="absolute top-full right-0 mt-2 w-48 bg-white border border-zinc-200 rounded-xl shadow-xl overflow-hidden z-30 animate-fade-in">
+                  <div className="max-h-48 overflow-y-auto py-1">
+                    {businesses
+                      .filter((b) => b.id !== activeBusinessId)
+                      .map((b) => (
+                        <button
+                          key={b.id}
+                          onClick={() => handleBusinessChange(b.id)}
+                          className="w-full text-left px-4 py-2.5 text-xs font-bold text-zinc-700 hover:bg-zinc-100 hover:text-[#0F172A] transition-colors truncate block cursor-pointer"
+                        >
+                          {b.name}
+                        </button>
+                      ))}
+                  </div>
+                  <div className="border-t border-zinc-200 p-1.5 bg-zinc-50">
+                    <a
+                      href="/business"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        router.push("/business");
+                        setShowBusinessDropdown(false);
+                      }}
+                      className="w-full text-center py-2 text-[10px] uppercase font-bold tracking-wider text-[#16A34A] hover:text-[#16A34A] block hover:bg-[#DCFCE7] rounded-lg transition-colors cursor-pointer"
+                    >
+                      Manage Switcher
+                    </a>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </header>
 
-        <main className="flex-1 p-6 max-w-[1600px] w-full mx-auto relative z-10 select-none bg-white">
+        <main className="flex-1 p-6 max-w-[1600px] w-full mx-auto relative select-none bg-white">
           {children}
         </main>
       </div>

@@ -2,12 +2,15 @@ import {
   addDoc,
   collection,
   getDocs,
+  doc,
+  updateDoc,
+  deleteDoc,
   serverTimestamp,
 } from "firebase/firestore";
 
 import { db } from "@/lib/firebase/client";
-import { COLLECTIONS } from "@/lib/constants/collections";
 import { Location } from "@/types/inventory";
+import { COLLECTIONS } from "@/lib/constants/collections";
 
 export const createLocation = async (
   businessId: string,
@@ -31,4 +34,33 @@ export const getLocations = async (businessId: string) => {
     id: doc.id,
     ...doc.data(),
   })) as Location[];
+};
+
+export const updateLocation = async (
+  businessId: string,
+  locationId: string,
+  data: Partial<Omit<Location, "id" | "createdAt">>,
+) => {
+  const docRef = doc(
+    db,
+    COLLECTIONS.BUSINESSES,
+    businessId,
+    COLLECTIONS.LOCATIONS,
+    locationId
+  );
+  return updateDoc(docRef, data);
+};
+
+export const deleteLocation = async (
+  businessId: string,
+  locationId: string,
+) => {
+  const docRef = doc(
+    db,
+    COLLECTIONS.BUSINESSES,
+    businessId,
+    COLLECTIONS.LOCATIONS,
+    locationId
+  );
+  return deleteDoc(docRef);
 };
