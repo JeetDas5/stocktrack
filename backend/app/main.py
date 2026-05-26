@@ -43,13 +43,15 @@ else:
 if os.getenv("NODE_ENV") == "development" or not os.getenv("FIREBASE_AUTH_EMULATOR_HOST"):
     os.environ["FIREBASE_AUTH_EMULATOR_HOST"] = "127.0.0.1:9099"
 
-app = FastAPI(title="StockTrack API", description="Python FastAPI + SQLModel + Neon PostgreSQL backend")
+app = FastAPI(title="StockTrack API",
+              description="Python FastAPI + SQLModel + Neon PostgreSQL backend")
 
 # Configure CORS to communicate with Next.js frontend
 allowed_origins_env = os.getenv("ALLOWED_ORIGINS")
 origins = ["http://localhost:3000", "http://127.0.0.1:3000"]
 if allowed_origins_env:
-    origins.extend([o.strip() for o in allowed_origins_env.split(",") if o.strip()])
+    origins.extend([o.strip()
+                   for o in allowed_origins_env.split(",") if o.strip()])
 
 app.add_middleware(
     CORSMiddleware,
@@ -60,11 +62,15 @@ app.add_middleware(
 )
 
 # Startup event to initialize DB tables
+
+
 @app.on_event("startup")
 def on_startup():
     init_db()
 
 # Authentication Dependency using Firebase ID Tokens
+
+
 def get_current_user(
     authorization: Optional[str] = Header(None),
     session: Session = Depends(get_session)
@@ -74,7 +80,7 @@ def get_current_user(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Missing or invalid authorization header"
         )
-    
+
     token = authorization.split("Bearer ")[1]
     try:
         decoded_token = auth.verify_id_token(token)
@@ -83,17 +89,17 @@ def get_current_user(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=f"Token verification failed: {str(e)}"
         )
-        
+
     uid = decoded_token.get("uid")
     email = decoded_token.get("email")
     name = decoded_token.get("name")
-    
+
     if not uid or not email:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token missing uid or email"
         )
-        
+
     # Check if user profile already exists in PostgreSQL database
     user = session.get(User, uid)
     if not user:
@@ -106,12 +112,19 @@ def get_current_user(
         session.add(user)
         session.commit()
         session.refresh(user)
-        
+
     return user
 
 # --- ENDPOINTS ---
 
+
+@app.get("/")
+def health_check():
+    return {"status": "ok", "message": "Welcome to StockTrack"}
+
 # --- USERS ---
+
+
 @app.post("/api/users", response_model=User)
 def create_user_profile(user_data: User, session: Session = Depends(get_session)):
     existing = session.get(User, user_data.id)
@@ -129,9 +142,11 @@ def create_user_profile(user_data: User, session: Session = Depends(get_session)
     session.refresh(user_data)
     return user_data
 
+
 @app.get("/api/users/me", response_model=User)
 def get_me(current_user: User = Depends(get_current_user)):
     return current_user
+
 
 @app.get("/api/users/{uid}", response_model=User)
 def get_user_profile(uid: str, session: Session = Depends(get_session), current_user: User = Depends(get_current_user)):
@@ -145,6 +160,7 @@ def get_user_profile(uid: str, session: Session = Depends(get_session), current_
 class BusinessCreate(SQLModel):
     name: str
 
+
 class BusinessOut(SQLModel):
     id: str
     name: str
@@ -153,6 +169,7 @@ class BusinessOut(SQLModel):
     created_by_id: str
     locations_count: int = 0
     items_count: int = 0
+
 
 @app.post("/api/businesses", response_model=Business)
 def create_business(
@@ -166,14 +183,16 @@ def create_business(
     session.refresh(business)
     return business
 
+
 @app.get("/api/businesses", response_model=List[BusinessOut])
 def get_businesses(
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
-    statement = select(Business).where(Business.created_by_id == current_user.id)
+    statement = select(Business).where(
+        Business.created_by_id == current_user.id)
     businesses = session.exec(statement).all()
-    
+
     out = []
     for b in businesses:
         out.append(BusinessOut(
@@ -192,6 +211,7 @@ def get_businesses(
 class CategoryCreate(SQLModel):
     name: str
 
+
 @app.post("/api/businesses/{business_id}/categories", response_model=Category)
 def create_business_category(
     business_id: str,
@@ -202,13 +222,15 @@ def create_business_category(
     # Verify business belongs to current user
     business = session.get(Business, business_id)
     if not business or business.created_by_id != current_user.id:
-        raise HTTPException(status_code=403, detail="Not authorized to edit this business")
-        
+        raise HTTPException(
+            status_code=403, detail="Not authorized to edit this business")
+
     category = Category(name=data.name, business_id=business_id)
     session.add(category)
     session.commit()
     session.refresh(category)
     return category
+
 
 @app.get("/api/businesses/{business_id}/categories", response_model=List[Category])
 def get_business_categories(
@@ -218,8 +240,9 @@ def get_business_categories(
 ):
     business = session.get(Business, business_id)
     if not business or business.created_by_id != current_user.id:
-        raise HTTPException(status_code=403, detail="Not authorized to access this business")
-        
+        raise HTTPException(
+            status_code=403, detail="Not authorized to access this business")
+
     statement = select(Category).where(Category.business_id == business_id)
     return session.exec(statement).all()
 
@@ -232,6 +255,7 @@ class LocationCreate(SQLModel):
     address: Optional[str] = None
     is_active: bool = True
 
+
 @app.post("/api/businesses/{business_id}/locations", response_model=Location)
 def create_business_location(
     business_id: str,
@@ -241,8 +265,9 @@ def create_business_location(
 ):
     business = session.get(Business, business_id)
     if not business or business.created_by_id != current_user.id:
-        raise HTTPException(status_code=403, detail="Not authorized to edit this business")
-        
+        raise HTTPException(
+            status_code=403, detail="Not authorized to edit this business")
+
     location = Location(
         name=data.name,
         description=data.description,
@@ -256,6 +281,7 @@ def create_business_location(
     session.refresh(location)
     return location
 
+
 @app.get("/api/businesses/{business_id}/locations", response_model=List[Location])
 def get_business_locations(
     business_id: str,
@@ -264,10 +290,12 @@ def get_business_locations(
 ):
     business = session.get(Business, business_id)
     if not business or business.created_by_id != current_user.id:
-        raise HTTPException(status_code=403, detail="Not authorized to access this business")
-        
+        raise HTTPException(
+            status_code=403, detail="Not authorized to access this business")
+
     statement = select(Location).where(Location.business_id == business_id)
     return session.exec(statement).all()
+
 
 @app.put("/api/businesses/{business_id}/locations/{location_id}", response_model=Location)
 def update_business_location(
@@ -279,22 +307,24 @@ def update_business_location(
 ):
     business = session.get(Business, business_id)
     if not business or business.created_by_id != current_user.id:
-        raise HTTPException(status_code=403, detail="Not authorized to edit this business")
-        
+        raise HTTPException(
+            status_code=403, detail="Not authorized to edit this business")
+
     location = session.get(Location, location_id)
     if not location or location.business_id != business_id:
         raise HTTPException(status_code=404, detail="Location not found")
-        
+
     location.name = data.name
     location.description = data.description
     location.type = data.type
     location.address = data.address
     location.is_active = data.is_active
-    
+
     session.add(location)
     session.commit()
     session.refresh(location)
     return location
+
 
 @app.delete("/api/businesses/{business_id}/locations/{location_id}")
 def delete_business_location(
@@ -305,12 +335,13 @@ def delete_business_location(
 ):
     business = session.get(Business, business_id)
     if not business or business.created_by_id != current_user.id:
-        raise HTTPException(status_code=403, detail="Not authorized to edit this business")
-        
+        raise HTTPException(
+            status_code=403, detail="Not authorized to edit this business")
+
     location = session.get(Location, location_id)
     if not location or location.business_id != business_id:
         raise HTTPException(status_code=404, detail="Location not found")
-        
+
     session.delete(location)
     session.commit()
     return {"message": "Location deleted successfully"}
@@ -329,6 +360,7 @@ class StockItemCreate(SQLModel):
     is_active: bool = True
     category_id: Optional[str] = None
 
+
 @app.post("/api/businesses/{business_id}/stock-items", response_model=StockItem)
 def create_business_stock_item(
     business_id: str,
@@ -338,13 +370,15 @@ def create_business_stock_item(
 ):
     business = session.get(Business, business_id)
     if not business or business.created_by_id != current_user.id:
-        raise HTTPException(status_code=403, detail="Not authorized to edit this business")
-        
+        raise HTTPException(
+            status_code=403, detail="Not authorized to edit this business")
+
     if data.category_id:
         category = session.get(Category, data.category_id)
         if not category or category.business_id != business_id:
-            raise HTTPException(status_code=400, detail="Invalid category ID for this business")
-            
+            raise HTTPException(
+                status_code=400, detail="Invalid category ID for this business")
+
     stock_item = StockItem(
         name=data.name,
         sku=data.sku,
@@ -363,6 +397,7 @@ def create_business_stock_item(
     session.refresh(stock_item)
     return stock_item
 
+
 @app.get("/api/businesses/{business_id}/stock-items", response_model=List[StockItem])
 def get_business_stock_items(
     business_id: str,
@@ -371,10 +406,12 @@ def get_business_stock_items(
 ):
     business = session.get(Business, business_id)
     if not business or business.created_by_id != current_user.id:
-        raise HTTPException(status_code=403, detail="Not authorized to access this business")
-        
+        raise HTTPException(
+            status_code=403, detail="Not authorized to access this business")
+
     statement = select(StockItem).where(StockItem.business_id == business_id)
     return session.exec(statement).all()
+
 
 @app.get("/api/businesses/{business_id}/dashboard-metrics")
 def get_dashboard_metrics(
@@ -384,11 +421,13 @@ def get_dashboard_metrics(
 ):
     business = session.get(Business, business_id)
     if not business or business.created_by_id != current_user.id:
-        raise HTTPException(status_code=403, detail="Not authorized to access this business")
-        
+        raise HTTPException(
+            status_code=403, detail="Not authorized to access this business")
+
     active_items = [item for item in business.stock_items if item.is_active]
-    low_stock = [item for item in active_items if item.reorder_level_base_qty > 10]
-    
+    low_stock = [
+        item for item in active_items if item.reorder_level_base_qty > 10]
+
     return {
         "totalItems": len(active_items),
         "lowStockCount": max(len(low_stock), 2 if len(active_items) > 0 else 0),
