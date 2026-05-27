@@ -4,10 +4,12 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { registerAdmin } from "@/lib/services/auth.service";
+import { useAuth } from "@/providers/auth-provider";
 import { KeyRound, Mail, Eye, EyeOff, Loader2, User } from "lucide-react";
 
 export default function SignupPage() {
   const router = useRouter();
+  const { refreshProfile } = useAuth();
 
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
@@ -40,6 +42,7 @@ export default function SignupPage() {
     try {
       setLoading(true);
       await registerAdmin(email, password, fullName.trim());
+      await refreshProfile();
       router.push("/business");
     } catch (err: any) {
       console.error(err);

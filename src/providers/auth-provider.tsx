@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { AppUser } from "@/types/user";
 import { getMeProfile } from "@/lib/repositories/user.repository";
+import { logoutUser } from "@/lib/services/auth.service";
 
 interface CustomUser {
   uid: string;
@@ -14,6 +15,7 @@ interface AuthContextType {
   user: CustomUser | null;
   profile: AppUser | null;
   loading: boolean;
+  logout: () => Promise<void>;
   refreshProfile: () => Promise<void>;
 }
 
@@ -21,6 +23,7 @@ const AuthContext = createContext<AuthContextType>({
   user: null,
   profile: null,
   loading: true,
+  logout: async () => {},
   refreshProfile: async () => {},
 });
 
@@ -64,6 +67,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
+  const logout = async () => {
+    await logoutUser();
+    setUser(null);
+    setProfile(null);
+  };
+
   useEffect(() => {
     initAuth();
   }, []);
@@ -92,6 +101,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         user,
         profile,
         loading,
+        logout,
         refreshProfile,
       }}
     >
