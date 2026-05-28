@@ -30,32 +30,36 @@ export type BaseUnit =
   | "L"
   | "pcs";
 
+export interface LocationRule {
+  id?: string;
+  stockItemId?: string;
+  locationId: string;
+  locationName?: string;
+  storageCapacity: number;
+  storageCapacityUnit?: string;
+  reorderLevel: number;
+  reorderLevelUnit?: string;
+}
+
 export interface StockItem {
   id: string;
-
   businessId: string;
-
   categoryId: string;
-
+  categoryName?: string;
+  supplierId?: string;
+  supplierName?: string;
   name: string;
-
   sku?: string;
-
   imageUrl?: string;
-
   description?: string;
-
   baseUnit: BaseUnit;
-
   reorderLevelBaseQty: number;
-
   maxStockBaseQty: number;
-
   costPerBaseUnit?: number;
-
   isActive: boolean;
-
   createdAt: string;
+  locationsCount?: number;
+  locationRules?: LocationRule[];
 }
 
 export interface CountingOption {

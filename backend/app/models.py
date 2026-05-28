@@ -77,6 +77,21 @@ class StockItem(SQLModel, table=True):
     
     category_id: Optional[str] = Field(default=None, foreign_key="categories.id", ondelete="SET NULL")
     category: Optional[Category] = Relationship(back_populates="stock_items")
+    
+    supplier_id: Optional[str] = Field(default=None, foreign_key="suppliers.id", ondelete="SET NULL")
+    supplier: Optional["Supplier"] = Relationship(back_populates="stock_items")
+
+class StockItemLocation(SQLModel, table=True):
+    __tablename__ = "stock_item_locations"
+    
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
+    stock_item_id: str = Field(foreign_key="stock_items.id", ondelete="CASCADE")
+    location_id: str = Field(foreign_key="locations.id", ondelete="CASCADE")
+    storage_capacity: float = Field(default=0.0)
+    storage_capacity_unit: Optional[str] = None
+    reorder_level: float = Field(default=0.0)
+    reorder_level_unit: Optional[str] = None
+    created_at: datetime = Field(default_factory=datetime.utcnow)
 
 class OrderingMethod(str, Enum):
     email = "email"
@@ -106,3 +121,6 @@ class Supplier(SQLModel, table=True):
     
     business_id: str = Field(foreign_key="businesses.id", ondelete="CASCADE")
     business: Business = Relationship(back_populates="suppliers")
+    
+    stock_items: List["StockItem"] = Relationship(back_populates="supplier")
+

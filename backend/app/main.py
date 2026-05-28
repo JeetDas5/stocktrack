@@ -11,7 +11,7 @@ from firebase_admin import credentials, auth
 from sqlmodel import Session, select, SQLModel
 
 from app.database import init_db, get_session
-from app.models import User, Business, Category, Location, StockItem, Supplier, OrderingMethod
+from app.models import User, Business, Category, Location, StockItem, Supplier, OrderingMethod, StockItemLocation
 
 # Load environment variables
 from dotenv import load_dotenv
@@ -324,7 +324,17 @@ def get_business_categories(
             status_code=403, detail="Not authorized to access this business")
 
     statement = select(Category).where(Category.business_id == business_id)
-    return session.exec(statement).all()
+    categories = session.exec(statement).all()
+    
+    has_others = any(c.name.lower() == "others" for c in categories)
+    if not has_others:
+        others_cat = Category(name="Others", business_id=business_id)
+        session.add(others_cat)
+        session.commit()
+        session.refresh(others_cat)
+        categories = list(categories) + [others_cat]
+        
+    return categories
 
 
 # LOCATIONS 
@@ -554,7 +564,36 @@ def delete_business_supplier(
     return {"message": "Supplier deleted successfully"}
 
 
-# --- STOCK ITEMS ---
+class LocationRuleOut(SQLModel):
+    id: str
+    stock_item_id: str
+    location_id: str
+    location_name: str
+    storage_capacity: float
+    storage_capacity_unit: Optional[str] = None
+    reorder_level: float
+    reorder_level_unit: Optional[str] = None
+
+class StockItemOut(SQLModel):
+    id: str
+    name: str
+    sku: Optional[str] = None
+    image_url: Optional[str] = None
+    description: Optional[str] = None
+    base_unit: str
+    reorder_level_base_qty: float
+    max_stock_base_qty: float
+    cost_per_base_unit: Optional[float] = None
+    is_active: bool
+    created_at: datetime
+    business_id: str
+    category_id: Optional[str] = None
+    category_name: Optional[str] = None
+    supplier_id: Optional[str] = None
+    supplier_name: Optional[str] = None
+    locations_count: int = 0
+    location_rules: List[LocationRuleOut] = []
+
 class StockItemCreate(SQLModel):
     name: str
     sku: Optional[str] = None
@@ -566,9 +605,10 @@ class StockItemCreate(SQLModel):
     cost_per_base_unit: Optional[float] = None
     is_active: bool = True
     category_id: Optional[str] = None
+    supplier_id: Optional[str] = None
+    location_rules: Optional[List[dict]] = None
 
-
-@app.post("/api/businesses/{business_id}/stock-items", response_model=StockItem)
+@app.post("/api/businesses/{business_id}/stock-items", response_model=StockItemOut)
 def create_business_stock_item(
     business_id: str,
     data: StockItemCreate,
@@ -577,14 +617,17 @@ def create_business_stock_item(
 ):
     business = session.get(Business, business_id)
     if not business or business.created_by_id != current_user.id:
-        raise HTTPException(
-            status_code=403, detail="Not authorized to edit this business")
+        raise HTTPException(status_code=403, detail="Not authorized to edit this business")
 
     if data.category_id:
         category = session.get(Category, data.category_id)
         if not category or category.business_id != business_id:
-            raise HTTPException(
-                status_code=400, detail="Invalid category ID for this business")
+            raise HTTPException(status_code=400, detail="Invalid category ID for this business")
+
+    if data.supplier_id:
+        supplier = session.get(Supplier, data.supplier_id)
+        if not supplier or supplier.business_id != business_id:
+            raise HTTPException(status_code=400, detail="Invalid supplier ID for this business")
 
     stock_item = StockItem(
         name=data.name,
@@ -597,15 +640,71 @@ def create_business_stock_item(
         cost_per_base_unit=data.cost_per_base_unit,
         is_active=data.is_active,
         business_id=business_id,
-        category_id=data.category_id
+        category_id=data.category_id,
+        supplier_id=data.supplier_id
     )
     session.add(stock_item)
     session.commit()
     session.refresh(stock_item)
-    return stock_item
 
+    location_rules_out = []
+    if data.location_rules:
+        for rule in data.location_rules:
+            loc_id = rule.get("location_id")
+            if not loc_id:
+                continue
+            loc = session.get(Location, loc_id)
+            if not loc or loc.business_id != business_id:
+                continue
 
-@app.get("/api/businesses/{business_id}/stock-items", response_model=List[StockItem])
+            sil = StockItemLocation(
+                stock_item_id=stock_item.id,
+                location_id=loc_id,
+                storage_capacity=float(rule.get("storage_capacity", 0.0)),
+                storage_capacity_unit=rule.get("storage_capacity_unit"),
+                reorder_level=float(rule.get("reorder_level", 0.0)),
+                reorder_level_unit=rule.get("reorder_level_unit")
+            )
+            session.add(sil)
+            session.commit()
+            session.refresh(sil)
+
+            location_rules_out.append(LocationRuleOut(
+                id=sil.id,
+                stock_item_id=sil.stock_item_id,
+                location_id=sil.location_id,
+                location_name=loc.name,
+                storage_capacity=sil.storage_capacity,
+                storage_capacity_unit=sil.storage_capacity_unit,
+                reorder_level=sil.reorder_level,
+                reorder_level_unit=sil.reorder_level_unit
+            ))
+
+    category_name = stock_item.category.name if stock_item.category else None
+    supplier_name = stock_item.supplier.name if stock_item.supplier else None
+
+    return StockItemOut(
+        id=stock_item.id,
+        name=stock_item.name,
+        sku=stock_item.sku,
+        image_url=stock_item.image_url,
+        description=stock_item.description,
+        base_unit=stock_item.base_unit,
+        reorder_level_base_qty=stock_item.reorder_level_base_qty,
+        max_stock_base_qty=stock_item.max_stock_base_qty,
+        cost_per_base_unit=stock_item.cost_per_base_unit,
+        is_active=stock_item.is_active,
+        created_at=stock_item.created_at,
+        business_id=stock_item.business_id,
+        category_id=stock_item.category_id,
+        category_name=category_name,
+        supplier_id=stock_item.supplier_id,
+        supplier_name=supplier_name,
+        locations_count=len(location_rules_out),
+        location_rules=location_rules_out
+    )
+
+@app.get("/api/businesses/{business_id}/stock-items", response_model=List[StockItemOut])
 def get_business_stock_items(
     business_id: str,
     current_user: User = Depends(get_current_user),
@@ -613,11 +712,176 @@ def get_business_stock_items(
 ):
     business = session.get(Business, business_id)
     if not business or business.created_by_id != current_user.id:
-        raise HTTPException(
-            status_code=403, detail="Not authorized to access this business")
+        raise HTTPException(status_code=403, detail="Not authorized to access this business")
 
-    statement = select(StockItem).where(StockItem.business_id == business_id)
-    return session.exec(statement).all()
+    items = session.exec(select(StockItem).where(StockItem.business_id == business_id)).all()
+
+    out = []
+    for item in items:
+        category_name = item.category.name if item.category else None
+        supplier_name = item.supplier.name if item.supplier else None
+
+        rules = session.exec(select(StockItemLocation).where(StockItemLocation.stock_item_id == item.id)).all()
+        location_rules_out = []
+        for r in rules:
+            loc = session.get(Location, r.location_id)
+            loc_name = loc.name if loc else "Unknown"
+            location_rules_out.append(LocationRuleOut(
+                id=r.id,
+                stock_item_id=r.stock_item_id,
+                location_id=r.location_id,
+                location_name=loc_name,
+                storage_capacity=r.storage_capacity,
+                storage_capacity_unit=r.storage_capacity_unit,
+                reorder_level=r.reorder_level,
+                reorder_level_unit=r.reorder_level_unit
+            ))
+
+        out.append(StockItemOut(
+            id=item.id,
+            name=item.name,
+            sku=item.sku,
+            image_url=item.image_url,
+            description=item.description,
+            base_unit=item.base_unit,
+            reorder_level_base_qty=item.reorder_level_base_qty,
+            max_stock_base_qty=item.max_stock_base_qty,
+            cost_per_base_unit=item.cost_per_base_unit,
+            is_active=item.is_active,
+            created_at=item.created_at,
+            business_id=item.business_id,
+            category_id=item.category_id,
+            category_name=category_name,
+            supplier_id=item.supplier_id,
+            supplier_name=supplier_name,
+            locations_count=len(rules),
+            location_rules=location_rules_out
+        ))
+    return out
+
+@app.put("/api/businesses/{business_id}/stock-items/{item_id}", response_model=StockItemOut)
+def update_business_stock_item(
+    business_id: str,
+    item_id: str,
+    data: StockItemCreate,
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session)
+):
+    business = session.get(Business, business_id)
+    if not business or business.created_by_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized to edit this business")
+
+    stock_item = session.get(StockItem, item_id)
+    if not stock_item or stock_item.business_id != business_id:
+        raise HTTPException(status_code=404, detail="Stock item not found")
+
+    if data.category_id:
+        category = session.get(Category, data.category_id)
+        if not category or category.business_id != business_id:
+            raise HTTPException(status_code=400, detail="Invalid category ID for this business")
+
+    if data.supplier_id:
+        supplier = session.get(Supplier, data.supplier_id)
+        if not supplier or supplier.business_id != business_id:
+            raise HTTPException(status_code=400, detail="Invalid supplier ID for this business")
+
+    stock_item.name = data.name
+    stock_item.sku = data.sku
+    stock_item.image_url = data.image_url
+    stock_item.description = data.description
+    stock_item.base_unit = data.base_unit
+    stock_item.reorder_level_base_qty = data.reorder_level_base_qty
+    stock_item.max_stock_base_qty = data.max_stock_base_qty
+    stock_item.cost_per_base_unit = data.cost_per_base_unit
+    stock_item.is_active = data.is_active
+    stock_item.category_id = data.category_id
+    stock_item.supplier_id = data.supplier_id
+
+    session.add(stock_item)
+    session.commit()
+    session.refresh(stock_item)
+
+    existing_rules = session.exec(select(StockItemLocation).where(StockItemLocation.stock_item_id == item_id)).all()
+    for rule in existing_rules:
+        session.delete(rule)
+    session.commit()
+
+    location_rules_out = []
+    if data.location_rules:
+        for rule in data.location_rules:
+            loc_id = rule.get("location_id")
+            if not loc_id:
+                continue
+            loc = session.get(Location, loc_id)
+            if not loc or loc.business_id != business_id:
+                continue
+
+            sil = StockItemLocation(
+                stock_item_id=stock_item.id,
+                location_id=loc_id,
+                storage_capacity=float(rule.get("storage_capacity", 0.0)),
+                storage_capacity_unit=rule.get("storage_capacity_unit"),
+                reorder_level=float(rule.get("reorder_level", 0.0)),
+                reorder_level_unit=rule.get("reorder_level_unit")
+            )
+            session.add(sil)
+            session.commit()
+            session.refresh(sil)
+
+            location_rules_out.append(LocationRuleOut(
+                id=sil.id,
+                stock_item_id=sil.stock_item_id,
+                location_id=sil.location_id,
+                location_name=loc.name,
+                storage_capacity=sil.storage_capacity,
+                storage_capacity_unit=sil.storage_capacity_unit,
+                reorder_level=sil.reorder_level,
+                reorder_level_unit=sil.reorder_level_unit
+            ))
+
+    category_name = stock_item.category.name if stock_item.category else None
+    supplier_name = stock_item.supplier.name if stock_item.supplier else None
+
+    return StockItemOut(
+        id=stock_item.id,
+        name=stock_item.name,
+        sku=stock_item.sku,
+        image_url=stock_item.image_url,
+        description=stock_item.description,
+        base_unit=stock_item.base_unit,
+        reorder_level_base_qty=stock_item.reorder_level_base_qty,
+        max_stock_base_qty=stock_item.max_stock_base_qty,
+        cost_per_base_unit=stock_item.cost_per_base_unit,
+        is_active=stock_item.is_active,
+        created_at=stock_item.created_at,
+        business_id=stock_item.business_id,
+        category_id=stock_item.category_id,
+        category_name=category_name,
+        supplier_id=stock_item.supplier_id,
+        supplier_name=supplier_name,
+        locations_count=len(location_rules_out),
+        location_rules=location_rules_out
+    )
+
+@app.delete("/api/businesses/{business_id}/stock-items/{item_id}")
+def delete_business_stock_item(
+    business_id: str,
+    item_id: str,
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session)
+):
+    business = session.get(Business, business_id)
+    if not business or business.created_by_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized to edit this business")
+
+    stock_item = session.get(StockItem, item_id)
+    if not stock_item or stock_item.business_id != business_id:
+        raise HTTPException(status_code=404, detail="Stock item not found")
+
+    session.delete(stock_item)
+    session.commit()
+    return {"message": "Stock item deleted successfully"}
+
 
 
 @app.get("/api/businesses/{business_id}/dashboard-metrics")
