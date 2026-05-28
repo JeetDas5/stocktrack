@@ -3,8 +3,11 @@ export interface Category {
   businessId: string;
   name: string;
   description?: string;
+  icon?: string;
+  status: "active" | "inactive";
   isActive: boolean;
   createdAt: string;
+  itemsCount?: number;
 }
 
 export type LocationType =
