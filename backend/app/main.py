@@ -6,8 +6,6 @@ import jwt
 import bcrypt
 from fastapi import FastAPI, Depends, HTTPException, Header, status
 from fastapi.middleware.cors import CORSMiddleware
-import firebase_admin
-from firebase_admin import credentials, auth
 from sqlmodel import Session, select, SQLModel
 
 from app.database import init_db, get_session
@@ -19,34 +17,7 @@ from pathlib import Path
 env_path = Path(__file__).resolve().parent.parent.parent / ".env"
 load_dotenv(dotenv_path=env_path)
 
-# Initialize Firebase Admin SDK
-firebase_project_id = os.getenv("FIREBASE_PROJECT_ID")
-firebase_client_email = os.getenv("FIREBASE_CLIENT_EMAIL")
-firebase_private_key = os.getenv("FIREBASE_PRIVATE_KEY")
-
-if firebase_project_id and firebase_client_email and firebase_private_key:
-    # Ensure raw newline characters are formatted properly
-    formatted_key = firebase_private_key.replace("\\n", "\n")
-    cred = credentials.Certificate({
-        "type": "service_account",
-        "project_id": firebase_project_id,
-        "private_key": formatted_key,
-        "client_email": firebase_client_email,
-        "token_uri": "https://oauth2.googleapis.com/token",
-    })
-    # Check if app already initialized 
-    if not firebase_admin._apps:
-        firebase_admin.initialize_app(cred)
-else:
-    # Fallback to local default / emulator credential loading
-    if not firebase_admin._apps:
-        firebase_admin.initialize_app()
-
-# Set up Emulator host environment variable if active
-if os.getenv("NODE_ENV") == "development" or not os.getenv("FIREBASE_AUTH_EMULATOR_HOST"):
-    os.environ["FIREBASE_AUTH_EMULATOR_HOST"] = "127.0.0.1:9099"
-
-# JWT / Bcrypt Credentials Auth Config
+# JWT
 JWT_SECRET = os.getenv("JWT_SECRET", "super-secret-key-change-in-production")
 JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "10080")) # 7 days default
