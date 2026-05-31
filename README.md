@@ -6,7 +6,8 @@ StockTrack is a backend service built with FastAPI and SQLModel that provides in
 
 ## Tech Stack
 
-- **Language**: Python 3.13
+- **Frontend**: Next.js (React + TypeScript), Tailwind CSS
+- **Backend Language**: Python 3.13
 - **Web Framework**: FastAPI
 - **ORM / Data Modeling**: SQLModel (SQLAlchemy based)
 - **Database**: PostgreSQL (Neon managed instance)
@@ -15,21 +16,22 @@ StockTrack is a backend service built with FastAPI and SQLModel that provides in
 - **Version Control**: Git
 
 ## Project Structure
+
 ```
 stocktrack/
 ├── backend/
 │   ├── app/
 │   │   ├── __init__.py
-│   │   ├── main.py                 # Slim orchestrator that mounts all routers
+│   │   ├── main.py                  # Slim orchestrator that mounts all routers
 │   │   ├── database.py              # Engine and session handling
 │   │   ├── models.py                # SQLModel schema definitions
 │   │   ├── services/
 │   │   │   ├── __init__.py
 │   │   │   ├── auth/
 │   │   │   │   ├── __init__.py
-│   │   │   │   ├── utils.py        # Password hashing, JWT utilities
-│   │   │   │   ├── dependencies.py # get_current_user dependency
-│   │   │   │   └── router.py       # /api/auth endpoints
+│   │   │   │   ├── utils.py         # Password hashing, JWT utilities
+│   │   │   │   ├── dependencies.py  # get_current_user dependency
+│   │   │   │   └── router.py        # /api/auth endpoints
 │   │   │   ├── users/
 │   │   │   │   ├── __init__.py
 │   │   │   │   └── router.py
@@ -65,8 +67,9 @@ stocktrack/
 │   │   │       └── router.py
 │   ├── requirements.txt
 │   └── Dockerfile (if containerised)
-├── .env               # Environment variables (JWT secret, DB URL, etc.)
-└── README.md          # This file
+├── src/                            # Frontend Next.js app
+├── .env                            # Environment variables (JWT secret, DB URL, etc.)
+└── README.md                       # This file
 ```
 
 ## Getting Started
@@ -76,14 +79,26 @@ stocktrack/
    python -m venv venv
    .\\venv\\Scripts\\activate   # Windows
    ```
-2. **Install dependencies**
+2. **Install backend dependencies**
    ```bash
    pip install -r backend/requirements.txt
    ```
 3. **Configure environment variables** by copying `.env.example` to `.env` and setting `DATABASE_URL`, `JWT_SECRET_KEY`, etc.
-4. **Run the application**
+4. **Run the backend**
+
    ```bash
    uvicorn backend/app/main:app --reload
    ```
+
    The API will be available at `http://localhost:8000`.
 
+5. **Frontend (Next.js)**
+
+   Install dependencies and run the development server:
+
+   ```bash
+   npm install
+   npm run dev
+   ```
+
+   The frontend will be available at `http://localhost:3000`.
