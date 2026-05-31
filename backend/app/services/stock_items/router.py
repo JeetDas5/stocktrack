@@ -56,7 +56,6 @@ class StockItemOut(SQLModel):
     base_unit: str
     cost_per_base_unit: Optional[float] = None
     current_stock: float = 0.0
-    delivery_packaging: Optional[str] = None
     is_active: bool
     created_at: datetime
     business_id: str
@@ -77,7 +76,6 @@ class StockItemCreate(SQLModel):
     base_unit: str = "pcs"
     cost_per_base_unit: Optional[float] = None
     current_stock: float = 0.0
-    delivery_packaging: Optional[str] = None
     is_active: bool = True
     category_id: Optional[str] = None
     supplier_id: Optional[str] = None
@@ -117,8 +115,6 @@ def create_business_stock_item(
         description=data.description,
         base_unit=data.base_unit,
         cost_per_base_unit=data.cost_per_base_unit,
-        current_stock=total_stock,
-        delivery_packaging=data.delivery_packaging,
         is_active=data.is_active,
         business_id=business_id,
         category_id=data.category_id,
@@ -236,8 +232,7 @@ def create_business_stock_item(
         description=stock_item.description,
         base_unit=stock_item.base_unit,
         cost_per_base_unit=stock_item.cost_per_base_unit,
-        current_stock=stock_item.current_stock,
-        delivery_packaging=stock_item.delivery_packaging,
+        current_stock=total_stock,
         is_active=stock_item.is_active,
         created_at=stock_item.created_at,
         business_id=stock_item.business_id,
@@ -305,6 +300,7 @@ def get_business_stock_items(
                 show_on_mobile=o.show_on_mobile
             ))
 
+        total_stock = sum(r.current_stock for r in rules) if rules else 0.0
         out.append(StockItemOut(
             id=item.id,
             name=item.name,
@@ -313,8 +309,7 @@ def get_business_stock_items(
             description=item.description,
             base_unit=item.base_unit,
             cost_per_base_unit=item.cost_per_base_unit,
-            current_stock=item.current_stock,
-            delivery_packaging=item.delivery_packaging,
+            current_stock=total_stock,
             is_active=item.is_active,
             created_at=item.created_at,
             business_id=item.business_id,
@@ -365,8 +360,6 @@ def update_business_stock_item(
     stock_item.description = data.description
     stock_item.base_unit = data.base_unit
     stock_item.cost_per_base_unit = data.cost_per_base_unit
-    stock_item.current_stock = total_stock
-    stock_item.delivery_packaging = data.delivery_packaging
     stock_item.is_active = data.is_active
     stock_item.category_id = data.category_id
     stock_item.supplier_id = data.supplier_id
@@ -495,8 +488,7 @@ def update_business_stock_item(
         description=stock_item.description,
         base_unit=stock_item.base_unit,
         cost_per_base_unit=stock_item.cost_per_base_unit,
-        current_stock=stock_item.current_stock,
-        delivery_packaging=stock_item.delivery_packaging,
+        current_stock=total_stock,
         is_active=stock_item.is_active,
         created_at=stock_item.created_at,
         business_id=stock_item.business_id,

@@ -81,8 +81,22 @@ def create_delivery(
         if not stock_item or stock_item.business_id != business_id:
             continue
 
-        stock_item.current_stock += item.received_quantity
-        session.add(stock_item)
+        if po.location_id:
+            sil = session.exec(
+                select(StockItemLocation)
+                .where(StockItemLocation.stock_item_id == item.stock_item_id)
+                .where(StockItemLocation.location_id == po.location_id)
+            ).first()
+            if not sil:
+                sil = StockItemLocation(
+                    stock_item_id=item.stock_item_id,
+                    location_id=po.location_id,
+                    storage_capacity=100.0,
+                    current_stock=item.received_quantity
+                )
+            else:
+                sil.current_stock += item.received_quantity
+            session.add(sil)
 
         del_item = DeliveryItem(
             delivery_id=delivery.id,

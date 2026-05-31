@@ -25,7 +25,7 @@ def get_dashboard_metrics(
     for item in active_items:
         rules = session.exec(select(StockItemLocation).where(
             StockItemLocation.stock_item_id == item.id)).all()
-        if any(item.current_stock < r.reorder_level for r in rules):
+        if any(r.current_stock < r.reorder_level for r in rules):
             low_stock.append(item)
 
     low_stock_out = []

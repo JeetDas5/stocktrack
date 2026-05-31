@@ -57,7 +57,6 @@ export interface StockItem {
   baseUnit: BaseUnit;
   costPerBaseUnit?: number;
   currentStock?: number;
-  deliveryPackaging?: string;
   isActive: boolean;
   createdAt: string;
   locationsCount?: number;

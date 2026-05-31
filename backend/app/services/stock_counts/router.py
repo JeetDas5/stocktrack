@@ -103,6 +103,19 @@ def create_business_stock_count(
         if item.counting_options:
             conversion = item.counting_options[0].conversion_to_base_qty
 
+        expected_qty = 0.0
+        if count_sess.location_id:
+            sil = session.exec(select(StockItemLocation).where(
+                StockItemLocation.stock_item_id == item.id,
+                StockItemLocation.location_id == count_sess.location_id
+            )).first()
+            if sil:
+                expected_qty = sil.current_stock
+        else:
+            rules = session.exec(select(StockItemLocation).where(
+                StockItemLocation.stock_item_id == item.id)).all()
+            expected_qty = sum(r.current_stock for r in rules) if rules else 0.0
+
         initial_cartons = None
         initial_pieces = None
         initial_qty = None
@@ -127,7 +140,7 @@ def create_business_stock_count(
 
                 if has_counted:
                     initial_qty = c_qty
-                    initial_variance = initial_qty - item.current_stock
+                    initial_variance = initial_qty - expected_qty
                     initial_cost_variance = initial_variance * \
                         (item.cost_per_base_unit or 0.0)
                 break
@@ -135,7 +148,7 @@ def create_business_stock_count(
         count_item = StockCountItem(
             session_id=count_sess.id,
             item_id=item.id,
-            expected_qty=item.current_stock,
+            expected_qty=expected_qty,
             counted_cartons=initial_cartons,
             counted_pieces=initial_pieces,
             counted_qty=initial_qty,
@@ -392,12 +405,16 @@ def update_business_stock_count(
 
         for ci in count_sess.items:
             if ci.counted_qty is not None:
-                stock_item = session.get(StockItem, ci.item_id)
-                if stock_item:
-                    stock_item.current_stock = ci.counted_qty
-                    session.add(stock_item)
-                    session.commit()
-                    session.refresh(stock_item)
+                if count_sess.location_id:
+                    sil = session.exec(select(StockItemLocation).where(
+                        StockItemLocation.stock_item_id == ci.item_id,
+                        StockItemLocation.location_id == count_sess.location_id
+                    )).first()
+                    if sil:
+                        sil.current_stock = ci.counted_qty
+                        session.add(sil)
+                        session.commit()
+                        session.refresh(sil)
 
     location_name = None
     if count_sess.location_id:

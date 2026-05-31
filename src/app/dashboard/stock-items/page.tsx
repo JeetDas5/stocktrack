@@ -60,7 +60,6 @@ export default function StockItemsPage() {
   const [formActive, setFormActive] = useState(true);
   const [formCostPerBaseUnit, setFormCostPerBaseUnit] = useState("");
   const [formCurrentStock, setFormCurrentStock] = useState("");
-  const [formDeliveryPackaging, setFormDeliveryPackaging] = useState("");
   const [countingOptions, setCountingOptions] = useState<{
     id?: string;
     levelName: string;
@@ -183,7 +182,6 @@ export default function StockItemsPage() {
     setFormActive(true);
     setFormCostPerBaseUnit("");
     setFormCurrentStock("");
-    setFormDeliveryPackaging("");
     setCountingOptions([]);
 
     setReorderOption("same");
@@ -222,7 +220,6 @@ export default function StockItemsPage() {
     setFormActive(item.isActive !== false);
     setFormCostPerBaseUnit(item.costPerBaseUnit ? String(item.costPerBaseUnit) : "");
     setFormCurrentStock(item.currentStock ? String(item.currentStock) : "");
-    setFormDeliveryPackaging(item.deliveryPackaging || "");
     setCountingOptions(
       (item.countingOptions || []).map((co) => ({
         id: co.id,
@@ -456,7 +453,6 @@ export default function StockItemsPage() {
         baseUnit: formBaseUnit,
         costPerBaseUnit: parseFloat(formCostPerBaseUnit) || 0,
         currentStock: rulesPayload.reduce((sum, r) => sum + (r.currentStock || 0), 0),
-        deliveryPackaging: formDeliveryPackaging || "",
         isActive: formActive,
         locationRules: rulesPayload,
         countingOptions: countingOptions.map((co) => ({
@@ -1042,7 +1038,6 @@ export default function StockItemsPage() {
                     Stock Settings
                   </h4>
 
-                  <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1.5">
                       <label className="text-[10px] font-bold text-[#0F172A] uppercase tracking-wider block">
                         Cost per Base Unit
@@ -1059,32 +1054,6 @@ export default function StockItemsPage() {
                         />
                       </div>
                     </div>
-
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-bold text-[#0F172A] uppercase tracking-wider block">
-                        Delivery Packaging
-                      </label>
-                      <div className="relative">
-                        <select
-                          className="w-full bg-white border border-zinc-300 focus:border-[#16A34A] rounded-xl py-2.5 pl-3.5 pr-10 text-xs text-zinc-950 focus:outline-none focus:ring-1 focus:ring-[#16A34A] appearance-none cursor-pointer font-semibold"
-                          value={formDeliveryPackaging}
-                          onChange={(e) => setFormDeliveryPackaging(e.target.value)}
-                        >
-                          <option value="">Select packaging (optional)</option>
-                          <option value="Box">Box</option>
-                          <option value="Bag">Bag</option>
-                          <option value="Bottle">Bottle</option>
-                          <option value="Carton">Carton</option>
-                          <option value="Case">Case</option>
-                          <option value="Container">Container</option>
-                          <option value="Keg">Keg</option>
-                          <option value="Pack">Pack</option>
-                          <option value="Pallet">Pallet</option>
-                        </select>
-                        <ChevronDown className="absolute right-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
-                      </div>
-                    </div>
-                  </div>
                 </div>
 
                 <div className="space-y-4 pt-2 border-t border-zinc-100">

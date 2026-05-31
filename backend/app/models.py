@@ -75,8 +75,6 @@ class StockItem(SQLModel, table=True):
     description: Optional[str] = None
     base_unit: str = Field(default="pcs")
     cost_per_base_unit: Optional[float] = None
-    current_stock: float = Field(default=0.0)
-    delivery_packaging: Optional[str] = None
     is_active: bool = Field(default=True)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     

@@ -61,11 +61,11 @@ def get_refill_suggestions(
                 loc = session.get(Location, r.location_id)
                 loc_name = loc.name if loc else "Unknown Location"
 
-                current = item.current_stock
+                current = r.current_stock
                 capacity = r.storage_capacity
                 reorder = r.reorder_level
 
-                to_refill = max(0.0, capacity - current)
+                to_refill = max(0.0, reorder - current)
                 est_cost = to_refill * cost
                 suggestions.append({
                     "stock_item_id": item.id,
@@ -84,11 +84,11 @@ def get_refill_suggestions(
                     "est_cost": est_cost
                 })
         else:
-            current = item.current_stock
+            current = 0.0
             capacity = 0.0
             reorder = 0.0
 
-            to_refill = max(0.0, capacity - current)
+            to_refill = max(0.0, reorder - current)
             est_cost = to_refill * cost
             suggestions.append({
                 "stock_item_id": item.id,

@@ -6,7 +6,7 @@ from sqlmodel import Session, select, SQLModel
 from app.database import get_session
 from app.models import (
     User, Business, StockItem, Location, Sale, SaleItem, SaleStatus,
-    StockItemLocation
+    StockItemLocation, Recipe
 )
 from app.services.auth.dependencies import get_current_user
 
@@ -31,7 +31,6 @@ class SaleCreate(SQLModel):
     status: SaleStatus = SaleStatus.draft
     tax_rate: float = 5.0
     items: List[SaleItemCreate]
-
 
 
 class SaleUpdate(SQLModel):
@@ -60,7 +59,8 @@ def create_sale(
         Sale.business_id == business_id)).all())
     sale_number = f"SALE-{datetime.utcnow().strftime('%y%m%d')}-{sale_count + 1:03d}"
 
-    subtotal_amount = sum(item.quantity * item.unit_price for item in data.items)
+    subtotal_amount = sum(
+        item.quantity * item.unit_price for item in data.items)
     discount_amount = sum(
         item.quantity * item.unit_price * (item.discount_percentage / 100.0)
         for item in data.items
@@ -88,8 +88,6 @@ def create_sale(
     )
 
     session.add(sale)
-    session.commit()
-    session.refresh(sale)
 
     for item in data.items:
         recipe = session.get(Recipe, item.recipe_id)
@@ -102,9 +100,8 @@ def create_sale(
                 if not stock_item or stock_item.business_id != business_id:
                     continue
 
-                decrement_qty = (item.quantity * ing.qty_used) / recipe.yield_qty
-                stock_item.current_stock -= decrement_qty
-                session.add(stock_item)
+                decrement_qty = (item.quantity * ing.qty_used) / \
+                    recipe.yield_qty
 
                 if data.location_id:
                     sil = session.exec(
@@ -116,7 +113,8 @@ def create_sale(
                         sil.current_stock -= decrement_qty
                         session.add(sil)
 
-        item_total = (item.quantity * item.unit_price) * (1.0 - (item.discount_percentage / 100.0))
+        item_total = (item.quantity * item.unit_price) * \
+            (1.0 - (item.discount_percentage / 100.0))
 
         sale_item = SaleItem(
             sale_id=sale.id,
@@ -252,9 +250,8 @@ def update_sale(
                     for ing in recipe.ingredients:
                         stock_item = session.get(StockItem, ing.item_id)
                         if stock_item and stock_item.business_id == business_id:
-                            decrement_qty = (item.quantity * ing.qty_used) / recipe.yield_qty
-                            stock_item.current_stock -= decrement_qty
-                            session.add(stock_item)
+                            decrement_qty = (
+                                item.quantity * ing.qty_used) / recipe.yield_qty
 
                             if sale.location_id:
                                 sil = session.exec(
