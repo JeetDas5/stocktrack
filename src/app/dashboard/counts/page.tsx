@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import { useBusinessStore } from "@/store/business-store";
 import { useAuth } from "@/providers/auth-provider";
 import { getLocations } from "@/lib/repositories/location.repository";
@@ -14,7 +14,7 @@ import {
   updateStockCount,
   deleteStockCount,
 } from "@/lib/repositories/stock-count.repository";
-import { StockItem, Location, StockCountSession, StockCountItem } from "@/types/inventory";
+import { StockItem, Location, StockCountSession } from "@/types/inventory";
 import {
   ClipboardList,
   Search,
@@ -22,9 +22,6 @@ import {
   Plus,
   Trash2,
   Loader2,
-  FileText,
-  Calendar,
-  User as UserIcon,
   HelpCircle,
   CheckCircle,
   Clock,
@@ -32,7 +29,6 @@ import {
   Barcode,
   Save,
   Check,
-  RotateCcw,
 } from "lucide-react";
 
 export default function StockCountsPage() {
@@ -322,22 +318,29 @@ export default function StockCountsPage() {
     }
   };
 
-  const filteredItems = stockItems.filter((item) => {
+  const locationFilteredItems = stockItems.filter((item) => {
+    if (!selectedLocationId) return true;
+    return (item.locationRules || []).some(
+      (rule) => rule.locationId === selectedLocationId
+    );
+  });
+
+  const filteredItems = locationFilteredItems.filter((item) => {
     const matchesSearch =
       item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (item.sku && item.sku.toLowerCase().includes(searchQuery.toLowerCase()));
     return matchesSearch;
   });
 
-  const totalItemsCount = stockItems.length;
-  const countedItemsList = stockItems.filter((item) => {
+  const totalItemsCount = locationFilteredItems.length;
+  const countedItemsList = locationFilteredItems.filter((item) => {
     const counts = itemCounts[item.id];
     return counts && (counts.countedCartons !== "" || counts.countedPieces !== "");
   });
   const countedItemsCount = countedItemsList.length;
   const remainingItemsCount = totalItemsCount - countedItemsCount;
 
-  const totalCountedBaseQty = stockItems.reduce((acc, item) => {
+  const totalCountedBaseQty = locationFilteredItems.reduce((acc, item) => {
     return acc + calculateTotalBaseQty(item.id, item);
   }, 0);
 
@@ -534,7 +537,31 @@ export default function StockCountsPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-zinc-200 text-xs text-[#0F172A]">
-                    {filteredItems.map((item, index) => {
+                    {filteredItems.length === 0 ? (
+                      <tr>
+                        <td colSpan={8} className="py-16 px-6 text-center">
+                          <div className="flex flex-col items-center justify-center max-w-md mx-auto">
+                            <div className="h-12 w-12 rounded-2xl bg-zinc-50 border border-zinc-100 flex items-center justify-center mb-3 shadow-xs">
+                              <ClipboardList className="h-6 w-6 text-zinc-400 stroke-[1.5]" />
+                            </div>
+                            <h3 className="text-sm font-extrabold text-[#0F172A]">No stock items found</h3>
+                            <p className="text-zinc-500 text-xs mt-1 font-semibold leading-relaxed">
+                              {searchQuery 
+                                ? `No items match "${searchQuery}" in this location.` 
+                                : "There are no stock items assigned to this location yet. Go to Stock Items to assign them."}
+                            </p>
+                            {!searchQuery && (
+                              <a 
+                                href="/dashboard/stock-items" 
+                                className="mt-4 bg-zinc-900 hover:bg-zinc-800 text-white rounded-xl px-4 py-2 text-xs font-bold transition-all shadow-xs cursor-pointer inline-block"
+                              >
+                                Manage Stock Items
+                              </a>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ) : filteredItems.map((item, index) => {
                       const counts = itemCounts[item.id] || {
                         countedCartons: "",
                         countedPieces: "",

@@ -697,8 +697,6 @@ class StockItemOut(SQLModel):
     image_url: Optional[str] = None
     description: Optional[str] = None
     base_unit: str
-    reorder_level_base_qty: float
-    max_stock_base_qty: float
     cost_per_base_unit: Optional[float] = None
     current_stock: float = 0.0
     delivery_packaging: Optional[str] = None
@@ -720,8 +718,6 @@ class StockItemCreate(SQLModel):
     image_url: Optional[str] = None
     description: Optional[str] = None
     base_unit: str = "pcs"
-    reorder_level_base_qty: float = 0.0
-    max_stock_base_qty: float = 0.0
     cost_per_base_unit: Optional[float] = None
     current_stock: float = 0.0
     delivery_packaging: Optional[str] = None
@@ -762,8 +758,6 @@ def create_business_stock_item(
         image_url=data.image_url,
         description=data.description,
         base_unit=data.base_unit,
-        reorder_level_base_qty=data.reorder_level_base_qty,
-        max_stock_base_qty=data.max_stock_base_qty,
         cost_per_base_unit=data.cost_per_base_unit,
         current_stock=data.current_stock,
         delivery_packaging=data.delivery_packaging,
@@ -848,8 +842,6 @@ def create_business_stock_item(
         image_url=stock_item.image_url,
         description=stock_item.description,
         base_unit=stock_item.base_unit,
-        reorder_level_base_qty=stock_item.reorder_level_base_qty,
-        max_stock_base_qty=stock_item.max_stock_base_qty,
         cost_per_base_unit=stock_item.cost_per_base_unit,
         current_stock=stock_item.current_stock,
         delivery_packaging=stock_item.delivery_packaging,
@@ -925,8 +917,6 @@ def get_business_stock_items(
             image_url=item.image_url,
             description=item.description,
             base_unit=item.base_unit,
-            reorder_level_base_qty=item.reorder_level_base_qty,
-            max_stock_base_qty=item.max_stock_base_qty,
             cost_per_base_unit=item.cost_per_base_unit,
             current_stock=item.current_stock,
             delivery_packaging=item.delivery_packaging,
@@ -978,8 +968,6 @@ def update_business_stock_item(
     stock_item.image_url = data.image_url
     stock_item.description = data.description
     stock_item.base_unit = data.base_unit
-    stock_item.reorder_level_base_qty = data.reorder_level_base_qty
-    stock_item.max_stock_base_qty = data.max_stock_base_qty
     stock_item.cost_per_base_unit = data.cost_per_base_unit
     stock_item.current_stock = data.current_stock
     stock_item.delivery_packaging = data.delivery_packaging
@@ -1075,8 +1063,6 @@ def update_business_stock_item(
         image_url=stock_item.image_url,
         description=stock_item.description,
         base_unit=stock_item.base_unit,
-        reorder_level_base_qty=stock_item.reorder_level_base_qty,
-        max_stock_base_qty=stock_item.max_stock_base_qty,
         cost_per_base_unit=stock_item.cost_per_base_unit,
         current_stock=stock_item.current_stock,
         delivery_packaging=stock_item.delivery_packaging,

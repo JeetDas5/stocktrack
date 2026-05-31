@@ -59,9 +59,7 @@ export default function StockItemsPage() {
   const [formDescription, setFormDescription] = useState("");
   const [formActive, setFormActive] = useState(true);
   const [formCostPerBaseUnit, setFormCostPerBaseUnit] = useState("");
-  const [formReorderLevelBaseQty, setFormReorderLevelBaseQty] = useState("");
   const [formCurrentStock, setFormCurrentStock] = useState("");
-  const [formMaxStockBaseQty, setFormMaxStockBaseQty] = useState("");
   const [formDeliveryPackaging, setFormDeliveryPackaging] = useState("");
   const [countingOptions, setCountingOptions] = useState<{
     id?: string;
@@ -94,6 +92,48 @@ export default function StockItemsPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
+  const [validationErrors, setValidationErrors] = useState<Record<string, boolean>>({});
+  const [selectedLocations, setSelectedLocations] = useState<string[]>([]);
+  const [showLocationDropdown, setShowLocationDropdown] = useState(false);
+
+  const dynamicUnits: string[] = [];
+  if (formBaseUnit) {
+    dynamicUnits.push(formBaseUnit);
+  }
+  countingOptions.forEach((co) => {
+    if (co.displayName && co.displayName.trim() && !dynamicUnits.includes(co.displayName.trim())) {
+      dynamicUnits.push(co.displayName.trim());
+    }
+  });
+  if (dynamicUnits.length === 0) {
+    dynamicUnits.push("Each");
+  }
+
+  const getConversionFactor = (unit: string) => {
+    if (unit === formBaseUnit) return 1;
+    const option = countingOptions.find((co) => co.displayName === unit);
+    return option ? (option.conversionToBaseQty || 1) : 1;
+  };
+
+  const getConvertedValue = (valueStr: string, unit: string) => {
+    const val = parseFloat(valueStr) || 0;
+    const factor = getConversionFactor(unit);
+    return val * factor;
+  };
+
+  const getInputClassName = (fieldName: string, extraClasses = "") => {
+    const hasError = validationErrors[fieldName];
+    return `w-full bg-white border ${
+      hasError ? "border-rose-400 focus:border-rose-500 focus:ring-rose-500 ring-1 ring-rose-500/20" : "border-zinc-300 focus:border-[#16A34A] focus:ring-[#16A34A]"
+    } rounded-xl py-2 px-3 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 transition-all ${extraClasses}`;
+  };
+
+  const getSelectClassName = (fieldName: string, extraClasses = "") => {
+    const hasError = validationErrors[fieldName];
+    return `w-full bg-white border ${
+      hasError ? "border-rose-400 focus:border-rose-500 focus:ring-rose-500 ring-1 ring-rose-500/20" : "border-zinc-300 focus:border-[#16A34A] focus:ring-[#16A34A]"
+    } rounded-xl py-2.5 pl-3.5 pr-10 text-xs text-zinc-950 focus:outline-none focus:ring-1 appearance-none cursor-pointer font-semibold transition-all ${extraClasses}`;
+  };
 
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 5;
@@ -139,9 +179,7 @@ export default function StockItemsPage() {
     setFormDescription("");
     setFormActive(true);
     setFormCostPerBaseUnit("");
-    setFormReorderLevelBaseQty("");
     setFormCurrentStock("");
-    setFormMaxStockBaseQty("");
     setFormDeliveryPackaging("");
     setCountingOptions([]);
 
@@ -162,7 +200,9 @@ export default function StockItemsPage() {
     });
     setLocationRulesMap(initialRules);
 
+    setSelectedLocations(locations.map(loc => loc.id));
     setError(null);
+    setValidationErrors({});
     setShowDrawer(true);
   };
 
@@ -176,9 +216,7 @@ export default function StockItemsPage() {
     setFormDescription(item.description || "");
     setFormActive(item.isActive !== false);
     setFormCostPerBaseUnit(item.costPerBaseUnit ? String(item.costPerBaseUnit) : "");
-    setFormReorderLevelBaseQty(item.reorderLevelBaseQty ? String(item.reorderLevelBaseQty) : "");
     setFormCurrentStock(item.currentStock ? String(item.currentStock) : "");
-    setFormMaxStockBaseQty(item.maxStockBaseQty ? String(item.maxStockBaseQty) : "");
     setFormDeliveryPackaging(item.deliveryPackaging || "");
     setCountingOptions(
       (item.countingOptions || []).map((co) => ({
@@ -229,43 +267,85 @@ export default function StockItemsPage() {
     });
     setLocationRulesMap(rulesMap);
 
+    const itemLocIds = (item.locationRules || []).map(r => r.locationId);
+    setSelectedLocations(itemLocIds);
     setError(null);
+    setValidationErrors({});
     setShowDrawer(true);
     setActiveMenuId(null);
   };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!activeBusinessId || !formName.trim() || !formBaseUnit) {
-      setError("Please fill in all required fields.");
+    if (!activeBusinessId) return;
+
+    // Validate fields
+    const errors: Record<string, boolean> = {};
+    if (!formName.trim()) errors.name = true;
+    if (!formSku.trim()) errors.sku = true;
+    if (!formCategoryId) errors.categoryId = true;
+    if (!formBaseUnit) errors.baseUnit = true;
+    if (selectedLocations.length === 0) errors.locations = true;
+
+    if (reorderOption === "same") {
+      if (!sameCapacity.trim() || isNaN(Number(sameCapacity)) || parseFloat(sameCapacity) < 0) errors.sameCapacity = true;
+      if (!sameReorder.trim() || isNaN(Number(sameReorder)) || parseFloat(sameReorder) < 0) errors.sameReorder = true;
+    } else {
+      locations.filter(loc => selectedLocations.includes(loc.id)).forEach((loc) => {
+        const rule = locationRulesMap[loc.id];
+        if (!rule || !rule.storageCapacity.trim() || isNaN(Number(rule.storageCapacity)) || parseFloat(rule.storageCapacity) < 0) {
+          errors[`capacity_${loc.id}`] = true;
+        }
+        if (!rule || !rule.reorderLevel.trim() || isNaN(Number(rule.reorderLevel)) || parseFloat(rule.reorderLevel) < 0) {
+          errors[`reorder_${loc.id}`] = true;
+        }
+      });
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setValidationErrors(errors);
+      setError("Please fill in all compulsory fields marked with an asterisk (*).");
       return;
     }
 
     try {
       setSaving(true);
       setError(null);
+      setValidationErrors({});
 
       const rulesPayload: LocationRule[] = [];
       if (reorderOption === "same") {
-        locations.forEach((loc) => {
+        const selectedCapUnit = dynamicUnits.includes(sameCapacityUnit) ? sameCapacityUnit : dynamicUnits[0];
+        const selectedReoUnit = dynamicUnits.includes(sameReorderUnit) ? sameReorderUnit : dynamicUnits[0];
+
+        const capConverted = getConvertedValue(sameCapacity, selectedCapUnit);
+        const reoConverted = getConvertedValue(sameReorder, selectedReoUnit);
+
+        locations.filter(loc => selectedLocations.includes(loc.id)).forEach((loc) => {
           rulesPayload.push({
             locationId: loc.id,
-            storageCapacity: parseFloat(sameCapacity) || 0,
-            storageCapacityUnit: sameCapacityUnit,
-            reorderLevel: parseFloat(sameReorder) || 0,
-            reorderLevelUnit: sameReorderUnit,
+            storageCapacity: capConverted,
+            storageCapacityUnit: formBaseUnit,
+            reorderLevel: reoConverted,
+            reorderLevelUnit: formBaseUnit,
           });
         });
       } else {
-        locations.forEach((loc) => {
+        locations.filter(loc => selectedLocations.includes(loc.id)).forEach((loc) => {
           const rule = locationRulesMap[loc.id];
           if (rule) {
+            const selectedCapUnit = dynamicUnits.includes(rule.storageCapacityUnit) ? rule.storageCapacityUnit : dynamicUnits[0];
+            const selectedReoUnit = dynamicUnits.includes(rule.reorderLevelUnit) ? rule.reorderLevelUnit : dynamicUnits[0];
+
+            const capConverted = getConvertedValue(rule.storageCapacity, selectedCapUnit);
+            const reoConverted = getConvertedValue(rule.reorderLevel, selectedReoUnit);
+
             rulesPayload.push({
               locationId: loc.id,
-              storageCapacity: parseFloat(rule.storageCapacity) || 0,
-              storageCapacityUnit: rule.storageCapacityUnit,
-              reorderLevel: parseFloat(rule.reorderLevel) || 0,
-              reorderLevelUnit: rule.reorderLevelUnit,
+              storageCapacity: capConverted,
+              storageCapacityUnit: formBaseUnit,
+              reorderLevel: reoConverted,
+              reorderLevelUnit: formBaseUnit,
             });
           }
         });
@@ -280,8 +360,6 @@ export default function StockItemsPage() {
         imageUrl: "",
         description: formDescription.trim(),
         baseUnit: formBaseUnit,
-        reorderLevelBaseQty: parseFloat(formReorderLevelBaseQty) || 0,
-        maxStockBaseQty: parseFloat(formMaxStockBaseQty) || 0,
         costPerBaseUnit: parseFloat(formCostPerBaseUnit) || 0,
         currentStock: parseFloat(formCurrentStock) || 0,
         deliveryPackaging: formDeliveryPackaging || "",
@@ -633,7 +711,14 @@ export default function StockItemsPage() {
                 </button>
               </div>
 
-              <form onSubmit={handleSave} className="space-y-5">
+              {error && (
+                <div className="bg-rose-50 border border-rose-200 text-rose-600 text-xs rounded-xl p-3 font-semibold flex items-center gap-2">
+                  <span className="h-1.5 w-1.5 rounded-full bg-rose-500 shrink-0" />
+                  <span>{error}</span>
+                </div>
+              )}
+
+              <form onSubmit={handleSave} noValidate className="space-y-5">
                 <div className="space-y-4">
                   <h4 className="text-[10px] font-extrabold uppercase tracking-widest text-[#64748B] border-b border-zinc-100 pb-1">
                     Basic Information
@@ -642,43 +727,55 @@ export default function StockItemsPage() {
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1.5">
                       <label className="text-[10px] font-bold text-[#0F172A] uppercase tracking-wider block">
-                        Item Name *
+                        Item Name <span className="text-rose-500">*</span>
                       </label>
                       <input
                         type="text"
-                        required
                         placeholder="Enter item name"
-                        className="w-full bg-white border border-zinc-300 focus:border-[#16A34A] rounded-xl py-2 px-3 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#16A34A] transition-all"
+                        className={getInputClassName("name")}
                         value={formName}
-                        onChange={(e) => setFormName(e.target.value)}
+                        onChange={(e) => {
+                          setFormName(e.target.value);
+                          if (validationErrors.name) {
+                            setValidationErrors((prev) => ({ ...prev, name: false }));
+                          }
+                        }}
                       />
                     </div>
 
                     <div className="space-y-1.5">
                       <label className="text-[10px] font-bold text-[#0F172A] uppercase tracking-wider block">
-                        SKU / Item Code *
+                        SKU / Item Code <span className="text-rose-500">*</span>
                       </label>
                       <input
                         type="text"
-                        required
                         placeholder="Enter item code"
-                        className="w-full bg-white border border-zinc-300 focus:border-[#16A34A] rounded-xl py-2 px-3 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#16A34A] transition-all"
+                        className={getInputClassName("sku")}
                         value={formSku}
-                        onChange={(e) => setFormSku(e.target.value)}
+                        onChange={(e) => {
+                          setFormSku(e.target.value);
+                          if (validationErrors.sku) {
+                            setValidationErrors((prev) => ({ ...prev, sku: false }));
+                          }
+                        }}
                       />
                     </div>
                   </div>
 
                   <div className="space-y-1.5">
                     <label className="text-[10px] font-bold text-[#0F172A] uppercase tracking-wider block">
-                      Category *
+                      Category <span className="text-rose-500">*</span>
                     </label>
                     <div className="relative">
                       <select
-                        required
-                        className="w-full bg-white border border-zinc-300 focus:border-[#16A34A] rounded-xl py-2.5 pl-3.5 pr-10 text-xs text-zinc-950 focus:outline-none focus:ring-1 focus:ring-[#16A34A] appearance-none cursor-pointer font-semibold"
+                        className={getSelectClassName("categoryId")}
                         value={formCategoryId}
-                        onChange={(e) => setFormCategoryId(e.target.value)}
+                        onChange={(e) => {
+                          setFormCategoryId(e.target.value);
+                          if (validationErrors.categoryId) {
+                            setValidationErrors((prev) => ({ ...prev, categoryId: false }));
+                          }
+                        }}
                       >
                         <option value="">Select category</option>
                         {categories.map((cat) => (
@@ -712,16 +809,105 @@ export default function StockItemsPage() {
                     </div>
                   </div>
 
+                  <div className="space-y-1.5 relative">
+                    <label className="text-[10px] font-bold text-[#0F172A] uppercase tracking-wider block">
+                      Locations <span className="text-rose-500">*</span>
+                    </label>
+                    <div className="relative">
+                      <button
+                        type="button"
+                        onClick={() => setShowLocationDropdown(!showLocationDropdown)}
+                        className={`w-full bg-white border ${
+                          validationErrors.locations ? "border-rose-400 focus:border-rose-500 ring-1 ring-rose-500/20" : "border-zinc-300 focus:border-[#16A34A]"
+                        } rounded-xl py-2.5 px-3.5 text-xs font-semibold text-zinc-800 text-left flex justify-between items-center cursor-pointer`}
+                      >
+                        <span>
+                          {selectedLocations.length === 0
+                            ? "Select locations"
+                            : selectedLocations.length === locations.length
+                            ? "All Locations Selected"
+                            : `${selectedLocations.length} Location${selectedLocations.length > 1 ? "s" : ""} Selected`}
+                        </span>
+                        <ChevronDown className="h-4 w-4 text-zinc-400" />
+                      </button>
+
+                      {showLocationDropdown && (
+                        <>
+                          <div className="fixed inset-0 z-40" onClick={() => setShowLocationDropdown(false)} />
+                          <div className="absolute left-0 right-0 mt-1.5 bg-white border border-zinc-200 rounded-xl shadow-lg max-h-60 overflow-y-auto p-2.5 z-50 space-y-2">
+                            <div className="flex justify-between items-center pb-2 border-b border-zinc-100 text-[10px] font-extrabold uppercase text-[#64748B]">
+                              <span>Select Locations</span>
+                              <div className="flex gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setSelectedLocations(locations.map(l => l.id));
+                                    if (validationErrors.locations) {
+                                      setValidationErrors(prev => ({ ...prev, locations: false }));
+                                    }
+                                  }}
+                                  className="text-[#16A34A] hover:underline cursor-pointer"
+                                >
+                                  All
+                                </button>
+                                <span>|</span>
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedLocations([])}
+                                  className="text-rose-500 hover:underline cursor-pointer"
+                                >
+                                  None
+                                </button>
+                              </div>
+                            </div>
+                            <div className="space-y-1.5 pt-1">
+                              {locations.map((loc) => {
+                                const isChecked = selectedLocations.includes(loc.id);
+                                return (
+                                  <label
+                                    key={loc.id}
+                                    className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-zinc-50 cursor-pointer text-xs font-semibold text-zinc-700 transition-colors"
+                                  >
+                                    <input
+                                      type="checkbox"
+                                      className="h-3.5 w-3.5 text-[#16A34A] focus:ring-[#16A34A] border-zinc-300 rounded cursor-pointer"
+                                      checked={isChecked}
+                                      onChange={() => {
+                                        if (isChecked) {
+                                          setSelectedLocations(selectedLocations.filter(id => id !== loc.id));
+                                        } else {
+                                          setSelectedLocations([...selectedLocations, loc.id]);
+                                          if (validationErrors.locations) {
+                                            setValidationErrors(prev => ({ ...prev, locations: false }));
+                                          }
+                                        }
+                                      }}
+                                    />
+                                    <span className="truncate">{loc.name}</span>
+                                  </label>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </div>
+
                   <div className="space-y-1.5">
                     <label className="text-[10px] font-bold text-[#0F172A] uppercase tracking-wider block">
-                      Base Unit *
+                      Base Unit <span className="text-rose-500">*</span>
                     </label>
                     <div className="relative">
                       <select
-                        required
-                        className="w-full bg-white border border-zinc-300 focus:border-[#16A34A] rounded-xl py-2.5 pl-3.5 pr-10 text-xs text-zinc-950 focus:outline-none focus:ring-1 focus:ring-[#16A34A] appearance-none cursor-pointer font-semibold"
+                        className={getSelectClassName("baseUnit")}
                         value={formBaseUnit}
-                        onChange={(e) => setFormBaseUnit(e.target.value as BaseUnit)}
+                        onChange={(e) => {
+                          setFormBaseUnit(e.target.value as BaseUnit);
+                          if (validationErrors.baseUnit) {
+                            setValidationErrors((prev) => ({ ...prev, baseUnit: false }));
+                          }
+                        }}
                       >
                         <option value="">Select base unit</option>
                         {unitsOptions.map((unit) => (
@@ -782,21 +968,6 @@ export default function StockItemsPage() {
 
                     <div className="space-y-1.5">
                       <label className="text-[10px] font-bold text-[#0F172A] uppercase tracking-wider block">
-                        Reorder Level ({formBaseUnit})
-                      </label>
-                      <input
-                        type="number"
-                        placeholder="0"
-                        className="w-full bg-white border border-zinc-300 focus:border-[#16A34A] rounded-xl py-2 px-3 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#16A34A] transition-all font-semibold"
-                        value={formReorderLevelBaseQty}
-                        onChange={(e) => setFormReorderLevelBaseQty(e.target.value)}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-bold text-[#0F172A] uppercase tracking-wider block">
                         Current Stock ({formBaseUnit})
                       </label>
                       <input
@@ -805,19 +976,6 @@ export default function StockItemsPage() {
                         className="w-full bg-white border border-zinc-300 focus:border-[#16A34A] rounded-xl py-2 px-3 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#16A34A] transition-all font-semibold"
                         value={formCurrentStock}
                         onChange={(e) => setFormCurrentStock(e.target.value)}
-                      />
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-bold text-[#0F172A] uppercase tracking-wider block">
-                        Max Stock ({formBaseUnit})
-                      </label>
-                      <input
-                        type="number"
-                        placeholder="0"
-                        className="w-full bg-white border border-zinc-300 focus:border-[#16A34A] rounded-xl py-2 px-3 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#16A34A] transition-all font-semibold"
-                        value={formMaxStockBaseQty}
-                        onChange={(e) => setFormMaxStockBaseQty(e.target.value)}
                       />
                     </div>
                   </div>
@@ -1065,23 +1223,28 @@ export default function StockItemsPage() {
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-1.5">
                           <label className="text-[10px] font-bold text-[#0F172A] uppercase block">
-                            Storage Capacity *
+                            Storage Capacity <span className="text-rose-500">*</span>
                           </label>
                           <div className="flex gap-1.5">
                             <input
                               type="number"
                               placeholder="0"
-                              className="w-full bg-white border border-zinc-300 focus:border-[#16A34A] rounded-xl py-2 px-3 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#16A34A] font-semibold"
+                              className={getInputClassName("sameCapacity", "font-semibold")}
                               value={sameCapacity}
-                              onChange={(e) => setSameCapacity(e.target.value)}
+                              onChange={(e) => {
+                                setSameCapacity(e.target.value);
+                                if (validationErrors.sameCapacity) {
+                                  setValidationErrors((prev) => ({ ...prev, sameCapacity: false }));
+                                }
+                              }}
                             />
                             <div className="relative shrink-0 w-24">
                               <select
                                 className="w-full bg-white border border-zinc-300 focus:border-[#16A34A] rounded-xl py-2 pl-2 pr-7 text-[10px] font-bold text-zinc-700 focus:outline-none appearance-none cursor-pointer"
-                                value={sameCapacityUnit}
+                                value={dynamicUnits.includes(sameCapacityUnit) ? sameCapacityUnit : dynamicUnits[0]}
                                 onChange={(e) => setSameCapacityUnit(e.target.value)}
                               >
-                                {unitsOptions.map((unit) => (
+                                {dynamicUnits.map((unit) => (
                                   <option key={unit} value={unit}>
                                     {unit}
                                   </option>
@@ -1094,23 +1257,28 @@ export default function StockItemsPage() {
 
                         <div className="space-y-1.5">
                           <label className="text-[10px] font-bold text-[#0F172A] uppercase block">
-                            Reorder Level *
+                            Reorder Level <span className="text-rose-500">*</span>
                           </label>
                           <div className="flex gap-1.5">
                             <input
                               type="number"
                               placeholder="0"
-                              className="w-full bg-white border border-zinc-300 focus:border-[#16A34A] rounded-xl py-2 px-3 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#16A34A] font-semibold"
+                              className={getInputClassName("sameReorder", "font-semibold")}
                               value={sameReorder}
-                              onChange={(e) => setSameReorder(e.target.value)}
+                              onChange={(e) => {
+                                setSameReorder(e.target.value);
+                                if (validationErrors.sameReorder) {
+                                  setValidationErrors((prev) => ({ ...prev, sameReorder: false }));
+                                }
+                              }}
                             />
                             <div className="relative shrink-0 w-24">
                               <select
                                 className="w-full bg-white border border-zinc-300 focus:border-[#16A34A] rounded-xl py-2 pl-2 pr-7 text-[10px] font-bold text-zinc-700 focus:outline-none appearance-none cursor-pointer"
-                                value={sameReorderUnit}
+                                value={dynamicUnits.includes(sameReorderUnit) ? sameReorderUnit : dynamicUnits[0]}
                                 onChange={(e) => setSameReorderUnit(e.target.value)}
                               >
-                                {unitsOptions.map((unit) => (
+                                {dynamicUnits.map((unit) => (
                                   <option key={unit} value={unit}>
                                     {unit}
                                   </option>
@@ -1122,21 +1290,29 @@ export default function StockItemsPage() {
                         </div>
                       </div>
                     </div>
+                  ) : selectedLocations.length === 0 ? (
+                    <div className="bg-zinc-50 border border-zinc-200 border-dashed rounded-xl p-6 text-center">
+                      <p className="text-xs font-semibold text-zinc-400">
+                        Please select at least one location in the "Locations" field above to configure specific rules.
+                      </p>
+                    </div>
                   ) : (
                     <div className="bg-zinc-50 border border-zinc-200 rounded-xl overflow-hidden">
                       <div className="max-h-72 overflow-y-auto divide-y divide-zinc-200">
                         <div className="grid grid-cols-5 text-[9px] uppercase font-extrabold text-[#64748B] bg-zinc-100/60 p-2 border-b border-zinc-200">
                           <span className="col-span-2">Location</span>
-                          <span className="col-span-1.5 pl-1.5">Storage Capacity</span>
-                          <span className="col-span-1.5 pl-1.5">Reorder Level</span>
+                          <span className="col-span-1.5 pl-1.5">Storage Capacity <span className="text-rose-500">*</span></span>
+                          <span className="col-span-1.5 pl-1.5">Reorder Level <span className="text-rose-500">*</span></span>
                         </div>
-                        {locations.map((loc) => {
+                        {locations.filter(loc => selectedLocations.includes(loc.id)).map((loc) => {
                           const rule = locationRulesMap[loc.id] || {
                             storageCapacity: "",
-                            storageCapacityUnit: "Each",
+                            storageCapacityUnit: dynamicUnits[0],
                             reorderLevel: "",
-                            reorderLevelUnit: "Each",
+                            reorderLevelUnit: dynamicUnits[0],
                           };
+                          const capErrKey = `capacity_${loc.id}`;
+                          const reoErrKey = `reorder_${loc.id}`;
                           return (
                             <div key={loc.id} className="grid grid-cols-5 items-center gap-1.5 p-2 bg-white">
                               <span className="col-span-2 text-[10px] font-extrabold text-[#0F172A] truncate" title={loc.name}>
@@ -1146,22 +1322,27 @@ export default function StockItemsPage() {
                                 <input
                                   type="number"
                                   placeholder="0"
-                                  className="w-12 bg-white border border-zinc-200 focus:border-[#16A34A] rounded-lg py-1 px-1.5 text-[10px] text-zinc-950 focus:outline-none text-center font-bold"
+                                  className={`w-12 bg-white border ${
+                                    validationErrors[capErrKey] ? "border-rose-400 focus:border-rose-500 focus:ring-rose-500 ring-1 ring-rose-500/20" : "border-zinc-200 focus:border-[#16A34A]"
+                                  } rounded-lg py-1 px-1.5 text-[10px] text-zinc-950 focus:outline-none text-center font-bold`}
                                   value={rule.storageCapacity}
-                                  onChange={(e) =>
+                                  onChange={(e) => {
                                     setLocationRulesMap((prev) => ({
                                       ...prev,
                                       [loc.id]: {
                                         ...rule,
                                         storageCapacity: e.target.value,
                                       },
-                                    }))
-                                  }
+                                    }));
+                                    if (validationErrors[capErrKey]) {
+                                      setValidationErrors((prev) => ({ ...prev, [capErrKey]: false }));
+                                    }
+                                  }}
                                 />
                                 <div className="relative shrink-0 w-12">
                                   <select
                                     className="w-full bg-white border border-zinc-200 rounded-lg py-1 pl-1 pr-4 text-[8px] font-bold text-zinc-700 focus:outline-none appearance-none cursor-pointer"
-                                    value={rule.storageCapacityUnit}
+                                    value={dynamicUnits.includes(rule.storageCapacityUnit) ? rule.storageCapacityUnit : dynamicUnits[0]}
                                     onChange={(e) =>
                                       setLocationRulesMap((prev) => ({
                                         ...prev,
@@ -1172,7 +1353,7 @@ export default function StockItemsPage() {
                                       }))
                                     }
                                   >
-                                    {unitsOptions.map((unit) => (
+                                    {dynamicUnits.map((unit) => (
                                       <option key={unit} value={unit}>
                                         {unit}
                                       </option>
@@ -1185,22 +1366,27 @@ export default function StockItemsPage() {
                                 <input
                                   type="number"
                                   placeholder="0"
-                                  className="w-12 bg-white border border-zinc-200 focus:border-[#16A34A] rounded-lg py-1 px-1.5 text-[10px] text-zinc-950 focus:outline-none text-center font-bold"
+                                  className={`w-12 bg-white border ${
+                                    validationErrors[reoErrKey] ? "border-rose-400 focus:border-rose-500 focus:ring-rose-500 ring-1 ring-rose-500/20" : "border-zinc-200 focus:border-[#16A34A]"
+                                  } rounded-lg py-1 px-1.5 text-[10px] text-zinc-950 focus:outline-none text-center font-bold`}
                                   value={rule.reorderLevel}
-                                  onChange={(e) =>
+                                  onChange={(e) => {
                                     setLocationRulesMap((prev) => ({
                                       ...prev,
                                       [loc.id]: {
                                         ...rule,
                                         reorderLevel: e.target.value,
                                       },
-                                    }))
-                                  }
+                                    }));
+                                    if (validationErrors[reoErrKey]) {
+                                      setValidationErrors((prev) => ({ ...prev, [reoErrKey]: false }));
+                                    }
+                                  }}
                                 />
                                 <div className="relative shrink-0 w-12">
                                   <select
                                     className="w-full bg-white border border-zinc-200 rounded-lg py-1 pl-1 pr-4 text-[8px] font-bold text-zinc-700 focus:outline-none appearance-none cursor-pointer"
-                                    value={rule.reorderLevelUnit}
+                                    value={dynamicUnits.includes(rule.reorderLevelUnit) ? rule.reorderLevelUnit : dynamicUnits[0]}
                                     onChange={(e) =>
                                       setLocationRulesMap((prev) => ({
                                         ...prev,
@@ -1211,7 +1397,7 @@ export default function StockItemsPage() {
                                       }))
                                     }
                                   >
-                                    {unitsOptions.map((unit) => (
+                                    {dynamicUnits.map((unit) => (
                                       <option key={unit} value={unit}>
                                         {unit}
                                       </option>

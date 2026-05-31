@@ -53,8 +53,6 @@ export interface StockItem {
   imageUrl?: string;
   description?: string;
   baseUnit: BaseUnit;
-  reorderLevelBaseQty: number;
-  maxStockBaseQty: number;
   costPerBaseUnit?: number;
   currentStock?: number;
   deliveryPackaging?: string;

@@ -28,6 +28,4 @@ export interface StockItem {
   categoryId: string;
   itemName: string;
   baseUnit: "kg" | "L" | "pcs";
-  reorderLevelBaseQty: number;
-  maxStockBaseQty: number;
 }

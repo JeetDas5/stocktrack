@@ -74,8 +74,6 @@ class StockItem(SQLModel, table=True):
     image_url: Optional[str] = None
     description: Optional[str] = None
     base_unit: str = Field(default="pcs")
-    reorder_level_base_qty: float = Field(default=0.0)
-    max_stock_base_qty: float = Field(default=0.0)
     cost_per_base_unit: Optional[float] = None
     current_stock: float = Field(default=0.0)
     delivery_packaging: Optional[str] = None
