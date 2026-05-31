@@ -39,7 +39,9 @@ export interface LocationRule {
   storageCapacityUnit?: string;
   reorderLevel: number;
   reorderLevelUnit?: string;
+  currentStock?: number;
 }
+
 
 export interface StockItem {
   id: string;
@@ -229,5 +231,41 @@ export interface Delivery {
   itemsCount?: number;
   items: DeliveryItem[];
 }
+
+export type SaleStatus = "draft" | "completed";
+
+export interface SaleItem {
+  id?: string;
+  recipeId: string;
+  recipeName?: string;
+  recipeCode?: string;
+  quantity: number;
+  unitPrice: number;
+  discountPercentage: number;
+  totalAmount: number;
+}
+
+export interface Sale {
+  id: string;
+  saleNumber: string;
+  saleDate: string;
+  locationId?: string;
+  locationName?: string;
+  customerName?: string;
+  paymentMethod?: string;
+  status: SaleStatus;
+  reference?: string;
+  remarks?: string;
+  taxRate: number;
+  subtotalAmount: number;
+  taxAmount: number;
+  discountAmount: number;
+  totalAmount: number;
+  createdAt: string;
+  itemsCount?: number;
+  items: SaleItem[];
+
+}
+
 
 

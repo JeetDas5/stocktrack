@@ -43,6 +43,8 @@ class LocationRuleOut(SQLModel):
     storage_capacity_unit: Optional[str] = None
     reorder_level: float
     reorder_level_unit: Optional[str] = None
+    current_stock: float = 0.0
+
 
 
 class StockItemOut(SQLModel):
@@ -107,6 +109,7 @@ def create_business_stock_item(
             raise HTTPException(
                 status_code=400, detail="Invalid supplier ID for this business")
 
+    total_stock = sum(float(r.get("current_stock", 0.0)) for r in data.location_rules) if data.location_rules else 0.0
     stock_item = StockItem(
         name=data.name,
         sku=data.sku,
@@ -114,7 +117,7 @@ def create_business_stock_item(
         description=data.description,
         base_unit=data.base_unit,
         cost_per_base_unit=data.cost_per_base_unit,
-        current_stock=data.current_stock,
+        current_stock=total_stock,
         delivery_packaging=data.delivery_packaging,
         is_active=data.is_active,
         business_id=business_id,
@@ -124,6 +127,7 @@ def create_business_stock_item(
     session.add(stock_item)
     session.commit()
     session.refresh(stock_item)
+
 
     location_rules_out = []
     if data.location_rules:
@@ -137,6 +141,7 @@ def create_business_stock_item(
 
             storage_capacity = float(rule.get("storage_capacity", 0.0))
             reorder_level = float(rule.get("reorder_level", 0.0))
+            current_stock = float(rule.get("current_stock", 0.0))
 
             if storage_capacity <= 0:
                 raise HTTPException(
@@ -148,10 +153,10 @@ def create_business_stock_item(
                     status_code=400,
                     detail=f"Reorder level ({reorder_level}) cannot be negative at location {loc.name}"
                 )
-            if data.current_stock < 0:
+            if current_stock < 0:
                 raise HTTPException(
                     status_code=400,
-                    detail="Current stock cannot be negative"
+                    detail=f"Current stock ({current_stock}) cannot be negative at location {loc.name}"
                 )
 
             if reorder_level >= storage_capacity:
@@ -159,10 +164,10 @@ def create_business_stock_item(
                     status_code=400,
                     detail=f"Reorder level ({reorder_level}) must be less than storage capacity ({storage_capacity}) at location {loc.name}"
                 )
-            if data.current_stock >= storage_capacity:
+            if current_stock >= storage_capacity:
                 raise HTTPException(
                     status_code=400,
-                    detail=f"Current stock ({data.current_stock}) must be less than storage capacity ({storage_capacity}) at location {loc.name}"
+                    detail=f"Current stock ({current_stock}) must be less than storage capacity ({storage_capacity}) at location {loc.name}"
                 )
 
             sil = StockItemLocation(
@@ -171,7 +176,8 @@ def create_business_stock_item(
                 storage_capacity=storage_capacity,
                 storage_capacity_unit=rule.get("storage_capacity_unit"),
                 reorder_level=reorder_level,
-                reorder_level_unit=rule.get("reorder_level_unit")
+                reorder_level_unit=rule.get("reorder_level_unit"),
+                current_stock=current_stock
             )
             session.add(sil)
             session.commit()
@@ -185,8 +191,10 @@ def create_business_stock_item(
                 storage_capacity=sil.storage_capacity,
                 storage_capacity_unit=sil.storage_capacity_unit,
                 reorder_level=sil.reorder_level,
-                reorder_level_unit=sil.reorder_level_unit
+                reorder_level_unit=sil.reorder_level_unit,
+                current_stock=sil.current_stock
             ))
+
 
     counting_options_out = []
     if data.counting_options:
@@ -276,8 +284,10 @@ def get_business_stock_items(
                 storage_capacity=r.storage_capacity,
                 storage_capacity_unit=r.storage_capacity_unit,
                 reorder_level=r.reorder_level,
-                reorder_level_unit=r.reorder_level_unit
+                reorder_level_unit=r.reorder_level_unit,
+                current_stock=r.current_stock
             ))
+
 
         opts = session.exec(select(CountingOption).where(
             CountingOption.item_id == item.id)).all()
@@ -348,17 +358,19 @@ def update_business_stock_item(
             raise HTTPException(
                 status_code=400, detail="Invalid supplier ID for this business")
 
+    total_stock = sum(float(r.get("current_stock", 0.0)) for r in data.location_rules) if data.location_rules else 0.0
     stock_item.name = data.name
     stock_item.sku = data.sku
     stock_item.image_url = data.image_url
     stock_item.description = data.description
     stock_item.base_unit = data.base_unit
     stock_item.cost_per_base_unit = data.cost_per_base_unit
-    stock_item.current_stock = data.current_stock
+    stock_item.current_stock = total_stock
     stock_item.delivery_packaging = data.delivery_packaging
     stock_item.is_active = data.is_active
     stock_item.category_id = data.category_id
     stock_item.supplier_id = data.supplier_id
+
 
     session.add(stock_item)
     session.commit()
@@ -382,6 +394,7 @@ def update_business_stock_item(
 
             storage_capacity = float(rule.get("storage_capacity", 0.0))
             reorder_level = float(rule.get("reorder_level", 0.0))
+            current_stock = float(rule.get("current_stock", 0.0))
 
             if storage_capacity <= 0:
                 raise HTTPException(
@@ -393,10 +406,10 @@ def update_business_stock_item(
                     status_code=400,
                     detail=f"Reorder level ({reorder_level}) cannot be negative at location {loc.name}"
                 )
-            if data.current_stock < 0:
+            if current_stock < 0:
                 raise HTTPException(
                     status_code=400,
-                    detail="Current stock cannot be negative"
+                    detail=f"Current stock ({current_stock}) cannot be negative at location {loc.name}"
                 )
 
             if reorder_level >= storage_capacity:
@@ -404,10 +417,10 @@ def update_business_stock_item(
                     status_code=400,
                     detail=f"Reorder level ({reorder_level}) must be less than storage capacity ({storage_capacity}) at location {loc.name}"
                 )
-            if data.current_stock >= storage_capacity:
+            if current_stock >= storage_capacity:
                 raise HTTPException(
                     status_code=400,
-                    detail=f"Current stock ({data.current_stock}) must be less than storage capacity ({storage_capacity}) at location {loc.name}"
+                    detail=f"Current stock ({current_stock}) must be less than storage capacity ({storage_capacity}) at location {loc.name}"
                 )
 
             sil = StockItemLocation(
@@ -416,7 +429,8 @@ def update_business_stock_item(
                 storage_capacity=storage_capacity,
                 storage_capacity_unit=rule.get("storage_capacity_unit"),
                 reorder_level=reorder_level,
-                reorder_level_unit=rule.get("reorder_level_unit")
+                reorder_level_unit=rule.get("reorder_level_unit"),
+                current_stock=current_stock
             )
             session.add(sil)
             session.commit()
@@ -430,8 +444,10 @@ def update_business_stock_item(
                 storage_capacity=sil.storage_capacity,
                 storage_capacity_unit=sil.storage_capacity_unit,
                 reorder_level=sil.reorder_level,
-                reorder_level_unit=sil.reorder_level_unit
+                reorder_level_unit=sil.reorder_level_unit,
+                current_stock=sil.current_stock
             ))
+
 
     existing_options = session.exec(select(CountingOption).where(
         CountingOption.item_id == item_id)).all()

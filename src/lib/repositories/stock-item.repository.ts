@@ -28,7 +28,9 @@ const mapStockItem = (item: any): StockItem => ({
     storageCapacityUnit: r.storage_capacity_unit || "",
     reorderLevel: r.reorder_level || 0,
     reorderLevelUnit: r.reorder_level_unit || "",
+    currentStock: r.current_stock || 0,
   })),
+
   countingOptions: (item.counting_options || []).map((co: any) => ({
     id: co.id,
     itemId: co.item_id,
@@ -64,6 +66,7 @@ export const createStockItem = async (
       storage_capacity_unit: r.storageCapacityUnit || null,
       reorder_level: r.reorderLevel,
       reorder_level_unit: r.reorderLevelUnit || null,
+      current_stock: r.currentStock || 0,
     })),
     counting_options: (data.countingOptions || []).map((co) => ({
       level_name: co.levelName,
@@ -105,6 +108,7 @@ export const updateStockItem = async (
       storage_capacity_unit: r.storageCapacityUnit || null,
       reorder_level: r.reorderLevel,
       reorder_level_unit: r.reorderLevelUnit || null,
+      current_stock: r.currentStock || 0,
     })),
     counting_options: (data.countingOptions || []).map((co) => ({
       level_name: co.levelName,

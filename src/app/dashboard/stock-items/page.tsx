@@ -76,6 +76,7 @@ export default function StockItemsPage() {
   const [sameCapacityUnit, setSameCapacityUnit] = useState("Each");
   const [sameReorder, setSameReorder] = useState("");
   const [sameReorderUnit, setSameReorderUnit] = useState("Each");
+  const [sameCurrentStock, setSameCurrentStock] = useState("");
 
   const [locationRulesMap, setLocationRulesMap] = useState<
     Record<
@@ -85,9 +86,11 @@ export default function StockItemsPage() {
         storageCapacityUnit: string;
         reorderLevel: string;
         reorderLevelUnit: string;
+        currentStock: string;
       }
     >
   >({});
+
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -188,6 +191,7 @@ export default function StockItemsPage() {
     setSameCapacityUnit("Each");
     setSameReorder("");
     setSameReorderUnit("Each");
+    setSameCurrentStock("");
 
     const initialRules: typeof locationRulesMap = {};
     locations.forEach((loc) => {
@@ -196,6 +200,7 @@ export default function StockItemsPage() {
         storageCapacityUnit: "Each",
         reorderLevel: "",
         reorderLevelUnit: "Each",
+        currentStock: "",
       };
     });
     setLocationRulesMap(initialRules);
@@ -238,7 +243,8 @@ export default function StockItemsPage() {
           r.storageCapacity === rules[0].storageCapacity &&
           r.storageCapacityUnit === rules[0].storageCapacityUnit &&
           r.reorderLevel === rules[0].reorderLevel &&
-          r.reorderLevelUnit === rules[0].reorderLevelUnit
+          r.reorderLevelUnit === rules[0].reorderLevelUnit &&
+          r.currentStock === rules[0].currentStock
       );
 
     if (isSameOption && rules.length > 0) {
@@ -247,12 +253,14 @@ export default function StockItemsPage() {
       setSameCapacityUnit(rules[0].storageCapacityUnit || "Each");
       setSameReorder(String(rules[0].reorderLevel));
       setSameReorderUnit(rules[0].reorderLevelUnit || "Each");
+      setSameCurrentStock(rules[0].currentStock !== undefined ? String(rules[0].currentStock) : "");
     } else {
       setReorderOption("different");
       setSameCapacity("");
       setSameCapacityUnit("Each");
       setSameReorder("");
       setSameReorderUnit("Each");
+      setSameCurrentStock("");
     }
 
     const rulesMap: typeof locationRulesMap = {};
@@ -263,6 +271,7 @@ export default function StockItemsPage() {
         storageCapacityUnit: existing?.storageCapacityUnit || "Each",
         reorderLevel: existing ? String(existing.reorderLevel) : "",
         reorderLevelUnit: existing?.reorderLevelUnit || "Each",
+        currentStock: existing?.currentStock !== undefined ? String(existing.currentStock) : "",
       };
     });
     setLocationRulesMap(rulesMap);
@@ -279,7 +288,6 @@ export default function StockItemsPage() {
     e.preventDefault();
     if (!activeBusinessId) return;
 
-    // Validate fields
     const errors: Record<string, boolean> = {};
     if (!formName.trim()) errors.name = true;
     if (!formSku.trim()) errors.sku = true;
@@ -287,17 +295,10 @@ export default function StockItemsPage() {
     if (!formBaseUnit) errors.baseUnit = true;
     if (selectedLocations.length === 0) errors.locations = true;
 
-    const currentStockVal = parseFloat(formCurrentStock) || 0;
-    if (currentStockVal < 0) {
-      errors.currentStock = true;
-      setValidationErrors(errors);
-      setError("Current stock cannot be negative.");
-      return;
-    }
-
     if (reorderOption === "same") {
       const capVal = parseFloat(sameCapacity) || 0;
       const reoVal = parseFloat(sameReorder) || 0;
+      const stockVal = parseFloat(sameCurrentStock) || 0;
 
       if (!sameCapacity.trim() || isNaN(Number(sameCapacity)) || capVal <= 0) {
         errors.sameCapacity = true;
@@ -305,10 +306,13 @@ export default function StockItemsPage() {
       if (!sameReorder.trim() || isNaN(Number(sameReorder)) || reoVal < 0) {
         errors.sameReorder = true;
       }
+      if (!sameCurrentStock.trim() || isNaN(Number(sameCurrentStock)) || stockVal < 0) {
+        errors.sameCurrentStock = true;
+      }
 
-      if (errors.sameCapacity || errors.sameReorder) {
+      if (errors.sameCapacity || errors.sameReorder || errors.sameCurrentStock) {
         setValidationErrors(errors);
-        setError("Capacity must be positive (> 0) and reorder level cannot be negative.");
+        setError("Capacity must be positive (> 0), and reorder level and current stock cannot be negative.");
         return;
       }
 
@@ -317,6 +321,7 @@ export default function StockItemsPage() {
 
       const capConverted = getConvertedValue(sameCapacity, selectedCapUnit);
       const reoConverted = getConvertedValue(sameReorder, selectedReoUnit);
+      const stockConverted = stockVal;
 
       if (reoConverted >= capConverted) {
         errors.sameReorder = true;
@@ -324,8 +329,8 @@ export default function StockItemsPage() {
         setError("Reorder level must be less than storage capacity.");
         return;
       }
-      if (currentStockVal >= capConverted) {
-        errors.currentStock = true;
+      if (stockConverted >= capConverted) {
+        errors.sameCurrentStock = true;
         setValidationErrors(errors);
         setError("Current stock must be less than storage capacity.");
         return;
@@ -337,6 +342,7 @@ export default function StockItemsPage() {
         const rule = locationRulesMap[loc.id];
         const capVal = rule ? parseFloat(rule.storageCapacity) : 0;
         const reoVal = rule ? parseFloat(rule.reorderLevel) : 0;
+        const stockVal = rule ? parseFloat(rule.currentStock) : 0;
 
         if (!rule || !rule.storageCapacity.trim() || isNaN(Number(rule.storageCapacity)) || capVal <= 0) {
           errors[`capacity_${loc.id}`] = true;
@@ -348,21 +354,27 @@ export default function StockItemsPage() {
           limitViolation = true;
           limitErrorMsg = `Reorder level cannot be negative at ${loc.name}.`;
         }
+        if (!rule || !rule.currentStock || !rule.currentStock.trim() || isNaN(Number(rule.currentStock)) || stockVal < 0) {
+          errors[`stock_${loc.id}`] = true;
+          limitViolation = true;
+          limitErrorMsg = `Current stock cannot be negative at ${loc.name}.`;
+        }
 
-        if (rule && !errors[`capacity_${loc.id}`] && !errors[`reorder_${loc.id}`]) {
+        if (rule && !errors[`capacity_${loc.id}`] && !errors[`reorder_${loc.id}`] && !errors[`stock_${loc.id}`]) {
           const selectedCapUnit = dynamicUnits.includes(rule.storageCapacityUnit) ? rule.storageCapacityUnit : dynamicUnits[0];
           const selectedReoUnit = dynamicUnits.includes(rule.reorderLevelUnit) ? rule.reorderLevelUnit : dynamicUnits[0];
 
           const capConverted = getConvertedValue(rule.storageCapacity, selectedCapUnit);
           const reoConverted = getConvertedValue(rule.reorderLevel, selectedReoUnit);
+          const stockConverted = stockVal;
 
           if (reoConverted >= capConverted) {
             errors[`reorder_${loc.id}`] = true;
             limitViolation = true;
             limitErrorMsg = `Reorder level must be less than storage capacity at ${loc.name}.`;
           }
-          if (currentStockVal >= capConverted) {
-            errors.currentStock = true;
+          if (stockConverted >= capConverted) {
+            errors[`stock_${loc.id}`] = true;
             limitViolation = true;
             limitErrorMsg = `Current stock must be less than storage capacity at ${loc.name}.`;
           }
@@ -398,6 +410,7 @@ export default function StockItemsPage() {
 
         const capConverted = getConvertedValue(sameCapacity, selectedCapUnit);
         const reoConverted = getConvertedValue(sameReorder, selectedReoUnit);
+        const stockConverted = parseFloat(sameCurrentStock) || 0;
 
         locations.filter(loc => selectedLocations.includes(loc.id)).forEach((loc) => {
           rulesPayload.push({
@@ -406,6 +419,7 @@ export default function StockItemsPage() {
             storageCapacityUnit: formBaseUnit,
             reorderLevel: reoConverted,
             reorderLevelUnit: formBaseUnit,
+            currentStock: stockConverted,
           });
         });
       } else {
@@ -417,6 +431,7 @@ export default function StockItemsPage() {
 
             const capConverted = getConvertedValue(rule.storageCapacity, selectedCapUnit);
             const reoConverted = getConvertedValue(rule.reorderLevel, selectedReoUnit);
+            const stockConverted = parseFloat(rule.currentStock) || 0;
 
             rulesPayload.push({
               locationId: loc.id,
@@ -424,6 +439,7 @@ export default function StockItemsPage() {
               storageCapacityUnit: formBaseUnit,
               reorderLevel: reoConverted,
               reorderLevelUnit: formBaseUnit,
+              currentStock: stockConverted,
             });
           }
         });
@@ -439,7 +455,7 @@ export default function StockItemsPage() {
         description: formDescription.trim(),
         baseUnit: formBaseUnit,
         costPerBaseUnit: parseFloat(formCostPerBaseUnit) || 0,
-        currentStock: parseFloat(formCurrentStock) || 0,
+        currentStock: rulesPayload.reduce((sum, r) => sum + (r.currentStock || 0), 0),
         deliveryPackaging: formDeliveryPackaging || "",
         isActive: formActive,
         locationRules: rulesPayload,
@@ -1046,45 +1062,27 @@ export default function StockItemsPage() {
 
                     <div className="space-y-1.5">
                       <label className="text-[10px] font-bold text-[#0F172A] uppercase tracking-wider block">
-                        Current Stock ({formBaseUnit})
+                        Delivery Packaging
                       </label>
-                      <input
-                        type="number"
-                        placeholder="0"
-                        className={getInputClassName("currentStock", "font-semibold")}
-                        value={formCurrentStock}
-                        onChange={(e) => {
-                          setFormCurrentStock(e.target.value);
-                          if (validationErrors.currentStock) {
-                            setValidationErrors((prev) => ({ ...prev, currentStock: false }));
-                          }
-                        }}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-[#0F172A] uppercase tracking-wider block">
-                      Delivery Packaging
-                    </label>
-                    <div className="relative">
-                      <select
-                        className="w-full bg-white border border-zinc-300 focus:border-[#16A34A] rounded-xl py-2.5 pl-3.5 pr-10 text-xs text-zinc-950 focus:outline-none focus:ring-1 focus:ring-[#16A34A] appearance-none cursor-pointer font-semibold"
-                        value={formDeliveryPackaging}
-                        onChange={(e) => setFormDeliveryPackaging(e.target.value)}
-                      >
-                        <option value="">Select packaging (optional)</option>
-                        <option value="Box">Box</option>
-                        <option value="Bag">Bag</option>
-                        <option value="Bottle">Bottle</option>
-                        <option value="Carton">Carton</option>
-                        <option value="Case">Case</option>
-                        <option value="Container">Container</option>
-                        <option value="Keg">Keg</option>
-                        <option value="Pack">Pack</option>
-                        <option value="Pallet">Pallet</option>
-                      </select>
-                      <ChevronDown className="absolute right-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
+                      <div className="relative">
+                        <select
+                          className="w-full bg-white border border-zinc-300 focus:border-[#16A34A] rounded-xl py-2.5 pl-3.5 pr-10 text-xs text-zinc-950 focus:outline-none focus:ring-1 focus:ring-[#16A34A] appearance-none cursor-pointer font-semibold"
+                          value={formDeliveryPackaging}
+                          onChange={(e) => setFormDeliveryPackaging(e.target.value)}
+                        >
+                          <option value="">Select packaging (optional)</option>
+                          <option value="Box">Box</option>
+                          <option value="Bag">Bag</option>
+                          <option value="Bottle">Bottle</option>
+                          <option value="Carton">Carton</option>
+                          <option value="Case">Case</option>
+                          <option value="Container">Container</option>
+                          <option value="Keg">Keg</option>
+                          <option value="Pack">Pack</option>
+                          <option value="Pallet">Pallet</option>
+                        </select>
+                        <ChevronDown className="absolute right-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1372,6 +1370,26 @@ export default function StockItemsPage() {
                           </div>
                         </div>
                       </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-1.5">
+                          <label className="text-[10px] font-bold text-[#0F172A] uppercase block">
+                            Current Stock ({formBaseUnit}) <span className="text-rose-500">*</span>
+                          </label>
+                          <input
+                            type="number"
+                            placeholder="0"
+                            className={getInputClassName("sameCurrentStock", "font-semibold")}
+                            value={sameCurrentStock}
+                            onChange={(e) => {
+                              setSameCurrentStock(e.target.value);
+                              if (validationErrors.sameCurrentStock) {
+                                setValidationErrors((prev) => ({ ...prev, sameCurrentStock: false }));
+                              }
+                            }}
+                          />
+                        </div>
+                      </div>
                     </div>
                   ) : selectedLocations.length === 0 ? (
                     <div className="bg-zinc-50 border border-zinc-200 border-dashed rounded-xl p-6 text-center">
@@ -1382,10 +1400,11 @@ export default function StockItemsPage() {
                   ) : (
                     <div className="bg-zinc-50 border border-zinc-200 rounded-xl overflow-hidden">
                       <div className="max-h-72 overflow-y-auto divide-y divide-zinc-200">
-                        <div className="grid grid-cols-5 text-[9px] uppercase font-extrabold text-[#64748B] bg-zinc-100/60 p-2 border-b border-zinc-200">
-                          <span className="col-span-2">Location</span>
-                          <span className="col-span-1.5 pl-1.5">Storage Capacity <span className="text-rose-500">*</span></span>
-                          <span className="col-span-1.5 pl-1.5">Reorder Level <span className="text-rose-500">*</span></span>
+                        <div className="grid grid-cols-12 text-[9px] uppercase font-extrabold text-[#64748B] bg-zinc-100/60 p-2 border-b border-zinc-200">
+                          <span className="col-span-3">Location</span>
+                          <span className="col-span-2 pl-1.5">Current Stock <span className="text-rose-500">*</span></span>
+                          <span className="col-span-4 pl-1.5">Storage Capacity <span className="text-rose-500">*</span></span>
+                          <span className="col-span-3 pl-1.5">Reorder Level <span className="text-rose-500">*</span></span>
                         </div>
                         {locations.filter(loc => selectedLocations.includes(loc.id)).map((loc) => {
                           const rule = locationRulesMap[loc.id] || {
@@ -1393,19 +1412,45 @@ export default function StockItemsPage() {
                             storageCapacityUnit: dynamicUnits[0],
                             reorderLevel: "",
                             reorderLevelUnit: dynamicUnits[0],
+                            currentStock: "",
                           };
+                          const stockErrKey = `stock_${loc.id}`;
                           const capErrKey = `capacity_${loc.id}`;
                           const reoErrKey = `reorder_${loc.id}`;
                           return (
-                            <div key={loc.id} className="grid grid-cols-5 items-center gap-1.5 p-2 bg-white">
-                              <span className="col-span-2 text-[10px] font-extrabold text-[#0F172A] truncate" title={loc.name}>
+                            <div key={loc.id} className="grid grid-cols-12 items-center gap-1.5 p-2 bg-white">
+                              <span className="col-span-3 text-[10px] font-extrabold text-[#0F172A] truncate animate-none" title={loc.name}>
                                 {loc.name}
                               </span>
-                              <div className="col-span-1.5 flex gap-1 items-center">
+                              
+                              <div className="col-span-2 flex gap-1 items-center pr-1.5">
                                 <input
                                   type="number"
                                   placeholder="0"
-                                  className={`w-12 bg-white border ${
+                                  className={`w-full bg-white border ${
+                                    validationErrors[stockErrKey] ? "border-rose-400 focus:border-rose-500 focus:ring-rose-500 ring-1 ring-rose-500/20" : "border-zinc-200 focus:border-[#16A34A]"
+                                  } rounded-lg py-1 px-1.5 text-[10px] text-zinc-950 focus:outline-none text-center font-bold`}
+                                  value={rule.currentStock}
+                                  onChange={(e) => {
+                                    setLocationRulesMap((prev) => ({
+                                      ...prev,
+                                      [loc.id]: {
+                                        ...rule,
+                                        currentStock: e.target.value,
+                                      },
+                                    }));
+                                    if (validationErrors[stockErrKey]) {
+                                      setValidationErrors((prev) => ({ ...prev, [stockErrKey]: false }));
+                                    }
+                                  }}
+                                />
+                              </div>
+
+                              <div className="col-span-4 flex gap-1 items-center">
+                                <input
+                                  type="number"
+                                  placeholder="0"
+                                  className={`w-12 shrink-0 bg-white border ${
                                     validationErrors[capErrKey] ? "border-rose-400 focus:border-rose-500 focus:ring-rose-500 ring-1 ring-rose-500/20" : "border-zinc-200 focus:border-[#16A34A]"
                                   } rounded-lg py-1 px-1.5 text-[10px] text-zinc-950 focus:outline-none text-center font-bold`}
                                   value={rule.storageCapacity}
@@ -1422,7 +1467,7 @@ export default function StockItemsPage() {
                                     }
                                   }}
                                 />
-                                <div className="relative shrink-0 w-12">
+                                <div className="relative shrink-0 w-14">
                                   <select
                                     className="w-full bg-white border border-zinc-200 rounded-lg py-1 pl-1 pr-4 text-[8px] font-bold text-zinc-700 focus:outline-none appearance-none cursor-pointer"
                                     value={dynamicUnits.includes(rule.storageCapacityUnit) ? rule.storageCapacityUnit : dynamicUnits[0]}
@@ -1445,11 +1490,12 @@ export default function StockItemsPage() {
                                   <ChevronDown className="absolute right-1 top-1/2 -translate-y-1/2 h-2.5 w-2.5 text-zinc-400 pointer-events-none" />
                                 </div>
                               </div>
-                              <div className="col-span-1.5 flex gap-1 items-center">
+
+                              <div className="col-span-3 flex gap-1 items-center">
                                 <input
                                   type="number"
                                   placeholder="0"
-                                  className={`w-12 bg-white border ${
+                                  className={`w-11 shrink-0 bg-white border ${
                                     validationErrors[reoErrKey] ? "border-rose-400 focus:border-rose-500 focus:ring-rose-500 ring-1 ring-rose-500/20" : "border-zinc-200 focus:border-[#16A34A]"
                                   } rounded-lg py-1 px-1.5 text-[10px] text-zinc-950 focus:outline-none text-center font-bold`}
                                   value={rule.reorderLevel}

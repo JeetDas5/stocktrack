@@ -1,0 +1,860 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useBusinessStore } from "@/store/business-store";
+import { useSaleStore } from "@/store/sale-store";
+import { getLocations } from "@/lib/repositories/location.repository";
+import { getRecipes } from "@/lib/repositories/recipe.repository";
+import { getUserBusinesses } from "@/lib/repositories/business.repository";
+import { Location, Recipe, Sale } from "@/types/inventory";
+import { Business } from "@/types/business";
+import {
+  ShoppingCart,
+  DollarSign,
+  FileText,
+  Trash2,
+  Plus,
+  Scan,
+  CheckCircle2,
+  Loader2,
+  Calendar,
+  User,
+  ArrowRight,
+  TrendingUp
+} from "lucide-react";
+
+export default function SalesEntryPage() {
+  const { activeBusinessId } = useBusinessStore();
+  const { sales, loading: salesLoading, fetchSales, addSale } = useSaleStore();
+
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [locations, setLocations] = useState<Location[]>([]);
+  const [recipes, setRecipes] = useState<Recipe[]>([]);
+  const [businesses, setBusinesses] = useState<Business[]>([]);
+
+  const [saleDate, setSaleDate] = useState(new Date().toISOString().split("T")[0]);
+  const [selectedLocationId, setSelectedLocationId] = useState("");
+  const [customerName, setCustomerName] = useState("Walk-in Customer");
+  const [paymentMethod, setPaymentMethod] = useState("Cash");
+  const [reference, setReference] = useState("");
+  const [remarks, setRemarks] = useState("");
+  const [showScanner, setShowScanner] = useState(false);
+  const [taxRate, setTaxRate] = useState(5);
+
+  const [items, setItems] = useState<
+    {
+      recipeId: string;
+      name: string;
+      recipeCode: string;
+      unit: string;
+      quantity: number;
+      unitPrice: number;
+      discountPercentage: number;
+    }[]
+  >([]);
+
+  async function loadInitialData() {
+    if (!activeBusinessId) return;
+    try {
+      setLoading(true);
+      const [locList, recipeList, busList] = await Promise.all([
+        getLocations(activeBusinessId),
+        getRecipes(activeBusinessId),
+        getUserBusinesses([]),
+      ]);
+
+      const activeLocs = locList.filter((l) => l.isActive !== false);
+      setLocations(activeLocs);
+      setRecipes(recipeList.filter((r: Recipe) => r.isActive !== false));
+      setBusinesses(busList);
+
+      if (activeLocs.length > 0) {
+        setSelectedLocationId(activeLocs[0].id);
+      }
+
+      await fetchSales(activeBusinessId);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    loadInitialData();
+  }, [activeBusinessId]);
+
+  const handleAddItemRow = () => {
+    setItems((prev) => [
+      ...prev,
+      {
+        recipeId: "",
+        name: "",
+        recipeCode: "",
+        unit: "serving",
+        quantity: 1,
+        unitPrice: 0.0,
+        discountPercentage: 0,
+      },
+    ]);
+  };
+
+  const handleItemSelect = (index: number, recipeId: string) => {
+    const selectedRecipe = recipes.find((r) => r.id === recipeId);
+    if (!selectedRecipe) return;
+
+    setItems((prev) => {
+      const updated = [...prev];
+      updated[index] = {
+        ...updated[index],
+        recipeId: selectedRecipe.id,
+        name: selectedRecipe.recipeName,
+        recipeCode: selectedRecipe.recipeCode || "",
+        unit: selectedRecipe.yieldUnit || "serving",
+        unitPrice: selectedRecipe.costPerServing || 0.0,
+      };
+      return updated;
+    });
+  };
+
+  const handleFieldChange = (
+    index: number,
+    field: "quantity" | "discountPercentage" | "unitPrice",
+    val: number
+  ) => {
+    setItems((prev) => {
+      const updated = [...prev];
+      updated[index] = {
+        ...updated[index],
+        [field]: val,
+      };
+      return updated;
+    });
+  };
+
+  const handleRemoveItem = (index: number) => {
+    setItems((prev) => prev.filter((_, idx) => idx !== index));
+  };
+
+  const handlePrepopulateSample = () => {
+    const defaultData = [
+      {
+        recipeId: "sample-1",
+        name: "Suji Halwa",
+        recipeCode: "REC-SH01",
+        unit: "serving",
+        quantity: 2,
+        unitPrice: 3.5,
+        discountPercentage: 0,
+      },
+      {
+        recipeId: "sample-2",
+        name: "Masala Dosa",
+        recipeCode: "REC-MD02",
+        unit: "serving",
+        quantity: 1,
+        unitPrice: 6.5,
+        discountPercentage: 0,
+      },
+      {
+        recipeId: "sample-3",
+        name: "Veg Hakka Noodles",
+        recipeCode: "REC-VN03",
+        unit: "serving",
+        quantity: 2,
+        unitPrice: 4.0,
+        discountPercentage: 0,
+      },
+      {
+        recipeId: "sample-4",
+        name: "Samosa Plate",
+        recipeCode: "REC-SP04",
+        unit: "serving",
+        quantity: 3,
+        unitPrice: 1.5,
+        discountPercentage: 0,
+      },
+      {
+        recipeId: "sample-5",
+        name: "Paneer Tikka",
+        recipeCode: "REC-PT05",
+        unit: "serving",
+        quantity: 1,
+        unitPrice: 8.5,
+        discountPercentage: 0,
+      },
+    ];
+
+    setItems(defaultData);
+  };
+
+  const handleMockBarcodeScan = () => {
+    if (recipes.length === 0) {
+      alert("No active recipes to scan. Please add recipes in Recipe Management first!");
+      return;
+    }
+    const randomIndex = Math.floor(Math.random() * recipes.length);
+    const item = recipes[randomIndex];
+
+    setItems((prev) => {
+      const exists = prev.find((i) => i.recipeId === item.id);
+      if (exists) {
+        return prev.map((i) =>
+          i.recipeId === item.id ? { ...i, quantity: i.quantity + 1 } : i
+        );
+      }
+      return [
+        ...prev,
+        {
+          recipeId: item.id,
+          name: item.recipeName,
+          recipeCode: item.recipeCode || "",
+          unit: item.yieldUnit || "serving",
+          quantity: 1,
+          unitPrice: item.costPerServing || 0.0,
+          discountPercentage: 0,
+        },
+      ];
+    });
+
+    setShowScanner(true);
+    setTimeout(() => {
+      setShowScanner(false);
+    }, 1500);
+  };
+
+  const handleSaveSale = async (status: "draft" | "completed") => {
+    if (!activeBusinessId) return;
+    if (items.length === 0) {
+      alert("Please add at least one item to save the sale.");
+      return;
+    }
+
+    const unselectedItem = items.find((i) => !i.recipeId);
+    if (unselectedItem) {
+      alert("Please select a valid Recipe for all rows.");
+      return;
+    }
+
+    try {
+      setSaving(true);
+      const itemsPayload = items.map((i) => ({
+        recipeId: i.recipeId.startsWith("sample-") ? recipes[0]?.id || i.recipeId : i.recipeId,
+        quantity: i.quantity,
+        unitPrice: i.unitPrice,
+        discountPercentage: i.discountPercentage,
+      }));
+
+      await addSale(activeBusinessId, {
+        saleDate,
+        locationId: selectedLocationId || undefined,
+        customerName,
+        paymentMethod,
+        reference: reference.trim() || undefined,
+        remarks: remarks.trim() || undefined,
+        status,
+        taxRate,
+        items: itemsPayload,
+      });
+
+      alert(`Sale successfully saved as ${status}!`);
+      setItems([]);
+      setReference("");
+      setRemarks("");
+      await loadInitialData();
+    } catch (err: any) {
+      console.error(err);
+      alert(err.response?.data?.detail || "Failed to save the sale.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const totalItems = items.reduce((sum, item) => sum + item.quantity, 0);
+  const subtotal = items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
+  const discountTotal = items.reduce(
+    (sum, item) => sum + (item.quantity * item.unitPrice * item.discountPercentage) / 100,
+    0
+  );
+  const taxableSubtotal = subtotal - discountTotal;
+  const tax = Math.round(taxableSubtotal * (taxRate / 100) * 100) / 100;
+  const totalAmount = taxableSubtotal + tax;
+
+
+  const activeBusiness = businesses.find((b) => b.id === activeBusinessId);
+
+  if (loading) {
+    return (
+      <div className="min-h-[75vh] flex flex-col items-center justify-center bg-white text-[#0F172A]">
+        <Loader2 className="h-8 w-8 text-[#16A34A] animate-spin mb-4" />
+        <p className="text-[#64748B] text-xs font-bold uppercase tracking-wider">
+          Syncing Sales Dashboard...
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative min-h-[85vh] bg-white text-[#0F172A]">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-6 border-b border-zinc-200">
+        <div>
+          <div className="text-[11px] font-extrabold text-[#16A34A] tracking-wider uppercase flex items-center gap-1.5">
+            <span>A12 – Sales Entry</span>
+          </div>
+          <h1 className="text-3xl font-extrabold text-[#0F172A] tracking-tight mt-1">
+            Sales Entry
+          </h1>
+          <p className="text-[#64748B] text-xs font-bold mt-1.5">
+            Create a new sale and update inventory in real-time.
+          </p>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => handleSaveSale("draft")}
+            disabled={saving}
+            className="border border-zinc-200 bg-white hover:bg-zinc-50 text-zinc-700 rounded-xl px-5 py-2.5 text-xs font-extrabold transition-all cursor-pointer shadow-xs flex items-center gap-2 hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50"
+          >
+            {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileText className="h-4 w-4 text-zinc-400" />}
+            Save as Draft
+          </button>
+          <button
+            onClick={() => handleSaveSale("completed")}
+            disabled={saving}
+            className="bg-[#16A34A] hover:bg-[#15803D] text-white rounded-xl px-6 py-2.5 text-xs font-extrabold uppercase tracking-wider shadow-sm flex items-center gap-2 cursor-pointer transition-all duration-200 hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50"
+          >
+            {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+            Complete Sale
+          </button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-6">
+        <div className="bg-white border border-zinc-200/90 rounded-2xl p-4 flex items-center gap-4 shadow-xs">
+          <div className="h-10 w-10 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center shrink-0">
+            <ShoppingCart className="h-5 w-5 text-emerald-600" />
+          </div>
+          <div>
+            <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">
+              Total Items
+            </p>
+            <h3 className="text-xl font-extrabold text-[#0F172A] mt-0.5">
+              {totalItems}
+            </h3>
+            <p className="text-[9px] text-[#64748B] font-bold mt-0.5">
+              Items Selected
+            </p>
+          </div>
+        </div>
+
+        <div className="bg-white border border-zinc-200/90 rounded-2xl p-4 flex items-center gap-4 shadow-xs">
+          <div className="h-10 w-10 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center shrink-0">
+            <DollarSign className="h-5 w-5 text-blue-600" />
+          </div>
+          <div>
+            <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">
+              Subtotal
+            </p>
+            <h3 className="text-xl font-extrabold text-[#0F172A] mt-0.5">
+              ${subtotal.toFixed(2)}
+            </h3>
+            <p className="text-[9px] text-[#64748B] font-bold mt-0.5">
+              Before Tax & Discount
+            </p>
+          </div>
+        </div>
+
+        <div className="bg-white border border-zinc-200/90 rounded-2xl p-4 flex items-center gap-4 shadow-xs">
+          <div className="h-10 w-10 rounded-xl bg-purple-50 border border-purple-100 flex items-center justify-center shrink-0">
+            <FileText className="h-5 w-5 text-purple-600" />
+          </div>
+          <div>
+            <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">
+              Tax ({taxRate}%)
+            </p>
+            <h3 className="text-xl font-extrabold text-[#0F172A] mt-0.5">
+              ${tax.toFixed(2)}
+            </h3>
+            <p className="text-[9px] text-[#64748B] font-bold mt-0.5">
+              {taxRate}% of Net Taxable
+            </p>
+          </div>
+        </div>
+
+
+        <div className="bg-white border border-zinc-200/90 rounded-2xl p-4 flex items-center gap-4 shadow-xs">
+          <div className="h-10 w-10 rounded-xl bg-amber-50 border border-amber-100 flex items-center justify-center shrink-0">
+            <TrendingUp className="h-5 w-5 text-amber-600" />
+          </div>
+          <div>
+            <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">
+              Total Amount
+            </p>
+            <h3 className="text-xl font-extrabold text-[#16A34A] mt-0.5">
+              ${totalAmount.toFixed(2)}
+            </h3>
+            <p className="text-[9px] text-[#64748B] font-bold mt-0.5">
+              Grand Total
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex flex-col lg:flex-row gap-6 mt-6">
+        <div className="flex-1 min-w-0 space-y-6">
+          <div className="bg-white border border-zinc-200 rounded-2xl p-5 shadow-xs space-y-5">
+            <h2 className="text-xs font-extrabold text-[#0F172A] uppercase tracking-wider pb-3 border-b border-zinc-100">
+              Sale Details
+            </h2>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="space-y-1">
+                <label className="text-[10px] font-extrabold text-zinc-400 uppercase tracking-wider block">
+                  Business *
+                </label>
+                <div className="relative">
+                  <select
+                    className="w-full bg-white border border-zinc-200 rounded-xl py-2.5 px-3.5 pr-8 text-xs font-bold text-zinc-700 focus:outline-none focus:border-[#16A34A] appearance-none cursor-pointer"
+                    defaultValue={activeBusinessId || ""}
+                    disabled
+                  >
+                    <option value={activeBusinessId || ""}>{activeBusiness?.name || "Main Kitchen"}</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-extrabold text-zinc-400 uppercase tracking-wider block">
+                  Location *
+                </label>
+                <div className="relative">
+                  <select
+                    className="w-full bg-white border border-zinc-200 rounded-xl py-2.5 px-3.5 pr-8 text-xs font-bold text-zinc-700 focus:outline-none focus:border-[#16A34A] appearance-none cursor-pointer"
+                    value={selectedLocationId}
+                    onChange={(e) => setSelectedLocationId(e.target.value)}
+                  >
+                    {locations.map((loc) => (
+                      <option key={loc.id} value={loc.id}>
+                        {loc.name}
+                      </option>
+                    ))}
+                    {locations.length === 0 && <option value="">Main Kitchen</option>}
+                  </select>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-extrabold text-zinc-400 uppercase tracking-wider block">
+                  Sale Date *
+                </label>
+                <div className="relative">
+                  <input
+                    type="date"
+                    className="w-full bg-white border border-zinc-200 rounded-xl py-2 px-3 text-xs font-bold text-zinc-700 focus:outline-none focus:border-[#16A34A]"
+                    value={saleDate}
+                    onChange={(e) => setSaleDate(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-extrabold text-zinc-400 uppercase tracking-wider block">
+                  Sale No.
+                </label>
+                <input
+                  type="text"
+                  placeholder="SALE-250410-001"
+                  className="w-full bg-zinc-50 border border-zinc-200 rounded-xl py-2 px-3 text-xs font-semibold text-zinc-400 focus:outline-none"
+                  disabled
+                />
+                <span className="text-[9px] text-zinc-400 font-bold block mt-0.5">
+                  Auto-generated
+                </span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="space-y-1">
+                <label className="text-[10px] font-extrabold text-zinc-400 uppercase tracking-wider block">
+                  Customer Name
+                </label>
+                <input
+                  type="text"
+                  className="w-full bg-white border border-zinc-200 rounded-xl py-2.5 px-3.5 text-xs font-bold text-zinc-700 focus:outline-none focus:border-[#16A34A]"
+                  value={customerName}
+                  onChange={(e) => setCustomerName(e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-extrabold text-zinc-400 uppercase tracking-wider block">
+                  Payment Method
+                </label>
+                <select
+                  className="w-full bg-white border border-zinc-200 rounded-xl py-2.5 px-3.5 text-xs font-bold text-zinc-700 focus:outline-none focus:border-[#16A34A] cursor-pointer"
+                  value={paymentMethod}
+                  onChange={(e) => setPaymentMethod(e.target.value)}
+                >
+                  <option value="Cash">Cash</option>
+                  <option value="Card">Card</option>
+                  <option value="UPI">UPI</option>
+                  <option value="On Credit">On Credit</option>
+                </select>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-extrabold text-zinc-400 uppercase tracking-wider block">
+                  Reference (Optional)
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Order No., Note"
+                  className="w-full bg-white border border-zinc-200 rounded-xl py-2.5 px-3.5 text-xs font-bold text-zinc-700 focus:outline-none focus:border-[#16A34A]"
+                  value={reference}
+                  onChange={(e) => setReference(e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-extrabold text-zinc-400 uppercase tracking-wider block">
+                  Tax (%)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.1"
+                  className="w-full bg-white border border-zinc-200 rounded-xl py-2.5 px-3.5 text-xs font-bold text-zinc-700 focus:outline-none focus:border-[#16A34A]"
+                  value={taxRate}
+                  onChange={(e) => setTaxRate(Math.max(0, parseFloat(e.target.value) || 0))}
+                />
+              </div>
+            </div>
+
+          </div>
+
+          <div className="bg-white border border-zinc-200 rounded-2xl p-5 shadow-xs space-y-4">
+            <div className="flex justify-between items-center pb-3 border-b border-zinc-100">
+              <h2 className="text-xs font-extrabold text-[#0F172A] uppercase tracking-wider">
+                Items
+              </h2>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handlePrepopulateSample}
+                  className="border border-dashed border-[#16A34A]/50 bg-white hover:bg-emerald-50/50 text-[#16A34A] rounded-xl px-3 py-1.5 text-[11px] font-extrabold transition-all cursor-pointer shadow-2xs"
+                >
+                  Seed Samples
+                </button>
+                <button
+                  onClick={handleMockBarcodeScan}
+                  className="border border-zinc-200 bg-white hover:bg-zinc-50 text-zinc-700 rounded-xl px-3.5 py-1.5 text-[11px] font-bold shadow-2xs transition-all cursor-pointer flex items-center gap-1.5"
+                >
+                  <Scan className="h-4 w-4 text-zinc-400" />
+                  Scan Barcode
+                </button>
+                <button
+                  onClick={handleAddItemRow}
+                  className="border-2 border-[#16A34A] bg-[#DCFCE7]/20 hover:bg-[#DCFCE7]/40 text-[#16A34A] rounded-xl px-3.5 py-1.5 text-[11px] font-extrabold shadow-2xs transition-all cursor-pointer flex items-center gap-1"
+                >
+                  <Plus className="h-4 w-4 stroke-[3px]" />
+                  Add Item
+                </button>
+              </div>
+            </div>
+
+            <div className="border border-zinc-200 rounded-xl overflow-hidden bg-white">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="border-b border-zinc-200 text-[10px] uppercase font-extrabold tracking-wider text-[#64748B] bg-zinc-50/50">
+                      <th className="py-3 px-4 w-8 text-center">#</th>
+                      <th className="py-3 px-3 min-w-[200px]">Recipe</th>
+                      <th className="py-3 px-2 text-center w-24">Unit</th>
+                      <th className="py-3 px-2 text-center w-24">Quantity</th>
+                      <th className="py-3 px-2 text-right w-28">Unit Price (USD)</th>
+                      <th className="py-3 px-2 text-center w-24">Discount (%)</th>
+                      <th className="py-3 px-2 text-right w-28">Amount (USD)</th>
+                      <th className="py-3 px-4 text-center w-12">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-zinc-200 font-bold text-zinc-700">
+                    {items.length === 0 ? (
+                      <tr>
+                        <td colSpan={8} className="py-12 text-center text-zinc-400 font-semibold">
+                          No items added yet. Click "Add Item" or "Seed Samples" to begin.
+                        </td>
+                      </tr>
+                    ) : (
+                      items.map((item, idx) => {
+                        const rowAmount =
+                          item.quantity * item.unitPrice * (1 - item.discountPercentage / 100);
+
+                        const isSample = item.recipeId.startsWith("sample-");
+
+                        return (
+                          <tr key={`${item.recipeId}-${idx}`} className="hover:bg-zinc-50/30 transition-colors">
+                            <td className="py-3 px-4 text-center text-zinc-400">{idx + 1}</td>
+                            <td className="py-2.5 px-3">
+                              {isSample ? (
+                                <div className="text-zinc-800 leading-tight">
+                                  <p className="font-extrabold">{item.name}</p>
+                                  <p className="text-[10px] text-zinc-400 font-medium uppercase mt-0.5">{item.recipeCode}</p>
+                                </div>
+                              ) : (
+                                <select
+                                  className="w-full bg-white border border-zinc-200 rounded-lg p-1.5 font-semibold text-zinc-700 focus:outline-none focus:border-[#16A34A]"
+                                  value={item.recipeId}
+                                  onChange={(e) => handleItemSelect(idx, e.target.value)}
+                                >
+                                  <option value="">Select Recipe</option>
+                                  {recipes.map((rc) => (
+                                    <option key={rc.id} value={rc.id}>
+                                      {rc.recipeName} {rc.recipeCode ? `(${rc.recipeCode})` : ""}
+                                    </option>
+                                  ))}
+                                </select>
+                              )}
+                            </td>
+                            <td className="py-2.5 px-2 text-center">
+                              <span className="bg-zinc-100 text-zinc-600 px-2.5 py-1 rounded-md text-[10px] uppercase font-extrabold tracking-wider border border-zinc-200/50">
+                                {item.unit}
+                              </span>
+                            </td>
+                            <td className="py-2.5 px-2 text-center">
+                              <input
+                                type="number"
+                                min="1"
+                                className="w-16 bg-white border border-zinc-200 rounded-lg p-1.5 text-center font-bold text-zinc-700 focus:outline-none focus:border-[#16A34A]"
+                                value={item.quantity === 0 ? "" : item.quantity}
+                                onChange={(e) =>
+                                  handleFieldChange(
+                                    idx,
+                                    "quantity",
+                                    Math.max(1, parseFloat(e.target.value) || 0)
+                                  )
+                                }
+                              />
+                            </td>
+                            <td className="py-2.5 px-2 text-right text-zinc-600">
+                              {isSample ? (
+                                <span>${item.unitPrice.toFixed(2)}</span>
+                              ) : (
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  className="w-20 bg-white border border-zinc-200 rounded-lg p-1.5 text-right font-bold text-zinc-700 focus:outline-none focus:border-[#16A34A]"
+                                  value={item.unitPrice === 0 ? "" : item.unitPrice}
+                                  onChange={(e) =>
+                                    handleFieldChange(
+                                      idx,
+                                      "unitPrice",
+                                      Math.max(0, parseFloat(e.target.value) || 0)
+                                    )
+                                  }
+                                />
+                              )}
+                            </td>
+                            <td className="py-2.5 px-2 text-center">
+                              <input
+                                type="number"
+                                min="0"
+                                max="100"
+                                className="w-16 bg-white border border-zinc-200 rounded-lg p-1.5 text-center font-bold text-zinc-700 focus:outline-none focus:border-[#16A34A]"
+                                value={item.discountPercentage}
+                                onChange={(e) =>
+                                  handleFieldChange(
+                                    idx,
+                                    "discountPercentage",
+                                    Math.min(100, Math.max(0, parseFloat(e.target.value) || 0))
+                                  )
+                                }
+                              />
+                            </td>
+                            <td className="py-2.5 px-2 text-right text-[#0F172A] font-extrabold">
+                              ${rowAmount.toFixed(2)}
+                            </td>
+                            <td className="py-2.5 px-4 text-center">
+                              <button
+                                onClick={() => handleRemoveItem(idx)}
+                                className="text-zinc-400 hover:text-red-600 p-1 rounded-lg hover:bg-red-50 transition-all cursor-pointer"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white border border-zinc-200 rounded-2xl p-5 shadow-xs space-y-3">
+            <label className="text-xs font-extrabold text-[#0F172A] uppercase tracking-wider block pb-2 border-b border-zinc-100">
+              Remarks (Optional)
+            </label>
+            <div className="relative">
+              <textarea
+                placeholder="Enter any additional notes..."
+                maxLength={250}
+                rows={3}
+                className="w-full bg-white border border-zinc-200 rounded-xl py-3 px-4 text-xs font-semibold text-zinc-800 placeholder-zinc-400 focus:outline-none focus:border-[#16A34A] resize-none"
+                value={remarks}
+                onChange={(e) => setRemarks(e.target.value)}
+              />
+              <span className="absolute bottom-3 right-3 text-[10px] font-bold text-zinc-400">
+                {remarks.length} / 250
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div className="w-full lg:w-[360px] xl:w-[400px] shrink-0 space-y-6">
+          <div className="bg-white border border-zinc-200 rounded-2xl p-5 shadow-xs space-y-4">
+            <div className="flex justify-between items-center pb-2 border-b border-zinc-100">
+              <h3 className="text-xs font-extrabold text-[#0F172A] uppercase tracking-wider">
+                Customer Info
+              </h3>
+              <button
+                onClick={() => {
+                  const newName = prompt("Enter Customer Name:", customerName);
+                  if (newName) setCustomerName(newName);
+                }}
+                className="text-[10px] font-extrabold text-[#16A34A] uppercase tracking-widest hover:underline cursor-pointer"
+              >
+                Edit
+              </button>
+
+            </div>
+
+            <div className="flex items-center gap-3.5 bg-zinc-50 border border-zinc-200 rounded-xl p-3.5 shadow-2xs">
+              <div className="h-10 w-10 rounded-full bg-emerald-50 border border-emerald-100 flex items-center justify-center shrink-0">
+                <User className="h-5 w-5 text-emerald-600" />
+              </div>
+              <div className="leading-tight">
+                <h4 className="text-xs font-extrabold text-[#0F172A]">{customerName}</h4>
+                <p className="text-[10px] text-zinc-400 font-bold mt-1 uppercase tracking-wider">
+                  {customerName === "Walk-in Customer" ? "Walk-in" : "Regular customer"}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white border border-zinc-200 rounded-2xl p-5 shadow-xs space-y-4">
+            <h3 className="text-xs font-extrabold text-[#0F172A] uppercase tracking-wider pb-2 border-b border-zinc-100">
+              Summary
+            </h3>
+
+            <div className="space-y-3.5 text-xs font-bold text-zinc-500">
+              <div className="flex justify-between">
+                <span>Subtotal</span>
+                <span className="text-[#0F172A]">${subtotal.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Tax ({taxRate}%)</span>
+                <span className="text-[#0F172A]">${tax.toFixed(2)}</span>
+              </div>
+
+              <div className="flex justify-between">
+                <span>Discount</span>
+                <span className="text-red-500">-${discountTotal.toFixed(2)}</span>
+              </div>
+
+              <div className="border-t border-zinc-200/80 pt-3.5 flex justify-between items-baseline">
+                <span className="text-sm font-extrabold text-[#0F172A]">Total Amount</span>
+                <span className="text-2xl font-extrabold text-[#16A34A]">
+                  ${totalAmount.toFixed(2)}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-[#DCFCE7]/25 border border-[#16A34A]/25 rounded-2xl p-4.5 flex items-start gap-3.5 shadow-2xs">
+            <div className="h-9 w-9 rounded-lg bg-emerald-50 border border-emerald-200 flex items-center justify-center shrink-0 mt-0.5">
+              <CheckCircle2 className="h-5 w-5 text-[#16A34A]" />
+            </div>
+            <div className="leading-tight">
+              <h4 className="text-xs font-extrabold text-[#16A34A]">Stock will be deducted from inventory</h4>
+              <p className="text-[10px] text-zinc-500 font-bold mt-1.5 leading-normal">
+                {totalItems} {totalItems === 1 ? "item" : "items"} will be updated across 1 location.
+              </p>
+            </div>
+          </div>
+
+          <div className="bg-white border border-zinc-200 rounded-2xl p-5 shadow-xs space-y-4">
+            <div className="flex justify-between items-center pb-2 border-b border-zinc-100">
+              <h3 className="text-xs font-extrabold text-[#0F172A] uppercase tracking-wider">
+                Recent Sales
+              </h3>
+              <button className="text-[10px] font-extrabold text-[#16A34A] uppercase tracking-widest hover:underline cursor-pointer flex items-center gap-0.5">
+                View All
+                <ArrowRight className="h-3 w-3 stroke-[2.5px]" />
+              </button>
+            </div>
+
+            <div className="divide-y divide-zinc-100 max-h-[300px] overflow-y-auto pr-1">
+              {salesLoading && sales.length === 0 ? (
+                <div className="py-8 text-center text-zinc-400 font-semibold text-xs">
+                  Loading recent sales...
+                </div>
+              ) : sales.length === 0 ? (
+                <div className="py-8 text-center text-zinc-400 font-semibold text-xs">
+                  No completed sales yet.
+                </div>
+              ) : (
+                sales.slice(0, 5).map((sale) => {
+                  const saleDateFormatted = new Date(sale.saleDate).toLocaleDateString("en-GB", {
+                    day: "2-digit",
+                    month: "short",
+                    year: "numeric",
+                  });
+
+                  return (
+                    <div key={sale.id} className="py-3 flex justify-between items-center hover:bg-zinc-50/50 rounded-lg px-1 transition-colors">
+                      <div className="leading-tight">
+                        <p className="text-xs font-extrabold text-[#0F172A]">{sale.saleNumber}</p>
+                        <p className="text-[10px] text-zinc-400 font-bold mt-1.5 flex items-center gap-1">
+                          <Calendar className="h-3.5 w-3.5 text-zinc-300" />
+                          {saleDateFormatted}
+                        </p>
+                      </div>
+                      <div className="text-right leading-tight">
+                        <p className="text-xs font-extrabold text-zinc-800">${sale.totalAmount.toFixed(2)}</p>
+                        <p className={`text-[9px] font-bold mt-1 uppercase tracking-wider inline-flex items-center gap-1 ${
+                          sale.status === "completed" ? "text-[#16A34A]" : "text-amber-600"
+                        }`}>
+                          <span className="h-1 w-1 rounded-full bg-current" />
+                          {sale.status}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {showScanner && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center z-50 animate-fade-in">
+          <div className="bg-white border border-zinc-200 rounded-2xl p-6 shadow-2xl max-w-sm w-full mx-4 text-center space-y-4">
+            <div className="h-14 w-14 rounded-full bg-emerald-50 border border-emerald-100 flex items-center justify-center mx-auto text-emerald-600 animate-pulse">
+              <Scan className="h-7 w-7" />
+            </div>
+            <h3 className="text-sm font-extrabold text-[#0F172A]">Scanning Barcode...</h3>
+            <p className="text-zinc-500 text-xs font-bold leading-relaxed">
+              Locating stock packaging bar code. Please align the code inside the frame.
+            </p>
+            <div className="h-1 bg-zinc-100 rounded-full overflow-hidden w-full relative">
+              <div className="absolute inset-y-0 left-0 bg-[#16A34A] rounded-full animate-[progress_1.5s_ease-in-out_infinite] w-1/3" />
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
