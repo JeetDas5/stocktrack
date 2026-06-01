@@ -32,6 +32,7 @@ import {
   GripVertical,
   Settings,
   ChevronsLeft,
+  Check,
 } from "lucide-react";
 
 interface SidebarLink {
@@ -53,6 +54,7 @@ export default function DashboardLayout({
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [activeBusiness, setActiveBusinessDoc] = useState<Business | null>(null);
   const [showBusinessDropdown, setShowBusinessDropdown] = useState(false);
+  const [showHeaderBusinessDropdown, setShowHeaderBusinessDropdown] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -414,7 +416,7 @@ export default function DashboardLayout({
 
       <div className="flex-1 flex flex-col min-w-0 relative bg-white">
         <header className="sticky top-0 z-15 bg-white border-b border-zinc-200 px-6 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-4">
             <button
               onClick={() => setMobileSidebarOpen(true)}
               className="lg:hidden p-1.5 rounded-lg bg-zinc-100 text-zinc-600 hover:text-[#0F172A] border border-zinc-200 transition-colors cursor-pointer"
@@ -423,6 +425,59 @@ export default function DashboardLayout({
             </button>
             <div className="text-xs font-extrabold text-[#0F172A]">
               <span className="text-[#0F172A]">{breadcrumb.title}</span>
+            </div>
+
+            <div className="h-4 w-px bg-zinc-200 hidden sm:block" />
+
+            <div className="relative">
+              <button
+                onClick={() => setShowHeaderBusinessDropdown(!showHeaderBusinessDropdown)}
+                className="flex items-center gap-2 px-3 py-1.5 bg-zinc-100 hover:bg-zinc-200/70 border border-zinc-200 rounded-xl text-xs font-extrabold text-[#0F172A] transition duration-200 cursor-pointer shadow-2xs"
+              >
+                <Building2 className="h-3.5 w-3.5 text-[#16A34A]" />
+                <span>{activeBusiness?.name || "Select Business"}</span>
+                <ChevronDown className="h-3.5 w-3.5 text-zinc-400" />
+              </button>
+
+              {showHeaderBusinessDropdown && (
+                <div className="absolute left-0 mt-1.5 w-52 bg-white border border-zinc-200 rounded-xl shadow-xl overflow-hidden z-30 animate-fade-in">
+                  <div className="max-h-56 overflow-y-auto py-1">
+                    {businesses.map((b) => {
+                      const isSelected = b.id === activeBusinessId;
+                      return (
+                        <button
+                          key={b.id}
+                          onClick={() => {
+                            handleBusinessChange(b.id);
+                            setShowHeaderBusinessDropdown(false);
+                          }}
+                          className={`w-full flex items-center justify-between px-4 py-2.5 text-xs font-bold transition-colors truncate cursor-pointer ${
+                            isSelected
+                              ? "bg-[#DCFCE7] text-[#16A34A]"
+                              : "text-zinc-700 hover:bg-zinc-100 hover:text-[#0F172A]"
+                          }`}
+                        >
+                          <span>{b.name}</span>
+                          {isSelected && <Check className="h-3.5 w-3.5 text-[#16A34A]" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <div className="border-t border-zinc-200 p-1.5 bg-zinc-50">
+                    <a
+                      href="/business"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        router.push("/business");
+                        setShowHeaderBusinessDropdown(false);
+                      }}
+                      className="w-full text-center py-2 text-[10px] uppercase font-bold tracking-wider text-[#16A34A] hover:text-[#16A34A] block hover:bg-[#DCFCE7] rounded-lg transition-colors cursor-pointer"
+                    >
+                      Manage Switcher
+                    </a>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 

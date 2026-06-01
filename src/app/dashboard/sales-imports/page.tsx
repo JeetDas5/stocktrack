@@ -324,10 +324,7 @@ export default function SalesImportsPage() {
     <div className="w-full space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <span className="text-[10px] font-extrabold tracking-widest text-[#16A34A] uppercase bg-[#DCFCE7] px-2.5 py-1 rounded-md border border-[#16A34A]/10">
-            A13 — Sales Imports
-          </span>
-          <h1 className="text-2xl font-extrabold tracking-tight mt-2 text-[#0F172A]">
+          <h1 className="text-2xl font-extrabold tracking-tight text-[#0F172A]">
             Sales Imports
           </h1>
           <p className="text-xs text-[#64748B] mt-1">
