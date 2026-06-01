@@ -46,7 +46,6 @@ class LocationRuleOut(SQLModel):
     current_stock: float = 0.0
 
 
-
 class StockItemOut(SQLModel):
     id: str
     name: str
@@ -83,7 +82,15 @@ class StockItemCreate(SQLModel):
     counting_options: Optional[List[CountingOptionCreate]] = None
 
 
-@router.post("/api/businesses/{business_id}/stock-items", response_model=StockItemOut)
+@router.post("/api/businesses/{business_id}/stock-items", response_model=StockItemOut,
+             summary="Create business stock item",
+             description="Creates a new stock item profile within a specific business, optionally attaching supplier, category, location rules, and counting configurations.",
+             responses={
+                 201: {"description": "Stock item successfully created."},
+                 401: {"description": "Missing or invalid authorization credentials."},
+                 404: {"description": "Business profile not found in database."},
+             }
+             )
 def create_business_stock_item(
     business_id: str,
     data: StockItemCreate,
@@ -107,7 +114,8 @@ def create_business_stock_item(
             raise HTTPException(
                 status_code=400, detail="Invalid supplier ID for this business")
 
-    total_stock = sum(float(r.get("current_stock", 0.0)) for r in data.location_rules) if data.location_rules else 0.0
+    total_stock = sum(float(r.get("current_stock", 0.0))
+                      for r in data.location_rules) if data.location_rules else 0.0
     stock_item = StockItem(
         name=data.name,
         sku=data.sku,
@@ -123,7 +131,6 @@ def create_business_stock_item(
     session.add(stock_item)
     session.commit()
     session.refresh(stock_item)
-
 
     location_rules_out = []
     if data.location_rules:
@@ -191,7 +198,6 @@ def create_business_stock_item(
                 current_stock=sil.current_stock
             ))
 
-
     counting_options_out = []
     if data.counting_options:
         for co in data.counting_options:
@@ -246,7 +252,15 @@ def create_business_stock_item(
     )
 
 
-@router.get("/api/businesses/{business_id}/stock-items", response_model=List[StockItemOut])
+@router.get("/api/businesses/{business_id}/stock-items", response_model=List[StockItemOut],
+            summary="List business stock items",
+            description="Retrieves all stock items owned by a specific business, including location rules and counting options.",
+            responses={
+                200: {"description": "List of stock items successfully retrieved."},
+                401: {"description": "Missing or invalid authorization credentials."},
+                404: {"description": "Business profile not found in database."},
+}
+)
 def get_business_stock_items(
     business_id: str,
     current_user: User = Depends(get_current_user),
@@ -282,7 +296,6 @@ def get_business_stock_items(
                 reorder_level_unit=r.reorder_level_unit,
                 current_stock=r.current_stock
             ))
-
 
         opts = session.exec(select(CountingOption).where(
             CountingOption.item_id == item.id)).all()
@@ -324,7 +337,15 @@ def get_business_stock_items(
     return out
 
 
-@router.put("/api/businesses/{business_id}/stock-items/{item_id}", response_model=StockItemOut)
+@router.put("/api/businesses/{business_id}/stock-items/{item_id}", response_model=StockItemOut,
+            summary="Update business stock item",
+            description="Updates stock item profile details within a business, adjusting associated location rules and counting options as needed.",
+            responses={
+                200: {"description": "Stock item successfully updated."},
+                401: {"description": "Missing or invalid authorization credentials."},
+                404: {"description": "Stock item or business not found in database."},
+            }
+            )
 def update_business_stock_item(
     business_id: str,
     item_id: str,
@@ -353,7 +374,8 @@ def update_business_stock_item(
             raise HTTPException(
                 status_code=400, detail="Invalid supplier ID for this business")
 
-    total_stock = sum(float(r.get("current_stock", 0.0)) for r in data.location_rules) if data.location_rules else 0.0
+    total_stock = sum(float(r.get("current_stock", 0.0))
+                      for r in data.location_rules) if data.location_rules else 0.0
     stock_item.name = data.name
     stock_item.sku = data.sku
     stock_item.image_url = data.image_url
@@ -363,7 +385,6 @@ def update_business_stock_item(
     stock_item.is_active = data.is_active
     stock_item.category_id = data.category_id
     stock_item.supplier_id = data.supplier_id
-
 
     session.add(stock_item)
     session.commit()
@@ -440,7 +461,6 @@ def update_business_stock_item(
                 reorder_level_unit=sil.reorder_level_unit,
                 current_stock=sil.current_stock
             ))
-
 
     existing_options = session.exec(select(CountingOption).where(
         CountingOption.item_id == item_id)).all()

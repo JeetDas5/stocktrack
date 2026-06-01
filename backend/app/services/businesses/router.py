@@ -1,6 +1,6 @@
 from typing import List
 from datetime import datetime
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import Session, select, SQLModel
 
 from app.database import get_session
@@ -24,12 +24,27 @@ class BusinessOut(SQLModel):
     items_count: int = 0
 
 
-@router.post("/api/businesses", response_model=Business)
+@router.post(
+    "/api/businesses",
+    response_model=Business,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create a new business",
+    description="Registers a new business profile owned by the authenticated user.",
+    responses={
+        201: {"description": "Business profile successfully created."},
+        401: {"description": "Missing or invalid authorization credentials."},
+    }
+)
 def create_business(
     data: BusinessCreate,
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
+    """
+    **Create a Business**
+
+    - **name**: Desired name of the business brand or company.
+    """
     business = Business(name=data.name, created_by_id=current_user.id)
     session.add(business)
     session.commit()
@@ -37,11 +52,23 @@ def create_business(
     return business
 
 
-@router.get("/api/businesses", response_model=List[BusinessOut])
+@router.get(
+    "/api/businesses",
+    response_model=List[BusinessOut],
+    summary="List all businesses",
+    description="Retrieves a list of all businesses owned/created by the currently authenticated user.",
+    responses={
+        200: {"description": "List of owned businesses successfully retrieved."},
+        401: {"description": "Missing or invalid authorization credentials."},
+    }
+)
 def get_businesses(
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
+    """
+    **List Owned Businesses**
+    """
     statement = select(Business).where(
         Business.created_by_id == current_user.id)
     businesses = session.exec(statement).all()
@@ -60,13 +87,32 @@ def get_businesses(
     return out
 
 
-@router.get("/api/businesses/{business_id}", response_model=Business)
+@router.get(
+    "/api/businesses/{business_id}",
+    response_model=Business,
+    summary="Get business details",
+    description="Retrieves structural details for a specific business profile by ID.",
+    responses={
+        200: {"description": "Business details successfully retrieved."},
+        401: {"description": "Missing or invalid authorization credentials."},
+        404: {"description": "Business profile not found in database."},
+    }
+)
 def get_business(
     business_id: str,
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
+    """
+    **Get Business by ID**
+
+    - **business_id**: Unique identifier of the requested business.
+    """
     business = session.get(Business, business_id)
     if not business:
-        raise HTTPException(status_code=404, detail="Business not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Business not found"
+        )
     return business
+

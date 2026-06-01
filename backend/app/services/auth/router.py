@@ -20,8 +20,31 @@ class UserLogin(SQLModel):
     password: str
 
 
-@router.post("/api/auth/register")
+class AuthResponse(SQLModel):
+    access_token: str
+    token_type: str = "bearer"
+    user: User
+
+
+@router.post(
+    "/api/auth/register",
+    response_model=AuthResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Register a new user profile",
+    description="Creates a new user profile with a hashed password in the system and returns a newly minted JWT access token.",
+    responses={
+        201: {"description": "User successfully registered and authenticated."},
+        400: {"description": "Email address already registered with another account."},
+    }
+)
 def register_user(user_data: UserRegister, session: Session = Depends(get_session)):
+    """
+    **Register a New User**
+
+    - **email**: Valid email address to be used as username.
+    - **password**: Secure raw password (will be automatically hashed before persistence).
+    - **name**: Optional full name of the user.
+    """
     statement = select(User).where(User.email == user_data.email)
     existing = session.exec(statement).first()
     if existing:
@@ -48,8 +71,23 @@ def register_user(user_data: UserRegister, session: Session = Depends(get_sessio
     }
 
 
-@router.post("/api/auth/login")
+@router.post(
+    "/api/auth/login",
+    response_model=AuthResponse,
+    summary="Authenticate a user",
+    description="Verifies the provided email and password credentials, and issues a JWT access token for subsequent authorized API calls.",
+    responses={
+        200: {"description": "User successfully authenticated and token issued."},
+        401: {"description": "Invalid email or password credentials provided."},
+    }
+)
 def login_user(credentials: UserLogin, session: Session = Depends(get_session)):
+    """
+    **User Login**
+
+    - **email**: User's registered email address.
+    - **password**: Secure plain text password.
+    """
     statement = select(User).where(User.email == credentials.email)
     user = session.exec(statement).first()
     if not user or not verify_password(credentials.password, user.hashed_password):
@@ -64,3 +102,4 @@ def login_user(credentials: UserLogin, session: Session = Depends(get_session)):
         "token_type": "bearer",
         "user": user
     }
+
