@@ -17,10 +17,7 @@ import {
   Edit2,
   ChevronLeft,
   ChevronRight,
-  Truck,
-  Layers,
   Info,
-  MoreVertical,
 } from "lucide-react";
 import {
   createStockItem,

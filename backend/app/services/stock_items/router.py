@@ -337,6 +337,99 @@ def get_business_stock_items(
     return out
 
 
+@router.get("/api/businesses/{business_id}/locations/{location_id}/stock-items", response_model=List[StockItemOut],
+            summary="List business stock items for a specific location",
+            description="Retrieves all stock items owned by a specific business that are associated with the given location, including the location-specific rule and counting options.",
+            responses={
+                200: {"description": "List of stock items successfully retrieved."},
+                401: {"description": "Missing or invalid authorization credentials."},
+                403: {"description": "Not authorized to access this business."},
+                404: {"description": "Business or location not found."},
+            }
+)
+def get_location_stock_items(
+    business_id: str,
+    location_id: str,
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session)
+):
+    business = session.get(Business, business_id)
+    if not business or business.created_by_id != current_user.id:
+        raise HTTPException(
+            status_code=403, detail="Not authorized to access this business")
+
+    location = session.get(Location, location_id)
+    if not location or location.business_id != business_id:
+        raise HTTPException(status_code=404, detail="Location not found")
+
+    sil_records = session.exec(select(StockItemLocation).where(
+        StockItemLocation.location_id == location_id)).all()
+
+    out = []
+    for sil in sil_records:
+        item = session.get(StockItem, sil.stock_item_id)
+        if not item or item.business_id != business_id:
+            continue
+
+        category_name = item.category.name if item.category else None
+        supplier_name = item.supplier.name if item.supplier else None
+
+        location_rules_out = [
+            LocationRuleOut(
+                id=sil.id,
+                stock_item_id=sil.stock_item_id,
+                location_id=sil.location_id,
+                location_name=location.name,
+                storage_capacity=sil.storage_capacity,
+                storage_capacity_unit=sil.storage_capacity_unit,
+                reorder_level=sil.reorder_level,
+                reorder_level_unit=sil.reorder_level_unit,
+                current_stock=sil.current_stock
+            )
+        ]
+
+        opts = session.exec(select(CountingOption).where(
+            CountingOption.item_id == item.id)).all()
+        counting_options_out = []
+        for o in opts:
+            counting_options_out.append(CountingOptionOut(
+                id=o.id,
+                item_id=o.item_id,
+                business_id=o.business_id,
+                level_name=o.level_name,
+                display_name=o.display_name,
+                conversion_to_base_qty=o.conversion_to_base_qty,
+                base_unit=o.base_unit,
+                sort_order=o.sort_order,
+                show_on_mobile=o.show_on_mobile
+            ))
+
+        out.append(StockItemOut(
+            id=item.id,
+            name=item.name,
+            sku=item.sku,
+            image_url=item.image_url,
+            description=item.description,
+            base_unit=item.base_unit,
+            cost_per_base_unit=item.cost_per_base_unit,
+            current_stock=sil.current_stock,
+            is_active=item.is_active,
+            created_at=item.created_at,
+            business_id=item.business_id,
+            category_id=item.category_id,
+            category_name=category_name,
+            supplier_id=item.supplier_id,
+            supplier_name=supplier_name,
+            locations_count=1,
+            location_rules=location_rules_out,
+            counting_options=counting_options_out
+        ))
+    return out
+
+
+
+
+
 @router.put("/api/businesses/{business_id}/stock-items/{item_id}", response_model=StockItemOut,
             summary="Update business stock item",
             description="Updates stock item profile details within a business, adjusting associated location rules and counting options as needed.",
