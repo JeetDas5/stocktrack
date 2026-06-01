@@ -351,6 +351,24 @@ class SaleItem(SQLModel, table=True):
     recipe: Recipe = Relationship()
 
 
+class SalesImport(SQLModel, table=True):
+    __tablename__ = "sales_imports"
+
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
+    business_id: str = Field(foreign_key="businesses.id", ondelete="CASCADE")
+    filename: str
+    file_size: str
+    row_count: int
+    mapped_count: int
+    unmapped_count: int
+    duplicates_count: int = Field(default=0)
+    status: str = Field(default="Ready")
+    date_range: str
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_by_id: Optional[str] = Field(default=None, foreign_key="users.id", ondelete="SET NULL")
+
+
+
 
 
 
