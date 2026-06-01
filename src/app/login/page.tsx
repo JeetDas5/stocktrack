@@ -29,7 +29,7 @@ export default function LoginPage() {
       setError(null);
       await loginAdmin(email, password);
       await refreshProfile();
-      router.push("/business");
+      router.push("/dashboard/business");
     } catch (err: any) {
       console.error(err);
       setError("Invalid email or password. Please try again.");

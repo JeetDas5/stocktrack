@@ -76,7 +76,7 @@ export default function DashboardLayout({
     }
 
     if (!currentId && !authLoading) {
-      router.push("/business");
+      router.push("/dashboard/business");
       return;
     }
 
@@ -106,7 +106,6 @@ export default function DashboardLayout({
     setActiveBusiness(id);
     localStorage.setItem("stocktrack_active_business_id", id);
     setShowBusinessDropdown(false);
-    router.push("/dashboard");
   };
 
   const handleLogout = async () => {
@@ -116,6 +115,8 @@ export default function DashboardLayout({
 
   const getHeaderBreadcrumb = (path: string) => {
     switch (path) {
+      case "/dashboard/business":
+        return { title: "Businesses" };
       case "/dashboard/locations":
         return { title: "Locations" };
       case "/dashboard/stock-items":
@@ -157,7 +158,7 @@ export default function DashboardLayout({
 
   const overviewLinks: SidebarLink[] = [
     { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-    { name: "Businesses", href: "/business", icon: Building2 },
+    { name: "Businesses", href: "/dashboard/business", icon: Building2 },
   ];
 
   const masterDataLinks: SidebarLink[] = [
@@ -465,10 +466,10 @@ export default function DashboardLayout({
                   </div>
                   <div className="border-t border-zinc-200 p-1.5 bg-zinc-50">
                     <a
-                      href="/business"
+                      href="/dashboard/business"
                       onClick={(e) => {
                         e.preventDefault();
-                        router.push("/business");
+                        router.push("/dashboard/business");
                         setShowHeaderBusinessDropdown(false);
                       }}
                       className="w-full text-center py-2 text-[10px] uppercase font-bold tracking-wider text-[#16A34A] hover:text-[#16A34A] block hover:bg-[#DCFCE7] rounded-lg transition-colors cursor-pointer"
@@ -525,10 +526,10 @@ export default function DashboardLayout({
                   </div>
                   <div className="border-t border-zinc-200 p-1.5 bg-zinc-50">
                     <a
-                      href="/business"
+                      href="/dashboard/business"
                       onClick={(e) => {
                         e.preventDefault();
-                        router.push("/business");
+                        router.push("/dashboard/business");
                         setShowBusinessDropdown(false);
                       }}
                       className="w-full text-center py-2 text-[10px] uppercase font-bold tracking-wider text-[#16A34A] hover:text-[#16A34A] block hover:bg-[#DCFCE7] rounded-lg transition-colors cursor-pointer"

@@ -43,7 +43,7 @@ export default function SignupPage() {
       setLoading(true);
       await registerAdmin(email, password, fullName.trim());
       await refreshProfile();
-      router.push("/business");
+      router.push("/dashboard/business");
     } catch (err: any) {
       console.error(err);
       if (err.code === "auth/email-already-in-use") {

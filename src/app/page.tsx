@@ -19,7 +19,6 @@ export default function RootPage() {
       return;
     }
 
-    // Try to load active business from local storage if state is empty
     let currentBusId = activeBusinessId;
     if (!currentBusId && typeof window !== "undefined") {
       const persisted = localStorage.getItem("stocktrack_active_business_id");
@@ -32,7 +31,7 @@ export default function RootPage() {
     if (currentBusId) {
       router.push("/dashboard");
     } else {
-      router.push("/business");
+      router.push("/dashboard/business");
     }
   }, [user, loading, activeBusinessId, router, setActiveBusiness]);
 
