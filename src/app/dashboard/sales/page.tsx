@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useBusinessStore } from "@/store/business-store";
+import { useLocationStore } from "@/store/location-store";
 import { useSaleStore } from "@/store/sale-store";
 import { getLocations } from "@/lib/repositories/location.repository";
 import { getRecipes } from "@/lib/repositories/recipe.repository";
@@ -14,7 +15,6 @@ import {
   FileText,
   Trash2,
   Plus,
-  Scan,
   CheckCircle2,
   Loader2,
   Calendar,
@@ -24,11 +24,19 @@ import {
   X,
   Search,
   Receipt,
+  Eye,
 } from "lucide-react";
 
 export default function SalesEntryPage() {
   const { activeBusinessId } = useBusinessStore();
-  const { sales, loading: salesLoading, fetchSales, addSale } = useSaleStore();
+  const { activeLocationId } = useLocationStore();
+  const {
+    sales,
+    loading: salesLoading,
+    fetchSales,
+    addSale,
+    updateSaleStatus,
+  } = useSaleStore();
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -44,9 +52,9 @@ export default function SalesEntryPage() {
   const [paymentMethod, setPaymentMethod] = useState("Cash");
   const [reference, setReference] = useState("");
   const [remarks, setRemarks] = useState("");
-  const [showScanner, setShowScanner] = useState(false);
-  const [taxRate, setTaxRate] = useState(5);
+  const [taxRate, setTaxRate] = useState(10);
   const [showAllSales, setShowAllSales] = useState(false);
+  const [viewingSale, setViewingSale] = useState<any | null>(null);
   const [salesSearch, setSalesSearch] = useState("");
   const [salesStatusFilter, setSalesStatusFilter] = useState<
     "all" | "completed" | "draft"
@@ -79,7 +87,12 @@ export default function SalesEntryPage() {
       setRecipes(recipeList.filter((r: Recipe) => r.isActive !== false));
       setBusinesses(busList);
 
-      if (activeLocs.length > 0) {
+      if (
+        activeLocationId &&
+        activeLocs.some((l) => l.id === activeLocationId)
+      ) {
+        setSelectedLocationId(activeLocationId);
+      } else if (activeLocs.length > 0) {
         setSelectedLocationId(activeLocs[0].id);
       }
 
@@ -94,6 +107,12 @@ export default function SalesEntryPage() {
   useEffect(() => {
     loadInitialData();
   }, [activeBusinessId]);
+
+  useEffect(() => {
+    if (activeLocationId && locations.some((l) => l.id === activeLocationId)) {
+      setSelectedLocationId(activeLocationId);
+    }
+  }, [activeLocationId, locations]);
 
   const handleAddItemRow = () => {
     setItems((prev) => [
@@ -147,95 +166,6 @@ export default function SalesEntryPage() {
     setItems((prev) => prev.filter((_, idx) => idx !== index));
   };
 
-  const handlePrepopulateSample = () => {
-    const defaultData = [
-      {
-        recipeId: "sample-1",
-        name: "Suji Halwa",
-        recipeCode: "REC-SH01",
-        unit: "serving",
-        quantity: 2,
-        unitPrice: 3.5,
-        discountPercentage: 0,
-      },
-      {
-        recipeId: "sample-2",
-        name: "Masala Dosa",
-        recipeCode: "REC-MD02",
-        unit: "serving",
-        quantity: 1,
-        unitPrice: 6.5,
-        discountPercentage: 0,
-      },
-      {
-        recipeId: "sample-3",
-        name: "Veg Hakka Noodles",
-        recipeCode: "REC-VN03",
-        unit: "serving",
-        quantity: 2,
-        unitPrice: 4.0,
-        discountPercentage: 0,
-      },
-      {
-        recipeId: "sample-4",
-        name: "Samosa Plate",
-        recipeCode: "REC-SP04",
-        unit: "serving",
-        quantity: 3,
-        unitPrice: 1.5,
-        discountPercentage: 0,
-      },
-      {
-        recipeId: "sample-5",
-        name: "Paneer Tikka",
-        recipeCode: "REC-PT05",
-        unit: "serving",
-        quantity: 1,
-        unitPrice: 8.5,
-        discountPercentage: 0,
-      },
-    ];
-
-    setItems(defaultData);
-  };
-
-  const handleMockBarcodeScan = () => {
-    if (recipes.length === 0) {
-      alert(
-        "No active recipes to scan. Please add recipes in Recipe Management first!",
-      );
-      return;
-    }
-    const randomIndex = Math.floor(Math.random() * recipes.length);
-    const item = recipes[randomIndex];
-
-    setItems((prev) => {
-      const exists = prev.find((i) => i.recipeId === item.id);
-      if (exists) {
-        return prev.map((i) =>
-          i.recipeId === item.id ? { ...i, quantity: i.quantity + 1 } : i,
-        );
-      }
-      return [
-        ...prev,
-        {
-          recipeId: item.id,
-          name: item.recipeName,
-          recipeCode: item.recipeCode || "",
-          unit: item.yieldUnit || "serving",
-          quantity: 1,
-          unitPrice: item.costPerServing || 0.0,
-          discountPercentage: 0,
-        },
-      ];
-    });
-
-    setShowScanner(true);
-    setTimeout(() => {
-      setShowScanner(false);
-    }, 1500);
-  };
-
   const handleSaveSale = async (status: "draft" | "completed") => {
     if (!activeBusinessId) return;
     if (items.length === 0) {
@@ -252,9 +182,7 @@ export default function SalesEntryPage() {
     try {
       setSaving(true);
       const itemsPayload = items.map((i) => ({
-        recipeId: i.recipeId.startsWith("sample-")
-          ? recipes[0]?.id || i.recipeId
-          : i.recipeId,
+        recipeId: i.recipeId,
         quantity: i.quantity,
         unitPrice: i.unitPrice,
         discountPercentage: i.discountPercentage,
@@ -286,7 +214,7 @@ export default function SalesEntryPage() {
   };
 
   const totalItems = items.reduce((sum, item) => sum + item.quantity, 0);
-  const subtotal = items.reduce(
+  const grossTotal = items.reduce(
     (sum, item) => sum + item.quantity * item.unitPrice,
     0,
   );
@@ -295,9 +223,9 @@ export default function SalesEntryPage() {
       sum + (item.quantity * item.unitPrice * item.discountPercentage) / 100,
     0,
   );
-  const taxableSubtotal = subtotal - discountTotal;
-  const tax = Math.round(taxableSubtotal * (taxRate / 100) * 100) / 100;
-  const totalAmount = taxableSubtotal + tax;
+  const totalAmount = grossTotal - discountTotal;
+  const subtotal = Math.round((totalAmount / (1 + taxRate / 100)) * 100) / 100;
+  const tax = Math.round((totalAmount - subtotal) * 100) / 100;
 
   const activeBusiness = businesses.find((b) => b.id === activeBusinessId);
 
@@ -314,12 +242,9 @@ export default function SalesEntryPage() {
 
   return (
     <div className="relative min-h-[85vh] bg-white text-[#0F172A]">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-6 border-b border-zinc-200">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-2 border-b border-zinc-200">
         <div>
-          <div className="text-[11px] font-extrabold text-[#16A34A] tracking-wider uppercase flex items-center gap-1.5">
-            <span>A12 – Sales Entry</span>
-          </div>
-          <h1 className="text-3xl font-extrabold text-[#0F172A] tracking-tight mt-1">
+          <h1 className="text-3xl font-extrabold text-[#0F172A] tracking-tight">
             Sales Entry
           </h1>
           <p className="text-[#64748B] text-xs font-bold mt-1.5">
@@ -385,7 +310,7 @@ export default function SalesEntryPage() {
               ${subtotal.toFixed(2)}
             </h3>
             <p className="text-[9px] text-[#64748B] font-bold mt-0.5">
-              Before Tax & Discount
+              Net Subtotal (Total - Tax)
             </p>
           </div>
         </div>
@@ -402,7 +327,7 @@ export default function SalesEntryPage() {
               ${tax.toFixed(2)}
             </h3>
             <p className="text-[9px] text-[#64748B] font-bold mt-0.5">
-              {taxRate}% of Net Taxable
+              Tax Portion (Tax Included)
             </p>
           </div>
         </div>
@@ -570,19 +495,6 @@ export default function SalesEntryPage() {
 
               <div className="flex items-center gap-2">
                 <button
-                  onClick={handlePrepopulateSample}
-                  className="border border-dashed border-[#16A34A]/50 bg-white hover:bg-emerald-50/50 text-[#16A34A] rounded-xl px-3 py-1.5 text-[11px] font-extrabold transition-all cursor-pointer shadow-2xs"
-                >
-                  Seed Samples
-                </button>
-                <button
-                  onClick={handleMockBarcodeScan}
-                  className="border border-zinc-200 bg-white hover:bg-zinc-50 text-zinc-700 rounded-xl px-3.5 py-1.5 text-[11px] font-bold shadow-2xs transition-all cursor-pointer flex items-center gap-1.5"
-                >
-                  <Scan className="h-4 w-4 text-zinc-400" />
-                  Scan Barcode
-                </button>
-                <button
                   onClick={handleAddItemRow}
                   className="border-2 border-[#16A34A] bg-[#DCFCE7]/20 hover:bg-[#DCFCE7]/40 text-[#16A34A] rounded-xl px-3.5 py-1.5 text-[11px] font-extrabold shadow-2xs transition-all cursor-pointer flex items-center gap-1"
                 >
@@ -620,8 +532,8 @@ export default function SalesEntryPage() {
                           colSpan={8}
                           className="py-12 text-center text-zinc-400 font-semibold"
                         >
-                          No items added yet. Click "Add Item" or "Seed Samples"
-                          to begin.
+                          No items added yet. Click &quot;Add Item&quot; to
+                          begin.
                         </td>
                       </tr>
                     ) : (
@@ -630,8 +542,6 @@ export default function SalesEntryPage() {
                           item.quantity *
                           item.unitPrice *
                           (1 - item.discountPercentage / 100);
-
-                        const isSample = item.recipeId.startsWith("sample-");
 
                         return (
                           <tr
@@ -642,32 +552,21 @@ export default function SalesEntryPage() {
                               {idx + 1}
                             </td>
                             <td className="py-2.5 px-3">
-                              {isSample ? (
-                                <div className="text-zinc-800 leading-tight">
-                                  <p className="font-extrabold">{item.name}</p>
-                                  <p className="text-[10px] text-zinc-400 font-medium uppercase mt-0.5">
-                                    {item.recipeCode}
-                                  </p>
-                                </div>
-                              ) : (
-                                <select
-                                  className="w-full bg-white border border-zinc-200 rounded-lg p-1.5 font-semibold text-zinc-700 focus:outline-none focus:border-[#16A34A]"
-                                  value={item.recipeId}
-                                  onChange={(e) =>
-                                    handleItemSelect(idx, e.target.value)
-                                  }
-                                >
-                                  <option value="">Select Recipe</option>
-                                  {recipes.map((rc) => (
-                                    <option key={rc.id} value={rc.id}>
-                                      {rc.recipeName}{" "}
-                                      {rc.recipeCode
-                                        ? `(${rc.recipeCode})`
-                                        : ""}
-                                    </option>
-                                  ))}
-                                </select>
-                              )}
+                              <select
+                                className="w-full bg-white border border-zinc-200 rounded-lg p-1.5 font-semibold text-zinc-700 focus:outline-none focus:border-[#16A34A]"
+                                value={item.recipeId}
+                                onChange={(e) =>
+                                  handleItemSelect(idx, e.target.value)
+                                }
+                              >
+                                <option value="">Select Recipe</option>
+                                {recipes.map((rc) => (
+                                  <option key={rc.id} value={rc.id}>
+                                    {rc.recipeName}{" "}
+                                    {rc.recipeCode ? `(${rc.recipeCode})` : ""}
+                                  </option>
+                                ))}
+                              </select>
                             </td>
                             <td className="py-2.5 px-2 text-center">
                               <span className="bg-zinc-100 text-zinc-600 px-2.5 py-1 rounded-md text-[10px] uppercase font-extrabold tracking-wider border border-zinc-200/50">
@@ -693,28 +592,24 @@ export default function SalesEntryPage() {
                               />
                             </td>
                             <td className="py-2.5 px-2 text-right text-zinc-600">
-                              {isSample ? (
-                                <span>${item.unitPrice.toFixed(2)}</span>
-                              ) : (
-                                <input
-                                  type="number"
-                                  step="0.01"
-                                  className="w-20 bg-white border border-zinc-200 rounded-lg p-1.5 text-right font-bold text-zinc-700 focus:outline-none focus:border-[#16A34A]"
-                                  value={
-                                    item.unitPrice === 0 ? "" : item.unitPrice
-                                  }
-                                  onChange={(e) =>
-                                    handleFieldChange(
-                                      idx,
-                                      "unitPrice",
-                                      Math.max(
-                                        0,
-                                        parseFloat(e.target.value) || 0,
-                                      ),
-                                    )
-                                  }
-                                />
-                              )}
+                              <input
+                                type="number"
+                                step="0.01"
+                                className="w-20 bg-white border border-zinc-200 rounded-lg p-1.5 text-right font-bold text-zinc-700 focus:outline-none focus:border-[#16A34A]"
+                                value={
+                                  item.unitPrice === 0 ? "" : item.unitPrice
+                                }
+                                onChange={(e) =>
+                                  handleFieldChange(
+                                    idx,
+                                    "unitPrice",
+                                    Math.max(
+                                      0,
+                                      parseFloat(e.target.value) || 0,
+                                    ),
+                                  )
+                                }
+                              />
                             </td>
                             <td className="py-2.5 px-2 text-center">
                               <input
@@ -820,19 +715,22 @@ export default function SalesEntryPage() {
 
             <div className="space-y-3.5 text-xs font-bold text-zinc-500">
               <div className="flex justify-between">
-                <span>Subtotal</span>
-                <span className="text-[#0F172A]">${subtotal.toFixed(2)}</span>
+                <span>Gross Total</span>
+                <span className="text-[#0F172A]">${grossTotal.toFixed(2)}</span>
               </div>
-              <div className="flex justify-between">
-                <span>Tax ({taxRate}%)</span>
-                <span className="text-[#0F172A]">${tax.toFixed(2)}</span>
-              </div>
-
               <div className="flex justify-between">
                 <span>Discount</span>
                 <span className="text-red-500">
                   -${discountTotal.toFixed(2)}
                 </span>
+              </div>
+              <div className="flex justify-between">
+                <span>Subtotal (Excl. Tax)</span>
+                <span className="text-[#0F172A]">${subtotal.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Tax ({taxRate}%)</span>
+                <span className="text-[#0F172A]">${tax.toFixed(2)}</span>
               </div>
 
               <div className="border-t border-zinc-200/80 pt-3.5 flex justify-between items-baseline">
@@ -844,6 +742,33 @@ export default function SalesEntryPage() {
                 </span>
               </div>
             </div>
+          </div>
+
+          <div className="flex gap-3">
+            <button
+              onClick={() => handleSaveSale("draft")}
+              disabled={saving}
+              className="flex-1 border border-zinc-200 bg-white hover:bg-zinc-50 text-zinc-700 rounded-xl py-3 text-xs font-extrabold transition-all cursor-pointer shadow-xs flex items-center justify-center gap-2 hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50"
+            >
+              {saving ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <FileText className="h-4 w-4 text-zinc-400" />
+              )}
+              Draft
+            </button>
+            <button
+              onClick={() => handleSaveSale("completed")}
+              disabled={saving}
+              className="flex-1 bg-[#16A34A] hover:bg-[#15803D] text-white rounded-xl py-3 text-xs font-extrabold uppercase tracking-wider shadow-sm flex items-center justify-center gap-2 cursor-pointer transition-all duration-200 hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50"
+            >
+              {saving ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <CheckCircle2 className="h-4 w-4" />
+              )}
+              Complete
+            </button>
           </div>
 
           <div className="bg-[#DCFCE7]/25 border border-[#16A34A]/25 rounded-2xl p-4.5 flex items-start gap-3.5 shadow-2xs">
@@ -897,7 +822,7 @@ export default function SalesEntryPage() {
                   return (
                     <div
                       key={sale.id}
-                      className="py-3 flex justify-between items-center hover:bg-zinc-50/50 rounded-lg px-1 transition-colors"
+                      className="py-3 flex justify-between items-center hover:bg-zinc-50/50 rounded-lg px-1 transition-colors animate-none"
                     >
                       <div className="leading-tight">
                         <p className="text-xs font-extrabold text-[#0F172A]">
@@ -931,26 +856,6 @@ export default function SalesEntryPage() {
           </div>
         </div>
       </div>
-
-      {showScanner && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center z-50 animate-fade-in">
-          <div className="bg-white border border-zinc-200 rounded-2xl p-6 shadow-2xl max-w-sm w-full mx-4 text-center space-y-4">
-            <div className="h-14 w-14 rounded-full bg-emerald-50 border border-emerald-100 flex items-center justify-center mx-auto text-emerald-600 animate-pulse">
-              <Scan className="h-7 w-7" />
-            </div>
-            <h3 className="text-sm font-extrabold text-[#0F172A]">
-              Scanning Barcode...
-            </h3>
-            <p className="text-zinc-500 text-xs font-bold leading-relaxed">
-              Locating stock packaging bar code. Please align the code inside
-              the frame.
-            </p>
-            <div className="h-1 bg-zinc-100 rounded-full overflow-hidden w-full relative">
-              <div className="absolute inset-y-0 left-0 bg-[#16A34A] rounded-full animate-[progress_1.5s_ease-in-out_infinite] w-1/3" />
-            </div>
-          </div>
-        </div>
-      )}
 
       {showAllSales &&
         (() => {
@@ -1050,6 +955,7 @@ export default function SalesEntryPage() {
                           <th className="py-3 px-4">Payment</th>
                           <th className="py-3 px-4 text-right">Total</th>
                           <th className="py-3 px-6 text-center">Status</th>
+                          <th className="py-3 px-6 text-right">Actions</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-zinc-100">
@@ -1112,6 +1018,47 @@ export default function SalesEntryPage() {
                                   {sale.status}
                                 </span>
                               </td>
+                              <td className="py-3.5 px-6 text-right">
+                                <div className="flex items-center justify-end gap-2">
+                                  <button
+                                    onClick={() => setViewingSale(sale)}
+                                    className="p-1 rounded-lg border border-zinc-200 hover:border-zinc-300 bg-white hover:bg-zinc-50 text-zinc-500 hover:text-[#0F172A] transition-all cursor-pointer shadow-2xs"
+                                    title="View Details"
+                                  >
+                                    <Eye className="h-3.5 w-3.5" />
+                                  </button>
+                                  {sale.status === "draft" && (
+                                    <button
+                                      onClick={async () => {
+                                        if (
+                                          confirm(
+                                            `Are you sure you want to complete Sale ${sale.saleNumber || ""}?`,
+                                          )
+                                        ) {
+                                          try {
+                                            await updateSaleStatus(
+                                              activeBusinessId!,
+                                              sale.id,
+                                              "completed",
+                                            );
+                                            alert(
+                                              "Sale successfully completed!",
+                                            );
+                                            await loadInitialData();
+                                          } catch (err) {
+                                            console.error(err);
+                                            alert("Failed to complete sale.");
+                                          }
+                                        }
+                                      }}
+                                      className="p-1 rounded-lg border border-emerald-200 hover:border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-[#16A34A] transition-all cursor-pointer shadow-2xs"
+                                      title="Complete Drafted Sale"
+                                    >
+                                      <CheckCircle2 className="h-3.5 w-3.5" />
+                                    </button>
+                                  )}
+                                </div>
+                              </td>
                             </tr>
                           );
                         })}
@@ -1135,6 +1082,208 @@ export default function SalesEntryPage() {
             </div>
           );
         })()}
+
+      {viewingSale && (
+        <div
+          className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-[60] p-4 animate-fade-in"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setViewingSale(null);
+          }}
+        >
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden border border-zinc-200 animate-scale-up">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-200 shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="h-9 w-9 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center">
+                  <Receipt className="h-4.5 w-4.5 text-emerald-600" />
+                </div>
+                <div>
+                  <h2 className="text-sm font-extrabold text-[#0F172A]">
+                    Sale Details
+                  </h2>
+                  <p className="text-[10px] text-zinc-400 font-bold mt-0.5">
+                    {viewingSale.saleNumber || "Draft Transaction"}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setViewingSale(null)}
+                className="h-8 w-8 rounded-lg hover:bg-zinc-100 flex items-center justify-center text-zinc-400 hover:text-zinc-700 transition-colors cursor-pointer"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-6 space-y-6">
+              <div className="grid grid-cols-2 gap-4 text-xs font-bold">
+                <div className="bg-zinc-50 border border-zinc-200 rounded-xl p-3.5 space-y-1">
+                  <p className="text-[9px] font-extrabold text-[#64748B] uppercase tracking-wider">
+                    Customer
+                  </p>
+                  <p className="font-extrabold text-zinc-800">
+                    {viewingSale.customerName || "Walk-in Customer"}
+                  </p>
+                </div>
+                <div className="bg-zinc-50 border border-zinc-200 rounded-xl p-3.5 space-y-1">
+                  <p className="text-[9px] font-extrabold text-[#64748B] uppercase tracking-wider">
+                    Date
+                  </p>
+                  <p className="font-extrabold text-zinc-800">
+                    {new Date(viewingSale.saleDate).toLocaleDateString(
+                      "en-GB",
+                      {
+                        day: "2-digit",
+                        month: "short",
+                        year: "numeric",
+                      },
+                    )}
+                  </p>
+                </div>
+                <div className="bg-zinc-50 border border-zinc-200 rounded-xl p-3.5 space-y-1">
+                  <p className="text-[9px] font-extrabold text-[#64748B] uppercase tracking-wider">
+                    Location
+                  </p>
+                  <p className="font-extrabold text-zinc-800">
+                    {viewingSale.locationName || "Main Kitchen"}
+                  </p>
+                </div>
+                <div className="bg-zinc-50 border border-zinc-200 rounded-xl p-3.5 space-y-1">
+                  <p className="text-[9px] font-extrabold text-[#64748B] uppercase tracking-wider">
+                    Payment Method
+                  </p>
+                  <p className="font-extrabold text-zinc-800 capitalize">
+                    {viewingSale.paymentMethod || "—"}
+                  </p>
+                </div>
+                {viewingSale.reference && (
+                  <div className="col-span-2 bg-zinc-50 border border-zinc-200 rounded-xl p-3.5 space-y-1">
+                    <p className="text-[9px] font-extrabold text-[#64748B] uppercase tracking-wider">
+                      Reference
+                    </p>
+                    <p className="font-extrabold text-zinc-800">
+                      {viewingSale.reference}
+                    </p>
+                  </div>
+                )}
+                {viewingSale.remarks && (
+                  <div className="col-span-2 bg-zinc-50 border border-zinc-200 rounded-xl p-3.5 space-y-1">
+                    <p className="text-[9px] font-extrabold text-[#64748B] uppercase tracking-wider">
+                      Remarks
+                    </p>
+                    <p className="font-bold text-zinc-800 italic">
+                      &quot;{viewingSale.remarks}&quot;
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              <div className="border border-zinc-200 rounded-xl overflow-hidden">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="border-b border-zinc-200 text-[10px] uppercase font-extrabold tracking-wider text-[#64748B] bg-zinc-50/50">
+                      <th className="py-2.5 px-4">Recipe</th>
+                      <th className="py-2.5 px-3 text-center">Qty</th>
+                      <th className="py-2.5 px-3 text-right">Unit Price</th>
+                      <th className="py-2.5 px-3 text-center">Discount</th>
+                      <th className="py-2.5 px-4 text-right">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-zinc-200 font-bold text-zinc-700">
+                    {(viewingSale.items || []).map((item: any, idx: number) => (
+                      <tr key={idx} className="hover:bg-zinc-50/20">
+                        <td className="py-3 px-4">
+                          {item.recipeName || "Unrecorded Recipe"}
+                        </td>
+                        <td className="py-3 px-3 text-center">
+                          {item.quantity}
+                        </td>
+                        <td className="py-3 px-3 text-right">
+                          ${item.unitPrice.toFixed(2)}
+                        </td>
+                        <td className="py-3 px-3 text-center">
+                          {item.discountPercentage}%
+                        </td>
+                        <td className="py-3 px-4 text-right">
+                          ${item.totalAmount.toFixed(2)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="border-t border-zinc-100 pt-4 flex justify-end">
+                <div className="w-64 space-y-2 text-xs font-bold text-zinc-500">
+                  <div className="flex justify-between">
+                    <span>Gross Total</span>
+                    <span className="text-[#0F172A]">
+                      ${viewingSale.totalAmount.toFixed(2)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Tax ({viewingSale.taxRate}%)</span>
+                    <span className="text-[#0F172A]">
+                      ${viewingSale.taxAmount.toFixed(2)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Subtotal (Excl. Tax)</span>
+                    <span className="text-[#0F172A]">
+                      ${viewingSale.subtotalAmount.toFixed(2)}
+                    </span>
+                  </div>
+                  <div className="border-t border-zinc-200 pt-2 flex justify-between items-baseline">
+                    <span className="text-sm font-extrabold text-[#0F172A]">
+                      Grand Total
+                    </span>
+                    <span className="text-base font-extrabold text-[#16A34A]">
+                      ${viewingSale.totalAmount.toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="px-6 py-4 border-t border-zinc-200 bg-zinc-50/50 flex items-center justify-end gap-3 shrink-0">
+              {viewingSale.status === "draft" && (
+                <button
+                  onClick={async () => {
+                    if (
+                      confirm(
+                        `Are you sure you want to complete Sale ${viewingSale.saleNumber || ""}?`,
+                      )
+                    ) {
+                      try {
+                        await updateSaleStatus(
+                          activeBusinessId!,
+                          viewingSale.id,
+                          "completed",
+                        );
+                        alert("Sale successfully completed!");
+                        setViewingSale(null);
+                        setShowAllSales(false);
+                        await loadInitialData();
+                      } catch (err) {
+                        console.error(err);
+                        alert("Failed to complete sale.");
+                      }
+                    }
+                  }}
+                  className="bg-[#16A34A] hover:bg-[#15803D] text-white rounded-xl px-5 py-2 text-xs font-extrabold uppercase tracking-wider shadow-sm flex items-center gap-1.5 cursor-pointer transition-all duration-200"
+                >
+                  <CheckCircle2 className="h-4 w-4" />
+                  Complete Sale
+                </button>
+              )}
+              <button
+                onClick={() => setViewingSale(null)}
+                className="text-xs font-extrabold text-zinc-500 border border-zinc-200 bg-white hover:bg-zinc-50 px-4 py-2 rounded-xl transition-all cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

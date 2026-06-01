@@ -145,7 +145,6 @@ def create_sale(
 
 
 @router.get("/api/businesses/{business_id}/sales",
-            response_model=List[Sale],
             summary="List all sales",
             description="Retrieves all sales under a specific business.",
             responses={
@@ -195,7 +194,6 @@ def get_sales(
 
 
 @router.get("/api/businesses/{business_id}/sales/{sale_id}",
-            response_model=Sale,
             summary="Get a sale",
             description="Retrieves a specific sale under a specific business.",
             responses={
