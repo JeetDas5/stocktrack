@@ -169,6 +169,8 @@ export default function DashboardLayout({
         return { title: "Sales Entry" };
       case "/dashboard/sales-imports":
         return { title: "Sales Imports" };
+      case "/dashboard/consumption":
+        return { title: "Consumption Analysis" };
       case "/dashboard/purchase-orders":
         return { title: "Purchase Orders" };
       case "/dashboard/reconciliation":

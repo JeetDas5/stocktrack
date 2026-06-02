@@ -372,13 +372,13 @@ export default function StockItemsPage() {
       const reoConverted = getConvertedValue(sameReorder, selectedReoUnit);
       const stockConverted = stockVal;
 
-      if (reoConverted >= capConverted) {
+      if (reoConverted > capConverted) {
         errors.sameReorder = true;
         setValidationErrors(errors);
         setError("Reorder level must be less than storage capacity.");
         return;
       }
-      if (stockConverted >= capConverted) {
+      if (stockConverted > capConverted) {
         errors.sameCurrentStock = true;
         setValidationErrors(errors);
         setError("Current stock must be less than storage capacity.");
@@ -675,6 +675,7 @@ export default function StockItemsPage() {
     "Box (12)",
     "Pallet",
     "pcs",
+    "gm",
     "kg",
     "L",
   ];

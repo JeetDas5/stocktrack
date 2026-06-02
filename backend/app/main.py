@@ -18,6 +18,7 @@ from app.services.stock_counts.router import router as stock_counts_router
 from app.services.purchase_orders.router import router as purchase_orders_router
 from app.services.deliveries.router import router as deliveries_router
 from app.services.sales.router import router as sales_router
+from app.services.consumption.router import router as consumption_router
 
 
 app = FastAPI(
@@ -67,4 +68,5 @@ app.include_router(stock_counts_router)
 app.include_router(purchase_orders_router)
 app.include_router(deliveries_router)
 app.include_router(sales_router)
+app.include_router(consumption_router)
 
