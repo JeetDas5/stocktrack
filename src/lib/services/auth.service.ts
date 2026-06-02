@@ -8,9 +8,9 @@ export const loginAdmin = async (email: string, password: string) => {
   if (result.error) {
     throw new Error(result.error.message || "Invalid credentials");
   }
-  if (result.data?.session?.token) {
+  if (result.data?.token) {
     if (typeof window !== "undefined") {
-      localStorage.setItem("stocktrack_token", result.data.session.token);
+      localStorage.setItem("stocktrack_token", result.data.token);
     }
   }
   return result.data;
@@ -25,9 +25,9 @@ export const registerAdmin = async (email: string, password: string, fullName: s
   if (result.error) {
     throw new Error(result.error.message || "Registration failed");
   }
-  if (result.data?.session?.token) {
+  if (result.data?.token) {
     if (typeof window !== "undefined") {
-      localStorage.setItem("stocktrack_token", result.data.session.token);
+      localStorage.setItem("stocktrack_token", result.data.token);
     }
   }
   return result.data;
