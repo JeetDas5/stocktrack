@@ -3,7 +3,7 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { AppUser } from "@/types/user";
 import { getMeProfile } from "@/lib/repositories/user.repository";
-import { logoutUser } from "@/lib/services/auth.service";
+import { authClient } from "@/lib/auth/auth-client";
 
 interface CustomUser {
   uid: string;
@@ -28,71 +28,73 @@ const AuthContext = createContext<AuthContextType>({
 });
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
-  const [user, setUser] = useState<CustomUser | null>(null);
+  const [session, setSession] = useState<{ user: any; session: any } | null>(null);
   const [profile, setProfile] = useState<AppUser | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const initAuth = async () => {
+  const fetchSession = async () => {
     try {
       setLoading(true);
-      const token = typeof window !== "undefined" ? localStorage.getItem("stocktrack_token") : null;
-      if (!token) {
-        setUser(null);
-        setProfile(null);
-        return;
+      const res = await authClient.getSession();
+      if (res?.data) {
+        setSession(res.data);
+      } else {
+        setSession(null);
       }
-
-      const userProfile = await getMeProfile();
-      if (!userProfile) {
-        if (typeof window !== "undefined") {
-          localStorage.removeItem("stocktrack_token");
-        }
-        setUser(null);
-        setProfile(null);
-        return;
-      }
-
-      setUser({
-        uid: userProfile.uid,
-        email: userProfile.email,
-        displayName: userProfile.fullName,
-      });
-      setProfile(userProfile);
-    } catch (error) {
-      console.error("Auth provider initialization error:", error);
-      setUser(null);
-      setProfile(null);
+    } catch (err) {
+      console.error("Error fetching Better Auth session:", err);
+      setSession(null);
     } finally {
       setLoading(false);
     }
   };
 
-  const logout = async () => {
-    await logoutUser();
-    setUser(null);
-    setProfile(null);
-  };
-
   useEffect(() => {
-    initAuth();
+    fetchSession();
   }, []);
 
+  const user = session?.user ? {
+    uid: session.user.id,
+    email: session.user.email,
+    displayName: session.user.name,
+  } : null;
+
+  useEffect(() => {
+    if (session?.session?.token) {
+      localStorage.setItem("stocktrack_token", session.session.token);
+    } else if (session === null) {
+      localStorage.removeItem("stocktrack_token");
+      localStorage.removeItem("stocktrack_active_business_id");
+      setProfile(null);
+    }
+  }, [session]);
+
   const refreshProfile = async () => {
-    const token = typeof window !== "undefined" ? localStorage.getItem("stocktrack_token") : null;
-    if (!token) return;
+    if (!session?.user) return;
     try {
       const userProfile = await getMeProfile();
       if (userProfile) {
         setProfile(userProfile);
-        setUser({
-          uid: userProfile.uid,
-          email: userProfile.email,
-          displayName: userProfile.fullName,
-        });
       }
     } catch (error) {
       console.error("Error refreshing profile:", error);
     }
+  };
+
+  useEffect(() => {
+    if (session?.user) {
+      refreshProfile();
+    } else {
+      setProfile(null);
+    }
+  }, [session?.user]);
+
+  const logout = async () => {
+    await authClient.signOut();
+    localStorage.removeItem("stocktrack_token");
+    localStorage.removeItem("stocktrack_active_business_id");
+    setSession(null);
+    setProfile(null);
   };
 
   return (

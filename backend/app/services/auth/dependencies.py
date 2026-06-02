@@ -20,19 +20,26 @@ def get_current_user(
             detail="Missing or invalid authorization header"
         )
 
+    from datetime import datetime
+    from sqlmodel import select
+    from app.models import SessionTable
+
     token = credentials.credentials
     decoded = decode_access_token(token)
-    if not decoded:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token verification failed or token expired"
-        )
+    uid = None
+    if decoded:
+        uid = decoded.get("sub")
+    else:
+        db_session = session.exec(
+            select(SessionTable).where(SessionTable.token == token)
+        ).first()
+        if db_session and db_session.expires_at > datetime.utcnow():
+            uid = db_session.user_id
 
-    uid = decoded.get("sub")
     if not uid:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token missing subject uid"
+            detail="Token verification failed, session expired, or token invalid"
         )
 
     user = session.get(User, uid)

@@ -81,8 +81,13 @@ export default function DashboardLayout({
     }
 
     if (!currentId && !authLoading) {
-      router.push("/dashboard/business");
-      return;
+      if (pathname !== "/dashboard/business") {
+        router.push("/dashboard/business");
+        return;
+      } else {
+        setLoading(false);
+        return;
+      }
     }
 
     async function loadBusinesses() {

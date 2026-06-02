@@ -11,9 +11,52 @@ class User(SQLModel, table=True):
     email: str = Field(unique=True, index=True)
     name: Optional[str] = None
     hashed_password: Optional[str] = Field(default=None)
+    email_verified: bool = Field(default=False)
+    image: Optional[str] = Field(default=None)
     created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
     
     businesses: List["Business"] = Relationship(back_populates="created_by")
+
+class SessionTable(SQLModel, table=True):
+    __tablename__ = "sessions"
+    
+    id: str = Field(primary_key=True)
+    expires_at: datetime
+    token: str = Field(unique=True, index=True)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    user_id: str = Field(foreign_key="users.id", ondelete="CASCADE")
+    ip_address: Optional[str] = Field(default=None)
+    user_agent: Optional[str] = Field(default=None)
+
+class Account(SQLModel, table=True):
+    __tablename__ = "accounts"
+    
+    id: str = Field(primary_key=True)
+    account_id: str
+    provider_id: str
+    user_id: str = Field(foreign_key="users.id", ondelete="CASCADE")
+    access_token: Optional[str] = Field(default=None)
+    refresh_token: Optional[str] = Field(default=None)
+    id_token: Optional[str] = Field(default=None)
+    expires_at: Optional[datetime] = Field(default=None)
+    password: Optional[str] = Field(default=None)
+    access_token_expires_at: Optional[datetime] = Field(default=None)
+    refresh_token_expires_at: Optional[datetime] = Field(default=None)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    scope: Optional[str] = Field(default=None)
+
+class Verification(SQLModel, table=True):
+    __tablename__ = "verifications"
+    
+    id: str = Field(primary_key=True)
+    identifier: str
+    value: str
+    expires_at: datetime
+    created_at: Optional[datetime] = Field(default_factory=datetime.utcnow)
+    updated_at: Optional[datetime] = Field(default_factory=datetime.utcnow)
 
 class Business(SQLModel, table=True):
     __tablename__ = "businesses"
