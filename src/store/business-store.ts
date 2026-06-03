@@ -2,18 +2,19 @@ import { create } from "zustand";
 
 interface BusinessStore {
   activeBusinessId: string | null;
-
-  setActiveBusiness: (
-    id: string
-  ) => void;
+  setActiveBusiness: (id: string) => void;
 }
 
-export const useBusinessStore =
-  create<BusinessStore>((set) => ({
-    activeBusinessId: null,
+const getInitialBusinessId = (): string | null => {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem("stocktrack_active_business_id");
+};
 
-    setActiveBusiness: (id) =>
-      set({
-        activeBusinessId: id,
-      }),
-  }));
+export const useBusinessStore = create<BusinessStore>((set) => ({
+  activeBusinessId: getInitialBusinessId(),
+
+  setActiveBusiness: (id) =>
+    set({
+      activeBusinessId: id,
+    }),
+}));

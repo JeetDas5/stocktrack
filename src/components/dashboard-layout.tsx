@@ -104,16 +104,7 @@ export default function DashboardLayout({
       return;
     }
 
-    let currentId = activeBusinessId;
-    if (!currentId && typeof window !== "undefined") {
-      const persisted = localStorage.getItem("stocktrack_active_business_id");
-      if (persisted) {
-        setActiveBusiness(persisted);
-        currentId = persisted;
-      }
-    }
-
-    if (!currentId && !authLoading) {
+    if (!activeBusinessId) {
       if (pathname !== "/dashboard/business") {
         router.push("/dashboard/business");
         return;
@@ -127,7 +118,7 @@ export default function DashboardLayout({
       try {
         const list = await getUserBusinesses([]);
         setBusinesses(list);
-        const activeDoc = list.find((b) => b.id === currentId) || null;
+        const activeDoc = list.find((b) => b.id === activeBusinessId) || null;
         setActiveBusinessDoc(activeDoc);
       } catch (err) {
         console.error(err);
@@ -137,6 +128,7 @@ export default function DashboardLayout({
     }
     loadBusinesses();
   }, [user, profile, authLoading, activeBusinessId, setActiveBusiness, router]);
+
 
   useEffect(() => {
     if (businesses.length > 0 && activeBusinessId) {
