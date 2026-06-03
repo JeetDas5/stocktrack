@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable react-hooks/set-state-in-effect */
 /* eslint-disable react-hooks/exhaustive-deps */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 "use client";
@@ -50,13 +52,17 @@ export default function ReconciliationPage() {
   const [compareWith, setCompareWith] = useState("System (Expected)");
   const [selectedLocationId, setSelectedLocationId] = useState<string>("");
 
-  const [reconciliation, setReconciliation] = useState<Reconciliation | null>(null);
+  const [reconciliation, setReconciliation] = useState<Reconciliation | null>(
+    null,
+  );
   const [loading, setLoading] = useState(true);
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const [searchQuery, setSearchQuery] = useState("");
-  const [activeTab, setActiveTab] = useState<"all" | "matched" | "variance">("all");
+  const [activeTab, setActiveTab] = useState<"all" | "matched" | "variance">(
+    "all",
+  );
   const [sidebarFiltersOpen, setSidebarFiltersOpen] = useState(true);
 
   const [filterCategory, setFilterCategory] = useState("all");
@@ -75,7 +81,9 @@ export default function ReconciliationPage() {
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [historyRuns, setHistoryRuns] = useState<Reconciliation[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
-  const [viewingSavedRunId, setViewingSavedRunId] = useState<string | null>(null);
+  const [viewingSavedRunId, setViewingSavedRunId] = useState<string | null>(
+    null,
+  );
 
   const [visibleColumns, setVisibleColumns] = useState({
     itemName: true,
@@ -112,12 +120,18 @@ export default function ReconciliationPage() {
   }, [activeBusinessId, fetchLocations, fetchCategories, fetchSuppliers]);
 
   useEffect(() => {
-    if (activeLocationId && !selectedLocationId) {
+    if (activeLocationId) {
       setSelectedLocationId(activeLocationId);
+    } else {
+      setSelectedLocationId("");
     }
-  }, [activeLocationId, selectedLocationId]);
+  }, [activeLocationId]);
 
-  const loadReconciliationData = async (locationId: string, targetDate: string, comparison: string) => {
+  const loadReconciliationData = async (
+    locationId: string,
+    targetDate: string,
+    comparison: string,
+  ) => {
     if (!activeBusinessId) return;
     try {
       setLoading(true);
@@ -208,7 +222,12 @@ export default function ReconciliationPage() {
   const handleDeleteHistoryRun = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
     if (!activeBusinessId) return;
-    if (!confirm("Are you sure you want to delete this reconciliation run from history?")) return;
+    if (
+      !confirm(
+        "Are you sure you want to delete this reconciliation run from history?",
+      )
+    )
+      return;
     try {
       await deleteReconciliation(activeBusinessId, id);
       setHistoryRuns(historyRuns.filter((r) => r.id !== id));
@@ -269,9 +288,22 @@ export default function ReconciliationPage() {
       const matchesStatus =
         appliedStatus === "all" || item.status === appliedStatus;
 
-      return matchesSearch && matchesTab && matchesCategory && matchesVariance && matchesStatus;
+      return (
+        matchesSearch &&
+        matchesTab &&
+        matchesCategory &&
+        matchesVariance &&
+        matchesStatus
+      );
     });
-  }, [reconciliation, searchQuery, activeTab, appliedCategory, appliedVariance, appliedStatus]);
+  }, [
+    reconciliation,
+    searchQuery,
+    activeTab,
+    appliedCategory,
+    appliedVariance,
+    appliedStatus,
+  ]);
 
   const matchedItemsCount = useMemo(() => {
     if (!reconciliation || !reconciliation.items) return 0;
@@ -288,7 +320,10 @@ export default function ReconciliationPage() {
     return filteredItems.slice(start, start + itemsPerPage);
   }, [filteredItems, currentPage]);
 
-  const totalPages = Math.max(1, Math.ceil(filteredItems.length / itemsPerPage));
+  const totalPages = Math.max(
+    1,
+    Math.ceil(filteredItems.length / itemsPerPage),
+  );
 
   const formatCurrency = (val: number) => {
     const sign = val < 0 ? "-" : "";
@@ -320,7 +355,8 @@ export default function ReconciliationPage() {
 
   const handleDownloadCSV = () => {
     if (!reconciliation || !reconciliation.items) return;
-    let csv = "Item Name,Category,UOM,Expected Qty,Actual Qty,Variance Qty,Variance %,Variance Value,Status\n";
+    let csv =
+      "Item Name,Category,UOM,Expected Qty,Actual Qty,Variance Qty,Variance %,Variance Value,Status\n";
     reconciliation.items.forEach((item) => {
       csv += `"${item.itemName}","${item.categoryName}","${item.baseUnit}",${item.expectedQty},${item.actualQty},${item.varianceQty},${item.variancePercent}%,${item.varianceValue},"${item.status}"\n`;
     });
@@ -328,7 +364,10 @@ export default function ReconciliationPage() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.setAttribute("href", url);
-    link.setAttribute("download", `reconciliation_${date}_${selectedLocationId || "all"}.csv`);
+    link.setAttribute(
+      "download",
+      `reconciliation_${date}_${selectedLocationId || "all"}.csv`,
+    );
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -351,7 +390,12 @@ export default function ReconciliationPage() {
         <div className="bg-amber-50 border border-amber-200 text-amber-800 text-xs rounded-xl p-3 flex items-center justify-between font-bold shadow-2xs">
           <div className="flex items-center gap-2">
             <Calendar className="h-4 w-4" />
-            <span>Viewing saved reconciliation run from {reconciliation?.createdAt ? new Date(reconciliation.createdAt).toLocaleDateString() : date}</span>
+            <span>
+              Viewing saved reconciliation run from{" "}
+              {reconciliation?.createdAt
+                ? new Date(reconciliation.createdAt).toLocaleDateString()
+                : date}
+            </span>
           </div>
           <button
             onClick={() => {
@@ -369,8 +413,12 @@ export default function ReconciliationPage() {
 
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-zinc-200 pb-5">
         <div>
-          <h1 className="text-3xl font-extrabold text-[#0F172A] tracking-tight">Reconciliation</h1>
-          <p className="text-[#64748B] text-xs font-bold mt-1.5">Compare expected stock vs actual stock.</p>
+          <h1 className="text-3xl font-extrabold text-[#0F172A] tracking-tight">
+            Reconciliation
+          </h1>
+          <p className="text-[#64748B] text-xs font-bold mt-1.5">
+            Compare expected stock vs actual stock.
+          </p>
         </div>
 
         <div className="flex items-center gap-3 w-full md:w-auto relative">
@@ -415,9 +463,15 @@ export default function ReconciliationPage() {
             <Package className="h-6 w-6" />
           </div>
           <div>
-            <p className="text-[10px] uppercase font-extrabold tracking-wider text-zinc-400">Total Items</p>
-            <h4 className="text-2xl font-extrabold text-[#0F172A] mt-1">{reconciliation?.totalItems || 0}</h4>
-            <p className="text-[10px] font-bold text-zinc-500 mt-1">Items Reconciled</p>
+            <p className="text-[10px] uppercase font-extrabold tracking-wider text-zinc-400">
+              Total Items
+            </p>
+            <h4 className="text-2xl font-extrabold text-[#0F172A] mt-1">
+              {reconciliation?.totalItems || 0}
+            </h4>
+            <p className="text-[10px] font-bold text-zinc-500 mt-1">
+              Items Reconciled
+            </p>
           </div>
         </div>
 
@@ -426,10 +480,20 @@ export default function ReconciliationPage() {
             <CheckCircle2 className="h-6 w-6" />
           </div>
           <div>
-            <p className="text-[10px] uppercase font-extrabold tracking-wider text-zinc-400">Matched Items</p>
-            <h4 className="text-2xl font-extrabold text-[#0F172A] mt-1">{reconciliation?.matchedItems || 0}</h4>
+            <p className="text-[10px] uppercase font-extrabold tracking-wider text-zinc-400">
+              Matched Items
+            </p>
+            <h4 className="text-2xl font-extrabold text-[#0F172A] mt-1">
+              {reconciliation?.matchedItems || 0}
+            </h4>
             <p className="text-[10px] font-bold text-emerald-600 mt-1">
-              {reconciliation?.totalItems ? ((reconciliation.matchedItems / reconciliation.totalItems) * 100).toFixed(1) : "0.0"}%
+              {reconciliation?.totalItems
+                ? (
+                    (reconciliation.matchedItems / reconciliation.totalItems) *
+                    100
+                  ).toFixed(1)
+                : "0.0"}
+              %
             </p>
           </div>
         </div>
@@ -439,10 +503,20 @@ export default function ReconciliationPage() {
             <AlertTriangle className="h-6 w-6" />
           </div>
           <div>
-            <p className="text-[10px] uppercase font-extrabold tracking-wider text-zinc-400">Variance Items</p>
-            <h4 className="text-2xl font-extrabold text-[#0F172A] mt-1">{reconciliation?.varianceItems || 0}</h4>
+            <p className="text-[10px] uppercase font-extrabold tracking-wider text-zinc-400">
+              Variance Items
+            </p>
+            <h4 className="text-2xl font-extrabold text-[#0F172A] mt-1">
+              {reconciliation?.varianceItems || 0}
+            </h4>
             <p className="text-[10px] font-bold text-amber-600 mt-1">
-              {reconciliation?.totalItems ? ((reconciliation.varianceItems / reconciliation.totalItems) * 100).toFixed(1) : "0.0"}%
+              {reconciliation?.totalItems
+                ? (
+                    (reconciliation.varianceItems / reconciliation.totalItems) *
+                    100
+                  ).toFixed(1)
+                : "0.0"}
+              %
             </p>
           </div>
         </div>
@@ -452,12 +526,21 @@ export default function ReconciliationPage() {
             <XCircle className="h-6 w-6" />
           </div>
           <div>
-            <p className="text-[10px] uppercase font-extrabold tracking-wider text-zinc-400">Total Variance (USD)</p>
-            <h4 className="text-2xl font-extrabold text-rose-600 mt-1">{formatCurrency(reconciliation?.totalVarianceUsd || 0)}</h4>
+            <p className="text-[10px] uppercase font-extrabold tracking-wider text-zinc-400">
+              Total Variance (USD)
+            </p>
+            <h4 className="text-2xl font-extrabold text-rose-600 mt-1">
+              {formatCurrency(reconciliation?.totalVarianceUsd || 0)}
+            </h4>
             <p className="text-[10px] font-bold text-rose-600 mt-1">
               {reconciliation?.totalValueExpected
-                ? ((reconciliation.totalVarianceUsd / reconciliation.totalValueExpected) * 100).toFixed(2)
-                : "0.00"}% of Total Value
+                ? (
+                    (reconciliation.totalVarianceUsd /
+                      reconciliation.totalValueExpected) *
+                    100
+                  ).toFixed(2)
+                : "0.00"}
+              % of Total Value
             </p>
           </div>
         </div>
@@ -466,48 +549,9 @@ export default function ReconciliationPage() {
       <div className="bg-zinc-50 border border-zinc-200 rounded-2xl p-4 flex flex-wrap gap-4 items-center justify-between shadow-3xs">
         <div className="flex flex-wrap gap-4 items-center flex-1">
           <div className="space-y-1">
-            <label className="text-[9px] uppercase font-extrabold tracking-wider text-[#64748B] block">Business</label>
-            <select
-              value={activeBusinessId || ""}
-              onChange={(e) => {
-                const id = e.target.value;
-                if (id) {
-                  setActiveBusiness(id);
-                  if (typeof window !== "undefined") {
-                    localStorage.setItem("stocktrack_active_business_id", id);
-                  }
-                }
-              }}
-              className="bg-white border border-zinc-200 rounded-xl px-3 py-2 text-xs font-bold text-zinc-700 shadow-3xs w-44 focus:outline-none cursor-pointer hover:border-zinc-300"
-            >
-              {businesses.map((b) => (
-                <option key={b.id} value={b.id}>
-                  {b.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="space-y-1">
-            <label className="text-[9px] uppercase font-extrabold tracking-wider text-[#64748B] block">Location</label>
-            <select
-              value={selectedLocationId}
-              onChange={(e) => {
-                setSelectedLocationId(e.target.value);
-                setCurrentPage(1);
-              }}
-              className="bg-white border border-zinc-200 rounded-xl px-3 py-2 text-xs font-bold text-zinc-700 shadow-3xs w-44 focus:outline-none cursor-pointer hover:border-zinc-300"
-            >
-              {locations.map((loc) => (
-                <option key={loc.id} value={loc.id}>
-                  {loc.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="space-y-1">
-            <label className="text-[9px] uppercase font-extrabold tracking-wider text-[#64748B] block">As Of Date</label>
+            <label className="text-[9px] uppercase font-extrabold tracking-wider text-[#64748B] block">
+              As Of Date
+            </label>
             <input
               type="date"
               value={date}
@@ -517,20 +561,6 @@ export default function ReconciliationPage() {
               }}
               className="bg-white border border-zinc-200 rounded-xl px-3 py-2 text-xs font-bold text-zinc-700 shadow-3xs w-44 focus:outline-none cursor-pointer hover:border-zinc-300"
             />
-          </div>
-
-          <div className="space-y-1">
-            <label className="text-[9px] uppercase font-extrabold tracking-wider text-[#64748B] block">Compare With</label>
-            <select
-              value={compareWith}
-              onChange={(e) => {
-                setCompareWith(e.target.value);
-                setCurrentPage(1);
-              }}
-              className="bg-white border border-zinc-200 rounded-xl px-3 py-2 text-xs font-bold text-zinc-700 shadow-3xs w-48 focus:outline-none cursor-pointer hover:border-zinc-300"
-            >
-              <option value="System (Expected)">System (Expected)</option>
-            </select>
           </div>
         </div>
 
@@ -548,7 +578,9 @@ export default function ReconciliationPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        <div className={`${sidebarFiltersOpen || reconciliation ? "lg:col-span-8 xl:col-span-9" : "lg:col-span-12"} space-y-4`}>
+        <div
+          className={`${sidebarFiltersOpen || reconciliation ? "lg:col-span-8 xl:col-span-9" : "lg:col-span-12"} space-y-4`}
+        >
           <div className="flex justify-between items-center border-b border-zinc-200 pb-2">
             <div className="flex gap-4">
               <button
@@ -557,11 +589,15 @@ export default function ReconciliationPage() {
                   setCurrentPage(1);
                 }}
                 className={`py-2 text-xs font-bold transition-all relative cursor-pointer ${
-                  activeTab === "all" ? "text-[#16A34A]" : "text-zinc-500 hover:text-zinc-800"
+                  activeTab === "all"
+                    ? "text-[#16A34A]"
+                    : "text-zinc-500 hover:text-zinc-800"
                 }`}
               >
                 All Items ({reconciliation?.totalItems || 0})
-                {activeTab === "all" && <span className="absolute bottom-0 left-0 w-full h-0.5 bg-[#16A34A]" />}
+                {activeTab === "all" && (
+                  <span className="absolute bottom-0 left-0 w-full h-0.5 bg-[#16A34A]" />
+                )}
               </button>
               <button
                 onClick={() => {
@@ -569,11 +605,15 @@ export default function ReconciliationPage() {
                   setCurrentPage(1);
                 }}
                 className={`py-2 text-xs font-bold transition-all relative cursor-pointer ${
-                  activeTab === "matched" ? "text-[#16A34A]" : "text-zinc-500 hover:text-zinc-800"
+                  activeTab === "matched"
+                    ? "text-[#16A34A]"
+                    : "text-zinc-500 hover:text-zinc-800"
                 }`}
               >
                 Matched ({matchedItemsCount})
-                {activeTab === "matched" && <span className="absolute bottom-0 left-0 w-full h-0.5 bg-[#16A34A]" />}
+                {activeTab === "matched" && (
+                  <span className="absolute bottom-0 left-0 w-full h-0.5 bg-[#16A34A]" />
+                )}
               </button>
               <button
                 onClick={() => {
@@ -581,11 +621,15 @@ export default function ReconciliationPage() {
                   setCurrentPage(1);
                 }}
                 className={`py-2 text-xs font-bold transition-all relative cursor-pointer ${
-                  activeTab === "variance" ? "text-[#16A34A]" : "text-zinc-500 hover:text-zinc-800"
+                  activeTab === "variance"
+                    ? "text-[#16A34A]"
+                    : "text-zinc-500 hover:text-zinc-800"
                 }`}
               >
                 Variance ({varianceItemsCount})
-                {activeTab === "variance" && <span className="absolute bottom-0 left-0 w-full h-0.5 bg-[#16A34A]" />}
+                {activeTab === "variance" && (
+                  <span className="absolute bottom-0 left-0 w-full h-0.5 bg-[#16A34A]" />
+                )}
               </button>
             </div>
 
@@ -618,7 +662,10 @@ export default function ReconciliationPage() {
                 {showColumnsDropdown && (
                   <div className="absolute right-0 mt-1.5 w-48 bg-white border border-zinc-200 rounded-xl shadow-xl p-3 space-y-2 z-20">
                     {Object.keys(visibleColumns).map((col) => (
-                      <label key={col} className="flex items-center gap-2 text-xs font-bold text-zinc-700 cursor-pointer">
+                      <label
+                        key={col}
+                        className="flex items-center gap-2 text-xs font-bold text-zinc-700 cursor-pointer"
+                      >
                         <input
                           type="checkbox"
                           checked={(visibleColumns as any)[col]}
@@ -660,16 +707,48 @@ export default function ReconciliationPage() {
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="border-b border-zinc-200 text-[10px] uppercase font-extrabold tracking-wider text-[#64748B] bg-zinc-50/50">
-                    <th className="py-3.5 px-4 w-10 text-center font-extrabold">#</th>
-                    {visibleColumns.itemName && <th className="py-3.5 px-4 font-extrabold">Item Name</th>}
-                    {visibleColumns.category && <th className="py-3.5 px-4 font-extrabold">Category</th>}
-                    {visibleColumns.uom && <th className="py-3.5 px-4 font-extrabold">UOM</th>}
-                    {visibleColumns.expectedQty && <th className="py-3.5 px-4 text-right font-extrabold">Expected Qty</th>}
-                    {visibleColumns.actualQty && <th className="py-3.5 px-4 text-right font-extrabold">Actual Qty</th>}
-                    {visibleColumns.varianceQty && <th className="py-3.5 px-4 text-right font-extrabold">Variance Qty</th>}
-                    {visibleColumns.variancePercent && <th className="py-3.5 px-4 text-right font-extrabold">Variance %</th>}
-                    {visibleColumns.varianceValue && <th className="py-3.5 px-4 text-right font-extrabold">Variance Value</th>}
-                    {visibleColumns.status && <th className="py-3.5 px-4 text-center font-extrabold">Status</th>}
+                    <th className="py-3.5 px-4 w-10 text-center font-extrabold">
+                      #
+                    </th>
+                    {visibleColumns.itemName && (
+                      <th className="py-3.5 px-4 font-extrabold">Item Name</th>
+                    )}
+                    {visibleColumns.category && (
+                      <th className="py-3.5 px-4 font-extrabold">Category</th>
+                    )}
+                    {visibleColumns.uom && (
+                      <th className="py-3.5 px-4 font-extrabold">UOM</th>
+                    )}
+                    {visibleColumns.expectedQty && (
+                      <th className="py-3.5 px-4 text-right font-extrabold">
+                        Expected Qty
+                      </th>
+                    )}
+                    {visibleColumns.actualQty && (
+                      <th className="py-3.5 px-4 text-right font-extrabold">
+                        Actual Qty
+                      </th>
+                    )}
+                    {visibleColumns.varianceQty && (
+                      <th className="py-3.5 px-4 text-right font-extrabold">
+                        Variance Qty
+                      </th>
+                    )}
+                    {visibleColumns.variancePercent && (
+                      <th className="py-3.5 px-4 text-right font-extrabold">
+                        Variance %
+                      </th>
+                    )}
+                    {visibleColumns.varianceValue && (
+                      <th className="py-3.5 px-4 text-right font-extrabold">
+                        Variance Value
+                      </th>
+                    )}
+                    {visibleColumns.status && (
+                      <th className="py-3.5 px-4 text-center font-extrabold">
+                        Status
+                      </th>
+                    )}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-100 text-xs text-[#0F172A]">
@@ -677,36 +756,81 @@ export default function ReconciliationPage() {
                     const rowNum = (currentPage - 1) * itemsPerPage + idx + 1;
                     const isPos = item.varianceQty > 0;
                     const isNeg = item.varianceQty < 0;
-                    const varianceColor = isPos ? "text-emerald-600 font-bold" : isNeg ? "text-rose-600 font-bold" : "text-zinc-500";
+                    const varianceColor = isPos
+                      ? "text-emerald-600 font-bold"
+                      : isNeg
+                        ? "text-rose-600 font-bold"
+                        : "text-zinc-500";
                     return (
-                      <tr key={item.id || item.itemId} className="hover:bg-zinc-50/40 transition-colors">
-                        <td className="py-3.5 px-4 text-center font-bold text-zinc-400">{rowNum}</td>
-                        {visibleColumns.itemName && <td className="py-3.5 px-4 font-extrabold">{item.itemName}</td>}
-                        {visibleColumns.category && <td className="py-3.5 px-4 font-semibold text-zinc-500">{item.categoryName}</td>}
-                        {visibleColumns.uom && <td className="py-3.5 px-4 font-bold text-zinc-400">{item.baseUnit}</td>}
-                        {visibleColumns.expectedQty && <td className="py-3.5 px-4 text-right font-bold">{item.expectedQty.toFixed(2)}</td>}
-                        {visibleColumns.actualQty && <td className="py-3.5 px-4 text-right font-bold">{item.actualQty.toFixed(2)}</td>}
+                      <tr
+                        key={item.id || item.itemId}
+                        className="hover:bg-zinc-50/40 transition-colors"
+                      >
+                        <td className="py-3.5 px-4 text-center font-bold text-zinc-400">
+                          {rowNum}
+                        </td>
+                        {visibleColumns.itemName && (
+                          <td className="py-3.5 px-4 font-extrabold">
+                            {item.itemName}
+                          </td>
+                        )}
+                        {visibleColumns.category && (
+                          <td className="py-3.5 px-4 font-semibold text-zinc-500">
+                            {item.categoryName}
+                          </td>
+                        )}
+                        {visibleColumns.uom && (
+                          <td className="py-3.5 px-4 font-bold text-zinc-400">
+                            {item.baseUnit}
+                          </td>
+                        )}
+                        {visibleColumns.expectedQty && (
+                          <td className="py-3.5 px-4 text-right font-bold">
+                            {item.expectedQty.toFixed(2)}
+                          </td>
+                        )}
+                        {visibleColumns.actualQty && (
+                          <td className="py-3.5 px-4 text-right font-bold">
+                            {item.actualQty.toFixed(2)}
+                          </td>
+                        )}
                         {visibleColumns.varianceQty && (
-                          <td className={`py-3.5 px-4 text-right ${varianceColor}`}>
-                            {item.varianceQty === 0 ? "0.00" : item.varianceQty.toFixed(2)}
+                          <td
+                            className={`py-3.5 px-4 text-right ${varianceColor}`}
+                          >
+                            {item.varianceQty === 0
+                              ? "0.00"
+                              : item.varianceQty.toFixed(2)}
                           </td>
                         )}
                         {visibleColumns.variancePercent && (
-                          <td className={`py-3.5 px-4 text-right ${varianceColor}`}>
-                            {item.varianceQty === 0 ? "0.00%" : formatPercent(item.variancePercent)}
+                          <td
+                            className={`py-3.5 px-4 text-right ${varianceColor}`}
+                          >
+                            {item.varianceQty === 0
+                              ? "0.00%"
+                              : formatPercent(item.variancePercent)}
                           </td>
                         )}
                         {visibleColumns.varianceValue && (
-                          <td className={`py-3.5 px-4 text-right ${varianceColor}`}>{formatCurrency(item.varianceValue)}</td>
+                          <td
+                            className={`py-3.5 px-4 text-right ${varianceColor}`}
+                          >
+                            {formatCurrency(item.varianceValue)}
+                          </td>
                         )}
                         {visibleColumns.status && (
                           <td className="py-3.5 px-4 text-center">
                             <span
                               className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wide ${
-                                item.status === "Matched" ? "bg-emerald-50 text-[#16A34A]" : "bg-rose-50 text-rose-600"
+                                item.status === "Matched"
+                                  ? "bg-emerald-50 text-[#16A34A]"
+                                  : "bg-rose-50 text-rose-600"
                               }`}
                             >
-                              <span className={`h-1.5 w-1.5 rounded-full ${item.status === "Matched" ? "bg-[#16A34A]" : "bg-rose-600"}`} />
+                              <span
+                                className={`h-1.5 w-1.5 rounded-full ${item.status === "Matched" ? "bg-[#16A34A]" : "bg-rose-600"}`}
+                              />
                               {item.status}
                             </span>
                           </td>
@@ -716,7 +840,10 @@ export default function ReconciliationPage() {
                   })}
                   {filteredItems.length === 0 && (
                     <tr>
-                      <td colSpan={10} className="py-10 text-center text-[#64748B] font-bold">
+                      <td
+                        colSpan={10}
+                        className="py-10 text-center text-[#64748B] font-bold"
+                      >
                         No stock items match the active filters.
                       </td>
                     </tr>
@@ -727,8 +854,13 @@ export default function ReconciliationPage() {
 
             <div className="bg-zinc-50/50 border-t border-zinc-200 py-4 px-6 flex flex-col sm:flex-row justify-between items-center gap-4 text-xs text-[#64748B] font-semibold">
               <span>
-                Showing {Math.min(filteredItems.length, (currentPage - 1) * itemsPerPage + 1)} to{" "}
-                {Math.min(filteredItems.length, currentPage * itemsPerPage)} of {filteredItems.length} items
+                Showing{" "}
+                {Math.min(
+                  filteredItems.length,
+                  (currentPage - 1) * itemsPerPage + 1,
+                )}{" "}
+                to {Math.min(filteredItems.length, currentPage * itemsPerPage)}{" "}
+                of {filteredItems.length} items
               </span>
 
               {totalPages > 1 && (
@@ -741,19 +873,21 @@ export default function ReconciliationPage() {
                     <ChevronLeft className="h-4 w-4" />
                   </button>
 
-                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                    <button
-                      key={page}
-                      onClick={() => setCurrentPage(page)}
-                      className={`h-8 w-8 rounded-lg font-bold text-xs cursor-pointer transition-all duration-150 ${
-                        currentPage === page
-                          ? "bg-[#16A34A] text-white shadow-xs"
-                          : "border border-zinc-200 bg-white hover:bg-zinc-50 text-zinc-700"
-                      }`}
-                    >
-                      {page}
-                    </button>
-                  ))}
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map(
+                    (page) => (
+                      <button
+                        key={page}
+                        onClick={() => setCurrentPage(page)}
+                        className={`h-8 w-8 rounded-lg font-bold text-xs cursor-pointer transition-all duration-150 ${
+                          currentPage === page
+                            ? "bg-[#16A34A] text-white shadow-xs"
+                            : "border border-zinc-200 bg-white hover:bg-zinc-50 text-zinc-700"
+                        }`}
+                      >
+                        {page}
+                      </button>
+                    ),
+                  )}
 
                   <button
                     onClick={() => setCurrentPage(currentPage + 1)}
@@ -768,7 +902,9 @@ export default function ReconciliationPage() {
           </div>
         </div>
 
-        <div className={`grid grid-cols-1 gap-6 ${sidebarFiltersOpen ? "lg:col-span-4 xl:col-span-3" : "hidden lg:block lg:col-span-3"}`}>
+        <div
+          className={`grid grid-cols-1 gap-6 ${sidebarFiltersOpen ? "lg:col-span-4 xl:col-span-3" : "hidden lg:block lg:col-span-3"}`}
+        >
           {sidebarFiltersOpen && (
             <div className="bg-white border border-zinc-200 rounded-2xl p-5 space-y-4 shadow-3xs">
               <div className="flex justify-between items-center border-b border-zinc-150 pb-2.5">
@@ -776,14 +912,19 @@ export default function ReconciliationPage() {
                   <SlidersHorizontal className="h-4 w-4 text-[#16A34A]" />
                   Filters
                 </span>
-                <button onClick={handleClearSidebarFilters} className="text-[10px] font-extrabold text-rose-500 hover:text-rose-600">
+                <button
+                  onClick={handleClearSidebarFilters}
+                  className="text-[10px] font-extrabold text-rose-500 hover:text-rose-600"
+                >
                   Clear All
                 </button>
               </div>
 
               <div className="space-y-3.5">
                 <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-zinc-500 block">Category</label>
+                  <label className="text-[10px] font-bold text-zinc-500 block">
+                    Category
+                  </label>
                   <select
                     value={filterCategory}
                     onChange={(e) => setFilterCategory(e.target.value)}
@@ -799,7 +940,9 @@ export default function ReconciliationPage() {
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-zinc-500 block">Supplier</label>
+                  <label className="text-[10px] font-bold text-zinc-500 block">
+                    Supplier
+                  </label>
                   <select
                     value={filterSupplier}
                     onChange={(e) => setFilterSupplier(e.target.value)}
@@ -815,7 +958,9 @@ export default function ReconciliationPage() {
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-zinc-500 block">Item</label>
+                  <label className="text-[10px] font-bold text-zinc-500 block">
+                    Item
+                  </label>
                   <div className="relative">
                     <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-zinc-400">
                       <Search className="h-3.5 w-3.5" />
@@ -831,7 +976,9 @@ export default function ReconciliationPage() {
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-zinc-500 block">Variance</label>
+                  <label className="text-[10px] font-bold text-zinc-500 block">
+                    Variance
+                  </label>
                   <select
                     value={filterVariance}
                     onChange={(e) => setFilterVariance(e.target.value)}
@@ -845,7 +992,9 @@ export default function ReconciliationPage() {
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-zinc-500 block">Status</label>
+                  <label className="text-[10px] font-bold text-zinc-500 block">
+                    Status
+                  </label>
                   <select
                     value={filterStatus}
                     onChange={(e) => setFilterStatus(e.target.value)}
@@ -875,28 +1024,55 @@ export default function ReconciliationPage() {
               <div className="space-y-3 text-xs">
                 <div className="flex justify-between font-bold text-zinc-500">
                   <span>Total Items</span>
-                  <span className="text-zinc-800">{reconciliation.totalItems}</span>
+                  <span className="text-zinc-800">
+                    {reconciliation.totalItems}
+                  </span>
                 </div>
                 <div className="flex justify-between font-bold text-zinc-500">
                   <span>Total Value (Expected)</span>
-                  <span className="text-zinc-800">{formatCurrency(reconciliation.totalValueExpected)}</span>
+                  <span className="text-zinc-800">
+                    {formatCurrency(reconciliation.totalValueExpected)}
+                  </span>
                 </div>
                 <div className="flex justify-between font-bold text-zinc-500">
                   <span>Total Value (Actual)</span>
-                  <span className="text-zinc-800">{formatCurrency(reconciliation.totalValueActual)}</span>
+                  <span className="text-zinc-800">
+                    {formatCurrency(reconciliation.totalValueActual)}
+                  </span>
                 </div>
                 <div className="border-t border-zinc-100 my-1 pt-2 flex justify-between font-bold text-zinc-500">
                   <span>Total Variance (USD)</span>
-                  <span className={reconciliation.totalVarianceUsd < 0 ? "text-rose-600" : reconciliation.totalVarianceUsd > 0 ? "text-emerald-600" : "text-zinc-800"}>
+                  <span
+                    className={
+                      reconciliation.totalVarianceUsd < 0
+                        ? "text-rose-600"
+                        : reconciliation.totalVarianceUsd > 0
+                          ? "text-emerald-600"
+                          : "text-zinc-800"
+                    }
+                  >
                     {formatCurrency(reconciliation.totalVarianceUsd)}
                   </span>
                 </div>
                 <div className="flex justify-between font-bold text-zinc-500">
                   <span>Total Variance (%)</span>
-                  <span className={reconciliation.totalVarianceUsd < 0 ? "text-rose-600" : reconciliation.totalVarianceUsd > 0 ? "text-emerald-600" : "text-zinc-800"}>
+                  <span
+                    className={
+                      reconciliation.totalVarianceUsd < 0
+                        ? "text-rose-600"
+                        : reconciliation.totalVarianceUsd > 0
+                          ? "text-emerald-600"
+                          : "text-zinc-800"
+                    }
+                  >
                     {reconciliation.totalValueExpected
-                      ? ((reconciliation.totalVarianceUsd / reconciliation.totalValueExpected) * 100).toFixed(2)
-                      : "0.00"}%
+                      ? (
+                          (reconciliation.totalVarianceUsd /
+                            reconciliation.totalValueExpected) *
+                          100
+                        ).toFixed(2)
+                      : "0.00"}
+                    %
                   </span>
                 </div>
               </div>
@@ -911,8 +1087,18 @@ export default function ReconciliationPage() {
 
               <div className="flex items-center gap-5">
                 <div className="relative w-24 h-24 shrink-0 flex items-center justify-center">
-                  <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
-                    <circle cx="50" cy="50" r="40" stroke="#F4F4F5" strokeWidth="12" fill="transparent" />
+                  <svg
+                    className="w-full h-full transform -rotate-90"
+                    viewBox="0 0 100 100"
+                  >
+                    <circle
+                      cx="50"
+                      cy="50"
+                      r="40"
+                      stroke="#F4F4F5"
+                      strokeWidth="12"
+                      fill="transparent"
+                    />
                     {donutData.posPct > 0 && (
                       <circle
                         cx="50"
@@ -922,7 +1108,9 @@ export default function ReconciliationPage() {
                         strokeWidth="12"
                         fill="transparent"
                         strokeDasharray={251.327}
-                        strokeDashoffset={251.327 - (251.327 * donutData.posPct) / 100}
+                        strokeDashoffset={
+                          251.327 - (251.327 * donutData.posPct) / 100
+                        }
                       />
                     )}
                     {donutData.negPct > 0 && (
@@ -934,7 +1122,9 @@ export default function ReconciliationPage() {
                         strokeWidth="12"
                         fill="transparent"
                         strokeDasharray={251.327}
-                        strokeDashoffset={251.327 - (251.327 * donutData.negPct) / 100}
+                        strokeDashoffset={
+                          251.327 - (251.327 * donutData.negPct) / 100
+                        }
                         className="origin-center transform rotate-180"
                         style={{
                           transform: `rotate(${(donutData.posPct / 100) * 360 - 90}deg)`,
@@ -943,10 +1133,19 @@ export default function ReconciliationPage() {
                     )}
                   </svg>
                   <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-                    <span className="text-[10px] font-extrabold text-zinc-400 uppercase tracking-widest leading-none">Net</span>
-                    <span className={`text-xs font-extrabold mt-0.5 ${reconciliation.totalVarianceUsd < 0 ? "text-rose-600" : "text-emerald-600"}`}>
+                    <span className="text-[10px] font-extrabold text-zinc-400 uppercase tracking-widest leading-none">
+                      Net
+                    </span>
+                    <span
+                      className={`text-xs font-extrabold mt-0.5 ${reconciliation.totalVarianceUsd < 0 ? "text-rose-600" : "text-emerald-600"}`}
+                    >
                       {reconciliation.totalVarianceUsd < 0 ? "-" : ""}
-                      {((Math.abs(reconciliation.totalVarianceUsd) / (reconciliation.totalValueExpected || 1)) * 100).toFixed(1)}%
+                      {(
+                        (Math.abs(reconciliation.totalVarianceUsd) /
+                          (reconciliation.totalValueExpected || 1)) *
+                        100
+                      ).toFixed(1)}
+                      %
                     </span>
                   </div>
                 </div>
@@ -955,18 +1154,24 @@ export default function ReconciliationPage() {
                   <div className="flex items-start gap-2">
                     <span className="h-3 w-3 rounded-full bg-emerald-500 shrink-0 mt-0.5" />
                     <div>
-                      <p className="font-bold text-zinc-700">Positive Variance</p>
+                      <p className="font-bold text-zinc-700">
+                        Positive Variance
+                      </p>
                       <p className="font-extrabold text-emerald-600">
-                        {formatCurrency(donutData.posVal)} ({donutData.posPct.toFixed(1)}%)
+                        {formatCurrency(donutData.posVal)} (
+                        {donutData.posPct.toFixed(1)}%)
                       </p>
                     </div>
                   </div>
                   <div className="flex items-start gap-2">
                     <span className="h-3 w-3 rounded-full bg-rose-500 shrink-0 mt-0.5" />
                     <div>
-                      <p className="font-bold text-zinc-700">Negative Variance</p>
+                      <p className="font-bold text-zinc-700">
+                        Negative Variance
+                      </p>
                       <p className="font-extrabold text-rose-600">
-                        {formatCurrency(donutData.negVal)} ({donutData.negPct.toFixed(1)}%)
+                        {formatCurrency(donutData.negVal)} (
+                        {donutData.negPct.toFixed(1)}%)
                       </p>
                     </div>
                   </div>
@@ -987,7 +1192,8 @@ export default function ReconciliationPage() {
             <CheckCircle2 className="h-5 w-5 text-[#16A34A] shrink-0 mt-0.5" />
             <div>
               <p className="text-[11px] font-bold text-emerald-800 leading-relaxed">
-                Inventory variances will impact your stock accuracy. Review and take action as needed.
+                Inventory variances will impact your stock accuracy. Review and
+                take action as needed.
               </p>
             </div>
           </div>
@@ -1003,8 +1209,12 @@ export default function ReconciliationPage() {
           <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white border border-zinc-200 rounded-2xl shadow-2xl w-[600px] max-h-[80vh] flex flex-col z-100 overflow-hidden animate-zoom-in">
             <div className="p-5 border-b border-zinc-200 flex justify-between items-center bg-zinc-50/50">
               <div>
-                <h3 className="text-base font-extrabold text-[#0F172A]">Reconciliation History</h3>
-                <p className="text-zinc-500 text-xs font-semibold mt-0.5">Select a past run to view details.</p>
+                <h3 className="text-base font-extrabold text-[#0F172A]">
+                  Reconciliation History
+                </h3>
+                <p className="text-zinc-500 text-xs font-semibold mt-0.5">
+                  Select a past run to view details.
+                </p>
               </div>
               <button
                 onClick={() => setShowHistoryModal(false)}
@@ -1032,18 +1242,37 @@ export default function ReconciliationPage() {
                   >
                     <div>
                       <h4 className="text-xs font-extrabold text-[#0F172A]">
-                        Run on {run.createdAt ? new Date(run.createdAt).toLocaleString() : run.reconciliationDate}
+                        Run on{" "}
+                        {run.createdAt
+                          ? new Date(run.createdAt).toLocaleString()
+                          : run.reconciliationDate}
                       </h4>
                       <p className="text-[10px] font-bold text-zinc-500 mt-1">
-                        Location: <span className="text-zinc-800">{run.locationName || "All Locations"}</span> • Date: <span className="text-zinc-800">{run.reconciliationDate}</span>
+                        Location:{" "}
+                        <span className="text-zinc-800">
+                          {run.locationName || "All Locations"}
+                        </span>{" "}
+                        • Date:{" "}
+                        <span className="text-zinc-800">
+                          {run.reconciliationDate}
+                        </span>
                       </p>
                       <p className="text-[10px] font-bold text-zinc-500 mt-0.5">
-                        Matched: <span className="text-emerald-600">{run.matchedItems}</span> • Variance: <span className="text-rose-600">{run.varianceItems}</span>
+                        Matched:{" "}
+                        <span className="text-emerald-600">
+                          {run.matchedItems}
+                        </span>{" "}
+                        • Variance:{" "}
+                        <span className="text-rose-600">
+                          {run.varianceItems}
+                        </span>
                       </p>
                     </div>
 
                     <div className="flex items-center gap-4">
-                      <span className={`text-xs font-extrabold ${run.totalVarianceUsd < 0 ? "text-rose-600" : run.totalVarianceUsd > 0 ? "text-emerald-600" : "text-zinc-700"}`}>
+                      <span
+                        className={`text-xs font-extrabold ${run.totalVarianceUsd < 0 ? "text-rose-600" : run.totalVarianceUsd > 0 ? "text-emerald-600" : "text-zinc-700"}`}
+                      >
                         {formatCurrency(run.totalVarianceUsd)}
                       </span>
                       <button

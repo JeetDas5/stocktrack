@@ -36,7 +36,7 @@ import Image from "next/image";
 
 export default function ConsumptionPage() {
   const { activeBusinessId } = useBusinessStore();
-  const { locations } = useLocationStore();
+  const { locations, activeLocationId } = useLocationStore();
   const { profile } = useAuth();
 
   const [categories, setCategories] = useState<Category[]>([]);
@@ -69,6 +69,14 @@ export default function ConsumptionPage() {
   const [filterStockItemId, setFilterStockItemId] = useState<string>("all");
   const [filterGroupBy, setFilterGroupBy] = useState<string>("none");
   const [filterShow, setFilterShow] = useState<string>("top_consumed");
+
+  useEffect(() => {
+    if (activeLocationId) {
+      setFilterLocationId(activeLocationId);
+    } else {
+      setFilterLocationId("all");
+    }
+  }, [activeLocationId]);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -514,22 +522,22 @@ export default function ConsumptionPage() {
                     {maxChartValue >= 10
                       ? (maxChartValue * 0.9).toFixed(0)
                       : maxChartValue > 1
-                      ? (maxChartValue * 0.9).toFixed(1)
-                      : (maxChartValue * 0.9).toFixed(2)}
+                        ? (maxChartValue * 0.9).toFixed(1)
+                        : (maxChartValue * 0.9).toFixed(2)}
                   </span>
                   <span>
                     {maxChartValue >= 10
                       ? (maxChartValue * 0.6).toFixed(0)
                       : maxChartValue > 1
-                      ? (maxChartValue * 0.6).toFixed(1)
-                      : (maxChartValue * 0.6).toFixed(2)}
+                        ? (maxChartValue * 0.6).toFixed(1)
+                        : (maxChartValue * 0.6).toFixed(2)}
                   </span>
                   <span>
                     {maxChartValue >= 10
                       ? (maxChartValue * 0.3).toFixed(0)
                       : maxChartValue > 1
-                      ? (maxChartValue * 0.3).toFixed(1)
-                      : (maxChartValue * 0.3).toFixed(2)}
+                        ? (maxChartValue * 0.3).toFixed(1)
+                        : (maxChartValue * 0.3).toFixed(2)}
                   </span>
                   <span>0</span>
                 </div>
@@ -871,44 +879,6 @@ export default function ConsumptionPage() {
                 </div>
               </div>
             )}
-
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-[#0F172A] block">
-                Business
-              </label>
-              <div className="relative">
-                <select
-                  disabled
-                  className="w-full bg-zinc-50 border border-zinc-200 rounded-xl py-2.5 pl-3.5 pr-8 text-xs font-bold text-zinc-500 appearance-none cursor-not-allowed"
-                >
-                  <option>
-                    {activeBusiness?.name || "StockTrack Business"}
-                  </option>
-                </select>
-                <ChevronDown className="absolute right-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
-              </div>
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-[#0F172A] block">
-                Location
-              </label>
-              <div className="relative">
-                <select
-                  value={filterLocationId}
-                  onChange={(e) => setFilterLocationId(e.target.value)}
-                  className="w-full bg-white border border-zinc-200 rounded-xl py-2.5 pl-3.5 pr-8 text-xs font-bold text-zinc-700 shadow-2xs appearance-none focus:outline-none focus:ring-1 focus:ring-[#16A34A] cursor-pointer"
-                >
-                  <option value="all">All Locations</option>
-                  {locations.map((loc) => (
-                    <option key={loc.id} value={loc.id}>
-                      {loc.name}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown className="absolute right-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
-              </div>
-            </div>
 
             <div className="space-y-1.5">
               <label className="text-xs font-bold text-[#0F172A] block">

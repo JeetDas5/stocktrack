@@ -7,7 +7,7 @@ import { useCategoryStore } from "@/store/category-store";
 import { useAuth } from "@/providers/auth-provider";
 import { getStockItems } from "@/lib/repositories/stock-item.repository";
 import { getUserBusinesses } from "@/lib/repositories/business.repository";
-import { Recipe, RecipeIngredient, StockItem } from "@/types/inventory";
+import { Recipe, StockItem } from "@/types/inventory";
 import { Business } from "@/types/business";
 import {
   ChefHat,
@@ -22,11 +22,6 @@ import {
   ChevronRight,
   MoreVertical,
   AlertCircle,
-  FileText,
-  DollarSign,
-  Layers,
-  MapPin,
-  Utensils,
   PlusCircle,
 } from "lucide-react";
 
@@ -43,19 +38,18 @@ export default function RecipesPage() {
     deleteRecipe,
   } = useRecipeStore();
 
-  const {
-    categories,
-    fetchCategories,
-  } = useCategoryStore();
+  const { categories, fetchCategories } = useCategoryStore();
 
   const [stockItems, setStockItems] = useState<StockItem[]>([]);
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [activeBusiness, setActiveBusiness] = useState<Business | null>(null);
   const [loadingContext, setLoadingContext] = useState(true);
-  
+
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
-  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
+  const [statusFilter, setStatusFilter] = useState<
+    "all" | "active" | "inactive"
+  >("all");
 
   const [showDrawer, setShowDrawer] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
@@ -67,7 +61,9 @@ export default function RecipesPage() {
   const [formYieldUnit, setFormYieldUnit] = useState("Serving");
   const [formDescription, setFormDescription] = useState("");
   const [formStatus, setFormStatus] = useState<"active" | "inactive">("active");
-  const [formIngredients, setFormIngredients] = useState<{ itemId: string; qtyUsed: number }[]>([]);
+  const [formIngredients, setFormIngredients] = useState<
+    { itemId: string; qtyUsed: number }[]
+  >([]);
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -145,7 +141,7 @@ export default function RecipesPage() {
       (rec.ingredients || []).map((ing) => ({
         itemId: ing.itemId,
         qtyUsed: ing.qtyUsed,
-      }))
+      })),
     );
     setError(null);
     setShowDrawer(true);
@@ -159,9 +155,13 @@ export default function RecipesPage() {
       return;
     }
 
-    const invalidIngredient = formIngredients.some((ing) => !ing.itemId || ing.qtyUsed <= 0);
+    const invalidIngredient = formIngredients.some(
+      (ing) => !ing.itemId || ing.qtyUsed <= 0,
+    );
     if (invalidIngredient) {
-      setError("Please ensure all ingredients have an selected item and positive quantity.");
+      setError(
+        "Please ensure all ingredients have an selected item and positive quantity.",
+      );
       return;
     }
 
@@ -221,7 +221,9 @@ export default function RecipesPage() {
   };
 
   const handleAddIngredientRow = () => {
-    const available = stockItems.find((s) => !formIngredients.some((ing) => ing.itemId === s.id));
+    const available = stockItems.find(
+      (s) => !formIngredients.some((ing) => ing.itemId === s.id),
+    );
     setFormIngredients([
       ...formIngredients,
       { itemId: available?.id || stockItems[0]?.id || "", qtyUsed: 1 },
@@ -234,7 +236,11 @@ export default function RecipesPage() {
     setFormIngredients(updated);
   };
 
-  const handleIngredientChange = (index: number, field: "itemId" | "qtyUsed", value: any) => {
+  const handleIngredientChange = (
+    index: number,
+    field: "itemId" | "qtyUsed",
+    value: any,
+  ) => {
     const updated = [...formIngredients];
     updated[index] = {
       ...updated[index],
@@ -273,7 +279,10 @@ export default function RecipesPage() {
     });
   }, [recipes, searchQuery, categoryFilter, statusFilter]);
 
-  const totalPages = Math.max(1, Math.ceil(filteredRecipes.length / itemsPerPage));
+  const totalPages = Math.max(
+    1,
+    Math.ceil(filteredRecipes.length / itemsPerPage),
+  );
   const paginatedRecipes = useMemo(() => {
     const startIndex = (currentPage - 1) * itemsPerPage;
     return filteredRecipes.slice(startIndex, startIndex + itemsPerPage);
@@ -389,7 +398,8 @@ export default function RecipesPage() {
               No recipes found
             </h3>
             <p className="text-[#64748B] text-xs mt-1 font-semibold max-w-xs leading-relaxed">
-              No registered recipe book profiles match your criteria. Click + Add Recipe to begin.
+              No registered recipe book profiles match your criteria. Click +
+              Add Recipe to begin.
             </p>
           </div>
         ) : (
@@ -400,9 +410,13 @@ export default function RecipesPage() {
                   <tr className="border-b border-zinc-200 text-[10px] uppercase font-extrabold tracking-wider text-[#64748B] bg-zinc-50/50">
                     <th className="py-4 px-6 font-extrabold">Recipe Name</th>
                     <th className="py-4 px-6 font-extrabold">Category</th>
-                    <th className="py-4 px-6 font-extrabold">Yield / Serving</th>
+                    <th className="py-4 px-6 font-extrabold">
+                      Yield / Serving
+                    </th>
                     <th className="py-4 px-6 font-extrabold">Ingredients</th>
-                    <th className="py-4 px-6 font-extrabold">Cost per Serving</th>
+                    <th className="py-4 px-6 font-extrabold">
+                      Cost per Serving
+                    </th>
                     <th className="py-4 px-6 font-extrabold">Status</th>
                     <th className="py-4 px-6 font-extrabold text-right">
                       Actions
@@ -456,12 +470,16 @@ export default function RecipesPage() {
                         <div className="inline-flex items-center gap-1.5">
                           <span
                             className={`h-1.5 w-1.5 rounded-full ${
-                              rec.status === "active" ? "bg-[#16A34A]" : "bg-[#64748B]"
+                              rec.status === "active"
+                                ? "bg-[#16A34A]"
+                                : "bg-[#64748B]"
                             }`}
                           />
                           <span
                             className={`text-[10px] font-extrabold ${
-                              rec.status === "active" ? "text-[#16A34A]" : "text-[#64748B]"
+                              rec.status === "active"
+                                ? "text-[#16A34A]"
+                                : "text-[#64748B]"
                             }`}
                           >
                             {rec.status === "active" ? "Active" : "Inactive"}
@@ -473,7 +491,9 @@ export default function RecipesPage() {
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            setActiveMenuId(activeMenuId === rec.id ? null : rec.id);
+                            setActiveMenuId(
+                              activeMenuId === rec.id ? null : rec.id,
+                            );
                           }}
                           className="p-1.5 rounded-lg hover:bg-zinc-100 text-zinc-400 hover:text-[#0F172A] transition-colors cursor-pointer"
                         >
@@ -510,9 +530,14 @@ export default function RecipesPage() {
 
             <div className="bg-zinc-50/50 border-t border-zinc-200 py-4 px-6 flex flex-col sm:flex-row justify-between items-center gap-4 text-xs text-[#64748B] font-semibold">
               <span>
-                Showing {Math.min(filteredRecipes.length, (currentPage - 1) * itemsPerPage + 1)} to{" "}
-                {Math.min(filteredRecipes.length, currentPage * itemsPerPage)} of {filteredRecipes.length}{" "}
-                recipes
+                Showing{" "}
+                {Math.min(
+                  filteredRecipes.length,
+                  (currentPage - 1) * itemsPerPage + 1,
+                )}{" "}
+                to{" "}
+                {Math.min(filteredRecipes.length, currentPage * itemsPerPage)}{" "}
+                of {filteredRecipes.length} recipes
               </span>
 
               {totalPages > 1 && (
@@ -525,19 +550,21 @@ export default function RecipesPage() {
                     <ChevronLeft className="h-4 w-4" />
                   </button>
 
-                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                    <button
-                      key={page}
-                      onClick={() => handlePageChange(page)}
-                      className={`h-8 w-8 rounded-lg font-bold text-xs cursor-pointer transition-all duration-150 ${
-                        currentPage === page
-                          ? "bg-[#16A34A] text-white shadow-xs"
-                          : "border border-zinc-200 bg-white hover:bg-zinc-50 text-zinc-700"
-                      }`}
-                    >
-                      {page}
-                    </button>
-                  ))}
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map(
+                    (page) => (
+                      <button
+                        key={page}
+                        onClick={() => handlePageChange(page)}
+                        className={`h-8 w-8 rounded-lg font-bold text-xs cursor-pointer transition-all duration-150 ${
+                          currentPage === page
+                            ? "bg-[#16A34A] text-white shadow-xs"
+                            : "border border-zinc-200 bg-white hover:bg-zinc-50 text-zinc-700"
+                        }`}
+                      >
+                        {page}
+                      </button>
+                    ),
+                  )}
 
                   <button
                     onClick={() => handlePageChange(currentPage + 1)}
@@ -567,7 +594,9 @@ export default function RecipesPage() {
                     {editId ? "Edit Recipe" : "Add Recipe"}
                   </h3>
                   <p className="text-[#64748B] text-xs font-semibold mt-1">
-                    {editId ? "Edit the details for this recipe." : "Enter the details for the new recipe."}
+                    {editId
+                      ? "Edit the details for this recipe."
+                      : "Enter the details for the new recipe."}
                   </p>
                 </div>
                 <button
@@ -648,27 +677,18 @@ export default function RecipesPage() {
                         placeholder="1"
                         className="w-24 bg-white border border-zinc-300 focus:border-[#16A34A] rounded-xl py-2.5 px-3.5 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#16A34A] transition-all font-semibold"
                         value={formYieldQty}
-                        onChange={(e) => setFormYieldQty(parseInt(e.target.value) || 1)}
+                        onChange={(e) =>
+                          setFormYieldQty(parseInt(e.target.value) || 1)
+                        }
                       />
-                      <div className="relative flex-1">
-                        <select
-                          required
-                          className="w-full bg-white border border-zinc-300 focus:border-[#16A34A] rounded-xl py-2.5 px-3.5 text-xs text-[#0F172A] font-bold focus:outline-none focus:ring-1 focus:ring-[#16A34A] appearance-none cursor-pointer"
-                          value={formYieldUnit}
-                          onChange={(e) => setFormYieldUnit(e.target.value)}
-                        >
-                          <option value="Serving">Serving</option>
-                          <option value="Portion">Portion</option>
-                          <option value="Pizza (12&quot;)">Pizza (12&quot;)</option>
-                          <option value="Pizza (10&quot;)">Pizza (10&quot;)</option>
-                          <option value="Glass (350ml)">Glass (350ml)</option>
-                          <option value="Glass (400ml)">Glass (400ml)</option>
-                          <option value="Bottle">Bottle</option>
-                          <option value="Plate">Plate</option>
-                          <option value="pcs">pcs</option>
-                        </select>
-                        <ChevronDown className="absolute right-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
-                      </div>
+                      <input
+                        type="text"
+                        required
+                        placeholder="Unit (e.g. Serving, Portion)"
+                        className="flex-1 bg-white border border-zinc-300 focus:border-[#16A34A] rounded-xl py-2.5 px-3.5 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#16A34A] transition-all font-semibold"
+                        value={formYieldUnit}
+                        onChange={(e) => setFormYieldUnit(e.target.value)}
+                      />
                     </div>
                   </div>
 
@@ -700,8 +720,11 @@ export default function RecipesPage() {
                     ) : (
                       <div className="space-y-3">
                         {formIngredients.map((ing, idx) => {
-                          const item = stockItems.find((s) => s.id === ing.itemId);
-                          const rowCost = ing.qtyUsed * (item?.costPerBaseUnit || 0);
+                          const item = stockItems.find(
+                            (s) => s.id === ing.itemId,
+                          );
+                          const rowCost =
+                            ing.qtyUsed * (item?.costPerBaseUnit || 0);
                           return (
                             <div
                               key={idx}
@@ -725,10 +748,18 @@ export default function RecipesPage() {
                                 <div className="relative">
                                   <select
                                     value={ing.itemId}
-                                    onChange={(e) => handleIngredientChange(idx, "itemId", e.target.value)}
+                                    onChange={(e) =>
+                                      handleIngredientChange(
+                                        idx,
+                                        "itemId",
+                                        e.target.value,
+                                      )
+                                    }
                                     className="w-full bg-white border border-zinc-300 focus:border-[#16A34A] rounded-xl py-2 px-3 text-[11px] text-[#0F172A] font-bold focus:outline-none focus:ring-1 focus:ring-[#16A34A] appearance-none cursor-pointer"
                                   >
-                                    <option value="">Select ingredient...</option>
+                                    <option value="">
+                                      Select ingredient...
+                                    </option>
                                     {stockItems.map((s) => (
                                       <option key={s.id} value={s.id}>
                                         {s.name} ({s.baseUnit})
@@ -748,7 +779,13 @@ export default function RecipesPage() {
                                       placeholder="Quantity"
                                       className="w-full bg-transparent border-none text-[11px] text-zinc-950 focus:outline-none font-bold"
                                       value={ing.qtyUsed}
-                                      onChange={(e) => handleIngredientChange(idx, "qtyUsed", parseFloat(e.target.value) || 0)}
+                                      onChange={(e) =>
+                                        handleIngredientChange(
+                                          idx,
+                                          "qtyUsed",
+                                          parseFloat(e.target.value) || 0,
+                                        )
+                                      }
                                     />
                                     <span className="text-[10px] text-zinc-400 font-extrabold uppercase tracking-wide pl-2 shrink-0">
                                       {item?.baseUnit || "pcs"}

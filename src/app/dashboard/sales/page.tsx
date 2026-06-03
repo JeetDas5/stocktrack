@@ -227,8 +227,6 @@ export default function SalesEntryPage() {
   const subtotal = Math.round((totalAmount / (1 + taxRate / 100)) * 100) / 100;
   const tax = Math.round((totalAmount - subtotal) * 100) / 100;
 
-  const activeBusiness = businesses.find((b) => b.id === activeBusinessId);
-
   if (loading) {
     return (
       <div className="min-h-[75vh] flex flex-col items-center justify-center bg-white text-[#0F172A]">
@@ -357,46 +355,7 @@ export default function SalesEntryPage() {
               Sale Details
             </h2>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="space-y-1">
-                <label className="text-[10px] font-extrabold text-zinc-400 uppercase tracking-wider block">
-                  Business *
-                </label>
-                <div className="relative">
-                  <select
-                    className="w-full bg-white border border-zinc-200 rounded-xl py-2.5 px-3.5 pr-8 text-xs font-bold text-zinc-700 focus:outline-none focus:border-[#16A34A] appearance-none cursor-pointer"
-                    defaultValue={activeBusinessId || ""}
-                    disabled
-                  >
-                    <option value={activeBusinessId || ""}>
-                      {activeBusiness?.name || "Main Kitchen"}
-                    </option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-[10px] font-extrabold text-zinc-400 uppercase tracking-wider block">
-                  Location *
-                </label>
-                <div className="relative">
-                  <select
-                    className="w-full bg-white border border-zinc-200 rounded-xl py-2.5 px-3.5 pr-8 text-xs font-bold text-zinc-700 focus:outline-none focus:border-[#16A34A] appearance-none cursor-pointer"
-                    value={selectedLocationId}
-                    onChange={(e) => setSelectedLocationId(e.target.value)}
-                  >
-                    {locations.map((loc) => (
-                      <option key={loc.id} value={loc.id}>
-                        {loc.name}
-                      </option>
-                    ))}
-                    {locations.length === 0 && (
-                      <option value="">Main Kitchen</option>
-                    )}
-                  </select>
-                </div>
-              </div>
-
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1">
                 <label className="text-[10px] font-extrabold text-zinc-400 uppercase tracking-wider block">
                   Sale Date *
@@ -1085,7 +1044,7 @@ export default function SalesEntryPage() {
 
       {viewingSale && (
         <div
-          className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-[60] p-4 animate-fade-in"
+          className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-60 p-4 animate-fade-in"
           onClick={(e) => {
             if (e.target === e.currentTarget) setViewingSale(null);
           }}

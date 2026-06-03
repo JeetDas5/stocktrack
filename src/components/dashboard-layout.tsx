@@ -1,6 +1,7 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "@/providers/auth-provider";
 import { useBusinessStore } from "@/store/business-store";
@@ -59,6 +60,38 @@ export default function DashboardLayout({
   const [showHeaderLocationDropdown, setShowHeaderLocationDropdown] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [loading, setLoading] = useState(true);
+
+  const businessDropdownRef = useRef<HTMLDivElement>(null);
+  const locationDropdownRef = useRef<HTMLDivElement>(null);
+  const profileDropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        businessDropdownRef.current &&
+        !businessDropdownRef.current.contains(event.target as Node)
+      ) {
+        setShowHeaderBusinessDropdown(false);
+      }
+      if (
+        locationDropdownRef.current &&
+        !locationDropdownRef.current.contains(event.target as Node)
+      ) {
+        setShowHeaderLocationDropdown(false);
+      }
+      if (
+        profileDropdownRef.current &&
+        !profileDropdownRef.current.contains(event.target as Node)
+      ) {
+        setShowBusinessDropdown(false);
+      }
+    }
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
 
   const { locations, activeLocationId, setActiveLocation, fetchLocations } = useLocationStore();
   const activeLocation = locations.find((l) => l.id === activeLocationId) || null;
@@ -199,9 +232,9 @@ export default function DashboardLayout({
 
   const masterDataLinks: SidebarLink[] = [
     { name: "Locations", href: "/dashboard/locations", icon: MapPin },
-    { name: "Stock Items", href: "/dashboard/stock-items", icon: Package },
     { name: "Suppliers", href: "/dashboard/suppliers", icon: Truck },
     { name: "Categories", href: "/dashboard/categories", icon: Layers },
+    { name: "Stock Items", href: "/dashboard/stock-items", icon: Package },
     { name: "Recipes", href: "/dashboard/recipes", icon: ChefHat },
   ];
 
@@ -466,7 +499,7 @@ export default function DashboardLayout({
 
             <div className="h-4 w-px bg-zinc-200 hidden sm:block" />
 
-            <div className="relative">
+            <div className="relative" ref={businessDropdownRef}>
               <button
                 onClick={() => setShowHeaderBusinessDropdown(!showHeaderBusinessDropdown)}
                 className="flex items-center gap-2 px-3 py-1.5 bg-zinc-100 hover:bg-zinc-200/70 border border-zinc-200 rounded-xl text-xs font-extrabold text-[#0F172A] transition duration-200 cursor-pointer shadow-2xs"
@@ -520,7 +553,7 @@ export default function DashboardLayout({
             {activeBusinessId && (
               <>
                 <div className="h-4 w-px bg-zinc-200 hidden sm:block" />
-                <div className="relative">
+                <div className="relative" ref={locationDropdownRef}>
                   <button
                     onClick={() => setShowHeaderLocationDropdown(!showHeaderLocationDropdown)}
                     className="flex items-center gap-2 px-3 py-1.5 bg-zinc-100 hover:bg-zinc-200/70 border border-zinc-200 rounded-xl text-xs font-extrabold text-[#0F172A] transition duration-200 cursor-pointer shadow-2xs"
@@ -582,7 +615,7 @@ export default function DashboardLayout({
               </span>
             </button>
             <div className="h-5 w-px bg-zinc-200" />
-            <div className="flex items-center gap-3 relative">
+            <div className="flex items-center gap-3 relative" ref={profileDropdownRef}>
               <div className="h-9 w-9 rounded-full bg-[#16A34A] text-white flex items-center justify-center font-extrabold text-xs shadow-sm border border-[#16A34A]/10">
                 {profile?.fullName?.split(" ").map((n) => n[0]).join("").toUpperCase().substring(0, 2) || "SM"}
               </div>
