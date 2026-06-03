@@ -1,12 +1,12 @@
 "use client";
 
+import { Business } from "@/types/business";
 import { useEffect, useState } from "react";
+import { useAuth } from "@/providers/auth-provider";
 import { useBusinessStore } from "@/store/business-store";
 import { useLocationStore } from "@/store/location-store";
-import { useAuth } from "@/providers/auth-provider";
-import { getUserBusinesses } from "@/lib/repositories/business.repository";
 import { Location, LocationType } from "@/types/inventory";
-import { Business } from "@/types/business";
+import { getUserBusinesses } from "@/lib/repositories/business.repository";
 import {
   MapPin,
   Building2,
@@ -25,6 +25,7 @@ import {
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
+import { toast } from "sonner";
 
 export default function LocationsPage() {
   const { activeBusinessId } = useBusinessStore();
@@ -32,7 +33,6 @@ export default function LocationsPage() {
   const {
     locations,
     loading: locationsLoading,
-    error: storeError,
     fetchLocations,
     addLocation,
     updateLocation,
@@ -52,7 +52,6 @@ export default function LocationsPage() {
   const [formAddress, setFormAddress] = useState("");
   const [formActive, setFormActive] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
 
@@ -86,7 +85,6 @@ export default function LocationsPage() {
     setFormType("store");
     setFormAddress("");
     setFormActive(true);
-    setError(null);
     setShowDrawer(true);
   };
 
@@ -97,7 +95,6 @@ export default function LocationsPage() {
     setFormType(loc.type);
     setFormAddress(loc.address || "");
     setFormActive(loc.isActive !== false);
-    setError(null);
     setShowDrawer(true);
     setActiveMenuId(null);
   };
@@ -105,13 +102,17 @@ export default function LocationsPage() {
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!activeBusinessId || !formName.trim() || !formAddress.trim()) {
-      setError("Please fill in all required fields.");
+      toast.error("Please fill in all required fields.");
+      return;
+    }
+
+    if (formAddress.length < 3) {
+      toast.error("Address must be at least 3 characters long.");
       return;
     }
 
     try {
       setSaving(true);
-      setError(null);
 
       const locationData = {
         businessId: activeBusinessId,
@@ -124,14 +125,16 @@ export default function LocationsPage() {
 
       if (editId) {
         await updateLocation(activeBusinessId, editId, locationData);
+        toast.success("Location updated successfully!");
       } else {
         await addLocation(activeBusinessId, locationData);
+        toast.success("Location created successfully!");
       }
 
       setShowDrawer(false);
     } catch (err: any) {
       console.error(err);
-      setError(err.message || "Failed to save location. Please try again.");
+      toast.error(err.message || "Failed to save location. Please try again.");
     } finally {
       setSaving(false);
     }
@@ -144,9 +147,10 @@ export default function LocationsPage() {
     try {
       await deleteLocation(activeBusinessId, locId);
       setActiveMenuId(null);
+      toast.success("Location deleted successfully!");
     } catch (err) {
       console.error(err);
-      alert("Failed to delete location.");
+      toast.error("Failed to delete location.");
     }
   };
 
@@ -238,12 +242,6 @@ export default function LocationsPage() {
             <span>{activeBusiness?.name || "Venue"}</span>
           </div>
         </div>
-
-        {(storeError || error) && (
-          <div className="bg-rose-50 border border-rose-200 text-rose-600 text-xs rounded-xl p-3 text-center font-bold">
-            {storeError || error}
-          </div>
-        )}
 
         {filteredLocations.length === 0 ? (
           <div className="bg-white border border-zinc-200 rounded-2xl py-20 px-6 text-center flex flex-col items-center justify-center shadow-sm">

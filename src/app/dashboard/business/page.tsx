@@ -271,7 +271,7 @@ export default function DashboardBusinessPage() {
             <form onSubmit={handleCreate} className="space-y-4">
               <input
                 type="text"
-                placeholder="e.g. Juice Station"
+                placeholder="e.g. Starbucks"
                 required
                 className="w-full bg-white border border-zinc-300 focus:border-[#16A34A] rounded-xl py-3 px-4 text-sm text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#16A34A] transition-all"
                 value={newBusinessName}

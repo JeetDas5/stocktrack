@@ -24,6 +24,7 @@ interface LocationState {
     data: Partial<Omit<Location, "id" | "createdAt">>,
   ) => Promise<void>;
   deleteLocation: (businessId: string, locationId: string) => Promise<void>;
+  clearError: () => void;
 }
 
 export const useLocationStore = create<LocationState>((set) => ({
@@ -95,4 +96,5 @@ export const useLocationStore = create<LocationState>((set) => ({
       throw err;
     }
   },
+  clearError: () => set({ error: null }),
 }));
