@@ -4,6 +4,8 @@
 import Image from "next/image";
 import { Business } from "@/types/business";
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
+import AlertDialog from "@/components/alert-dialog";
 import { useAuth } from "@/providers/auth-provider";
 import { useBusinessStore } from "@/store/business-store";
 import { getLocations } from "@/lib/repositories/location.repository";
@@ -66,6 +68,8 @@ export default function StockCountsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
@@ -260,7 +264,10 @@ export default function StockCountsPage() {
   };
 
   const handleClearAll = () => {
-    if (!confirm("Are you sure you want to clear all quantities?")) return;
+    setShowClearConfirm(true);
+  };
+
+  const handleConfirmClear = () => {
     const cleared: typeof itemCounts = {};
     stockItems.forEach((item) => {
       cleared[item.id] = {
@@ -274,6 +281,7 @@ export default function StockCountsPage() {
       };
     });
     setItemCounts(cleared);
+    setShowClearConfirm(false);
   };
 
   const saveSession = async (complete: boolean) => {
@@ -365,7 +373,7 @@ export default function StockCountsPage() {
       setLastAutoSave(timestamp);
 
       if (complete) {
-        alert(
+        toast.success(
           "Stock Count submitted successfully! Inventory stock levels updated.",
         );
         const refreshedList = await getStockCounts(activeBusinessId);
@@ -385,21 +393,26 @@ export default function StockCountsPage() {
     }
   };
 
-  const handleDeleteSession = async (sessId: string) => {
-    if (!activeBusinessId) return;
-    if (!confirm("Are you sure you want to delete this count session?")) return;
+  const handleDeleteSession = (sessId: string) => {
+    setDeleteTarget(sessId);
+  };
 
+  const handleConfirmDeleteSession = async () => {
+    if (!activeBusinessId || !deleteTarget) return;
     try {
-      await deleteStockCount(activeBusinessId, sessId);
+      await deleteStockCount(activeBusinessId, deleteTarget);
+      toast.success("Count session deleted successfully!");
       const refreshedList = await getStockCounts(activeBusinessId);
       setHistorySessions(refreshedList);
-      if (activeSession?.id === sessId) {
+      if (activeSession?.id === deleteTarget) {
         setActiveSession(null);
         startNewSession();
       }
     } catch (err) {
       console.error(err);
-      alert("Failed to delete count session.");
+      toast.error("Failed to delete count session.");
+    } finally {
+      setDeleteTarget(null);
     }
   };
 
@@ -930,7 +943,7 @@ export default function StockCountsPage() {
                                         setSelectedDetailSession(detailed);
                                         setViewMode("detail");
                                       } catch (err) {
-                                        alert("Failed to load details.");
+                                        toast.error("Failed to load details.");
                                       } finally {
                                         setLoading(false);
                                       }
@@ -1262,6 +1275,28 @@ export default function StockCountsPage() {
           </div>
         </div>
       )}
+
+      <AlertDialog
+        open={showClearConfirm}
+        title="Clear All Quantities"
+        description="Are you sure you want to clear all quantities? This cannot be undone."
+        confirmLabel="Clear"
+        cancelLabel="Cancel"
+        variant="warning"
+        onConfirm={handleConfirmClear}
+        onCancel={() => setShowClearConfirm(false)}
+      />
+
+      <AlertDialog
+        open={deleteTarget !== null}
+        title="Delete Count Session"
+        description="Are you sure you want to delete this count session? This action cannot be undone."
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        variant="danger"
+        onConfirm={handleConfirmDeleteSession}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </div>
   );
 }

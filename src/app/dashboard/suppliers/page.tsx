@@ -1,6 +1,7 @@
 "use client";
 
 import { toast } from "sonner";
+import AlertDialog from "@/components/alert-dialog";
 import { Business } from "@/types/business";
 import { useAuth } from "@/providers/auth-provider";
 import { useBusinessStore } from "@/store/business-store";
@@ -73,6 +74,7 @@ export default function SuppliersPage() {
 
   const [saving, setSaving] = useState(false);
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 7;
@@ -218,17 +220,21 @@ export default function SuppliersPage() {
     }
   };
 
-  const handleDelete = async (supId: string) => {
-    if (!activeBusinessId) return;
-    if (!confirm("Are you sure you want to delete this supplier?")) return;
+  const handleDelete = (supId: string) => {
+    setActiveMenuId(null);
+    setDeleteTarget(supId);
+  };
 
+  const handleConfirmDelete = async () => {
+    if (!activeBusinessId || !deleteTarget) return;
     try {
-      await deleteSupplier(activeBusinessId, supId);
-      setActiveMenuId(null);
+      await deleteSupplier(activeBusinessId, deleteTarget);
       toast.success("Supplier deleted successfully!");
     } catch (err) {
       console.error(err);
       toast.error("Failed to delete supplier.");
+    } finally {
+      setDeleteTarget(null);
     }
   };
 
@@ -332,7 +338,7 @@ export default function SuppliersPage() {
 
           <div className="flex items-center gap-3 w-full sm:w-auto">
             <button
-              onClick={() => alert("Import function coming soon!")}
+              onClick={() => toast.info("Import function coming soon!")}
               className="flex-1 sm:flex-initial bg-white border border-zinc-200 hover:bg-zinc-50 text-zinc-700 rounded-xl px-4 py-2.5 text-xs font-bold uppercase tracking-wider transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer"
             >
               <Upload className="h-4 w-4" />
@@ -388,7 +394,7 @@ export default function SuppliersPage() {
           </div>
 
           <button
-            onClick={() => alert("Advanced filters coming soon!")}
+            onClick={() => toast.info("Advanced filters coming soon!")}
             className="flex items-center justify-center gap-2 bg-white border border-zinc-200 rounded-xl px-4 py-2.5 text-xs font-bold text-zinc-700 shadow-xs cursor-pointer hover:bg-zinc-50 transition-colors"
           >
             <ChevronDown className="h-4 w-4 text-zinc-400 rotate-90" />
@@ -959,6 +965,17 @@ export default function SuppliersPage() {
           </div>
         </>
       )}
+
+      <AlertDialog
+        open={deleteTarget !== null}
+        variant="danger"
+        title="Delete Supplier"
+        description="Are you sure you want to delete this supplier? This action cannot be undone."
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        onConfirm={handleConfirmDelete}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </div>
   );
 }

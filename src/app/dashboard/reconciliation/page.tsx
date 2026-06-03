@@ -4,14 +4,17 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 "use client";
 
+import { toast } from "sonner";
 import { useEffect, useState, useMemo } from "react";
+
+import { Business } from "@/types/business";
+import AlertDialog from "@/components/alert-dialog";
 import { useBusinessStore } from "@/store/business-store";
 import { useLocationStore } from "@/store/location-store";
 import { useCategoryStore } from "@/store/category-store";
 import { useSupplierStore } from "@/store/supplier-store";
 import { Reconciliation } from "@/types/reconciliation";
 import { getUserBusinesses } from "@/lib/repositories/business.repository";
-import { Business } from "@/types/business";
 import {
   getReconciliations,
   getReconciliationDetail,
@@ -58,6 +61,7 @@ export default function ReconciliationPage() {
   const [loading, setLoading] = useState(true);
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState<"all" | "matched" | "variance">(
@@ -169,7 +173,7 @@ export default function ReconciliationPage() {
       });
       setReconciliation(saved);
       setViewingSavedRunId(saved.id || null);
-      alert("Reconciliation run completed and saved successfully!");
+      toast.success("Reconciliation run completed and saved successfully!");
     } catch (err: any) {
       console.error(err);
       setError(err.message || "Failed to run reconciliation.");
@@ -187,7 +191,7 @@ export default function ReconciliationPage() {
       setHistoryRuns(list);
     } catch (err: any) {
       console.error(err);
-      alert("Failed to load reconciliation history.");
+      toast.error("Failed to load reconciliation history.");
     } finally {
       setHistoryLoading(false);
     }
@@ -219,19 +223,18 @@ export default function ReconciliationPage() {
     }
   };
 
-  const handleDeleteHistoryRun = async (e: React.MouseEvent, id: string) => {
+  const handleDeleteHistoryRun = (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
-    if (!activeBusinessId) return;
-    if (
-      !confirm(
-        "Are you sure you want to delete this reconciliation run from history?",
-      )
-    )
-      return;
+    setDeleteTarget(id);
+  };
+
+  const handleConfirmDeleteRun = async () => {
+    if (!activeBusinessId || !deleteTarget) return;
     try {
-      await deleteReconciliation(activeBusinessId, id);
-      setHistoryRuns(historyRuns.filter((r) => r.id !== id));
-      if (viewingSavedRunId === id) {
+      await deleteReconciliation(activeBusinessId, deleteTarget);
+      toast.success("Reconciliation run deleted successfully!");
+      setHistoryRuns(historyRuns.filter((r) => r.id !== deleteTarget));
+      if (viewingSavedRunId === deleteTarget) {
         setViewingSavedRunId(null);
         if (selectedLocationId) {
           loadReconciliationData(selectedLocationId, date, compareWith);
@@ -239,7 +242,9 @@ export default function ReconciliationPage() {
       }
     } catch (err: any) {
       console.error(err);
-      alert("Failed to delete reconciliation run.");
+      toast.error("Failed to delete reconciliation run.");
+    } finally {
+      setDeleteTarget(null);
     }
   };
 
@@ -1289,6 +1294,17 @@ export default function ReconciliationPage() {
           </div>
         </>
       )}
+
+      <AlertDialog
+        open={deleteTarget !== null}
+        title="Delete Reconciliation Run"
+        description="Are you sure you want to delete this reconciliation run from history? This action cannot be undone."
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        variant="danger"
+        onConfirm={handleConfirmDeleteRun}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </div>
   );
 }

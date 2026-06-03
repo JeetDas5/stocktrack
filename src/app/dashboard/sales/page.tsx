@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
+import AlertDialog from "@/components/alert-dialog";
 import { useBusinessStore } from "@/store/business-store";
 import { useLocationStore } from "@/store/location-store";
 import { useSaleStore } from "@/store/sale-store";
@@ -71,6 +73,7 @@ export default function SalesEntryPage() {
       discountPercentage: number;
     }[]
   >([]);
+  const [saleToComplete, setSaleToComplete] = useState<any | null>(null);
 
   async function loadInitialData() {
     if (!activeBusinessId) return;
@@ -169,13 +172,13 @@ export default function SalesEntryPage() {
   const handleSaveSale = async (status: "draft" | "completed") => {
     if (!activeBusinessId) return;
     if (items.length === 0) {
-      alert("Please add at least one item to save the sale.");
+      toast.error("Please add at least one item to save the sale.");
       return;
     }
 
     const unselectedItem = items.find((i) => !i.recipeId);
     if (unselectedItem) {
-      alert("Please select a valid Recipe for all rows.");
+      toast.error("Please select a valid Recipe for all rows.");
       return;
     }
 
@@ -200,16 +203,38 @@ export default function SalesEntryPage() {
         items: itemsPayload,
       });
 
-      alert(`Sale successfully saved as ${status}!`);
+      toast.success(`Sale successfully saved as ${status}!`);
       setItems([]);
       setReference("");
       setRemarks("");
       await loadInitialData();
     } catch (err: any) {
       console.error(err);
-      alert(err.response?.data?.detail || "Failed to save the sale.");
+      toast.error(err.response?.data?.detail || "Failed to save the sale.");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleConfirmCompleteSale = async () => {
+    if (!activeBusinessId || !saleToComplete) return;
+    try {
+      await updateSaleStatus(
+        activeBusinessId,
+        saleToComplete.id,
+        "completed"
+      );
+      toast.success(`Sale ${saleToComplete.saleNumber || ""} successfully completed!`);
+      if (viewingSale && viewingSale.id === saleToComplete.id) {
+        setViewingSale(null);
+        setShowAllSales(false);
+      }
+      await loadInitialData();
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to complete sale.");
+    } finally {
+      setSaleToComplete(null);
     }
   };
 
@@ -988,28 +1013,7 @@ export default function SalesEntryPage() {
                                   </button>
                                   {sale.status === "draft" && (
                                     <button
-                                      onClick={async () => {
-                                        if (
-                                          confirm(
-                                            `Are you sure you want to complete Sale ${sale.saleNumber || ""}?`,
-                                          )
-                                        ) {
-                                          try {
-                                            await updateSaleStatus(
-                                              activeBusinessId!,
-                                              sale.id,
-                                              "completed",
-                                            );
-                                            alert(
-                                              "Sale successfully completed!",
-                                            );
-                                            await loadInitialData();
-                                          } catch (err) {
-                                            console.error(err);
-                                            alert("Failed to complete sale.");
-                                          }
-                                        }
-                                      }}
+                                      onClick={() => setSaleToComplete(sale)}
                                       className="p-1 rounded-lg border border-emerald-200 hover:border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-[#16A34A] transition-all cursor-pointer shadow-2xs"
                                       title="Complete Drafted Sale"
                                     >
@@ -1205,28 +1209,7 @@ export default function SalesEntryPage() {
             <div className="px-6 py-4 border-t border-zinc-200 bg-zinc-50/50 flex items-center justify-end gap-3 shrink-0">
               {viewingSale.status === "draft" && (
                 <button
-                  onClick={async () => {
-                    if (
-                      confirm(
-                        `Are you sure you want to complete Sale ${viewingSale.saleNumber || ""}?`,
-                      )
-                    ) {
-                      try {
-                        await updateSaleStatus(
-                          activeBusinessId!,
-                          viewingSale.id,
-                          "completed",
-                        );
-                        alert("Sale successfully completed!");
-                        setViewingSale(null);
-                        setShowAllSales(false);
-                        await loadInitialData();
-                      } catch (err) {
-                        console.error(err);
-                        alert("Failed to complete sale.");
-                      }
-                    }
-                  }}
+                  onClick={() => setSaleToComplete(viewingSale)}
                   className="bg-[#16A34A] hover:bg-[#15803D] text-white rounded-xl px-5 py-2 text-xs font-extrabold uppercase tracking-wider shadow-sm flex items-center gap-1.5 cursor-pointer transition-all duration-200"
                 >
                   <CheckCircle2 className="h-4 w-4" />
@@ -1243,6 +1226,17 @@ export default function SalesEntryPage() {
           </div>
         </div>
       )}
+
+      <AlertDialog
+        open={saleToComplete !== null}
+        title="Complete Sale"
+        description={`Are you sure you want to complete Sale ${saleToComplete?.saleNumber || ""}? This will update inventory levels and cannot be undone.`}
+        confirmLabel="Complete"
+        cancelLabel="Cancel"
+        variant="success"
+        onConfirm={handleConfirmCompleteSale}
+        onCancel={() => setSaleToComplete(null)}
+      />
     </div>
   );
 }

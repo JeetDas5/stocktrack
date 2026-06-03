@@ -26,6 +26,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { toast } from "sonner";
+import AlertDialog from "@/components/alert-dialog";
 
 export default function LocationsPage() {
   const { activeBusinessId } = useBusinessStore();
@@ -54,6 +55,7 @@ export default function LocationsPage() {
   const [saving, setSaving] = useState(false);
 
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
   useEffect(() => {
     if (!activeBusinessId) return;
@@ -140,17 +142,21 @@ export default function LocationsPage() {
     }
   };
 
-  const handleDelete = async (locId: string) => {
-    if (!activeBusinessId) return;
-    if (!confirm("Are you sure you want to delete this location?")) return;
+  const handleDelete = (locId: string) => {
+    setActiveMenuId(null);
+    setDeleteTarget(locId);
+  };
 
+  const handleConfirmDelete = async () => {
+    if (!activeBusinessId || !deleteTarget) return;
     try {
-      await deleteLocation(activeBusinessId, locId);
-      setActiveMenuId(null);
+      await deleteLocation(activeBusinessId, deleteTarget);
       toast.success("Location deleted successfully!");
     } catch (err) {
       console.error(err);
       toast.error("Failed to delete location.");
+    } finally {
+      setDeleteTarget(null);
     }
   };
 
@@ -512,6 +518,17 @@ export default function LocationsPage() {
           </div>
         </>
       )}
+
+      <AlertDialog
+        open={deleteTarget !== null}
+        variant="danger"
+        title="Delete Location"
+        description="Are you sure you want to delete this location? This action cannot be undone."
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        onConfirm={handleConfirmDelete}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </div>
   );
 }

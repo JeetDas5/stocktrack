@@ -32,6 +32,8 @@ import {
   TrendingDown,
   Download,
 } from "lucide-react";
+import { toast } from "sonner";
+import AlertDialog from "@/components/alert-dialog";
 
 export default function RefillPlannerPage() {
   const { activeBusinessId } = useBusinessStore();
@@ -44,7 +46,6 @@ export default function RefillPlannerPage() {
   const [categories, setCategories] = useState<Category[]>([]);
 
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [supplierFilter, setSupplierFilter] = useState("all");
@@ -62,9 +63,7 @@ export default function RefillPlannerPage() {
   const [quantities, setQuantities] = useState<Record<string, number>>({});
 
   const [creatingPO, setCreatingPO] = useState(false);
-  const [poResult, setPoResult] = useState<{ poNumbers: string[] } | null>(
-    null,
-  );
+  const [confirmPO, setConfirmPO] = useState<{ targetSupplierId?: string; summary: string } | null>(null);
 
   const [showColumns, setShowColumns] = useState({
     currentStock: true,
@@ -78,7 +77,6 @@ export default function RefillPlannerPage() {
     if (!activeBusinessId) return;
     try {
       setLoading(true);
-      setError(null);
 
       const [sugList, supList, locList, catList] = await Promise.all([
         getRefillSuggestions(activeBusinessId),
@@ -105,7 +103,7 @@ export default function RefillPlannerPage() {
       setQuantities(initialQuantities);
     } catch (err: any) {
       console.error(err);
-      setError("Failed to load refill planner data.");
+      toast.error("Failed to load refill planner data.");
     } finally {
       setLoading(false);
     }
@@ -228,12 +226,56 @@ export default function RefillPlannerPage() {
     setQuantities((prev) => ({ ...prev, [key]: Math.max(0, val) }));
   };
 
-  const handleCreatePurchaseOrders = async (targetSupplierId?: string) => {
+  const requestCreatePurchaseOrders = (targetSupplierId?: string) => {
     if (!activeBusinessId) return;
+
+    // Compute what would be ordered
+    const selectedCount = filteredSuggestions.filter((s) => {
+      const key = `${s.stockItemId}-${s.locationId || "null"}`;
+      if (!selectedItems[key]) return false;
+      if (targetSupplierId && s.supplierId !== targetSupplierId) return false;
+      return true;
+    });
+
+    if (selectedCount.length === 0) {
+      toast.error("No items selected. Please select at least one item.");
+      return;
+    }
+
+    const totalQty = selectedCount.reduce((sum, s) => {
+      const key = `${s.stockItemId}-${s.locationId || "null"}`;
+      const qty = quantities[key] !== undefined ? quantities[key] : s.toRefill;
+      return sum + qty;
+    }, 0);
+
+    if (totalQty <= 0) {
+      toast.error("All selected items have 0 quantity. Adjust quantities before creating a purchase order.");
+      return;
+    }
+
+    const totalCost = selectedCount.reduce((sum, s) => {
+      const key = `${s.stockItemId}-${s.locationId || "null"}`;
+      const qty = quantities[key] !== undefined ? quantities[key] : s.toRefill;
+      return sum + qty * s.costPerBaseUnit;
+    }, 0);
+
+    const itemsWithNoSupplier = selectedCount.filter((s) => !s.supplierId);
+    if (itemsWithNoSupplier.length === selectedCount.length) {
+      toast.error("None of the selected items have a supplier assigned. Assign suppliers before creating purchase orders.");
+      return;
+    }
+
+    const summary = `${selectedCount.length} item${selectedCount.length !== 1 ? "s" : ""} · Est. $${totalCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} AUD`;
+    setConfirmPO({ targetSupplierId, summary });
+  };
+
+  const handleCreatePurchaseOrders = async () => {
+    if (!activeBusinessId || !confirmPO) return;
+    const targetSupplierId = confirmPO.targetSupplierId;
+    setConfirmPO(null);
 
     try {
       setCreatingPO(true);
-      setError(null);
 
       const itemsToOrder: Record<
         string,
@@ -262,10 +304,7 @@ export default function RefillPlannerPage() {
 
       const supplierIds = Object.keys(itemsToOrder);
       if (supplierIds.length === 0) {
-        setError(
-          "No items with valid suppliers and positive quantities selected.",
-        );
-        setCreatingPO(false);
+        toast.error("No items with valid suppliers and positive quantities selected.");
         return;
       }
 
@@ -281,11 +320,11 @@ export default function RefillPlannerPage() {
         poNumbers.push(res.poNumber);
       }
 
-      setPoResult({ poNumbers });
+      toast.success(`Purchase order${poNumbers.length > 1 ? "s" : ""} created: ${poNumbers.join(", ")}`);
       await loadData();
     } catch (err: any) {
       console.error(err);
-      setError("Failed to create purchase orders.");
+      toast.error("Failed to create purchase orders.");
     } finally {
       setCreatingPO(false);
     }
@@ -322,14 +361,14 @@ export default function RefillPlannerPage() {
               </span>
             )}
             <button
-              onClick={() => alert("Refill spreadsheet exported successfully!")}
+              onClick={() => toast("Export feature coming soon!")}
               className="flex-1 sm:flex-initial bg-white border border-zinc-200 hover:bg-zinc-50 text-zinc-700 rounded-xl px-4 py-2.5 text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs"
             >
               <Download className="h-4 w-4 text-zinc-500" />
               Export
             </button>
             <button
-              onClick={() => handleCreatePurchaseOrders()}
+              onClick={() => requestCreatePurchaseOrders()}
               disabled={creatingPO || locationFilter === "all"}
               className="flex-1 sm:flex-initial bg-[#16A34A] hover:bg-[#15803D] disabled:bg-zinc-300 disabled:text-zinc-400 disabled:cursor-not-allowed text-white rounded-xl px-5 py-2.5 text-xs font-bold uppercase tracking-wider shadow-sm flex items-center justify-center gap-2 cursor-pointer transition-all"
             >
@@ -343,33 +382,6 @@ export default function RefillPlannerPage() {
           </div>
         </div>
 
-        {poResult && (
-          <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs rounded-xl p-4 flex items-center gap-3 font-semibold shadow-xs">
-            <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0" />
-            <div className="flex-1">
-              <p className="font-extrabold">
-                Purchase Orders Created Successfully!
-              </p>
-              <p className="text-emerald-600 mt-0.5">
-                The following purchase orders have been drafted:{" "}
-                {poResult.poNumbers.join(", ")}
-              </p>
-            </div>
-            <button
-              onClick={() => setPoResult(null)}
-              className="p-1 rounded-md hover:bg-emerald-100 text-emerald-700"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-        )}
-
-        {error && (
-          <div className="bg-rose-50 border border-rose-200 text-rose-600 text-xs rounded-xl p-3 flex items-center gap-2 justify-center font-bold">
-            <AlertCircle className="h-4 w-4 shrink-0" />
-            {error}
-          </div>
-        )}
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="bg-white p-5 rounded-2xl border border-zinc-200 shadow-xs flex items-center gap-4">
@@ -534,7 +546,7 @@ export default function RefillPlannerPage() {
                       {groupBy === "supplier" && group.id && (
                         <button
                           disabled={locationFilter === "all"}
-                          onClick={() => handleCreatePurchaseOrders(group.id)}
+                          onClick={() => requestCreatePurchaseOrders(group.id)}
                           className="bg-white disabled:bg-zinc-100 disabled:text-zinc-400 disabled:border-zinc-200 disabled:cursor-not-allowed border border-[#16A34A] hover:bg-emerald-50 text-[#16A34A] rounded-lg px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-wider flex items-center gap-1.5 transition-all cursor-pointer"
                         >
                           <FileText className="h-3 w-3" />
@@ -675,6 +687,17 @@ export default function RefillPlannerPage() {
           </div>
         )}
       </div>
+
+      <AlertDialog
+        open={confirmPO !== null}
+        variant="info"
+        title="Create Purchase Order"
+        description={confirmPO ? `You are about to create purchase order(s) for ${confirmPO.summary}. This will create draft POs that you can review before sending to suppliers.` : ""}
+        confirmLabel="Create PO"
+        cancelLabel="Cancel"
+        onConfirm={handleCreatePurchaseOrders}
+        onCancel={() => setConfirmPO(null)}
+      />
     </div>
   );
 }

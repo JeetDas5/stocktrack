@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState, useMemo, useRef } from "react";
+import { toast } from "sonner";
+import AlertDialog from "@/components/alert-dialog";
 import { useBusinessStore } from "@/store/business-store";
 import { useCategoryStore } from "@/store/category-store";
 import { useAuth } from "@/providers/auth-provider";
@@ -80,8 +82,8 @@ export default function CategoriesPage() {
   const [formStatus, setFormStatus] = useState<"active" | "inactive">("active");
 
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 7;
@@ -127,7 +129,6 @@ export default function CategoriesPage() {
     setFormDescription("");
     setFormIcon("other");
     setFormStatus("active");
-    setError(null);
     setShowDrawer(true);
   };
 
@@ -137,7 +138,6 @@ export default function CategoriesPage() {
     setFormDescription(cat.description || "");
     setFormIcon(cat.icon || "other");
     setFormStatus(cat.status);
-    setError(null);
     setShowDrawer(true);
     setActiveMenuId(null);
   };
@@ -145,13 +145,12 @@ export default function CategoriesPage() {
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!activeBusinessId || !formName.trim()) {
-      setError("Please fill in all required fields.");
+      toast.error("Please fill in all required fields.");
       return;
     }
 
     try {
       setSaving(true);
-      setError(null);
 
       const categoryData = {
         businessId: activeBusinessId,
@@ -163,29 +162,36 @@ export default function CategoriesPage() {
 
       if (editId) {
         await updateCategory(activeBusinessId, editId, categoryData);
+        toast.success("Category updated successfully!");
       } else {
         await addCategory(activeBusinessId, categoryData);
+        toast.success("Category added successfully!");
       }
 
       setShowDrawer(false);
     } catch (err: any) {
       console.error(err);
-      setError(err.message || "Failed to save category. Please try again.");
+      toast.error(err.message || "Failed to save category. Please try again.");
     } finally {
       setSaving(false);
     }
   };
 
-  const handleDelete = async (catId: string) => {
-    if (!activeBusinessId) return;
-    if (!confirm("Are you sure you want to delete this category?")) return;
+  const handleDelete = (catId: string) => {
+    setActiveMenuId(null);
+    setDeleteTarget(catId);
+  };
 
+  const handleConfirmDelete = async () => {
+    if (!activeBusinessId || !deleteTarget) return;
     try {
-      await deleteCategory(activeBusinessId, catId);
-      setActiveMenuId(null);
+      await deleteCategory(activeBusinessId, deleteTarget);
+      toast.success("Category deleted successfully!");
     } catch (err) {
       console.error(err);
-      alert("Failed to delete category.");
+      toast.error("Failed to delete category.");
+    } finally {
+      setDeleteTarget(null);
     }
   };
 
@@ -297,10 +303,10 @@ export default function CategoriesPage() {
           </div>
         </div>
 
-        {(storeError || error) && (
+        {(storeError) && (
           <div className="bg-rose-50 border border-rose-200 text-rose-600 text-xs rounded-xl p-3 flex items-center gap-2 justify-center font-bold">
             <AlertCircle className="h-4 w-4 shrink-0" />
-            {storeError || error}
+            {storeError}
           </div>
         )}
 
@@ -601,6 +607,17 @@ export default function CategoriesPage() {
           </div>
         </>
       )}
+
+      <AlertDialog
+        open={deleteTarget !== null}
+        title="Delete Category"
+        description="Are you sure you want to delete this category? This action cannot be undone."
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        variant="danger"
+        onConfirm={handleConfirmDelete}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </div>
   );
 }

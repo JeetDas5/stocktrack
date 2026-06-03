@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import { useBusinessStore } from "@/store/business-store";
 import { getSuppliers } from "@/lib/repositories/supplier.repository";
 import { getLocations } from "@/lib/repositories/location.repository";
@@ -162,7 +163,7 @@ export default function DeliveriesPage() {
       setViewingDelivery(detail);
     } catch (err) {
       console.error(err);
-      alert("Failed to load delivery details.");
+      toast.error("Failed to load delivery details.");
       setIsPanelOpen(false);
     }
   };
@@ -186,7 +187,7 @@ export default function DeliveriesPage() {
         items: itemsPayload,
       });
 
-      alert("Delivery confirmed and inventory levels updated successfully!");
+      toast.success("Delivery confirmed and inventory levels updated successfully!");
       setIsPanelOpen(false);
 
       setSelectedSupplierId("");
@@ -198,7 +199,7 @@ export default function DeliveriesPage() {
       await loadData();
     } catch (err: any) {
       console.error(err);
-      alert(
+      toast.error(
         err.response?.data?.detail || "Failed to confirm and receive delivery.",
       );
     } finally {

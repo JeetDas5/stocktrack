@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
+import AlertDialog from "@/components/alert-dialog";
 import { useBusinessStore } from "@/store/business-store";
 import { useAuth } from "@/providers/auth-provider";
 import {
@@ -12,16 +14,12 @@ import { PurchaseOrder } from "@/types/inventory";
 import {
   FileText,
   Loader2,
-  AlertCircle,
-  CheckCircle2,
   Trash2,
   ChevronDown,
   ChevronUp,
   Send,
-  Check,
   Calendar,
   Building,
-  X,
 } from "lucide-react";
 
 export default function PurchaseOrdersPage() {
@@ -30,20 +28,18 @@ export default function PurchaseOrdersPage() {
 
   const [orders, setOrders] = useState<PurchaseOrder[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [expandedPoId, setExpandedPoId] = useState<string | null>(null);
-  const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
   const loadData = async () => {
     if (!activeBusinessId) return;
     try {
       setLoading(true);
-      setError(null);
       const data = await getPurchaseOrders(activeBusinessId);
       setOrders(data);
     } catch (err: any) {
       console.error(err);
-      setError("Failed to load purchase orders.");
+      toast.error("Failed to load purchase orders.");
     } finally {
       setLoading(false);
     }
@@ -53,36 +49,33 @@ export default function PurchaseOrdersPage() {
     loadData();
   }, [activeBusinessId, profile]);
 
-  const handleStatusChange = async (
-    poId: string,
-    newStatus: "draft" | "sent",
-  ) => {
+  const handleStatusChange = async (poId: string, newStatus: "completed" | "draft" | "sent") => {
     if (!activeBusinessId) return;
     try {
-      setError(null);
-      setSuccessMsg(null);
       await updatePurchaseOrderStatus(activeBusinessId, poId, newStatus);
-      setSuccessMsg(`Purchase order status updated to ${newStatus}`);
+      toast.success(`Purchase order status updated to ${newStatus}`);
       await loadData();
     } catch (err) {
       console.error(err);
-      setError("Failed to update status.");
+      toast.error("Failed to update status.");
     }
   };
 
-  const handleDelete = async (poId: string) => {
-    if (!activeBusinessId) return;
-    if (!confirm("Are you sure you want to delete this purchase order?"))
-      return;
+  const handleDelete = (poId: string) => {
+    setDeleteTarget(poId);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!activeBusinessId || !deleteTarget) return;
     try {
-      setError(null);
-      setSuccessMsg(null);
-      await deletePurchaseOrder(activeBusinessId, poId);
-      setSuccessMsg("Purchase order deleted successfully.");
+      await deletePurchaseOrder(activeBusinessId, deleteTarget);
+      toast.success("Purchase order deleted successfully.");
       await loadData();
     } catch (err) {
       console.error(err);
-      setError("Failed to delete purchase order.");
+      toast.error("Failed to delete purchase order.");
+    } finally {
+      setDeleteTarget(null);
     }
   };
 
@@ -116,25 +109,7 @@ export default function PurchaseOrdersPage() {
           </div>
         </div>
 
-        {successMsg && (
-          <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs rounded-xl p-4 flex items-center gap-3 font-semibold shadow-xs">
-            <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0" />
-            <span className="flex-1">{successMsg}</span>
-            <button
-              onClick={() => setSuccessMsg(null)}
-              className="p-1 text-emerald-700"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-        )}
 
-        {error && (
-          <div className="bg-rose-50 border border-rose-200 text-rose-600 text-xs rounded-xl p-3 flex items-center gap-2 justify-center font-bold">
-            <AlertCircle className="h-4 w-4 shrink-0" />
-            {error}
-          </div>
-        )}
 
         {orders.length === 0 ? (
           <div className="bg-white border border-zinc-200 rounded-2xl py-20 px-6 text-center flex flex-col items-center justify-center shadow-xs">
@@ -323,6 +298,17 @@ export default function PurchaseOrdersPage() {
           </div>
         )}
       </div>
+
+      <AlertDialog
+        open={deleteTarget !== null}
+        title="Delete Purchase Order"
+        description="Are you sure you want to delete this purchase order? This action cannot be undone."
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        variant="danger"
+        onConfirm={handleConfirmDelete}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </div>
   );
 }

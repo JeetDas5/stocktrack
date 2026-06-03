@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState, useMemo, useRef } from "react";
+import { toast } from "sonner";
+import AlertDialog from "@/components/alert-dialog";
 import { useBusinessStore } from "@/store/business-store";
 import { useRecipeStore } from "@/store/recipe-store";
 import { useCategoryStore } from "@/store/category-store";
@@ -67,6 +69,7 @@ export default function RecipesPage() {
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
 
   const [currentPage, setCurrentPage] = useState(1);
@@ -207,16 +210,21 @@ export default function RecipesPage() {
     }
   };
 
-  const handleDelete = async (recId: string) => {
-    if (!activeBusinessId) return;
-    if (!confirm("Are you sure you want to delete this recipe?")) return;
+  const handleDelete = (recId: string) => {
+    setActiveMenuId(null);
+    setDeleteTarget(recId);
+  };
 
+  const handleConfirmDelete = async () => {
+    if (!activeBusinessId || !deleteTarget) return;
     try {
-      await deleteRecipe(activeBusinessId, recId);
-      setActiveMenuId(null);
+      await deleteRecipe(activeBusinessId, deleteTarget);
+      toast.success("Recipe deleted successfully!");
     } catch (err) {
       console.error(err);
-      alert("Failed to delete recipe.");
+      toast.error("Failed to delete recipe.");
+    } finally {
+      setDeleteTarget(null);
     }
   };
 
@@ -326,7 +334,7 @@ export default function RecipesPage() {
 
           <div className="flex items-center gap-3 w-full sm:w-auto">
             <button
-              onClick={() => alert("Import function coming soon!")}
+              onClick={() => toast.info("Import function coming soon!")}
               className="flex-1 sm:flex-initial bg-white border border-zinc-200 hover:bg-zinc-50 text-zinc-700 rounded-xl px-4 py-2.5 text-xs font-bold uppercase tracking-wider transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer"
             >
               Import Recipes
@@ -884,6 +892,17 @@ export default function RecipesPage() {
           </div>
         </>
       )}
+
+      <AlertDialog
+        open={deleteTarget !== null}
+        title="Delete Recipe"
+        description="Are you sure you want to delete this recipe? This action cannot be undone."
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        variant="danger"
+        onConfirm={handleConfirmDelete}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </div>
   );
 }

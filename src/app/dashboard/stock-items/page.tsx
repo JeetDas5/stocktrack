@@ -4,6 +4,8 @@
 
 import Image from "next/image";
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
+import AlertDialog from "@/components/alert-dialog";
 import { useAuth } from "@/providers/auth-provider";
 import { useBusinessStore } from "@/store/business-store";
 import { useLocationStore } from "@/store/location-store";
@@ -104,7 +106,7 @@ export default function StockItemsPage() {
   >({});
 
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
   const [validationErrors, setValidationErrors] = useState<
     Record<string, boolean>
@@ -233,7 +235,6 @@ export default function StockItemsPage() {
     setLocationRulesMap(initialRules);
 
     setSelectedLocations(locations.map((loc) => loc.id));
-    setError(null);
     setValidationErrors({});
     setShowDrawer(true);
   };
@@ -313,7 +314,6 @@ export default function StockItemsPage() {
 
     const itemLocIds = (item.locationRules || []).map((r) => r.locationId);
     setSelectedLocations(itemLocIds);
-    setError(null);
     setValidationErrors({});
     setShowDrawer(true);
     setActiveMenuId(null);
@@ -355,7 +355,7 @@ export default function StockItemsPage() {
         errors.sameCurrentStock
       ) {
         setValidationErrors(errors);
-        setError(
+        toast.error(
           "Capacity must be positive (> 0), and reorder level and current stock cannot be negative.",
         );
         return;
@@ -375,13 +375,13 @@ export default function StockItemsPage() {
       if (reoConverted > capConverted) {
         errors.sameReorder = true;
         setValidationErrors(errors);
-        setError("Reorder level must be less than storage capacity.");
+        toast.error("Reorder level must be less than storage capacity.");
         return;
       }
       if (stockConverted > capConverted) {
         errors.sameCurrentStock = true;
         setValidationErrors(errors);
-        setError("Current stock must be less than storage capacity.");
+        toast.error("Current stock must be less than storage capacity.");
         return;
       }
     } else {
@@ -468,9 +468,9 @@ export default function StockItemsPage() {
       if (limitViolation || Object.keys(errors).length > 0) {
         setValidationErrors(errors);
         if (limitViolation) {
-          setError(limitErrorMsg);
+          toast.error(limitErrorMsg);
         } else {
-          setError(
+          toast.error(
             "Please fill in all compulsory fields marked with an asterisk (*).",
           );
         }
@@ -480,7 +480,7 @@ export default function StockItemsPage() {
 
     if (Object.keys(errors).length > 0) {
       setValidationErrors(errors);
-      setError(
+      toast.error(
         "Please fill in all compulsory fields marked with an asterisk (*).",
       );
       return;
@@ -488,7 +488,6 @@ export default function StockItemsPage() {
 
     try {
       setSaving(true);
-      setError(null);
       setValidationErrors({});
 
       const rulesPayload: LocationRule[] = [];
@@ -589,26 +588,32 @@ export default function StockItemsPage() {
       }
 
       await loadData();
+      toast.success(editId ? "Stock item updated successfully!" : "Stock item created successfully!");
       setShowDrawer(false);
     } catch (err: any) {
       console.error(err);
-      setError(err.response?.data?.detail || "Failed to save stock item.");
+      toast.error(err.response?.data?.detail || "Failed to save stock item.");
     } finally {
       setSaving(false);
     }
   };
 
-  const handleDelete = async (itemId: string) => {
-    if (!activeBusinessId) return;
-    if (!confirm("Are you sure you want to delete this stock item?")) return;
+  const handleDelete = (itemId: string) => {
+    setActiveMenuId(null);
+    setDeleteTarget(itemId);
+  };
 
+  const handleConfirmDelete = async () => {
+    if (!activeBusinessId || !deleteTarget) return;
     try {
-      await deleteStockItem(activeBusinessId, itemId);
+      await deleteStockItem(activeBusinessId, deleteTarget);
+      toast.success("Stock item deleted successfully!");
       await loadData();
-      setActiveMenuId(null);
     } catch (err) {
       console.error(err);
-      alert("Failed to delete stock item.");
+      toast.error("Failed to delete stock item.");
+    } finally {
+      setDeleteTarget(null);
     }
   };
 
@@ -781,11 +786,7 @@ export default function StockItemsPage() {
           </div>
         </div>
 
-        {error && (
-          <div className="bg-rose-50 border border-rose-200 text-rose-600 text-xs rounded-xl p-3 text-center font-bold">
-            {error}
-          </div>
-        )}
+
 
         {paginatedItems.length === 0 ? (
           <div className="bg-white border border-zinc-200 rounded-2xl py-20 px-6 text-center flex flex-col items-center justify-center shadow-sm">
@@ -955,12 +956,7 @@ export default function StockItemsPage() {
                 </button>
               </div>
 
-              {error && (
-                <div className="bg-rose-50 border border-rose-200 text-rose-600 text-xs rounded-xl p-3 font-semibold flex items-center gap-2">
-                  <span className="h-1.5 w-1.5 rounded-full bg-rose-500 shrink-0" />
-                  <span>{error}</span>
-                </div>
-              )}
+
 
               <form onSubmit={handleSave} noValidate className="space-y-5">
                 <div className="space-y-4">
@@ -1864,6 +1860,17 @@ export default function StockItemsPage() {
           </div>
         </>
       )}
+
+      <AlertDialog
+        open={deleteTarget !== null}
+        title="Delete Stock Item"
+        description="Are you sure you want to delete this stock item? This action cannot be undone."
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        variant="danger"
+        onConfirm={handleConfirmDelete}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </div>
   );
 }
