@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/providers/auth-provider";
 import { useBusinessStore } from "@/store/business-store";
 import {
@@ -25,6 +26,7 @@ interface BusinessWithMetadata extends Business {
 }
 
 export default function DashboardBusinessPage() {
+  const router = useRouter();
   const { user, profile, loading: authLoading, refreshProfile } = useAuth();
   const { activeBusinessId, setActiveBusiness } = useBusinessStore();
 
@@ -80,6 +82,7 @@ export default function DashboardBusinessPage() {
   const handleSelect = (businessId: string) => {
     setActiveBusiness(businessId);
     localStorage.setItem("stocktrack_active_business_id", businessId);
+    router.push("/dashboard/locations");
   };
 
   const handleCreate = async (e: React.FormEvent) => {
