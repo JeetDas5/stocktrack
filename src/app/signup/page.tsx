@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { toast } from "sonner";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/providers/auth-provider";
@@ -19,16 +20,19 @@ export default function SignupPage() {
 
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const handleGoogleLogin = async () => {
     try {
       setLoading(true);
-      setError(null);
       await signInWithGoogle();
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
-      setError("Failed to register with Google. Please try again.");
+      if (err instanceof Error) {
+        toast.error(err.message);
+      } else {
+        toast.error("Failed to sign up. Please try again.");
+      }
     } finally {
       setLoading(false);
     }
@@ -36,37 +40,52 @@ export default function SignupPage() {
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(null);
 
-    if (!fullName.trim() || !email || !password || !confirmPassword) {
-      setError("Please fill in all fields.");
+    const trimmedFullName = fullName.trim();
+    if (!trimmedFullName || !email || !password || !confirmPassword) {
+      toast.error("Please fill in all fields.");
       return;
     }
 
-    if (password.length < 8) {
-      setError("Password must be at least 8 characters long.");
+    const trimmedEmail = email.trim();
+
+    if (trimmedEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+      toast.error("Please enter a valid email address.");
+      return;
+    }
+
+    if (trimmedFullName.length < 3 || trimmedFullName.length > 50) {
+      toast.error("Full name must be between 3 and 50 characters long.");
+      return;
+    }
+
+    if (password.length < 8 || password.length > 50) {
+      toast.error("Password must be between 8 and 50 characters long.");
+      return;
+    }
+
+    if (confirmPassword.length < 8 || confirmPassword.length > 50) {
+      toast.error("Confirm password must be between 8 and 50 characters long.");
       return;
     }
 
     if (password !== confirmPassword) {
-      setError("Passwords do not match.");
+      toast.error("Passwords do not match.");
       return;
     }
 
     try {
       setLoading(true);
-      await registerAdmin(email, password, fullName.trim());
+      await registerAdmin(email, password, trimmedFullName);
       await fetchSession();
       await refreshProfile();
       router.push("/dashboard/business");
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
-      if (err.code === "auth/email-already-in-use") {
-        setError("This email address is already in use.");
-      } else if (err.code === "auth/invalid-email") {
-        setError("Please enter a valid email address.");
+      if (err instanceof Error) {
+        toast.error(err.message);
       } else {
-        setError("Failed to create account. Please try again.");
+        toast.error("Failed to create account. Please try again.");
       }
     } finally {
       setLoading(false);
@@ -84,18 +103,12 @@ export default function SignupPage() {
               </span>
             </div>
             <h1 className="text-3xl font-extrabold text-[#0F172A] tracking-tight">
-              Create Account
+              Stock Track
             </h1>
             <p className="text-[#64748B] text-sm mt-1">
               Get started with hospitality inventory intelligence
             </p>
           </div>
-
-          {error && (
-            <div className="bg-rose-50 border border-rose-200 text-rose-600 text-xs rounded-xl p-3 mb-5 text-center font-medium animate-fade-in">
-              {error}
-            </div>
-          )}
 
           <form onSubmit={handleSignup} className="space-y-4">
             <div className="space-y-1.5">
@@ -108,7 +121,7 @@ export default function SignupPage() {
                 </div>
                 <input
                   type="text"
-                  placeholder="User name"
+                  placeholder="username"
                   className="w-full bg-white border border-zinc-300 focus:border-[#16A34A] rounded-xl py-2.5 pl-10 pr-4 text-sm text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#16A34A] transition-all"
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
@@ -175,13 +188,24 @@ export default function SignupPage() {
                   <KeyRound className="h-4 w-4" />
                 </div>
                 <input
-                  type={showPassword ? "text" : "password"}
+                  type={showConfirmPassword ? "text" : "password"}
                   placeholder="••••••••"
                   className="w-full bg-white border border-zinc-300 focus:border-[#16A34A] rounded-xl py-2.5 pl-10 pr-10 text-sm text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#16A34A] transition-all"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   disabled={loading}
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-zinc-400 hover:text-zinc-600 transition-colors"
+                >
+                  {showConfirmPassword ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
+                </button>
               </div>
             </div>
 

@@ -7,6 +7,7 @@ import { loginAdmin } from "@/lib/services/auth.service";
 import { signInWithGoogle } from "@/lib/services/sign-in";
 import { useAuth } from "@/providers/auth-provider";
 import { KeyRound, Mail, Eye, EyeOff, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -16,25 +17,32 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !password) {
-      setError("Please enter both email and password.");
+      toast.error("Please enter both email and password.");
+      return;
+    }
+
+    if (password.length < 3 || password.length > 50) {
+      toast.error("Password must be between 3 and 50 characters long.");
       return;
     }
 
     try {
       setLoading(true);
-      setError(null);
       await loginAdmin(email, password);
       await fetchSession();
       await refreshProfile();
       router.push("/dashboard/business");
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
-      setError("Invalid email or password. Please try again.");
+      if (err instanceof Error) {
+        toast.error(err.message);
+      } else {
+        toast.error("Invalid email or password. Please try again.");
+      }
     } finally {
       setLoading(false);
     }
@@ -43,11 +51,14 @@ export default function LoginPage() {
   const handleGoogleLogin = async () => {
     try {
       setLoading(true);
-      setError(null);
       await signInWithGoogle();
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
-      setError("Failed to authenticate with Google. Please try again.");
+      if (err instanceof Error) {
+        toast.error(err.message);
+      } else {
+        toast.error("Failed to authenticate with Google. Please try again.");
+      }
     } finally {
       setLoading(false);
     }
@@ -71,11 +82,7 @@ export default function LoginPage() {
             </p>
           </div>
 
-          {error && (
-            <div className="bg-rose-50 border border-rose-200 text-rose-600 text-xs rounded-xl p-3 mb-6 text-center font-medium">
-              {error}
-            </div>
-          )}
+
 
           <form onSubmit={handleLogin} className="space-y-6">
             <div className="space-y-2">
