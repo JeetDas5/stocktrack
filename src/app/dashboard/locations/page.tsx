@@ -103,13 +103,31 @@ export default function LocationsPage() {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!activeBusinessId || !formName.trim() || !formAddress.trim()) {
+    const trimmedName = formName.trim();
+    const trimmedAddress = formAddress.trim();
+
+    if (!activeBusinessId || !trimmedName || !trimmedAddress) {
       toast.error("Please fill in all required fields.");
       return;
     }
 
-    if (formAddress.length < 3) {
+    if (trimmedName.length > 100) {
+      toast.error("Location name must be 100 characters or less.");
+      return;
+    }
+
+    if (!/[a-zA-Z0-9]/.test(trimmedName)) {
+      toast.error("Location name cannot contain only special characters.");
+      return;
+    }
+
+    if (trimmedAddress.length < 3) {
       toast.error("Address must be at least 3 characters long.");
+      return;
+    }
+
+    if (!/[a-zA-Z0-9]/.test(trimmedAddress)) {
+      toast.error("Address cannot contain only special characters.");
       return;
     }
 
@@ -118,10 +136,10 @@ export default function LocationsPage() {
 
       const locationData = {
         businessId: activeBusinessId,
-        name: formName.trim(),
+        name: trimmedName,
         description: formDescription.trim(),
         type: formType,
-        address: formAddress.trim(),
+        address: trimmedAddress,
         isActive: formActive,
       };
 
@@ -270,6 +288,7 @@ export default function LocationsPage() {
                     <th className="py-4 px-6 font-extrabold">Business</th>
                     <th className="py-4 px-6 font-extrabold">Location Type</th>
                     <th className="py-4 px-6 font-extrabold">Address</th>
+                    <th className="py-4 px-6 font-extrabold">Status</th>
                     <th className="py-4 px-6 font-extrabold text-right">
                       Actions
                     </th>
@@ -288,10 +307,16 @@ export default function LocationsPage() {
                           </div>
                           <div>
                             <p className="font-extrabold text-[#0F172A]">
-                              {loc.name}
+                              {loc.name.length > 30
+                                ? loc.name.substring(0, 30) + "..."
+                                : loc.name}
                             </p>
                             <p className="text-[10px] text-[#64748B] font-bold mt-0.5">
-                              {loc.description || "No description provided"}
+                              {loc.description
+                                ? loc.description.length > 50
+                                  ? loc.description.substring(0, 50) + "..."
+                                  : loc.description
+                                : "No description provided"}
                             </p>
                           </div>
                         </div>
@@ -306,6 +331,24 @@ export default function LocationsPage() {
                       </td>
                       <td className="py-4 px-6 text-[#64748B] font-bold max-w-xs truncate">
                         {loc.address}
+                      </td>
+                      <td className="py-4 px-6">
+                        <span
+                          className={`text-[10px] uppercase font-extrabold px-3 py-1 rounded-full flex items-center gap-1.5 border shadow-2xs leading-none w-fit ${
+                            loc.isActive !== false
+                              ? "bg-[#DCFCE7] text-[#16A34A] border-[#16A34A]/10"
+                              : "bg-zinc-100 text-[#64748B] border-zinc-200"
+                          }`}
+                        >
+                          <span
+                            className={`h-1.5 w-1.5 rounded-full shrink-0 ${
+                              loc.isActive !== false
+                                ? "bg-[#16A34A]"
+                                : "bg-[#64748B]"
+                            }`}
+                          />
+                          {loc.isActive !== false ? "Active" : "Inactive"}
+                        </span>
                       </td>
                       <td className="py-4 px-6 text-right">
                         <div className="flex items-center justify-end gap-2">
@@ -409,6 +452,7 @@ export default function LocationsPage() {
                   <input
                     type="text"
                     required
+                    maxLength={100}
                     placeholder="Enter location name"
                     className="w-full bg-white border border-zinc-300 focus:border-[#16A34A] rounded-xl py-2.5 px-3.5 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#16A34A] transition-all"
                     value={formName}

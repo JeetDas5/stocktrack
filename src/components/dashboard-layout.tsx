@@ -1,14 +1,14 @@
-/* eslint-disable react-hooks/exhaustive-deps */
 "use client";
 
-import React, { useEffect, useState, useRef } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { useAuth } from "@/providers/auth-provider";
-import { useBusinessStore } from "@/store/business-store";
-import { useLocationStore } from "@/store/location-store";
-import { getUserBusinesses } from "@/lib/repositories/business.repository";
-import { logoutUser } from "@/lib/services/auth.service";
+import React, { useEffect, useState, useRef } from "react";
+
 import { Business } from "@/types/business";
+import { useAuth } from "@/providers/auth-provider";
+import { logoutUser } from "@/lib/services/auth.service";
+import { useLocationStore } from "@/store/location-store";
+import { useBusinessStore } from "@/store/business-store";
+import { getUserBusinesses } from "@/lib/repositories/business.repository";
 import {
   LayoutDashboard,
   MapPin,
@@ -54,10 +54,14 @@ export default function DashboardLayout({
   const pathname = usePathname();
 
   const [businesses, setBusinesses] = useState<Business[]>([]);
-  const [activeBusiness, setActiveBusinessDoc] = useState<Business | null>(null);
+  const [activeBusiness, setActiveBusinessDoc] = useState<Business | null>(
+    null,
+  );
   const [showBusinessDropdown, setShowBusinessDropdown] = useState(false);
-  const [showHeaderBusinessDropdown, setShowHeaderBusinessDropdown] = useState(false);
-  const [showHeaderLocationDropdown, setShowHeaderLocationDropdown] = useState(false);
+  const [showHeaderBusinessDropdown, setShowHeaderBusinessDropdown] =
+    useState(false);
+  const [showHeaderLocationDropdown, setShowHeaderLocationDropdown] =
+    useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [locationsLoaded, setLocationsLoaded] = useState(false);
@@ -94,8 +98,10 @@ export default function DashboardLayout({
     };
   }, []);
 
-  const { locations, activeLocationId, setActiveLocation, fetchLocations } = useLocationStore();
-  const activeLocation = locations.find((l) => l.id === activeLocationId) || null;
+  const { locations, activeLocationId, setActiveLocation, fetchLocations } =
+    useLocationStore();
+  const activeLocation =
+    locations.find((l) => l.id === activeLocationId) || null;
 
   useEffect(() => {
     if (authLoading) return;
@@ -105,7 +111,11 @@ export default function DashboardLayout({
       return;
     }
 
-    if (!activeBusinessId || activeBusinessId === "null" || activeBusinessId === "undefined") {
+    if (
+      !activeBusinessId ||
+      activeBusinessId === "null" ||
+      activeBusinessId === "undefined"
+    ) {
       if (pathname !== "/dashboard/business") {
         router.push("/dashboard/business");
         return;
@@ -135,12 +145,20 @@ export default function DashboardLayout({
       }
     }
     loadBusinesses();
-  }, [user, profile, authLoading, activeBusinessId, setActiveBusiness, router, pathname]);
-
+  }, [
+    user,
+    profile,
+    authLoading,
+    activeBusinessId,
+    setActiveBusiness,
+    router,
+    pathname,
+  ]);
 
   useEffect(() => {
     if (businesses.length > 0 && activeBusinessId) {
-      const activeDoc = businesses.find((b) => b.id === activeBusinessId) || null;
+      const activeDoc =
+        businesses.find((b) => b.id === activeBusinessId) || null;
       setActiveBusinessDoc(activeDoc);
     }
   }, [businesses, activeBusinessId]);
@@ -176,11 +194,22 @@ export default function DashboardLayout({
     if (authLoading || loading || !locationsLoaded) return;
 
     if (activeBusinessId && !activeLocationId) {
-      if (pathname !== "/dashboard/locations" && pathname !== "/dashboard/business") {
+      if (
+        pathname !== "/dashboard/locations" &&
+        pathname !== "/dashboard/business"
+      ) {
         router.push("/dashboard/locations");
       }
     }
-  }, [activeBusinessId, activeLocationId, pathname, authLoading, loading, locationsLoaded, router]);
+  }, [
+    activeBusinessId,
+    activeLocationId,
+    pathname,
+    authLoading,
+    loading,
+    locationsLoaded,
+    router,
+  ]);
 
   const handleBusinessChange = (id: string) => {
     setActiveBusiness(id);
@@ -233,8 +262,16 @@ export default function DashboardLayout({
   const breadcrumb = getHeaderBreadcrumb(pathname);
 
   const pinnedLinks: SidebarLink[] = [
-    { name: "Refill Planner", href: "/dashboard/refill-planner", icon: ClipboardList },
-    { name: "Purchase Orders", href: "/dashboard/purchase-orders", icon: FileText },
+    {
+      name: "Refill Planner",
+      href: "/dashboard/refill-planner",
+      icon: ClipboardList,
+    },
+    {
+      name: "Purchase Orders",
+      href: "/dashboard/purchase-orders",
+      icon: FileText,
+    },
     { name: "Deliveries", href: "/dashboard/deliveries", icon: PackageOpen },
   ];
 
@@ -252,15 +289,27 @@ export default function DashboardLayout({
   ];
 
   const operationsLinks: SidebarLink[] = [
-    { name: "Refill Planner", href: "/dashboard/refill-planner", icon: ClipboardList },
-    { name: "Purchase Orders", href: "/dashboard/purchase-orders", icon: FileText },
+    {
+      name: "Refill Planner",
+      href: "/dashboard/refill-planner",
+      icon: ClipboardList,
+    },
+    {
+      name: "Purchase Orders",
+      href: "/dashboard/purchase-orders",
+      icon: FileText,
+    },
     { name: "Deliveries", href: "/dashboard/deliveries", icon: PackageOpen },
     { name: "Stock Counts", href: "/dashboard/counts", icon: ClipboardList },
   ];
 
   const salesLinks: SidebarLink[] = [
     { name: "Sales Entry", href: "/dashboard/sales", icon: TrendingUp },
-    { name: "Sales Imports", href: "/dashboard/sales-imports", icon: TrendingUp },
+    {
+      name: "Sales Imports",
+      href: "/dashboard/sales-imports",
+      icon: TrendingUp,
+    },
     { name: "Consumption", href: "/dashboard/consumption", icon: TrendingUp },
   ];
 
@@ -294,7 +343,9 @@ export default function DashboardLayout({
         }`}
       >
         <div className="flex items-center gap-2.5">
-          <link.icon className={`h-4.5 w-4.5 ${active ? "text-[#16A34A]" : "text-zinc-400"}`} />
+          <link.icon
+            className={`h-4.5 w-4.5 ${active ? "text-[#16A34A]" : "text-zinc-400"}`}
+          />
           <span>{link.name}</span>
         </div>
         {hasGrip && (
@@ -321,9 +372,13 @@ export default function DashboardLayout({
         <div className="flex items-center justify-between mb-5">
           <div className="flex items-center gap-2">
             <div className="h-7 w-7 rounded-lg bg-[#DCFCE7] border border-[#16A34A]/20 flex items-center justify-center shadow-sm">
-              <span className="text-[#16A34A] font-extrabold text-base tracking-tighter">S</span>
+              <span className="text-[#16A34A] font-extrabold text-base tracking-tighter">
+                S
+              </span>
             </div>
-            <span className="font-extrabold text-base tracking-tight text-[#0F172A]">StockTrack</span>
+            <span className="font-extrabold text-base tracking-tight text-[#0F172A]">
+              StockTrack
+            </span>
           </div>
           <button className="p-1 rounded-lg hover:bg-zinc-200/50 text-zinc-400 hover:text-zinc-600">
             <ChevronsLeft className="h-4 w-4" />
@@ -363,35 +418,45 @@ export default function DashboardLayout({
             <span className="text-[9px] uppercase font-extrabold tracking-widest text-[#64748B] px-3 block">
               Overview
             </span>
-            <div className="space-y-0.5">{overviewLinks.map((link) => renderLink(link))}</div>
+            <div className="space-y-0.5">
+              {overviewLinks.map((link) => renderLink(link))}
+            </div>
           </div>
 
           <div className="space-y-1">
             <span className="text-[9px] uppercase font-extrabold tracking-widest text-[#64748B] px-3 block">
               Inventory Setup
             </span>
-            <div className="space-y-0.5">{masterDataLinks.map((link) => renderLink(link))}</div>
+            <div className="space-y-0.5">
+              {masterDataLinks.map((link) => renderLink(link))}
+            </div>
           </div>
 
           <div className="space-y-1">
             <span className="text-[9px] uppercase font-extrabold tracking-widest text-[#64748B] px-3 block">
               Stock Operations
             </span>
-            <div className="space-y-0.5">{operationsLinks.map((link) => renderLink(link))}</div>
+            <div className="space-y-0.5">
+              {operationsLinks.map((link) => renderLink(link))}
+            </div>
           </div>
 
           <div className="space-y-1">
             <span className="text-[9px] uppercase font-extrabold tracking-widest text-[#64748B] px-3 block">
               Sales & Usage
             </span>
-            <div className="space-y-0.5">{salesLinks.map((link) => renderLink(link))}</div>
+            <div className="space-y-0.5">
+              {salesLinks.map((link) => renderLink(link))}
+            </div>
           </div>
 
           <div className="space-y-1">
             <span className="text-[9px] uppercase font-extrabold tracking-widest text-[#64748B] px-3 block">
               Analysis
             </span>
-            <div className="space-y-0.5">{analysisLinks.map((link) => renderLink(link))}</div>
+            <div className="space-y-0.5">
+              {analysisLinks.map((link) => renderLink(link))}
+            </div>
           </div>
 
           <div className="space-y-1">
@@ -428,9 +493,13 @@ export default function DashboardLayout({
 
             <div className="flex items-center gap-2 mb-5">
               <div className="h-7 w-7 rounded-lg bg-[#DCFCE7] border border-[#16A34A]/20 flex items-center justify-center">
-                <span className="text-[#16A34A] font-extrabold text-base tracking-tighter">S</span>
+                <span className="text-[#16A34A] font-extrabold text-base tracking-tighter">
+                  S
+                </span>
               </div>
-              <span className="font-extrabold text-base tracking-tight text-[#0F172A]">StockTrack</span>
+              <span className="font-extrabold text-base tracking-tight text-[#0F172A]">
+                StockTrack
+              </span>
             </div>
 
             <div className="flex-1 space-y-5">
@@ -438,42 +507,54 @@ export default function DashboardLayout({
                 <span className="text-[9px] uppercase font-extrabold tracking-widest text-[#64748B] px-3 block">
                   Pinned
                 </span>
-                <div className="space-y-0.5">{pinnedLinks.map((link) => renderLink(link))}</div>
+                <div className="space-y-0.5">
+                  {pinnedLinks.map((link) => renderLink(link))}
+                </div>
               </div>
 
               <div className="space-y-1">
                 <span className="text-[9px] uppercase font-extrabold tracking-widest text-[#64748B] px-3 block">
                   Overview
                 </span>
-                <div className="space-y-0.5">{overviewLinks.map((link) => renderLink(link))}</div>
+                <div className="space-y-0.5">
+                  {overviewLinks.map((link) => renderLink(link))}
+                </div>
               </div>
 
               <div className="space-y-1">
                 <span className="text-[9px] uppercase font-extrabold tracking-widest text-[#64748B] px-3 block">
                   Inventory Setup
                 </span>
-                <div className="space-y-0.5">{masterDataLinks.map((link) => renderLink(link))}</div>
+                <div className="space-y-0.5">
+                  {masterDataLinks.map((link) => renderLink(link))}
+                </div>
               </div>
 
               <div className="space-y-1">
                 <span className="text-[9px] uppercase font-extrabold tracking-widest text-[#64748B] px-3 block">
                   Stock Operations
                 </span>
-                <div className="space-y-0.5">{operationsLinks.map((link) => renderLink(link))}</div>
+                <div className="space-y-0.5">
+                  {operationsLinks.map((link) => renderLink(link))}
+                </div>
               </div>
 
               <div className="space-y-1">
                 <span className="text-[9px] uppercase font-extrabold tracking-widest text-[#64748B] px-3 block">
                   Sales & Usage
                 </span>
-                <div className="space-y-0.5">{salesLinks.map((link) => renderLink(link))}</div>
+                <div className="space-y-0.5">
+                  {salesLinks.map((link) => renderLink(link))}
+                </div>
               </div>
 
               <div className="space-y-1">
                 <span className="text-[9px] uppercase font-extrabold tracking-widest text-[#64748B] px-3 block">
                   Analysis
                 </span>
-                <div className="space-y-0.5">{analysisLinks.map((link) => renderLink(link))}</div>
+                <div className="space-y-0.5">
+                  {analysisLinks.map((link) => renderLink(link))}
+                </div>
               </div>
 
               <div className="space-y-1">
@@ -514,11 +595,19 @@ export default function DashboardLayout({
 
             <div className="relative" ref={businessDropdownRef}>
               <button
-                onClick={() => setShowHeaderBusinessDropdown(!showHeaderBusinessDropdown)}
+                onClick={() =>
+                  setShowHeaderBusinessDropdown(!showHeaderBusinessDropdown)
+                }
                 className="flex items-center gap-2 px-3 py-1.5 bg-zinc-100 hover:bg-zinc-200/70 border border-zinc-200 rounded-xl text-xs font-extrabold text-[#0F172A] transition duration-200 cursor-pointer shadow-2xs"
               >
                 <Building2 className="h-3.5 w-3.5 text-[#16A34A]" />
-                <span>{activeBusiness?.name || "Select Business"}</span>
+                <span>
+                  {activeBusiness?.name
+                    ? activeBusiness.name.length > 20
+                      ? activeBusiness.name.substring(0, 20) + "..."
+                      : activeBusiness.name
+                    : "Select Business"}
+                </span>
                 <ChevronDown className="h-3.5 w-3.5 text-zinc-400" />
               </button>
 
@@ -541,7 +630,9 @@ export default function DashboardLayout({
                           }`}
                         >
                           <span>{b.name}</span>
-                          {isSelected && <Check className="h-3.5 w-3.5 text-[#16A34A]" />}
+                          {isSelected && (
+                            <Check className="h-3.5 w-3.5 text-[#16A34A]" />
+                          )}
                         </button>
                       );
                     })}
@@ -568,11 +659,19 @@ export default function DashboardLayout({
                 <div className="h-4 w-px bg-zinc-200 hidden sm:block" />
                 <div className="relative" ref={locationDropdownRef}>
                   <button
-                    onClick={() => setShowHeaderLocationDropdown(!showHeaderLocationDropdown)}
+                    onClick={() =>
+                      setShowHeaderLocationDropdown(!showHeaderLocationDropdown)
+                    }
                     className="flex items-center gap-2 px-3 py-1.5 bg-zinc-100 hover:bg-zinc-200/70 border border-zinc-200 rounded-xl text-xs font-extrabold text-[#0F172A] transition duration-200 cursor-pointer shadow-2xs"
                   >
                     <MapPin className="h-3.5 w-3.5 text-[#16A34A]" />
-                    <span>{activeLocation?.name || "Select Location"}</span>
+                    <span>
+                      {activeLocation?.name
+                        ? activeLocation.name.length > 20
+                          ? activeLocation.name.substring(0, 20) + "..."
+                          : activeLocation.name
+                        : "Select Location"}
+                    </span>
                     <ChevronDown className="h-3.5 w-3.5 text-zinc-400" />
                   </button>
 
@@ -595,7 +694,9 @@ export default function DashboardLayout({
                               }`}
                             >
                               <span>{loc.name}</span>
-                              {isSelected && <Check className="h-3.5 w-3.5 text-[#16A34A]" />}
+                              {isSelected && (
+                                <Check className="h-3.5 w-3.5 text-[#16A34A]" />
+                              )}
                             </button>
                           );
                         })}
@@ -628,9 +729,17 @@ export default function DashboardLayout({
               </span>
             </button>
             <div className="h-5 w-px bg-zinc-200" />
-            <div className="flex items-center gap-3 relative" ref={profileDropdownRef}>
+            <div
+              className="flex items-center gap-3 relative"
+              ref={profileDropdownRef}
+            >
               <div className="h-9 w-9 rounded-full bg-[#16A34A] text-white flex items-center justify-center font-extrabold text-xs shadow-sm border border-[#16A34A]/10">
-                {profile?.fullName?.split(" ").map((n) => n[0]).join("").toUpperCase().substring(0, 2) || "SM"}
+                {profile?.fullName
+                  ?.split(" ")
+                  .map((n) => n[0])
+                  .join("")
+                  .toUpperCase()
+                  .substring(0, 2) || "SM"}
               </div>
               <div className="hidden md:block text-left">
                 <p className="text-xs font-extrabold text-[#0F172A] leading-tight">

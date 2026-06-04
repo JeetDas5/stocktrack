@@ -155,29 +155,78 @@ export default function SuppliersPage() {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    const trimmedName = formName.trim();
+    const trimmedContact = formContactPerson.trim();
+    const trimmedPhone = formPhone.trim();
+    const trimmedEmail = formEmail.trim();
+    const trimmedAddress1 = formAddressLine1.trim();
+    const trimmedAddress2 = formAddressLine2.trim();
+    const trimmedCity = formCity.trim();
+    const trimmedState = formStateProvince.trim();
+    const trimmedPostal = formPostalCode.trim();
+    const trimmedCountry = formCountry.trim();
+    const trimmedWebsite = formWebsite.trim();
+    const trimmedNotes = formNotes.trim();
+
     if (
       !activeBusinessId ||
-      !formName.trim() ||
-      !formAddressLine1.trim() ||
-      !formCity.trim() ||
-      !formCountry.trim()
+      !trimmedName ||
+      !trimmedAddress1 ||
+      !trimmedCity ||
+      !trimmedCountry
     ) {
       toast.error("Please fill in all required fields.");
       return;
     }
 
-    if (
-      formEmail.trim() &&
-      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formEmail.trim())
-    ) {
+    if (trimmedName.length > 100) {
+      toast.error("Supplier name must be 100 characters or less.");
+      return;
+    }
+
+    // Special characters check for all fields
+    const fieldsToCheck = [
+      { label: "Supplier name", value: trimmedName },
+      { label: "Contact person", value: trimmedContact },
+      { label: "Phone number", value: trimmedPhone },
+      { label: "Email", value: trimmedEmail },
+      { label: "Address Line 1", value: trimmedAddress1 },
+      { label: "Address Line 2", value: trimmedAddress2 },
+      { label: "City", value: trimmedCity },
+      { label: "State / Province", value: trimmedState },
+      { label: "Postal code", value: trimmedPostal },
+      { label: "Website", value: trimmedWebsite },
+      { label: "Notes", value: trimmedNotes },
+    ];
+
+    for (const field of fieldsToCheck) {
+      if (field.value && !/[a-zA-Z0-9]/.test(field.value)) {
+        toast.error(`${field.label} cannot contain only special characters.`);
+        return;
+      }
+    }
+
+    // Phone validation
+    if (trimmedPhone && !/^\+?[0-9\s\-()]{5,20}$/.test(trimmedPhone)) {
+      toast.error("Please enter a valid phone number (5 to 20 digits).");
+      return;
+    }
+
+    // Email validation
+    if (trimmedEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
       toast.error("Please enter a valid email address.");
       return;
     }
 
-    if (formWebsite.trim() && !/^https?:\/\/.+\..+/.test(formWebsite.trim())) {
+    if (trimmedWebsite && !/^https?:\/\/.+\..+/.test(trimmedWebsite)) {
       toast.error(
         "Website must start with http:// or https:// (e.g. https://example.com).",
       );
+      return;
+    }
+
+    if (trimmedNotes.length > 250) {
+      toast.error("Notes must be 250 characters or less.");
       return;
     }
 
@@ -186,18 +235,18 @@ export default function SuppliersPage() {
 
       const supplierData = {
         businessId: activeBusinessId,
-        name: formName.trim(),
-        contactPerson: formContactPerson.trim() || undefined,
-        phone: formPhone.trim() || undefined,
-        email: formEmail.trim() || undefined,
-        addressLine1: formAddressLine1.trim(),
-        addressLine2: formAddressLine2.trim() || undefined,
-        city: formCity.trim(),
-        stateProvince: formStateProvince.trim() || undefined,
-        postalCode: formPostalCode.trim() || undefined,
-        country: formCountry,
-        website: formWebsite.trim() || undefined,
-        notes: formNotes.trim() || undefined,
+        name: trimmedName,
+        contactPerson: trimmedContact || undefined,
+        phone: trimmedPhone || undefined,
+        email: trimmedEmail || undefined,
+        addressLine1: trimmedAddress1,
+        addressLine2: trimmedAddress2 || undefined,
+        city: trimmedCity,
+        stateProvince: trimmedState || undefined,
+        postalCode: trimmedPostal || undefined,
+        country: trimmedCountry,
+        website: trimmedWebsite || undefined,
+        notes: trimmedNotes || undefined,
         orderingMethod:
           formOrderingMethod !== "" ? formOrderingMethod : undefined,
         isActive: formActive,
@@ -381,25 +430,9 @@ export default function SuppliersPage() {
               </select>
               <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
             </div>
-
-            <div className="relative min-w-[180px]">
-              <select
-                disabled
-                className="w-full bg-zinc-50 border border-zinc-200 rounded-xl py-2.5 pl-3.5 pr-8 text-xs font-bold text-zinc-500 shadow-xs appearance-none cursor-not-allowed"
-              >
-                <option>{activeBusiness?.name || "All Businesses"}</option>
-              </select>
-              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
-            </div>
           </div>
 
-          <button
-            onClick={() => toast.info("Advanced filters coming soon!")}
-            className="flex items-center justify-center gap-2 bg-white border border-zinc-200 rounded-xl px-4 py-2.5 text-xs font-bold text-zinc-700 shadow-xs cursor-pointer hover:bg-zinc-50 transition-colors"
-          >
-            <ChevronDown className="h-4 w-4 text-zinc-400 rotate-90" />
-            <span>Filters</span>
-          </button>
+
         </div>
 
         {storeError && (
@@ -457,7 +490,9 @@ export default function SuppliersPage() {
                                 className="font-extrabold text-[#0F172A] hover:text-[#16A34A] transition-colors cursor-pointer"
                                 onClick={() => openEditDrawer(sup)}
                               >
-                                {sup.name}
+                                {sup.name.length > 20
+                                  ? sup.name.substring(0, 20) + "..."
+                                  : sup.name}
                               </p>
                               {sup.orderingMethod && (
                                 <p className="text-[10px] text-zinc-400 font-bold mt-0.5 uppercase tracking-wider flex items-center gap-1">
@@ -470,11 +505,19 @@ export default function SuppliersPage() {
                         </td>
 
                         <td className="py-4 px-6 font-bold text-[#64748B]">
-                          {activeBusiness?.name || "Active"}
+                          {activeBusiness?.name
+                            ? activeBusiness.name.length > 20
+                              ? activeBusiness.name.substring(0, 20) + "..."
+                              : activeBusiness.name
+                            : "Active"}
                         </td>
 
                         <td className="py-4 px-6 font-bold text-zinc-700">
-                          {sup.contactPerson || "—"}
+                          {sup.contactPerson
+                            ? sup.contactPerson.length > 20
+                              ? sup.contactPerson.substring(0, 20) + "..."
+                              : sup.contactPerson
+                            : "—"}
                         </td>
 
                         <td className="py-4 px-6 text-[#64748B] font-bold">
@@ -619,6 +662,7 @@ export default function SuppliersPage() {
                       <input
                         type="text"
                         required
+                        maxLength={100}
                         placeholder="Enter supplier name"
                         className="w-full bg-white border border-zinc-300 focus:border-[#16A34A] rounded-xl py-2.5 pl-10 pr-3.5 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#16A34A] transition-all"
                         value={formName}

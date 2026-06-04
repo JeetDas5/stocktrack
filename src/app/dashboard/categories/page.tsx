@@ -71,7 +71,9 @@ export default function CategoriesPage() {
   const [activeBusiness, setActiveBusiness] = useState<Business | null>(null);
   const [loadingContext, setLoadingContext] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
+  const [statusFilter, setStatusFilter] = useState<
+    "all" | "active" | "inactive"
+  >("all");
 
   const [showDrawer, setShowDrawer] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
@@ -144,8 +146,29 @@ export default function CategoriesPage() {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!activeBusinessId || !formName.trim()) {
+    const trimmedName = formName.trim();
+    if (!activeBusinessId || !trimmedName) {
       toast.error("Please fill in all required fields.");
+      return;
+    }
+
+    if (trimmedName.length > 100) {
+      toast.error("Category name must be 100 characters or less.");
+      return;
+    }
+
+    if (!/[a-zA-Z0-9]/.test(trimmedName)) {
+      toast.error("Category name cannot contain only special characters.");
+      return;
+    }
+    if (formDescription.trim().length > 250) {
+      toast.error("Category description must be 250 characters or less.");
+      return;
+    }
+    if (!/[a-zA-Z0-9]/.test(formDescription.trim())) {
+      toast.error(
+        "Category description cannot contain only special characters.",
+      );
       return;
     }
 
@@ -154,7 +177,7 @@ export default function CategoriesPage() {
 
       const categoryData = {
         businessId: activeBusinessId,
-        name: formName.trim(),
+        name: trimmedName,
         description: formDescription.trim() || undefined,
         icon: formIcon,
         status: formStatus,
@@ -210,7 +233,10 @@ export default function CategoriesPage() {
     });
   }, [categories, searchQuery, statusFilter]);
 
-  const totalPages = Math.max(1, Math.ceil(filteredCategories.length / itemsPerPage));
+  const totalPages = Math.max(
+    1,
+    Math.ceil(filteredCategories.length / itemsPerPage),
+  );
   const paginatedCategories = useMemo(() => {
     const startIndex = (currentPage - 1) * itemsPerPage;
     return filteredCategories.slice(startIndex, startIndex + itemsPerPage);
@@ -248,7 +274,8 @@ export default function CategoriesPage() {
               Categories
             </h1>
             <p className="text-[#64748B] text-xs font-bold mt-1.5">
-              Organize your stock items into categories for easier management and reporting.
+              Organize your stock items into categories for easier management
+              and reporting.
             </p>
           </div>
 
@@ -303,7 +330,7 @@ export default function CategoriesPage() {
           </div>
         </div>
 
-        {(storeError) && (
+        {storeError && (
           <div className="bg-rose-50 border border-rose-200 text-rose-600 text-xs rounded-xl p-3 flex items-center gap-2 justify-center font-bold">
             <AlertCircle className="h-4 w-4 shrink-0" />
             {storeError}
@@ -317,7 +344,8 @@ export default function CategoriesPage() {
               No categories found
             </h3>
             <p className="text-[#64748B] text-xs mt-1 font-semibold max-w-xs leading-relaxed">
-              No stock categories match your criteria. Click Add Category to begin.
+              No stock categories match your criteria. Click Add Category to
+              begin.
             </p>
           </div>
         ) : (
@@ -337,7 +365,8 @@ export default function CategoriesPage() {
                 </thead>
                 <tbody className="divide-y divide-zinc-200 text-xs text-[#0F172A]">
                   {paginatedCategories.map((cat) => {
-                    const IconComponent = ICON_MAP[cat.icon || "other"] || Layers;
+                    const IconComponent =
+                      ICON_MAP[cat.icon || "other"] || Layers;
                     return (
                       <tr
                         key={cat.id}
@@ -352,13 +381,19 @@ export default function CategoriesPage() {
                               className="font-extrabold text-[#0F172A] hover:text-[#16A34A] transition-colors cursor-pointer"
                               onClick={() => openEditDrawer(cat)}
                             >
-                              {cat.name}
+                              {cat.name.length > 15
+                                ? cat.name.substring(0, 15) + "..."
+                                : cat.name}
                             </span>
                           </div>
                         </td>
 
                         <td className="py-4 px-6 font-semibold text-zinc-600 max-w-sm truncate">
-                          {cat.description || "—"}
+                          {cat.description
+                            ? cat.description.length > 30
+                              ? cat.description.substring(0, 30) + "..."
+                              : cat.description
+                            : "—"}
                         </td>
 
                         <td className="py-4 px-6 font-extrabold text-zinc-700">
@@ -369,12 +404,16 @@ export default function CategoriesPage() {
                           <div className="inline-flex items-center gap-1.5">
                             <span
                               className={`h-1.5 w-1.5 rounded-full ${
-                                cat.status === "active" ? "bg-[#16A34A]" : "bg-[#64748B]"
+                                cat.status === "active"
+                                  ? "bg-[#16A34A]"
+                                  : "bg-[#64748B]"
                               }`}
                             />
                             <span
                               className={`text-[10px] font-extrabold ${
-                                cat.status === "active" ? "text-[#16A34A]" : "text-[#64748B]"
+                                cat.status === "active"
+                                  ? "text-[#16A34A]"
+                                  : "text-[#64748B]"
                               }`}
                             >
                               {cat.status === "active" ? "Active" : "Inactive"}
@@ -386,7 +425,9 @@ export default function CategoriesPage() {
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              setActiveMenuId(activeMenuId === cat.id ? null : cat.id);
+                              setActiveMenuId(
+                                activeMenuId === cat.id ? null : cat.id,
+                              );
                             }}
                             className="p-1.5 rounded-lg hover:bg-zinc-100 text-zinc-400 hover:text-[#0F172A] transition-colors cursor-pointer"
                           >
@@ -424,9 +465,17 @@ export default function CategoriesPage() {
 
             <div className="bg-zinc-50/50 border-t border-zinc-200 py-4 px-6 flex flex-col sm:flex-row justify-between items-center gap-4 text-xs text-[#64748B] font-semibold">
               <span>
-                Showing {Math.min(filteredCategories.length, (currentPage - 1) * itemsPerPage + 1)} to{" "}
-                {Math.min(filteredCategories.length, currentPage * itemsPerPage)} of {filteredCategories.length}{" "}
-                categories
+                Showing{" "}
+                {Math.min(
+                  filteredCategories.length,
+                  (currentPage - 1) * itemsPerPage + 1,
+                )}{" "}
+                to{" "}
+                {Math.min(
+                  filteredCategories.length,
+                  currentPage * itemsPerPage,
+                )}{" "}
+                of {filteredCategories.length} categories
               </span>
 
               {totalPages > 1 && (
@@ -439,19 +488,21 @@ export default function CategoriesPage() {
                     <ChevronLeft className="h-4 w-4" />
                   </button>
 
-                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                    <button
-                      key={page}
-                      onClick={() => handlePageChange(page)}
-                      className={`h-8 w-8 rounded-lg font-bold text-xs cursor-pointer transition-all duration-150 ${
-                        currentPage === page
-                          ? "bg-[#16A34A] text-white shadow-xs"
-                          : "border border-zinc-200 bg-white hover:bg-zinc-50 text-zinc-700"
-                      }`}
-                    >
-                      {page}
-                    </button>
-                  ))}
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map(
+                    (page) => (
+                      <button
+                        key={page}
+                        onClick={() => handlePageChange(page)}
+                        className={`h-8 w-8 rounded-lg font-bold text-xs cursor-pointer transition-all duration-150 ${
+                          currentPage === page
+                            ? "bg-[#16A34A] text-white shadow-xs"
+                            : "border border-zinc-200 bg-white hover:bg-zinc-50 text-zinc-700"
+                        }`}
+                      >
+                        {page}
+                      </button>
+                    ),
+                  )}
 
                   <button
                     onClick={() => handlePageChange(currentPage + 1)}
@@ -481,7 +532,9 @@ export default function CategoriesPage() {
                     {editId ? "Edit Category" : "Add Category"}
                   </h3>
                   <p className="text-[#64748B] text-xs font-semibold mt-1">
-                    {editId ? "Edit the details for this category." : "Enter the details for the new category."}
+                    {editId
+                      ? "Edit the details for this category."
+                      : "Enter the details for the new category."}
                   </p>
                 </div>
                 <button
@@ -501,6 +554,7 @@ export default function CategoriesPage() {
                     <input
                       type="text"
                       required
+                      maxLength={100}
                       placeholder="Enter category name"
                       className="w-full bg-white border border-zinc-300 focus:border-[#16A34A] rounded-xl py-2.5 px-3.5 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#16A34A] transition-all"
                       value={formName}
@@ -574,7 +628,8 @@ export default function CategoriesPage() {
                       <ChevronDown className="absolute right-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
                     </div>
                     <p className="text-[10px] text-zinc-400 font-bold mt-1.5">
-                      Inactive categories will not be available when adding stock items.
+                      Inactive categories will not be available when adding
+                      stock items.
                     </p>
                   </div>
                 </div>

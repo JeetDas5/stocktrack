@@ -19,6 +19,7 @@ import {
   Package,
 } from "lucide-react";
 import { Business } from "@/types/business";
+import { toast } from "sonner";
 
 interface BusinessWithMetadata extends Business {
   locationsCount: number;
@@ -35,7 +36,6 @@ export default function DashboardBusinessPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [newBusinessName, setNewBusinessName] = useState("");
   const [creating, setCreating] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
 
   useEffect(() => {
@@ -71,7 +71,7 @@ export default function DashboardBusinessPage() {
         }
       } catch (err) {
         console.error("Failed to load businesses:", err);
-        setError("Could not load your businesses. Please reload.");
+        toast.error("Could not load your businesses. Please reload.");
       } finally {
         setLoading(false);
       }
@@ -87,15 +87,25 @@ export default function DashboardBusinessPage() {
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newBusinessName.trim() || !user) return;
+    const trimmedName = newBusinessName.trim();
+    if (!trimmedName || !user) return;
+
+    if (trimmedName.length > 100) {
+      toast.error("Business name must be 100 characters or less.");
+      return;
+    }
+
+    if (!/[a-zA-Z0-9]/.test(trimmedName)) {
+      toast.error("Business name cannot contain only special characters.");
+      return;
+    }
 
     try {
       setCreating(true);
-      setError(null);
 
       const created = await createBusinessAndLink(
         user.uid,
-        newBusinessName.trim(),
+        trimmedName,
       );
       await refreshProfile();
 
@@ -112,11 +122,12 @@ export default function DashboardBusinessPage() {
       setBusinesses([...businesses, newMetadataItem]);
       setNewBusinessName("");
       setShowAddModal(false);
+      toast.success("Business profile created successfully!");
 
       handleSelect(created.id);
     } catch (err) {
       console.error("Failed to create business:", err);
-      setError("Failed to create business. Please try again.");
+      toast.error("Failed to create business. Please try again.");
     } finally {
       setCreating(false);
     }
@@ -150,7 +161,9 @@ export default function DashboardBusinessPage() {
         </div>
 
         <button
-          onClick={() => setShowAddModal(true)}
+          onClick={() => {
+            setShowAddModal(true);
+          }}
           className="border-2 border-[#16A34A] text-[#16A34A] bg-white hover:bg-[#DCFCE7]/20 px-5 py-2.5 rounded-xl text-xs font-extrabold uppercase tracking-wider transition-all cursor-pointer flex items-center gap-2 shadow-xs"
         >
           <Plus className="h-4 w-4 stroke-[3px]" />
@@ -158,11 +171,7 @@ export default function DashboardBusinessPage() {
         </button>
       </div>
 
-      {error && (
-        <div className="bg-rose-50 border border-rose-200 text-rose-600 text-xs rounded-xl p-3.5 mb-6 text-center font-bold">
-          {error}
-        </div>
-      )}
+
 
       <div className="flex flex-col sm:flex-row gap-4 justify-between items-center mb-6">
         <div className="relative w-full sm:max-w-md">
@@ -273,6 +282,7 @@ export default function DashboardBusinessPage() {
                 type="text"
                 placeholder="e.g. Starbucks"
                 required
+                maxLength={100}
                 className="w-full bg-white border border-zinc-300 focus:border-[#16A34A] rounded-xl py-3 px-4 text-sm text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#16A34A] transition-all"
                 value={newBusinessName}
                 onChange={(e) => setNewBusinessName(e.target.value)}
@@ -282,7 +292,9 @@ export default function DashboardBusinessPage() {
               <div className="flex justify-end gap-3 pt-2">
                 <button
                   type="button"
-                  onClick={() => setShowAddModal(false)}
+                  onClick={() => {
+                    setShowAddModal(false);
+                  }}
                   className="bg-[#F1F5F9] hover:bg-zinc-200 text-zinc-700 rounded-xl px-4 py-2.5 text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer"
                   disabled={creating}
                 >
