@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 
 import { useAuth } from "@/providers/auth-provider";
+import Loading from "@/app/loading";
 
 export default function ProtectedRoute({
   children,
@@ -21,7 +22,7 @@ export default function ProtectedRoute({
   }, [user, loading, router]);
 
   if (loading) {
-    return <div>Loading...</div>;
+    return <Loading />;
   }
 
   if (!user) {
