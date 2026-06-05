@@ -4,8 +4,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import Session, select, SQLModel, func
 
 from app.database import get_session
-from app.models import User, Business
-from app.services.auth.dependencies import get_current_user
+from app.models import User, Business, UserAssignment
+from app.services.auth.dependencies import get_current_user, verify_user_permission
 
 router = APIRouter(tags=["Businesses"])
 
@@ -68,9 +68,9 @@ def create_business(
     "/api/businesses",
     response_model=List[BusinessOut],
     summary="List all businesses",
-    description="Retrieves a list of all businesses owned/created by the currently authenticated user.",
+    description="Retrieves a list of all businesses owned/created or assigned to the currently authenticated user.",
     responses={
-        200: {"description": "List of owned businesses successfully retrieved."},
+        200: {"description": "List of owned/assigned businesses successfully retrieved."},
         401: {"description": "Missing or invalid authorization credentials."},
     }
 )
@@ -79,10 +79,20 @@ def get_businesses(
     session: Session = Depends(get_session)
 ):
     """
-    **List Owned Businesses**
+    **List Owned & Assigned Businesses**
     """
-    statement = select(Business).where(
-        Business.created_by_id == current_user.id)
+    if current_user.role == "super_admin":
+        statement = select(Business)
+    else:
+        statement = select(Business).where(
+            (Business.created_by_id == current_user.id) |
+            (Business.id.in_(
+                select(UserAssignment.business_id).where(
+                    UserAssignment.user_id == current_user.id,
+                    UserAssignment.is_active == True
+                )
+            ))
+        )
     businesses = session.exec(statement).all()
 
     out = []
@@ -126,5 +136,9 @@ def get_business(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Business not found"
         )
+    
+    verify_user_permission(current_user, business_id, "view_business", session=session)
+    
     return business
+
 

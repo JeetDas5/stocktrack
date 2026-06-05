@@ -3,7 +3,7 @@ from sqlmodel import Session, select
 
 from app.database import get_session
 from app.models import User, Business, StockItemLocation
-from app.services.auth.dependencies import get_current_user
+from app.services.auth.dependencies import get_current_user, verify_user_permission, get_allowed_locations
 
 router = APIRouter(tags=["Dashboard"])
 
@@ -14,24 +14,27 @@ def get_dashboard_metrics(
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
-    business = session.get(Business, business_id)
-    if not business or business.created_by_id != current_user.id:
-        raise HTTPException(
-            status_code=403, detail="Not authorized to access this business")
+    verify_user_permission(current_user, business_id, "view_business", session=session)
 
+    business = session.get(Business, business_id)
+    allowed_locs = get_allowed_locations(current_user, business_id, "view_stock_items", session)
     active_items = [item for item in business.stock_items if item.is_active]
 
     low_stock = []
     for item in active_items:
-        rules = session.exec(select(StockItemLocation).where(
-            StockItemLocation.stock_item_id == item.id)).all()
-        if any(r.current_stock < r.reorder_level for r in rules):
+        stmt = select(StockItemLocation).where(StockItemLocation.stock_item_id == item.id)
+        if allowed_locs is not None:
+            stmt = stmt.where(StockItemLocation.location_id.in_(allowed_locs))
+        rules = session.exec(stmt).all()
+        if rules and any(r.current_stock < r.reorder_level for r in rules):
             low_stock.append(item)
 
     low_stock_out = []
     for item in low_stock[:3]:
-        rules = session.exec(select(StockItemLocation).where(
-            StockItemLocation.stock_item_id == item.id)).all()
+        stmt = select(StockItemLocation).where(StockItemLocation.stock_item_id == item.id)
+        if allowed_locs is not None:
+            stmt = stmt.where(StockItemLocation.location_id.in_(allowed_locs))
+        rules = session.exec(stmt).all()
         max_reorder = max([r.reorder_level for r in rules] or [0.0])
         low_stock_out.append({
             "id": item.id,

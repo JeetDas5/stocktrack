@@ -8,7 +8,7 @@ from app.models import (
     User, Business, Location, StockItem, Supplier, StockItemLocation,
     PurchaseOrder, PurchaseOrderItem, PurchaseOrderStatus
 )
-from app.services.auth.dependencies import get_current_user
+from app.services.auth.dependencies import get_current_user, verify_user_permission, get_allowed_locations
 
 router = APIRouter(tags=["Purchase Orders"])
 
@@ -39,10 +39,8 @@ def get_refill_suggestions(
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
-    business = session.get(Business, business_id)
-    if not business or business.created_by_id != current_user.id:
-        raise HTTPException(
-            status_code=403, detail="Not authorized to access this business")
+
+    allowed_locs = get_allowed_locations(current_user, business_id, "view_purchase_orders", session)
 
     items = session.exec(select(StockItem).where(
         StockItem.business_id == business_id).where(StockItem.is_active == True)).all()
@@ -54,8 +52,10 @@ def get_refill_suggestions(
         supplier_id = item.supplier_id
         cost = item.cost_per_base_unit or 0.0
 
-        rules = session.exec(select(StockItemLocation).where(
-            StockItemLocation.stock_item_id == item.id)).all()
+        stmt = select(StockItemLocation).where(StockItemLocation.stock_item_id == item.id)
+        if allowed_locs is not None:
+            stmt = stmt.where(StockItemLocation.location_id.in_(allowed_locs))
+        rules = session.exec(stmt).all()
         if rules:
             for r in rules:
                 loc = session.get(Location, r.location_id)
@@ -117,10 +117,8 @@ def create_purchase_order(
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
-    business = session.get(Business, business_id)
-    if not business or business.created_by_id != current_user.id:
-        raise HTTPException(
-            status_code=403, detail="Not authorized to edit this business")
+
+    verify_user_permission(current_user, business_id, "manage_purchase_orders", location_id=data.location_id, session=session)
 
     supplier = session.get(Supplier, data.supplier_id)
     if not supplier or supplier.business_id != business_id:
@@ -183,13 +181,14 @@ def get_purchase_orders(
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
-    business = session.get(Business, business_id)
-    if not business or business.created_by_id != current_user.id:
-        raise HTTPException(
-            status_code=403, detail="Not authorized to access this business")
 
-    orders = session.exec(select(PurchaseOrder).where(
-        PurchaseOrder.business_id == business_id).order_by(PurchaseOrder.created_at.desc())).all()
+    allowed_locs = get_allowed_locations(current_user, business_id, "view_purchase_orders", session)
+
+    statement = select(PurchaseOrder).where(
+        PurchaseOrder.business_id == business_id).order_by(PurchaseOrder.created_at.desc())
+    if allowed_locs is not None:
+        statement = statement.where(PurchaseOrder.location_id.in_(allowed_locs))
+    orders = session.exec(statement).all()
 
     out = []
     for po in orders:
@@ -229,14 +228,12 @@ def get_purchase_order(
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
-    business = session.get(Business, business_id)
-    if not business or business.created_by_id != current_user.id:
-        raise HTTPException(
-            status_code=403, detail="Not authorized to access this business")
-
     po = session.get(PurchaseOrder, po_id)
     if not po or po.business_id != business_id:
         raise HTTPException(status_code=404, detail="Purchase order not found")
+
+
+    verify_user_permission(current_user, business_id, "view_purchase_orders", location_id=po.location_id, session=session)
 
     items_out = []
     for i in po.items:
@@ -273,14 +270,16 @@ def update_purchase_order(
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
-    business = session.get(Business, business_id)
-    if not business or business.created_by_id != current_user.id:
-        raise HTTPException(
-            status_code=403, detail="Not authorized to edit this business")
-
     po = session.get(PurchaseOrder, po_id)
     if not po or po.business_id != business_id:
         raise HTTPException(status_code=404, detail="Purchase order not found")
+
+
+    verify_user_permission(current_user, business_id, "manage_purchase_orders", location_id=po.location_id, session=session)
+    if data.location_id is not None:
+        new_loc = None if data.location_id == "" else data.location_id
+        if new_loc != po.location_id:
+            verify_user_permission(current_user, business_id, "manage_purchase_orders", location_id=new_loc, session=session)
 
     if data.status is not None:
         if data.status == PurchaseOrderStatus.completed:
@@ -340,14 +339,12 @@ def delete_purchase_order(
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
-    business = session.get(Business, business_id)
-    if not business or business.created_by_id != current_user.id:
-        raise HTTPException(
-            status_code=403, detail="Not authorized to edit this business")
-
     po = session.get(PurchaseOrder, po_id)
     if not po or po.business_id != business_id:
         raise HTTPException(status_code=404, detail="Purchase order not found")
+
+
+    verify_user_permission(current_user, business_id, "manage_purchase_orders", location_id=po.location_id, session=session)
 
     session.delete(po)
     session.commit()

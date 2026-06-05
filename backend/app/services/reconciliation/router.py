@@ -9,7 +9,7 @@ from app.models import (
     User, Business, Location, StockItem, StockCountSession, StockCountItem,
     StockCountStatus, StockItemLocation, Reconciliation, ReconciliationItem
 )
-from app.services.auth.dependencies import get_current_user
+from app.services.auth.dependencies import get_current_user, verify_user_permission, get_allowed_locations
 
 router = APIRouter(tags=["Reconciliation"])
 
@@ -209,9 +209,7 @@ def run_business_reconciliation(
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
-    business = session.get(Business, business_id)
-    if not business or business.created_by_id != current_user.id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to edit this business")
+    verify_user_permission(current_user, business_id, "manage_reconciliation", location_id=data.location_id, session=session)
 
     calc = perform_reconciliation_calculation(
         business_id=business_id,
@@ -309,9 +307,7 @@ def get_reconciliation_preview(
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
-    business = session.get(Business, business_id)
-    if not business or business.created_by_id != current_user.id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to access this business")
+    verify_user_permission(current_user, business_id, "view_reconciliation", location_id=location_id, session=session)
 
     target_date = date or datetime.utcnow().strftime("%Y-%m-%d")
 
@@ -352,13 +348,12 @@ def get_business_reconciliations(
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
-    business = session.get(Business, business_id)
-    if not business or business.created_by_id != current_user.id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to access this business")
+    allowed_locs = get_allowed_locations(current_user, business_id, "view_reconciliation", session)
 
-    recs = session.exec(select(Reconciliation).where(
-        Reconciliation.business_id == business_id
-    ).order_by(Reconciliation.created_at.desc())).all()
+    statement = select(Reconciliation).where(Reconciliation.business_id == business_id).order_by(Reconciliation.created_at.desc())
+    if allowed_locs is not None:
+        statement = statement.where(Reconciliation.location_id.in_(allowed_locs))
+    recs = session.exec(statement).all()
 
     out = []
     for rec in recs:
@@ -400,13 +395,11 @@ def get_business_reconciliation_detail(
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
-    business = session.get(Business, business_id)
-    if not business or business.created_by_id != current_user.id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to access this business")
-
     rec = session.get(Reconciliation, reconciliation_id)
     if not rec or rec.business_id != business_id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Reconciliation not found")
+
+    verify_user_permission(current_user, business_id, "view_reconciliation", location_id=rec.location_id, session=session)
 
     location_name = None
     if rec.location_id:
@@ -463,13 +456,11 @@ def delete_business_reconciliation(
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
-    business = session.get(Business, business_id)
-    if not business or business.created_by_id != current_user.id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to edit this business")
-
     rec = session.get(Reconciliation, reconciliation_id)
     if not rec or rec.business_id != business_id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Reconciliation not found")
+
+    verify_user_permission(current_user, business_id, "manage_reconciliation", location_id=rec.location_id, session=session)
 
     session.delete(rec)
     session.commit()

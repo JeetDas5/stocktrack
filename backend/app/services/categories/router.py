@@ -5,7 +5,7 @@ from sqlmodel import Session, select, SQLModel, func
 
 from app.database import get_session
 from app.models import User, Business, Category, CategoryStatus
-from app.services.auth.dependencies import get_current_user
+from app.services.auth.dependencies import get_current_user, verify_user_permission
 
 router = APIRouter(tags=["Categories"])
 
@@ -35,10 +35,8 @@ def create_business_category(
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
-    business = session.get(Business, business_id)
-    if not business or business.created_by_id != current_user.id:
-        raise HTTPException(
-            status_code=403, detail="Not authorized to edit this business")
+
+    verify_user_permission(current_user, business_id, "manage_stock_items", session=session)
 
     existing = session.exec(
         select(Category).where(
@@ -78,10 +76,8 @@ def get_business_categories(
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
-    business = session.get(Business, business_id)
-    if not business or business.created_by_id != current_user.id:
-        raise HTTPException(
-            status_code=403, detail="Not authorized to access this business")
+
+    verify_user_permission(current_user, business_id, "view_stock_items", session=session)
 
     statement = select(Category).where(Category.business_id == business_id)
     categories = session.exec(statement).all()
@@ -123,10 +119,8 @@ def update_business_category(
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
-    business = session.get(Business, business_id)
-    if not business or business.created_by_id != current_user.id:
-        raise HTTPException(
-            status_code=403, detail="Not authorized to edit this business")
+
+    verify_user_permission(current_user, business_id, "manage_stock_items", session=session)
 
     category = session.get(Category, category_id)
     if not category or category.business_id != business_id:
@@ -173,10 +167,8 @@ def delete_business_category(
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
-    business = session.get(Business, business_id)
-    if not business or business.created_by_id != current_user.id:
-        raise HTTPException(
-            status_code=403, detail="Not authorized to edit this business")
+
+    verify_user_permission(current_user, business_id, "manage_stock_items", session=session)
 
     category = session.get(Category, category_id)
     if not category or category.business_id != business_id:

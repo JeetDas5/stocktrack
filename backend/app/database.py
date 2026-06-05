@@ -2,6 +2,7 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv
 from sqlmodel import create_engine, SQLModel, Session
+from sqlalchemy import text
 
 env_path = Path(__file__).resolve().parent.parent.parent / ".env"
 load_dotenv(dotenv_path=env_path)
@@ -29,6 +30,20 @@ engine = create_engine(
 
 def init_db():
     SQLModel.metadata.create_all(engine)
+    
+    # Check if role column exists in users table and add it if missing
+    with Session(engine) as session:
+        try:
+            session.exec(text("SELECT role FROM users LIMIT 1"))
+        except Exception:
+            session.rollback()
+            try:
+                session.exec(text("ALTER TABLE users ADD COLUMN role VARCHAR DEFAULT 'admin'"))
+                session.commit()
+                print("Added 'role' column to 'users' table.")
+            except Exception as e:
+                print(f"Error adding 'role' column: {e}")
+                session.rollback()
 
 
 def get_session():

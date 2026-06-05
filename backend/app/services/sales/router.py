@@ -10,7 +10,7 @@ from app.models import (
     User, Business, StockItem, Location, Sale, SaleItem, SaleStatus,
     StockItemLocation, Recipe, SalesImport
 )
-from app.services.auth.dependencies import get_current_user
+from app.services.auth.dependencies import get_current_user, verify_user_permission, get_allowed_locations
 
 
 router = APIRouter(tags=["Sales"])
@@ -57,10 +57,8 @@ def create_sale(
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
-    business = session.get(Business, business_id)
-    if not business or business.created_by_id != current_user.id:
-        raise HTTPException(
-            status_code=403, detail="Not authorized to edit this business")
+
+    verify_user_permission(current_user, business_id, "manage_sales", location_id=data.location_id, session=session)
 
     if data.location_id:
         loc = session.get(Location, data.location_id)
@@ -158,16 +156,13 @@ def get_sales(
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
-    business = session.get(Business, business_id)
-    if not business or business.created_by_id != current_user.id:
-        raise HTTPException(
-            status_code=403, detail="Not authorized to access this business")
 
-    sales = session.exec(
-        select(Sale)
-        .where(Sale.business_id == business_id)
-        .order_by(Sale.created_at.desc())
-    ).all()
+    allowed_locs = get_allowed_locations(current_user, business_id, "view_sales", session)
+
+    statement = select(Sale).where(Sale.business_id == business_id).order_by(Sale.created_at.desc())
+    if allowed_locs is not None:
+        statement = statement.where(Sale.location_id.in_(allowed_locs))
+    sales = session.exec(statement).all()
 
     out = []
     for s in sales:
@@ -208,14 +203,12 @@ def get_sale(
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
-    business = session.get(Business, business_id)
-    if not business or business.created_by_id != current_user.id:
-        raise HTTPException(
-            status_code=403, detail="Not authorized to access this business")
-
     s = session.get(Sale, sale_id)
     if not s or s.business_id != business_id:
         raise HTTPException(status_code=404, detail="Sale not found")
+
+
+    verify_user_permission(current_user, business_id, "view_sales", location_id=s.location_id, session=session)
 
     items_out = []
     for i in s.items:
@@ -267,14 +260,12 @@ def update_sale(
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
-    business = session.get(Business, business_id)
-    if not business or business.created_by_id != current_user.id:
-        raise HTTPException(
-            status_code=403, detail="Not authorized to edit this business")
-
     sale = session.get(Sale, sale_id)
     if not sale or sale.business_id != business_id:
         raise HTTPException(status_code=404, detail="Sale not found")
+
+
+    verify_user_permission(current_user, business_id, "manage_sales", location_id=sale.location_id, session=session)
 
     if data.remarks is not None:
         sale.remarks = data.remarks
@@ -324,10 +315,8 @@ def get_sales_imports(
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
-    business = session.get(Business, business_id)
-    if not business or business.created_by_id != current_user.id:
-        raise HTTPException(
-            status_code=403, detail="Not authorized to edit this business")
+
+    verify_user_permission(current_user, business_id, "view_sales", session=session)
 
     imports = session.exec(
         select(SalesImport)
@@ -359,10 +348,8 @@ def preview_sales_import(
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
-    business = session.get(Business, business_id)
-    if not business or business.created_by_id != current_user.id:
-        raise HTTPException(
-            status_code=403, detail="Not authorized to edit this business")
+
+    verify_user_permission(current_user, business_id, "manage_sales", session=session)
 
     contents = file.file.read()
     file_size_kb = f"{len(contents) / 1024:.1f} KB"
@@ -419,10 +406,8 @@ def confirm_sales_import(
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
-    business = session.get(Business, business_id)
-    if not business or business.created_by_id != current_user.id:
-        raise HTTPException(
-            status_code=403, detail="Not authorized to edit this business")
+
+    verify_user_permission(current_user, business_id, "manage_sales", location_id=data.location_id, session=session)
 
     if data.location_id:
         loc = session.get(Location, data.location_id)

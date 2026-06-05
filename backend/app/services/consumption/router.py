@@ -8,9 +8,9 @@ from app.database import get_session
 from app.models import (
     User, Business, Location, StockItem, StockCountSession, StockCountItem,
     StockCountStatus, StockItemLocation, Delivery, DeliveryItem, Sale, SaleItem,
-    Recipe, RecipeIngredient, Category
+    Recipe, RecipeIngredient, Category, PurchaseOrder
 )
-from app.services.auth.dependencies import get_current_user
+from app.services.auth.dependencies import get_current_user, verify_user_permission, get_allowed_locations
 
 router = APIRouter(tags=["Consumption"])
 
@@ -34,10 +34,10 @@ def get_consumption_analysis(
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
-    business = session.get(Business, business_id)
-    if not business or business.created_by_id != current_user.id:
-        raise HTTPException(
-            status_code=403, detail="Not authorized to access this business")
+    if location_id:
+        verify_user_permission(current_user, business_id, "view_sales", location_id=location_id, session=session)
+    else:
+        verify_user_permission(current_user, business_id, "view_sales", session=session)
 
     target_dt = datetime.utcnow()
     if start_date:
@@ -83,10 +83,16 @@ def get_consumption_analysis(
     locations = session.exec(locations_query).all()
     location_ids = [l.id for l in locations]
 
+
     if location_id:
+        verify_user_permission(current_user, business_id, "view_sales", location_id=location_id, session=session)
         locations_to_process = [location_id]
     else:
-        locations_to_process = location_ids + [None]
+        allowed_locs = get_allowed_locations(current_user, business_id, "view_sales", session)
+        if allowed_locs is not None:
+            locations_to_process = [l for l in allowed_locs if l is not None]
+        else:
+            locations_to_process = location_ids + [None]
 
     items_metrics = []
     total_val_curr = 0.0
@@ -180,7 +186,6 @@ def get_consumption_analysis(
                 DeliveryItem.stock_item_id == item.id,
                 Delivery.business_id == business_id
             )
-            from app.models import PurchaseOrder
             del_query = del_query.join(PurchaseOrder, Delivery.purchase_order_id == PurchaseOrder.id)
             if loc_id:
                 del_query = del_query.where(PurchaseOrder.location_id == loc_id)

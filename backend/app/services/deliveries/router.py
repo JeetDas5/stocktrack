@@ -8,7 +8,7 @@ from app.models import (
     User, Business, StockItem, PurchaseOrder, PurchaseOrderStatus,
     Delivery, DeliveryItem, DeliveryStatus, StockItemLocation
 )
-from app.services.auth.dependencies import get_current_user
+from app.services.auth.dependencies import get_current_user, verify_user_permission, get_allowed_locations
 
 router = APIRouter(tags=["Deliveries"])
 
@@ -33,14 +33,12 @@ def create_delivery(
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
-    business = session.get(Business, business_id)
-    if not business or business.created_by_id != current_user.id:
-        raise HTTPException(
-            status_code=403, detail="Not authorized to edit this business")
-
     po = session.get(PurchaseOrder, data.purchase_order_id)
     if not po or po.business_id != business_id:
         raise HTTPException(status_code=404, detail="Purchase order not found")
+
+
+    verify_user_permission(current_user, business_id, "manage_deliveries", location_id=po.location_id, session=session)
 
     if po.status != PurchaseOrderStatus.sent:
         raise HTTPException(
@@ -123,13 +121,20 @@ def get_deliveries(
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
-    business = session.get(Business, business_id)
-    if not business or business.created_by_id != current_user.id:
-        raise HTTPException(
-            status_code=403, detail="Not authorized to access this business")
 
-    deliveries = session.exec(select(Delivery).where(
-        Delivery.business_id == business_id).order_by(Delivery.delivery_date.desc())).all()
+    allowed_locs = get_allowed_locations(current_user, business_id, "view_deliveries", session)
+
+    if allowed_locs is not None:
+        statement = (
+            select(Delivery)
+            .join(PurchaseOrder, Delivery.purchase_order_id == PurchaseOrder.id)
+            .where(Delivery.business_id == business_id)
+            .where(PurchaseOrder.location_id.in_(allowed_locs))
+            .order_by(Delivery.delivery_date.desc())
+        )
+    else:
+        statement = select(Delivery).where(Delivery.business_id == business_id).order_by(Delivery.delivery_date.desc())
+    deliveries = session.exec(statement).all()
 
     out = []
     for d in deliveries:
@@ -157,14 +162,12 @@ def get_delivery(
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
-    business = session.get(Business, business_id)
-    if not business or business.created_by_id != current_user.id:
-        raise HTTPException(
-            status_code=403, detail="Not authorized to access this business")
-
     d = session.get(Delivery, delivery_id)
     if not d or d.business_id != business_id:
         raise HTTPException(status_code=404, detail="Delivery not found")
+
+
+    verify_user_permission(current_user, business_id, "view_deliveries", location_id=d.purchase_order.location_id if d.purchase_order else None, session=session)
 
     items_out = []
     for i in d.items:

@@ -511,6 +511,42 @@ export default function ReconciliationPage() {
     );
   }
 
+  if (error) {
+    return (
+      <div className="h-[75vh] flex flex-col items-center justify-center bg-white text-[#0F172A] p-6 text-center">
+        <div className="bg-rose-50 border border-rose-100 rounded-3xl p-8 max-w-md shadow-xs space-y-4">
+          <div className="h-12 w-12 bg-rose-100 rounded-2xl flex items-center justify-center mx-auto text-rose-600">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+            </svg>
+          </div>
+          <h2 className="text-lg font-extrabold text-zinc-950">Permission Denied</h2>
+          <p className="text-zinc-500 text-xs font-semibold leading-relaxed">
+            {error.includes("permission") || error.includes("authorized") || error.includes("403")
+              ? "You do not have the required permissions to view stock reconciliation. Please contact your system administrator."
+              : error}
+          </p>
+          <div className="pt-2">
+            <button
+              onClick={() => {
+                if (selectedLocationId) {
+                  loadReconciliationData(selectedLocationId, date, compareWith);
+                } else if (activeBusinessId) {
+                  loadReconciliationData("", date, compareWith);
+                } else {
+                  setError(null);
+                }
+              }}
+              className="px-5 py-2.5 bg-zinc-900 hover:bg-zinc-800 text-white rounded-xl text-xs font-bold uppercase tracking-wider transition duration-150 cursor-pointer shadow-sm"
+            >
+              Retry Connection
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="bg-white min-h-[85vh] select-none space-y-6 relative">
       {viewingSavedRunId && (

@@ -8,7 +8,7 @@ from app.models import (
     User, Business, Category, Location, Supplier, StockItem,
     StockItemLocation, CountingOption
 )
-from app.services.auth.dependencies import get_current_user
+from app.services.auth.dependencies import get_current_user, verify_user_permission, get_allowed_locations
 
 router = APIRouter(tags=["Stock Items"])
 
@@ -97,10 +97,8 @@ def create_business_stock_item(
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
-    business = session.get(Business, business_id)
-    if not business or business.created_by_id != current_user.id:
-        raise HTTPException(
-            status_code=403, detail="Not authorized to edit this business")
+
+    verify_user_permission(current_user, business_id, "manage_stock_items", session=session)
 
     existing = session.exec(
         select(StockItem).where(
@@ -276,10 +274,8 @@ def get_business_stock_items(
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
-    business = session.get(Business, business_id)
-    if not business or business.created_by_id != current_user.id:
-        raise HTTPException(
-            status_code=403, detail="Not authorized to access this business")
+
+    allowed_locs = get_allowed_locations(current_user, business_id, "view_stock_items", session)
 
     items = session.exec(select(StockItem).where(
         StockItem.business_id == business_id)).all()
@@ -289,8 +285,10 @@ def get_business_stock_items(
         category_name = item.category.name if item.category else None
         supplier_name = item.supplier.name if item.supplier else None
 
-        rules = session.exec(select(StockItemLocation).where(
-            StockItemLocation.stock_item_id == item.id)).all()
+        stmt = select(StockItemLocation).where(StockItemLocation.stock_item_id == item.id)
+        if allowed_locs is not None:
+            stmt = stmt.where(StockItemLocation.location_id.in_(allowed_locs))
+        rules = session.exec(stmt).all()
         location_rules_out = []
         for r in rules:
             loc = session.get(Location, r.location_id)
@@ -363,10 +361,8 @@ def get_location_stock_items(
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
-    business = session.get(Business, business_id)
-    if not business or business.created_by_id != current_user.id:
-        raise HTTPException(
-            status_code=403, detail="Not authorized to access this business")
+
+    verify_user_permission(current_user, business_id, "view_stock_items", location_id=location_id, session=session)
 
     location = session.get(Location, location_id)
     if not location or location.business_id != business_id:
@@ -456,10 +452,8 @@ def update_business_stock_item(
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
-    business = session.get(Business, business_id)
-    if not business or business.created_by_id != current_user.id:
-        raise HTTPException(
-            status_code=403, detail="Not authorized to edit this business")
+
+    verify_user_permission(current_user, business_id, "manage_stock_items", session=session)
 
     stock_item = session.get(StockItem, item_id)
     if not stock_item or stock_item.business_id != business_id:
@@ -643,10 +637,8 @@ def delete_business_stock_item(
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
-    business = session.get(Business, business_id)
-    if not business or business.created_by_id != current_user.id:
-        raise HTTPException(
-            status_code=403, detail="Not authorized to edit this business")
+
+    verify_user_permission(current_user, business_id, "manage_stock_items", session=session)
 
     stock_item = session.get(StockItem, item_id)
     if not stock_item or stock_item.business_id != business_id:

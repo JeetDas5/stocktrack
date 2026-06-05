@@ -3,6 +3,7 @@ from datetime import datetime
 from enum import Enum
 from typing import List, Optional
 from sqlmodel import Field, Relationship, SQLModel
+from sqlalchemy import Column, JSON
 
 class User(SQLModel, table=True):
     __tablename__ = "users"
@@ -13,10 +14,28 @@ class User(SQLModel, table=True):
     hashed_password: Optional[str] = Field(default=None)
     email_verified: bool = Field(default=False)
     image: Optional[str] = Field(default=None)
+    role: str = Field(default="admin")
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
     
     businesses: List["Business"] = Relationship(back_populates="created_by")
+
+class UserAssignment(SQLModel, table=True):
+    __tablename__ = "user_assignments"
+
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
+    user_id: str = Field(foreign_key="users.id", ondelete="CASCADE")
+    business_id: str = Field(foreign_key="businesses.id", ondelete="CASCADE")
+    location_id: Optional[str] = Field(default=None, foreign_key="locations.id", ondelete="CASCADE")
+    role: str = Field(default="staff")  # manager or staff (or admin)
+    permissions: List[str] = Field(default=[], sa_column=Column(JSON))
+    is_active: bool = Field(default=True)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+    # Relationships
+    user: Optional[User] = Relationship()
+    business: Optional["Business"] = Relationship()
+    location: Optional["Location"] = Relationship()
 
 class SessionTable(SQLModel, table=True):
     __tablename__ = "sessions"

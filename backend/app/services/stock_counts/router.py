@@ -8,7 +8,7 @@ from app.models import (
     User, Business, Location, StockItem, StockCountSession, StockCountItem,
     StockCountStatus, StockItemLocation
 )
-from app.services.auth.dependencies import get_current_user
+from app.services.auth.dependencies import get_current_user, verify_user_permission, get_allowed_locations
 
 router = APIRouter(tags=["Stock Counts"])
 
@@ -89,10 +89,8 @@ def create_business_stock_count(
     - **business_id**: The unique identifier of the business.
     - **data**: Details of the stock count session including the target location, count date, counter's name, and initial items.
     """
-    business = session.get(Business, business_id)
-    if not business or business.created_by_id != current_user.id:
-        raise HTTPException(
-            status_code=403, detail="Not authorized to edit this business")
+
+    verify_user_permission(current_user, business_id, "manage_stock_counts", location_id=data.location_id, session=session)
 
     location_name = None
     if data.location_id:
@@ -236,13 +234,13 @@ def get_business_stock_counts(
 
     - **business_id**: The unique identifier of the business.
     """
-    business = session.get(Business, business_id)
-    if not business or business.created_by_id != current_user.id:
-        raise HTTPException(
-            status_code=403, detail="Not authorized to access this business")
 
-    sessions = session.exec(select(StockCountSession).where(
-        StockCountSession.business_id == business_id)).all()
+    allowed_locs = get_allowed_locations(current_user, business_id, "view_stock_counts", session)
+
+    statement = select(StockCountSession).where(StockCountSession.business_id == business_id)
+    if allowed_locs is not None:
+        statement = statement.where(StockCountSession.location_id.in_(allowed_locs))
+    sessions = session.exec(statement).all()
 
     out = []
     for s in sessions:
@@ -316,15 +314,13 @@ def get_business_stock_count_detail(
     - **business_id**: The unique identifier of the business.
     - **session_id**: The unique identifier of the stock count session.
     """
-    business = session.get(Business, business_id)
-    if not business or business.created_by_id != current_user.id:
-        raise HTTPException(
-            status_code=403, detail="Not authorized to access this business")
-
     count_sess = session.get(StockCountSession, session_id)
     if not count_sess or count_sess.business_id != business_id:
         raise HTTPException(
             status_code=404, detail="Stock count session not found")
+
+
+    verify_user_permission(current_user, business_id, "view_stock_counts", location_id=count_sess.location_id, session=session)
 
     location_name = None
     if count_sess.location_id:
@@ -404,15 +400,15 @@ def update_business_stock_count(
     - **data**: Updated count quantities and notes.
     - **status**: Optional new status (e.g. set to `completed` to lock the session and reconcile stock inventory).
     """
-    business = session.get(Business, business_id)
-    if not business or business.created_by_id != current_user.id:
-        raise HTTPException(
-            status_code=403, detail="Not authorized to edit this business")
-
     count_sess = session.get(StockCountSession, session_id)
     if not count_sess or count_sess.business_id != business_id:
         raise HTTPException(
             status_code=404, detail="Stock count session not found")
+
+
+    verify_user_permission(current_user, business_id, "manage_stock_counts", location_id=count_sess.location_id, session=session)
+    if data.location_id and data.location_id != count_sess.location_id:
+        verify_user_permission(current_user, business_id, "manage_stock_counts", location_id=data.location_id, session=session)
 
     if data.location_id:
         loc = session.get(Location, data.location_id)
@@ -568,15 +564,13 @@ def delete_business_stock_count(
     - **business_id**: The unique identifier of the business.
     - **session_id**: The unique identifier of the stock count session.
     """
-    business = session.get(Business, business_id)
-    if not business or business.created_by_id != current_user.id:
-        raise HTTPException(
-            status_code=403, detail="Not authorized to edit this business")
-
     count_sess = session.get(StockCountSession, session_id)
     if not count_sess or count_sess.business_id != business_id:
         raise HTTPException(
             status_code=404, detail="Stock count session not found")
+
+
+    verify_user_permission(current_user, business_id, "manage_stock_counts", location_id=count_sess.location_id, session=session)
 
     session.delete(count_sess)
     session.commit()

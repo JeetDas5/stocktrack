@@ -4,7 +4,7 @@ from sqlmodel import Session, select, SQLModel, func
 
 from app.database import get_session
 from app.models import User, Business, Location
-from app.services.auth.dependencies import get_current_user
+from app.services.auth.dependencies import get_current_user, verify_user_permission, get_allowed_locations
 
 router = APIRouter(tags=["Locations"])
 
@@ -42,10 +42,8 @@ def create_business_location(
     - **business_id**: The unique identifier of the parent business.
     - **data**: Location attributes (name, description, type, address, active status).
     """
-    business = session.get(Business, business_id)
-    if not business or business.created_by_id != current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to edit this business")
+
+    verify_user_permission(current_user, business_id, "manage_locations", session=session)
 
     existing = session.exec(
         select(Location).where(
@@ -92,12 +90,12 @@ def get_business_locations(
 
     - **business_id**: The unique identifier of the parent business.
     """
-    business = session.get(Business, business_id)
-    if not business or business.created_by_id != current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to access this business")
+
+    allowed_locs = get_allowed_locations(current_user, business_id, "view_locations", session)
 
     statement = select(Location).where(Location.business_id == business_id)
+    if allowed_locs is not None:
+        statement = statement.where(Location.id.in_(allowed_locs))
     return session.exec(statement).all()
 
 
@@ -126,10 +124,7 @@ def update_business_location(
     - **location_id**: The unique identifier of the location to update.
     - **data**: Structural fields to write.
     """
-    business = session.get(Business, business_id)
-    if not business or business.created_by_id != current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to edit this business")
+    verify_user_permission(current_user, business_id, "manage_locations", location_id=location_id, session=session)
 
     location = session.get(Location, location_id)
     if not location or location.business_id != business_id:
@@ -180,10 +175,7 @@ def delete_business_location(
     - **business_id**: The unique identifier of the parent business.
     - **location_id**: The unique identifier of the location to delete.
     """
-    business = session.get(Business, business_id)
-    if not business or business.created_by_id != current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to edit this business")
+    verify_user_permission(current_user, business_id, "manage_locations", location_id=location_id, session=session)
 
     location = session.get(Location, location_id)
     if not location or location.business_id != business_id:
@@ -217,10 +209,7 @@ def get_location(
     - **business_id**: The unique identifier of the parent business.
     - **location_id**: The unique identifier of the target location.
     """
-    business = session.get(Business, business_id)
-    if not business or business.created_by_id != current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to access this business")
+    verify_user_permission(current_user, business_id, "view_locations", location_id=location_id, session=session)
 
     location = session.get(Location, location_id)
     if not location or location.business_id != business_id:

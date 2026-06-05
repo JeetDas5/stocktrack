@@ -4,7 +4,7 @@ from sqlmodel import Session, select, SQLModel
 
 from app.database import get_session
 from app.models import User, Business, Supplier, OrderingMethod
-from app.services.auth.dependencies import get_current_user
+from app.services.auth.dependencies import get_current_user, verify_user_permission
 
 router = APIRouter(tags=["Suppliers"])
 
@@ -33,10 +33,8 @@ def create_business_supplier(
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
-    business = session.get(Business, business_id)
-    if not business or business.created_by_id != current_user.id:
-        raise HTTPException(
-            status_code=403, detail="Not authorized to edit this business")
+
+    verify_user_permission(current_user, business_id, "manage_stock_items", session=session)
 
     supplier = Supplier(
         name=data.name,
@@ -67,10 +65,8 @@ def get_business_suppliers(
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
-    business = session.get(Business, business_id)
-    if not business or business.created_by_id != current_user.id:
-        raise HTTPException(
-            status_code=403, detail="Not authorized to access this business")
+
+    verify_user_permission(current_user, business_id, "view_stock_items", session=session)
 
     statement = select(Supplier).where(Supplier.business_id == business_id)
     return session.exec(statement).all()
@@ -84,10 +80,8 @@ def update_business_supplier(
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
-    business = session.get(Business, business_id)
-    if not business or business.created_by_id != current_user.id:
-        raise HTTPException(
-            status_code=403, detail="Not authorized to edit this business")
+
+    verify_user_permission(current_user, business_id, "manage_stock_items", session=session)
 
     supplier = session.get(Supplier, supplier_id)
     if not supplier or supplier.business_id != business_id:
@@ -121,10 +115,8 @@ def delete_business_supplier(
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
-    business = session.get(Business, business_id)
-    if not business or business.created_by_id != current_user.id:
-        raise HTTPException(
-            status_code=403, detail="Not authorized to edit this business")
+
+    verify_user_permission(current_user, business_id, "manage_stock_items", session=session)
 
     supplier = session.get(Supplier, supplier_id)
     if not supplier or supplier.business_id != business_id:

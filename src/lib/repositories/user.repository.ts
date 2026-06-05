@@ -60,4 +60,17 @@ export const getMeProfile = async () => {
     throw error;
   }
 };
+export const getUserAssignments = async (businessId: string) => {
+  const response = await api.get(`/api/businesses/${businessId}/users`);
+  return response.data;
+};
 
+export const updateUserAssignment = async (businessId: string, assignmentId: string, payload: any) => {
+  const response = await api.put(`/api/businesses/${businessId}/users/${assignmentId}`, payload);
+  return response.data;
+};
+
+export const deleteUserAssignment = async (businessId: string, assignmentId: string) => {
+  const response = await api.delete(`/api/businesses/${businessId}/users/${assignmentId}`);
+  return response.data;
+};
