@@ -210,7 +210,7 @@ export default function SalesEntryPage() {
       await loadInitialData();
     } catch (err: any) {
       console.error(err);
-      toast.error(err.response?.data?.detail || "Failed to save the sale.");
+      toast.error(err.message || "Failed to save the sale.");
     } finally {
       setSaving(false);
     }

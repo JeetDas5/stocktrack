@@ -1,6 +1,6 @@
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlmodel import Session, select, SQLModel
+from sqlmodel import Session, select, SQLModel, func
 
 from app.database import get_session
 from app.models import User, Business, Location
@@ -47,8 +47,18 @@ def create_business_location(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to edit this business")
 
+    existing = session.exec(
+        select(Location).where(
+            Location.business_id == business_id,
+            func.lower(Location.name) == data.name.strip().lower()
+        )
+    ).first()
+    if existing:
+        raise HTTPException(
+            status_code=409, detail=f"A location with the name '{data.name.strip()}' already exists in this business")
+
     location = Location(
-        name=data.name,
+        name=data.name.strip(),
         description=data.description,
         type=data.type,
         address=data.address,
@@ -125,7 +135,18 @@ def update_business_location(
     if not location or location.business_id != business_id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Location not found")
 
-    location.name = data.name
+    existing = session.exec(
+        select(Location).where(
+            Location.business_id == business_id,
+            Location.id != location_id,
+            func.lower(Location.name) == data.name.strip().lower()
+        )
+    ).first()
+    if existing:
+        raise HTTPException(
+            status_code=409, detail=f"A location with the name '{data.name.strip()}' already exists in this business")
+
+    location.name = data.name.strip()
     location.description = data.description
     location.type = data.type
     location.address = data.address

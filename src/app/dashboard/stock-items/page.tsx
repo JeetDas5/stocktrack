@@ -592,7 +592,7 @@ export default function StockItemsPage() {
       setShowDrawer(false);
     } catch (err: any) {
       console.error(err);
-      toast.error(err.response?.data?.detail || "Failed to save stock item.");
+      toast.error(err.message || "Failed to save stock item.");
     } finally {
       setSaving(false);
     }

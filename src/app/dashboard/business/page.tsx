@@ -125,9 +125,9 @@ export default function DashboardBusinessPage() {
       toast.success("Business profile created successfully!");
 
       handleSelect(created.id);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to create business:", err);
-      toast.error("Failed to create business. Please try again.");
+      toast.error(err.message || "Failed to create business. Please try again.");
     } finally {
       setCreating(false);
     }

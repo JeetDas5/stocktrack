@@ -1,7 +1,7 @@
 from typing import List, Optional
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException
-from sqlmodel import Session, select, SQLModel
+from sqlmodel import Session, select, SQLModel, func
 
 from app.database import get_session
 from app.models import (
@@ -102,6 +102,16 @@ def create_business_stock_item(
         raise HTTPException(
             status_code=403, detail="Not authorized to edit this business")
 
+    existing = session.exec(
+        select(StockItem).where(
+            StockItem.business_id == business_id,
+            func.lower(StockItem.name) == data.name.strip().lower()
+        )
+    ).first()
+    if existing:
+        raise HTTPException(
+            status_code=409, detail=f"A stock item with the name '{data.name.strip()}' already exists in this business")
+
     if data.category_id:
         category = session.get(Category, data.category_id)
         if not category or category.business_id != business_id:
@@ -117,7 +127,7 @@ def create_business_stock_item(
     total_stock = sum(float(r.get("current_stock", 0.0))
                       for r in data.location_rules) if data.location_rules else 0.0
     stock_item = StockItem(
-        name=data.name,
+        name=data.name.strip(),
         sku=data.sku,
         image_url=data.image_url,
         description=data.description,
@@ -455,6 +465,17 @@ def update_business_stock_item(
     if not stock_item or stock_item.business_id != business_id:
         raise HTTPException(status_code=404, detail="Stock item not found")
 
+    existing = session.exec(
+        select(StockItem).where(
+            StockItem.business_id == business_id,
+            StockItem.id != item_id,
+            func.lower(StockItem.name) == data.name.strip().lower()
+        )
+    ).first()
+    if existing:
+        raise HTTPException(
+            status_code=409, detail=f"A stock item with the name '{data.name.strip()}' already exists in this business")
+
     if data.category_id:
         category = session.get(Category, data.category_id)
         if not category or category.business_id != business_id:
@@ -469,7 +490,7 @@ def update_business_stock_item(
 
     total_stock = sum(float(r.get("current_stock", 0.0))
                       for r in data.location_rules) if data.location_rules else 0.0
-    stock_item.name = data.name
+    stock_item.name = data.name.strip()
     stock_item.sku = data.sku
     stock_item.image_url = data.image_url
     stock_item.description = data.description

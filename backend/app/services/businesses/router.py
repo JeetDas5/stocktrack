@@ -1,7 +1,7 @@
 from typing import List
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlmodel import Session, select, SQLModel
+from sqlmodel import Session, select, SQLModel, func
 
 from app.database import get_session
 from app.models import User, Business
@@ -45,7 +45,19 @@ def create_business(
 
     - **name**: Desired name of the business brand or company.
     """
-    business = Business(name=data.name, created_by_id=current_user.id)
+    existing = session.exec(
+        select(Business).where(
+            Business.created_by_id == current_user.id,
+            func.lower(Business.name) == data.name.strip().lower()
+        )
+    ).first()
+    if existing:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"A business with the name '{data.name.strip()}' already exists"
+        )
+
+    business = Business(name=data.name.strip(), created_by_id=current_user.id)
     session.add(business)
     session.commit()
     session.refresh(business)

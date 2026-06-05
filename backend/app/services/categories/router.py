@@ -1,7 +1,7 @@
 from typing import List, Optional
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException
-from sqlmodel import Session, select, SQLModel
+from sqlmodel import Session, select, SQLModel, func
 
 from app.database import get_session
 from app.models import User, Business, Category, CategoryStatus
@@ -40,8 +40,18 @@ def create_business_category(
         raise HTTPException(
             status_code=403, detail="Not authorized to edit this business")
 
+    existing = session.exec(
+        select(Category).where(
+            Category.business_id == business_id,
+            func.lower(Category.name) == data.category_name.strip().lower()
+        )
+    ).first()
+    if existing:
+        raise HTTPException(
+            status_code=409, detail=f"A category with the name '{data.category_name.strip()}' already exists in this business")
+
     category = Category(
-        name=data.category_name,
+        name=data.category_name.strip(),
         business_id=business_id,
         description=data.description,
         icon=data.icon,
@@ -122,7 +132,18 @@ def update_business_category(
     if not category or category.business_id != business_id:
         raise HTTPException(status_code=404, detail="Category not found")
 
-    category.name = data.category_name
+    existing = session.exec(
+        select(Category).where(
+            Category.business_id == business_id,
+            Category.id != category_id,
+            func.lower(Category.name) == data.category_name.strip().lower()
+        )
+    ).first()
+    if existing:
+        raise HTTPException(
+            status_code=409, detail=f"A category with the name '{data.category_name.strip()}' already exists in this business")
+
+    category.name = data.category_name.strip()
     category.description = data.description
     category.icon = data.icon
     category.status = data.status

@@ -1,7 +1,7 @@
 from typing import List, Optional
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException
-from sqlmodel import Session, select, SQLModel
+from sqlmodel import Session, select, SQLModel, func
 
 from app.database import get_session
 from app.models import (
@@ -70,6 +70,16 @@ def create_business_recipe(
         raise HTTPException(
             status_code=403, detail="Not authorized to edit this business")
 
+    existing = session.exec(
+        select(Recipe).where(
+            Recipe.business_id == business_id,
+            func.lower(Recipe.recipe_name) == data.recipe_name.strip().lower()
+        )
+    ).first()
+    if existing:
+        raise HTTPException(
+            status_code=409, detail=f"A recipe with the name '{data.recipe_name.strip()}' already exists in this business")
+
     if data.category_id:
         cat = session.get(Category, data.category_id)
         if not cat or cat.business_id != business_id:
@@ -77,7 +87,7 @@ def create_business_recipe(
 
     recipe = Recipe(
         business_id=business_id,
-        recipe_name=data.recipe_name,
+        recipe_name=data.recipe_name.strip(),
         recipe_code=data.recipe_code,
         category_id=data.category_id,
         yield_qty=data.yield_qty,
@@ -229,7 +239,18 @@ def update_business_recipe(
         if not cat or cat.business_id != business_id:
             raise HTTPException(status_code=400, detail="Invalid category ID")
 
-    recipe.recipe_name = data.recipe_name
+    existing = session.exec(
+        select(Recipe).where(
+            Recipe.business_id == business_id,
+            Recipe.id != recipe_id,
+            func.lower(Recipe.recipe_name) == data.recipe_name.strip().lower()
+        )
+    ).first()
+    if existing:
+        raise HTTPException(
+            status_code=409, detail=f"A recipe with the name '{data.recipe_name.strip()}' already exists in this business")
+
+    recipe.recipe_name = data.recipe_name.strip()
     recipe.recipe_code = data.recipe_code
     recipe.category_id = data.category_id
     recipe.yield_qty = data.yield_qty
