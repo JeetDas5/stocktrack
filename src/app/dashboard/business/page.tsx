@@ -21,17 +21,13 @@ import {
 import { Business } from "@/types/business";
 import { toast } from "sonner";
 
-interface BusinessWithMetadata extends Business {
-  locationsCount: number;
-  itemsCount: number;
-}
 
 export default function DashboardBusinessPage() {
   const router = useRouter();
   const { user, profile, loading: authLoading, refreshProfile } = useAuth();
   const { activeBusinessId, setActiveBusiness } = useBusinessStore();
 
-  const [businesses, setBusinesses] = useState<BusinessWithMetadata[]>([]);
+  const [businesses, setBusinesses] = useState<Business[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [newBusinessName, setNewBusinessName] = useState("");
@@ -48,24 +44,15 @@ export default function DashboardBusinessPage() {
 
       try {
         setLoading(true);
-        const data = await getUserBusinesses([]);
-
-        const dataWithMetadata = data.map((bus: any) => {
-          return {
-            ...bus,
-            locationsCount: bus.locationsCount || 0,
-            itemsCount: bus.itemsCount || 0,
-          };
-        });
-
-        setBusinesses(dataWithMetadata);
+        const data = await getUserBusinesses();
+        setBusinesses(data);
 
         const persistedActiveId =
           typeof window !== "undefined"
             ? localStorage.getItem("stocktrack_active_business_id")
             : null;
-        if (dataWithMetadata.length === 1 && !persistedActiveId) {
-          const singleBus = dataWithMetadata[0];
+        if (data.length === 1 && !persistedActiveId) {
+          const singleBus = data[0];
           setActiveBusiness(singleBus.id);
           localStorage.setItem("stocktrack_active_business_id", singleBus.id);
         }
@@ -109,7 +96,7 @@ export default function DashboardBusinessPage() {
       );
       await refreshProfile();
 
-      const newMetadataItem: BusinessWithMetadata = {
+      const newBusiness: Business = {
         id: created.id,
         name: created.name,
         createdBy: user.uid,
@@ -119,15 +106,15 @@ export default function DashboardBusinessPage() {
         itemsCount: 0,
       };
 
-      setBusinesses([...businesses, newMetadataItem]);
+      setBusinesses([...businesses, newBusiness]);
       setNewBusinessName("");
       setShowAddModal(false);
       toast.success("Business profile created successfully!");
 
       handleSelect(created.id);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Failed to create business:", err);
-      toast.error(err.message || "Failed to create business. Please try again.");
+      toast.error((err as Error).message || "Failed to create business. Please try again.");
     } finally {
       setCreating(false);
     }

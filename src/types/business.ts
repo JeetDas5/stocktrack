@@ -5,6 +5,8 @@ export interface Business {
   createdBy: string;
   createdAt: string;
   isActive: boolean;
+  locationsCount?: number;
+  itemsCount?: number;
 }
 
 export interface BusinessUser {
