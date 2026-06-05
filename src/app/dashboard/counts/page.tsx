@@ -1126,9 +1126,6 @@ export default function StockCountsPage() {
                               </span>
                             )}
                           </td>
-                          <td className="py-4 px-6 text-zinc-500 font-semibold italic">
-                            {decoded.userNotes || "--"}
-                          </td>
                         </tr>
                       );
                     })}

@@ -5,7 +5,7 @@
 "use client";
 
 import { toast } from "sonner";
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 
 import { Business } from "@/types/business";
 import AlertDialog from "@/components/alert-dialog";
@@ -26,18 +26,14 @@ import {
   RefreshCw,
   Download,
   Search,
-  SlidersHorizontal,
   Trash2,
   Loader2,
   CheckCircle2,
-  XCircle,
-  AlertTriangle,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
   Calendar,
   ArrowLeft,
-  Package,
 } from "lucide-react";
 
 export default function ReconciliationPage() {
@@ -48,10 +44,135 @@ export default function ReconciliationPage() {
 
   const [businesses, setBusinesses] = useState<Business[]>([]);
 
-  const [date, setDate] = useState(() => {
-    const today = new Date();
-    return today.toISOString().split("T")[0];
-  });
+  const getTodayString = () => {
+    const d = new Date();
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const dd = String(d.getDate()).padStart(2, "0");
+    return `${yyyy}-${mm}-${dd}`;
+  };
+
+  const getDaysAgoString = (days: number) => {
+    const d = new Date();
+    d.setDate(d.getDate() - days);
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const dd = String(d.getDate()).padStart(2, "0");
+    return `${yyyy}-${mm}-${dd}`;
+  };
+
+  const [startDate, setStartDate] = useState<string>(() =>
+    getDaysAgoString(30),
+  );
+  const [endDate, setEndDate] = useState<string>(() => getTodayString());
+
+  const date = useMemo(() => endDate || startDate, [startDate, endDate]);
+
+  // Custom Calendar State and Logic
+  const [calendarMonth, setCalendarMonth] = useState(() => new Date());
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
+  const calendarRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        calendarRef.current &&
+        !calendarRef.current.contains(event.target as Node)
+      ) {
+        setIsCalendarOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const prevMonth = () => {
+    setCalendarMonth(
+      new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() - 1, 1),
+    );
+  };
+
+  const nextMonth = () => {
+    setCalendarMonth(
+      new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 1),
+    );
+  };
+
+  const formatLocalDate = (date: Date) => {
+    const yyyy = date.getFullYear();
+    const mm = String(date.getMonth() + 1).padStart(2, "0");
+    const dd = String(date.getDate()).padStart(2, "0");
+    return `${yyyy}-${mm}-${dd}`;
+  };
+
+  const handleDateClick = (date: Date) => {
+    const dateStr = formatLocalDate(date);
+
+    if (!startDate || (startDate && endDate)) {
+      setStartDate(dateStr);
+      setEndDate("");
+    } else {
+      if (dateStr < startDate) {
+        setStartDate(dateStr);
+        setEndDate("");
+      } else {
+        setEndDate(dateStr);
+        setIsCalendarOpen(false);
+      }
+    }
+  };
+
+  const calendarDays = useMemo(() => {
+    const year = calendarMonth.getFullYear();
+    const month = calendarMonth.getMonth();
+    const firstDay = new Date(year, month, 1);
+    const dayOfWeek = firstDay.getDay();
+    const totalDays = new Date(year, month + 1, 0).getDate();
+    const prevMonthTotalDays = new Date(year, month, 0).getDate();
+
+    const days: { date: Date; isCurrentMonth: boolean }[] = [];
+
+    for (let i = dayOfWeek - 1; i >= 0; i--) {
+      days.push({
+        date: new Date(year, month - 1, prevMonthTotalDays - i),
+        isCurrentMonth: false,
+      });
+    }
+
+    for (let i = 1; i <= totalDays; i++) {
+      days.push({
+        date: new Date(year, month, i),
+        isCurrentMonth: true,
+      });
+    }
+
+    const remaining = 42 - days.length;
+    for (let i = 1; i <= remaining; i++) {
+      days.push({
+        date: new Date(year, month + 1, i),
+        isCurrentMonth: false,
+      });
+    }
+
+    return days;
+  }, [calendarMonth]);
+
+  const formattedDateRange = useMemo(() => {
+    if (!startDate) return "Select Date Range";
+    const options: Intl.DateTimeFormatOptions = {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    };
+    const startFormatted = new Date(startDate).toLocaleDateString(
+      "en-US",
+      options,
+    );
+    if (!endDate) return `${startFormatted} to ...`;
+    const endFormatted = new Date(endDate).toLocaleDateString("en-US", options);
+    return `${startFormatted} — ${endFormatted}`;
+  }, [startDate, endDate]);
+
   const [compareWith, setCompareWith] = useState("System (Expected)");
   const [selectedLocationId, setSelectedLocationId] = useState<string>("");
 
@@ -67,7 +188,7 @@ export default function ReconciliationPage() {
   const [activeTab, setActiveTab] = useState<"all" | "matched" | "variance">(
     "all",
   );
-  const [sidebarFiltersOpen, setSidebarFiltersOpen] = useState(true);
+  const [sidebarFiltersOpen, setSidebarFiltersOpen] = useState(false);
 
   const [filterCategory, setFilterCategory] = useState("all");
   const [filterSupplier, setFilterSupplier] = useState("all");
@@ -209,7 +330,8 @@ export default function ReconciliationPage() {
         setSelectedLocationId(detail.locationId);
       }
       if (detail.reconciliationDate) {
-        setDate(detail.reconciliationDate);
+        setStartDate(detail.reconciliationDate);
+        setEndDate(detail.reconciliationDate);
       }
       if (detail.compareWith) {
         setCompareWith(detail.compareWith);
@@ -427,6 +549,92 @@ export default function ReconciliationPage() {
         </div>
 
         <div className="flex items-center gap-3 w-full md:w-auto relative">
+          {/* Custom Date Range Popover */}
+          <div className="relative" ref={calendarRef}>
+            <button
+              onClick={() => setIsCalendarOpen(!isCalendarOpen)}
+              className="flex items-center gap-2.5 px-4 py-2.5 bg-zinc-50 hover:bg-zinc-100 border border-zinc-200 rounded-xl text-xs font-bold text-zinc-700 shadow-2xs transition duration-200 cursor-pointer"
+            >
+              <Calendar className="h-4 w-4 text-[#16A34A]" />
+              <span>{formattedDateRange}</span>
+              <ChevronDown
+                className={`h-3.5 w-3.5 text-zinc-400 transition-transform duration-200 ${isCalendarOpen ? "rotate-180" : ""}`}
+              />
+            </button>
+
+            {isCalendarOpen && (
+              <div className="absolute right-0 mt-2 p-4 bg-white border border-zinc-200 rounded-2xl shadow-xl z-50 w-[300px] animate-fade-in select-none">
+                {/* Calendar header with Prev / Next month */}
+                <div className="flex justify-between items-center mb-3">
+                  <button
+                    type="button"
+                    onClick={prevMonth}
+                    className="p-1 hover:bg-zinc-100 rounded-lg text-zinc-600 cursor-pointer"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </button>
+                  <span className="text-xs font-extrabold text-zinc-800">
+                    {calendarMonth.toLocaleDateString("en-US", {
+                      month: "long",
+                      year: "numeric",
+                    })}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={nextMonth}
+                    className="p-1 hover:bg-zinc-100 rounded-lg text-zinc-600 cursor-pointer"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
+                </div>
+
+                {/* Day names */}
+                <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-extrabold text-zinc-400 mb-1">
+                  <span>Su</span>
+                  <span>Mo</span>
+                  <span>Tu</span>
+                  <span>We</span>
+                  <span>Th</span>
+                  <span>Fr</span>
+                  <span>Sa</span>
+                </div>
+
+                {/* Days grid */}
+                <div className="grid grid-cols-7 gap-1">
+                  {calendarDays.map((day, idx) => {
+                    const dateStr = formatLocalDate(day.date);
+                    const isStart = dateStr === startDate;
+                    const isEnd = dateStr === endDate;
+                    const isBetween =
+                      startDate &&
+                      endDate &&
+                      dateStr > startDate &&
+                      dateStr < endDate;
+
+                    return (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => handleDateClick(day.date)}
+                        className={`h-8 w-8 text-[11px] font-bold rounded-lg transition-all flex items-center justify-center cursor-pointer ${
+                          isStart || isEnd
+                            ? "bg-[#16A34A] text-white"
+                            : isBetween
+                              ? "bg-emerald-50 text-[#16A34A]"
+                              : day.isCurrentMonth
+                                ? "text-zinc-700 hover:bg-zinc-100"
+                                : "text-zinc-300 hover:bg-zinc-50/50"
+                        }`}
+                      >
+                        {day.date.getDate()}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+
           <div className="relative">
             <button
               onClick={() => setShowExportDropdown(!showExportDropdown)}
@@ -460,126 +668,6 @@ export default function ReconciliationPage() {
             {running ? "Running..." : "Run Reconciliation"}
           </button>
         </div>
-      </div>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white border border-zinc-200 rounded-2xl p-5 flex items-center gap-4 shadow-3xs">
-          <div className="h-12 w-12 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 border border-blue-100/50">
-            <Package className="h-6 w-6" />
-          </div>
-          <div>
-            <p className="text-[10px] uppercase font-extrabold tracking-wider text-zinc-400">
-              Total Items
-            </p>
-            <h4 className="text-2xl font-extrabold text-[#0F172A] mt-1">
-              {reconciliation?.totalItems || 0}
-            </h4>
-            <p className="text-[10px] font-bold text-zinc-500 mt-1">
-              Items Reconciled
-            </p>
-          </div>
-        </div>
-
-        <div className="bg-white border border-zinc-200 rounded-2xl p-5 flex items-center gap-4 shadow-3xs">
-          <div className="h-12 w-12 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 border border-emerald-100/50">
-            <CheckCircle2 className="h-6 w-6" />
-          </div>
-          <div>
-            <p className="text-[10px] uppercase font-extrabold tracking-wider text-zinc-400">
-              Matched Items
-            </p>
-            <h4 className="text-2xl font-extrabold text-[#0F172A] mt-1">
-              {reconciliation?.matchedItems || 0}
-            </h4>
-            <p className="text-[10px] font-bold text-emerald-600 mt-1">
-              {reconciliation?.totalItems
-                ? (
-                    (reconciliation.matchedItems / reconciliation.totalItems) *
-                    100
-                  ).toFixed(1)
-                : "0.0"}
-              %
-            </p>
-          </div>
-        </div>
-
-        <div className="bg-white border border-zinc-200 rounded-2xl p-5 flex items-center gap-4 shadow-3xs">
-          <div className="h-12 w-12 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center shrink-0 border border-amber-100/50">
-            <AlertTriangle className="h-6 w-6" />
-          </div>
-          <div>
-            <p className="text-[10px] uppercase font-extrabold tracking-wider text-zinc-400">
-              Variance Items
-            </p>
-            <h4 className="text-2xl font-extrabold text-[#0F172A] mt-1">
-              {reconciliation?.varianceItems || 0}
-            </h4>
-            <p className="text-[10px] font-bold text-amber-600 mt-1">
-              {reconciliation?.totalItems
-                ? (
-                    (reconciliation.varianceItems / reconciliation.totalItems) *
-                    100
-                  ).toFixed(1)
-                : "0.0"}
-              %
-            </p>
-          </div>
-        </div>
-
-        <div className="bg-white border border-zinc-200 rounded-2xl p-5 flex items-center gap-4 shadow-3xs">
-          <div className="h-12 w-12 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center shrink-0 border border-rose-100/50">
-            <XCircle className="h-6 w-6" />
-          </div>
-          <div>
-            <p className="text-[10px] uppercase font-extrabold tracking-wider text-zinc-400">
-              Total Variance (USD)
-            </p>
-            <h4 className="text-2xl font-extrabold text-rose-600 mt-1">
-              {formatCurrency(reconciliation?.totalVarianceUsd || 0)}
-            </h4>
-            <p className="text-[10px] font-bold text-rose-600 mt-1">
-              {reconciliation?.totalValueExpected
-                ? (
-                    (reconciliation.totalVarianceUsd /
-                      reconciliation.totalValueExpected) *
-                    100
-                  ).toFixed(2)
-                : "0.00"}
-              % of Total Value
-            </p>
-          </div>
-        </div>
-      </div>
-
-      <div className="bg-zinc-50 border border-zinc-200 rounded-2xl p-4 flex flex-wrap gap-4 items-center justify-between shadow-3xs">
-        <div className="flex flex-wrap gap-4 items-center flex-1">
-          <div className="space-y-1">
-            <label className="text-[9px] uppercase font-extrabold tracking-wider text-[#64748B] block">
-              As Of Date
-            </label>
-            <input
-              type="date"
-              value={date}
-              onChange={(e) => {
-                setDate(e.target.value);
-                setCurrentPage(1);
-              }}
-              className="bg-white border border-zinc-200 rounded-xl px-3 py-2 text-xs font-bold text-zinc-700 shadow-3xs w-44 focus:outline-none cursor-pointer hover:border-zinc-300"
-            />
-          </div>
-        </div>
-
-        <button
-          onClick={() => setSidebarFiltersOpen(!sidebarFiltersOpen)}
-          className={`flex items-center justify-center gap-2 border px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all duration-200 shadow-3xs cursor-pointer ${
-            sidebarFiltersOpen
-              ? "bg-emerald-50 border-[#16A34A] text-[#16A34A]"
-              : "bg-white border-zinc-200 text-zinc-700 hover:bg-zinc-50"
-          }`}
-        >
-          <SlidersHorizontal className="h-4 w-4" />
-          Filters
-        </button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
@@ -910,117 +998,6 @@ export default function ReconciliationPage() {
         <div
           className={`grid grid-cols-1 gap-6 ${sidebarFiltersOpen ? "lg:col-span-4 xl:col-span-3" : "hidden lg:block lg:col-span-3"}`}
         >
-          {sidebarFiltersOpen && (
-            <div className="bg-white border border-zinc-200 rounded-2xl p-5 space-y-4 shadow-3xs">
-              <div className="flex justify-between items-center border-b border-zinc-150 pb-2.5">
-                <span className="text-xs font-extrabold text-zinc-800 uppercase tracking-wider flex items-center gap-1.5">
-                  <SlidersHorizontal className="h-4 w-4 text-[#16A34A]" />
-                  Filters
-                </span>
-                <button
-                  onClick={handleClearSidebarFilters}
-                  className="text-[10px] font-extrabold text-rose-500 hover:text-rose-600"
-                >
-                  Clear All
-                </button>
-              </div>
-
-              <div className="space-y-3.5">
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-zinc-500 block">
-                    Category
-                  </label>
-                  <select
-                    value={filterCategory}
-                    onChange={(e) => setFilterCategory(e.target.value)}
-                    className="w-full bg-white border border-zinc-200 rounded-xl px-3 py-2 text-xs font-bold text-zinc-700 shadow-3xs cursor-pointer focus:outline-none"
-                  >
-                    <option value="all">All Categories</option>
-                    {categories.map((c) => (
-                      <option key={c.id} value={c.name}>
-                        {c.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-zinc-500 block">
-                    Supplier
-                  </label>
-                  <select
-                    value={filterSupplier}
-                    onChange={(e) => setFilterSupplier(e.target.value)}
-                    className="w-full bg-white border border-zinc-200 rounded-xl px-3 py-2 text-xs font-bold text-zinc-700 shadow-3xs cursor-pointer focus:outline-none"
-                  >
-                    <option value="all">All Suppliers</option>
-                    {suppliers.map((s) => (
-                      <option key={s.id} value={s.name}>
-                        {s.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-zinc-500 block">
-                    Item
-                  </label>
-                  <div className="relative">
-                    <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-zinc-400">
-                      <Search className="h-3.5 w-3.5" />
-                    </span>
-                    <input
-                      type="text"
-                      placeholder="Search item..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="w-full bg-white border border-zinc-200 focus:border-[#16A34A] rounded-xl py-2 pl-9 pr-3 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none shadow-3xs"
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-zinc-500 block">
-                    Variance
-                  </label>
-                  <select
-                    value={filterVariance}
-                    onChange={(e) => setFilterVariance(e.target.value)}
-                    className="w-full bg-white border border-zinc-200 rounded-xl px-3 py-2 text-xs font-bold text-zinc-700 shadow-3xs cursor-pointer focus:outline-none"
-                  >
-                    <option value="all">All Variance</option>
-                    <option value="positive">Positive Variance</option>
-                    <option value="negative">Negative Variance</option>
-                    <option value="none">No Variance</option>
-                  </select>
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-zinc-500 block">
-                    Status
-                  </label>
-                  <select
-                    value={filterStatus}
-                    onChange={(e) => setFilterStatus(e.target.value)}
-                    className="w-full bg-white border border-zinc-200 rounded-xl px-3 py-2 text-xs font-bold text-zinc-700 shadow-3xs cursor-pointer focus:outline-none"
-                  >
-                    <option value="all">All Statuses</option>
-                    <option value="Matched">Matched</option>
-                    <option value="Variance">Variance</option>
-                  </select>
-                </div>
-
-                <button
-                  onClick={handleApplySidebarFilters}
-                  className="w-full bg-[#16A34A] hover:bg-[#15803D] text-white rounded-xl py-2.5 text-xs font-bold uppercase tracking-wider shadow-sm transition-colors cursor-pointer"
-                >
-                  Apply Filters
-                </button>
-              </div>
-            </div>
-          )}
-
           {reconciliation && (
             <div className="bg-white border border-zinc-200 rounded-2xl p-5 space-y-4 shadow-3xs">
               <span className="text-xs font-extrabold text-zinc-800 uppercase tracking-wider block border-b border-zinc-150 pb-2.5">

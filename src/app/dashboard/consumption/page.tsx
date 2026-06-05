@@ -75,7 +75,7 @@ export default function ConsumptionPage() {
   );
   const [endDate, setEndDate] = useState<string>(() => getTodayString());
 
-  // Custom Calendar State and Logic
+  // Custom Calendar
   const [calendarMonth, setCalendarMonth] = useState(() => new Date());
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const calendarRef = useRef<HTMLDivElement>(null);
@@ -538,21 +538,6 @@ export default function ConsumptionPage() {
           </div>
         </div>
 
-        {/* Period tabs, charts cards, and consumption graph commented out as requested */}
-        {/*
-        <div className="flex items-center gap-2 border-b border-zinc-100 pb-2">
-          ...
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          ...
-        </div>
-
-        <div className="bg-white border border-zinc-200 rounded-2xl p-5 shadow-2xs">
-          ...
-        </div>
-        */}
-
         <div className="bg-white border border-zinc-200 rounded-2xl shadow-2xs overflow-hidden">
           <div className="p-5 border-b border-zinc-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div>
@@ -727,20 +712,6 @@ export default function ConsumptionPage() {
           </div>
         </div>
       </div>
-
-      {/* Sidebar Filter Form commented out as requested */}
-      {/*
-      <aside className="w-80 border-l border-zinc-200 bg-[#F8FAFC] p-5 shrink-0 hidden xl:flex flex-col justify-between sticky top-16 h-[calc(100vh-64px)] z-10 overflow-y-auto">
-        <div className="space-y-6">
-          <div className="flex items-center justify-between border-b border-zinc-200 pb-3">
-            <div className="flex items-center gap-2">
-              <Filter className="h-4.5 w-4.5 text-[#16A34A]" />
-              <h3 className="text-sm font-extrabold text-[#0F172A]">Filters</h3>
-            </div>
-          </div>
-        </div>
-      </aside>
-      */}
 
       {selectedItemForFormula && (
         <>

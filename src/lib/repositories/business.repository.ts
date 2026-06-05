@@ -21,6 +21,7 @@ export const createBusinessAndLink = async (
 };
 
 export const getUserBusinesses = async (
+  _args?: any
 ): Promise<Business[]> => {
   const response = await api.get<BusinessApiResponse[]>("/api/businesses");
   return response.data.map((b) => ({
