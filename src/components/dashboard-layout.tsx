@@ -21,7 +21,6 @@ import {
   FileText,
   PackageOpen,
   Scale,
-  BarChart3,
   Users,
   LogOut,
   Building2,
@@ -258,8 +257,6 @@ export default function DashboardLayout({
         return { title: "Purchase Orders" };
       case "/dashboard/reconciliation":
         return { title: "Reconciliation" };
-      case "/dashboard/reports":
-        return { title: "Reports" };
       case "/dashboard/users":
         return { title: "Users" };
       default:
@@ -323,7 +320,6 @@ export default function DashboardLayout({
   const analysisLinks: SidebarLink[] = [
     { name: "Consumption", href: "/dashboard/consumption", icon: ShoppingCart },
     { name: "Reconciliation", href: "/dashboard/reconciliation", icon: Scale },
-    { name: "Reports", href: "/dashboard/reports", icon: BarChart3 },
   ];
 
   const adminLinks: SidebarLink[] = [
@@ -774,7 +770,7 @@ export default function DashboardLayout({
                         </button>
                       ))}
                   </div>
-                  <div className="border-t border-zinc-200 p-1.5 bg-zinc-50">
+                  <div className="border-t border-zinc-200 p-1.5 bg-zinc-50 space-y-1.5">
                     <a
                       href="/dashboard/business"
                       onClick={(e) => {
@@ -786,6 +782,13 @@ export default function DashboardLayout({
                     >
                       Manage Switcher
                     </a>
+                    <button
+                      onClick={handleLogout}
+                      className="w-full flex items-center justify-center gap-1.5 py-2 text-[10px] uppercase font-bold tracking-wider text-zinc-600 hover:text-[#EF4444] hover:bg-rose-50/50 rounded-lg transition-colors cursor-pointer"
+                    >
+                      <LogOut className="h-3.5 w-3.5 text-zinc-400" />
+                      <span>Log Out</span>
+                    </button>
                   </div>
                 </div>
               )}
