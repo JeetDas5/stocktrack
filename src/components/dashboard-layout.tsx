@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/set-state-in-effect */
 "use client";
 
 import { useRouter, usePathname } from "next/navigation";
@@ -19,7 +20,6 @@ import {
   ClipboardList,
   FileText,
   PackageOpen,
-  TrendingUp,
   Scale,
   BarChart3,
   Users,
@@ -34,6 +34,9 @@ import {
   Settings,
   ChevronsLeft,
   Check,
+  ShoppingCart,
+  FileDown,
+  FilePlusCorner,
 } from "lucide-react";
 
 interface SidebarLink {
@@ -126,7 +129,7 @@ export default function DashboardLayout({
 
     async function loadBusinesses() {
       try {
-        const list = await getUserBusinesses([]);
+        const list = await getUserBusinesses();
         setBusinesses(list);
         const activeDoc = list.find((b) => b.id === activeBusinessId) || null;
         if (!activeDoc) {
@@ -303,16 +306,16 @@ export default function DashboardLayout({
   ];
 
   const salesLinks: SidebarLink[] = [
-    { name: "Sales Entry", href: "/dashboard/sales", icon: TrendingUp },
+    { name: "Sales Entry", href: "/dashboard/sales", icon: FilePlusCorner },
     {
       name: "Sales Imports",
       href: "/dashboard/sales-imports",
-      icon: TrendingUp,
+      icon: FileDown,
     },
-    { name: "Consumption", href: "/dashboard/consumption", icon: TrendingUp },
   ];
 
   const analysisLinks: SidebarLink[] = [
+    { name: "Consumption", href: "/dashboard/consumption", icon: ShoppingCart },
     { name: "Reconciliation", href: "/dashboard/reconciliation", icon: Scale },
     { name: "Reports", href: "/dashboard/reports", icon: BarChart3 },
   ];
