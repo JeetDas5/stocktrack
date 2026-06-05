@@ -2,9 +2,9 @@
 "use client";
 
 import Image from "next/image";
+import { toast } from "sonner";
 import { Business } from "@/types/business";
 import { useEffect, useState } from "react";
-import { toast } from "sonner";
 import AlertDialog from "@/components/alert-dialog";
 import { useAuth } from "@/providers/auth-provider";
 import { useBusinessStore } from "@/store/business-store";
@@ -36,26 +36,38 @@ import {
 } from "lucide-react";
 
 const encodeNotes = (
-  userNotes: string,
-  selectedOptionId: string,
-  originalCartons: string,
+  opt1Id: string,
+  qty1: string,
+  opt2Id: string,
+  qty2: string,
 ) => {
-  if (!selectedOptionId && !originalCartons) return userNotes;
-  return `[opt:${selectedOptionId || ""},qty:${originalCartons || ""}]${userNotes}`;
+  if (!opt1Id && !qty1 && !opt2Id && !qty2) return "";
+  return `[opt1:${opt1Id || ""},qty1:${qty1 || ""},opt2:${opt2Id || ""},qty2:${qty2 || ""}]`;
 };
 
 const decodeNotes = (dbNotes: string | undefined) => {
-  if (!dbNotes)
-    return { selectedOptionId: "", originalCartons: "", userNotes: "" };
-  const match = dbNotes.match(/^\[opt:([^,]*),qty:([^\]]*)\](.*)$/);
+  if (!dbNotes) return { opt1Id: "", qty1: "", opt2Id: "", qty2: "" };
+  const match = dbNotes.match(
+    /^\[opt1:([^,]*),qty1:([^,]*),opt2:([^,]*),qty2:([^\]]*)\]/,
+  );
   if (match) {
     return {
-      selectedOptionId: match[1],
-      originalCartons: match[2],
-      userNotes: match[3],
+      opt1Id: match[1],
+      qty1: match[2],
+      opt2Id: match[3],
+      qty2: match[4],
     };
   }
-  return { selectedOptionId: "", originalCartons: "", userNotes: dbNotes };
+  const oldMatch = dbNotes.match(/^\[opt:([^,]*),qty:([^\]]*)\]/);
+  if (oldMatch) {
+    return {
+      opt1Id: oldMatch[1],
+      qty1: oldMatch[2],
+      opt2Id: "",
+      qty2: "",
+    };
+  }
+  return { opt1Id: "", qty1: "", opt2Id: "", qty2: "" };
 };
 
 export default function StockCountsPage() {
@@ -96,7 +108,8 @@ export default function StockCountsPage() {
         countedCartons: string;
         countedPieces: string;
         selectedOptionId: string;
-        notes: string;
+        countedCartons2: string;
+        selectedOptionId2: string;
       }
     >
   >({});
@@ -204,17 +217,28 @@ export default function StockCountsPage() {
     if (!counts) return 0;
 
     const cartons = parseFloat(counts.countedCartons) || 0;
+    const cartons2 = parseFloat(counts.countedCartons2) || 0;
     const pieces = parseFloat(counts.countedPieces) || 0;
 
-    const hasOptions = item.countingOptions && item.countingOptions.length > 0;
-    if (hasOptions) {
-      const selectedOpt = item.countingOptions?.find(
+    let total = pieces;
+
+    if (item.countingOptions && item.countingOptions.length > 0) {
+      const opt1 = item.countingOptions.find(
         (o) => o.id === counts.selectedOptionId,
       );
-      const conversion = selectedOpt ? selectedOpt.conversionToBaseQty || 1 : 1;
-      return cartons * conversion + pieces;
+      const conversion1 = opt1 ? opt1.conversionToBaseQty || 1 : 1;
+      total += cartons * conversion1;
     }
-    return pieces;
+
+    if (item.countingOptions && item.countingOptions.length > 1) {
+      const opt2 = item.countingOptions.find(
+        (o) => o.id === counts.selectedOptionId2,
+      );
+      const conversion2 = opt2 ? opt2.conversionToBaseQty || 1 : 1;
+      total += cartons2 * conversion2;
+    }
+
+    return total;
   };
 
   const startNewSession = () => {
@@ -227,7 +251,8 @@ export default function StockCountsPage() {
         countedCartons: "",
         countedPieces: "",
         selectedOptionId: item.countingOptions?.[0]?.id || "",
-        notes: "",
+        countedCartons2: "",
+        selectedOptionId2: item.countingOptions?.[1]?.id || "",
       };
     });
     setItemCounts(initialItemCounts);
@@ -247,16 +272,13 @@ export default function StockCountsPage() {
       const match = (sess.items || []).find((si) => si.itemId === item.id);
       const decoded = decodeNotes(match?.notes);
       loadedCounts[item.id] = {
-        countedCartons: decoded.selectedOptionId
-          ? decoded.originalCartons
-          : match?.countedCartons !== undefined
-            ? String(match.countedCartons)
-            : "",
+        countedCartons: decoded.qty1 || "",
         countedPieces:
           match?.countedPieces !== undefined ? String(match.countedPieces) : "",
-        selectedOptionId:
-          decoded.selectedOptionId || item.countingOptions?.[0]?.id || "",
-        notes: decoded.userNotes,
+        selectedOptionId: decoded.opt1Id || item.countingOptions?.[0]?.id || "",
+        countedCartons2: decoded.qty2 || "",
+        selectedOptionId2:
+          decoded.opt2Id || item.countingOptions?.[1]?.id || "",
       };
     });
     setItemCounts(loadedCounts);
@@ -277,7 +299,11 @@ export default function StockCountsPage() {
           itemCounts[item.id]?.selectedOptionId ||
           item.countingOptions?.[0]?.id ||
           "",
-        notes: itemCounts[item.id]?.notes || "",
+        countedCartons2: "",
+        selectedOptionId2:
+          itemCounts[item.id]?.selectedOptionId2 ||
+          item.countingOptions?.[1]?.id ||
+          "",
       };
     });
     setItemCounts(cleared);
@@ -295,7 +321,8 @@ export default function StockCountsPage() {
           countedCartons: "",
           countedPieces: "",
           selectedOptionId: "",
-          notes: "",
+          countedCartons2: "",
+          selectedOptionId2: "",
         };
 
         let cartonsVal: number | undefined = undefined;
@@ -305,26 +332,27 @@ export default function StockCountsPage() {
           piecesVal = parseFloat(counts.countedPieces);
         }
 
-        if (counts.countedCartons !== "") {
-          const qty = parseFloat(counts.countedCartons);
-          const selectedOpt = item.countingOptions?.find(
-            (o) => o.id === counts.selectedOptionId,
-          );
-          const defaultOpt = item.countingOptions?.[0];
-          if (selectedOpt && defaultOpt) {
-            cartonsVal =
-              qty *
-              (selectedOpt.conversionToBaseQty /
-                defaultOpt.conversionToBaseQty);
-          } else {
-            cartonsVal = qty;
-          }
+        const totalCartonsBaseQty =
+          (counts.countedCartons !== ""
+            ? parseFloat(counts.countedCartons) *
+              (item.countingOptions?.[0]?.conversionToBaseQty || 1)
+            : 0) +
+          (counts.countedCartons2 !== ""
+            ? parseFloat(counts.countedCartons2) *
+              (item.countingOptions?.[1]?.conversionToBaseQty || 1)
+            : 0);
+
+        if (counts.countedCartons !== "" || counts.countedCartons2 !== "") {
+          const defaultOptConversion =
+            item.countingOptions?.[0]?.conversionToBaseQty || 1;
+          cartonsVal = totalCartonsBaseQty / defaultOptConversion;
         }
 
         const encodedNotes = encodeNotes(
-          counts.notes,
-          counts.selectedOptionId,
+          counts.selectedOptionId || item.countingOptions?.[0]?.id || "",
           counts.countedCartons,
+          counts.selectedOptionId2 || item.countingOptions?.[1]?.id || "",
+          counts.countedCartons2,
         );
 
         return {
@@ -609,21 +637,21 @@ export default function StockCountsPage() {
                       <th className="py-4 px-6 w-12 text-center">#</th>
                       <th className="py-4 px-6">Item</th>
                       <th className="py-4 px-6 w-64">Unit Info</th>
-                      <th className="py-4 px-6 text-center w-80" colSpan={2}>
+                      <th className="py-4 px-6 text-center w-80" colSpan={3}>
                         Counted Quantity
                       </th>
                       <th className="py-4 px-6">Total (Base Unit)</th>
-                      <th className="py-4 px-2 w-28">Notes</th>
                     </tr>
                     <tr className="border-b border-zinc-200 text-[9px] uppercase font-extrabold tracking-wider text-zinc-400 bg-zinc-50/20">
                       <th colSpan={3} />
                       <th className="py-2 px-1 text-center border-r border-zinc-100 w-32">
                         Base Qty
                       </th>
-                      <th className="py-2 px-1 text-center w-48">
-                        Counting Option (If Any)
+                      <th className="py-2 px-1 text-center border-r border-zinc-100 w-48">
+                        1st Option
                       </th>
-                      <th colSpan={2} />
+                      <th className="py-2 px-1 text-center w-48">2nd Option</th>
+                      <th colSpan={1} />
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-zinc-200 text-xs text-[#0F172A]">
@@ -672,6 +700,7 @@ export default function StockCountsPage() {
                         );
                         const isCounted =
                           counts.countedCartons !== "" ||
+                          counts.countedCartons2 !== "" ||
                           counts.countedPieces !== "";
 
                         return (
@@ -747,13 +776,13 @@ export default function StockCountsPage() {
                                 </span>
                               </div>
                             </td>
-                            <td className="py-3 px-2 text-center w-48">
-                              {hasOptions ? (
+                            <td className="py-3 px-2 text-center border-r border-zinc-100 w-48">
+                              {hasOptions && item.countingOptions?.[0] ? (
                                 <div className="flex items-center gap-1 justify-center">
                                   <input
                                     type="number"
                                     min="0"
-                                    placeholder="--"
+                                    placeholder="0"
                                     className="w-16 bg-white border border-zinc-300 focus:border-[#16A34A] rounded-lg py-1.5 px-2 text-center text-xs font-bold focus:outline-none"
                                     value={counts.countedCartons}
                                     onChange={(e) =>
@@ -766,25 +795,38 @@ export default function StockCountsPage() {
                                       }))
                                     }
                                   />
-                                  <select
-                                    className="bg-white border border-zinc-200 rounded-lg py-1.5 px-2 text-[10px] font-bold text-zinc-700 focus:outline-none focus:ring-1 focus:ring-[#16A34A] cursor-pointer"
-                                    value={counts.selectedOptionId}
+                                  <span className="text-[10px] text-zinc-400 font-bold">
+                                    {item.countingOptions[0].displayName}
+                                  </span>
+                                </div>
+                              ) : (
+                                <span className="text-zinc-300 font-bold">
+                                  -
+                                </span>
+                              )}
+                            </td>
+                            <td className="py-3 px-2 text-center w-48">
+                              {hasOptions && item.countingOptions?.[1] ? (
+                                <div className="flex items-center gap-1 justify-center">
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    placeholder="0"
+                                    className="w-16 bg-white border border-zinc-300 focus:border-[#16A34A] rounded-lg py-1.5 px-2 text-center text-xs font-bold focus:outline-none"
+                                    value={counts.countedCartons2}
                                     onChange={(e) =>
                                       setItemCounts((prev) => ({
                                         ...prev,
                                         [item.id]: {
                                           ...counts,
-                                          selectedOptionId: e.target.value,
+                                          countedCartons2: e.target.value,
                                         },
                                       }))
                                     }
-                                  >
-                                    {item.countingOptions?.map((opt) => (
-                                      <option key={opt.id} value={opt.id}>
-                                        {opt.displayName}
-                                      </option>
-                                    ))}
-                                  </select>
+                                  />
+                                  <span className="text-[10px] text-zinc-400 font-bold">
+                                    {item.countingOptions[1].displayName}
+                                  </span>
                                 </div>
                               ) : (
                                 <span className="text-zinc-300 font-bold">
@@ -802,23 +844,6 @@ export default function StockCountsPage() {
                                   Not Counted
                                 </span>
                               )}
-                            </td>
-                            <td className="py-4 px-2 w-28">
-                              <input
-                                type="text"
-                                placeholder="Add notes..."
-                                className="bg-transparent hover:bg-zinc-50 focus:bg-white border border-transparent focus:border-zinc-300 rounded-lg py-1 px-1.5 text-[10px] w-24 transition-all"
-                                value={counts.notes}
-                                onChange={(e) =>
-                                  setItemCounts((prev) => ({
-                                    ...prev,
-                                    [item.id]: {
-                                      ...counts,
-                                      notes: e.target.value,
-                                    },
-                                  }))
-                                }
-                              />
                             </td>
                           </tr>
                         );
@@ -1051,7 +1076,6 @@ export default function StockCountsPage() {
                       <th className="py-4 px-6 text-center">Counted (Base)</th>
                       <th className="py-4 px-6 text-center">Variance Qty</th>
                       <th className="py-4 px-6 text-center">Cost Variance</th>
-                      <th className="py-4 px-6">Notes</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-zinc-200 text-xs text-[#0F172A]">
