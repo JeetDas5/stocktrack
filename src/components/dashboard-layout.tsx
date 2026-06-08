@@ -9,6 +9,7 @@ import { useAuth } from "@/providers/auth-provider";
 import { logoutUser } from "@/lib/services/auth.service";
 import { useLocationStore } from "@/store/location-store";
 import { useBusinessStore } from "@/store/business-store";
+import sidebarPermissions from "@/config/sidebar-permissions.json";
 import { getUserBusinesses } from "@/lib/repositories/business.repository";
 import {
   LayoutDashboard,
@@ -39,6 +40,7 @@ import {
   FileDown,
   FilePlusCorner,
 } from "lucide-react";
+
 
 interface SidebarLink {
   name: string;
@@ -358,6 +360,23 @@ export default function DashboardLayout({
     },
   ];
 
+  const userRole = profile?.role || "staff";
+  const allowedHrefs = sidebarPermissions[userRole as keyof typeof sidebarPermissions] || [];
+
+  const isLinkAllowed = (href: string) => {
+    if (allowedHrefs.includes("*")) return true;
+    return allowedHrefs.includes(href);
+  };
+
+  const filteredPinnedLinks = pinnedLinks.filter((link) => isLinkAllowed(link.href));
+  const filteredOverviewLinks = overviewLinks.filter((link) => isLinkAllowed(link.href));
+  const filteredMasterDataLinks = masterDataLinks.filter((link) => isLinkAllowed(link.href));
+  const filteredOperationsLinks = operationsLinks.filter((link) => isLinkAllowed(link.href));
+  const filteredStaffOperationsLinks = staffOperationsLinks.filter((link) => isLinkAllowed(link.href));
+  const filteredSalesLinks = salesLinks.filter((link) => isLinkAllowed(link.href));
+  const filteredAnalysisLinks = analysisLinks.filter((link) => isLinkAllowed(link.href));
+  const filteredAdminLinks = adminLinks.filter((link) => isLinkAllowed(link.href));
+
   const isActive = (href: string) => pathname === href;
 
   const toggleGroup = (groupName: string) => {
@@ -414,6 +433,9 @@ export default function DashboardLayout({
     options?: { hasGrip?: boolean; extraContent?: React.ReactNode },
     isSidebarCollapsed = false,
   ) => {
+    if (links.length === 0 && !options?.extraContent) {
+      return null;
+    }
     const collapsed = isSidebarCollapsed
       ? false
       : isGroupCollapsed(groupName, links);
@@ -514,39 +536,39 @@ export default function DashboardLayout({
         <div className="flex-1 space-y-3">
           {renderGroup(
             "Pinned",
-            pinnedLinks,
+            filteredPinnedLinks,
             { hasGrip: true },
             sidebarCollapsed,
           )}
-          {renderGroup("Overview", overviewLinks, undefined, sidebarCollapsed)}
+          {renderGroup("Overview", filteredOverviewLinks, undefined, sidebarCollapsed)}
           {renderGroup(
             "Inventory Setup",
-            masterDataLinks,
+            filteredMasterDataLinks,
             undefined,
             sidebarCollapsed,
           )}
           {renderGroup(
             "Stock Operations",
-            operationsLinks,
+            filteredOperationsLinks,
             undefined,
             sidebarCollapsed,
           )}
           {renderGroup(
             "Staff Operations",
-            staffOperationsLinks,
+            filteredStaffOperationsLinks,
             undefined,
             sidebarCollapsed,
           )}
           {renderGroup(
             "Sales & Usage",
-            salesLinks,
+            filteredSalesLinks,
             undefined,
             sidebarCollapsed,
           )}
-          {renderGroup("Analysis", analysisLinks, undefined, sidebarCollapsed)}
+          {renderGroup("Analysis", filteredAnalysisLinks, undefined, sidebarCollapsed)}
           {renderGroup(
             "Admin",
-            adminLinks,
+            filteredAdminLinks,
             {
               extraContent: (
                 <button
@@ -591,14 +613,14 @@ export default function DashboardLayout({
             </div>
 
             <div className="flex-1 space-y-3">
-              {renderGroup("Pinned", pinnedLinks, { hasGrip: true })}
-              {renderGroup("Overview", overviewLinks)}
-              {renderGroup("Inventory Setup", masterDataLinks)}
-              {renderGroup("Stock Operations", operationsLinks)}
-              {renderGroup("Staff Operations", staffOperationsLinks)}
-              {renderGroup("Sales & Usage", salesLinks)}
-              {renderGroup("Analysis", analysisLinks)}
-              {renderGroup("Admin", adminLinks, {
+              {renderGroup("Pinned", filteredPinnedLinks, { hasGrip: true })}
+              {renderGroup("Overview", filteredOverviewLinks)}
+              {renderGroup("Inventory Setup", filteredMasterDataLinks)}
+              {renderGroup("Stock Operations", filteredOperationsLinks)}
+              {renderGroup("Staff Operations", filteredStaffOperationsLinks)}
+              {renderGroup("Sales & Usage", filteredSalesLinks)}
+              {renderGroup("Analysis", filteredAnalysisLinks)}
+              {renderGroup("Admin", filteredAdminLinks, {
                 extraContent: (
                   <button
                     onClick={handleLogout}
@@ -779,10 +801,17 @@ export default function DashboardLayout({
                   .substring(0, 2) || "SM"}
               </div>
               <div className="hidden md:block text-left">
-                <p className="text-xs font-extrabold text-[#0F172A] leading-tight">
-                  {profile?.fullName || "User name"}
-                </p>
-                <p className="text-[10px] font-bold text-[#64748B]">
+                <div className="flex items-center gap-1.5">
+                  <p className="text-xs font-extrabold text-[#0F172A] leading-tight">
+                    {profile?.fullName || "User name"}
+                  </p>
+                  {profile?.role && (
+                    <span className="text-[9px] font-extrabold px-1.5 py-0.5 rounded bg-zinc-200/60 text-zinc-600 border border-zinc-300/40 capitalize leading-none">
+                      {profile.role.replace("_", " ")}
+                    </span>
+                  )}
+                </div>
+                <p className="text-[10px] font-bold text-[#64748B] mt-0.5">
                   {profile?.email || "User email"}
                 </p>
               </div>
@@ -794,40 +823,14 @@ export default function DashboardLayout({
               </button>
 
               {showBusinessDropdown && (
-                <div className="absolute top-full right-0 mt-2 w-48 bg-white border border-zinc-200 rounded-xl shadow-xl overflow-hidden z-30 animate-fade-in">
-                  <div className="max-h-48 overflow-y-auto py-1">
-                    {businesses
-                      .filter((b) => b.id !== activeBusinessId)
-                      .map((b) => (
-                        <button
-                          key={b.id}
-                          onClick={() => handleBusinessChange(b.id)}
-                          className="w-full text-left px-4 py-2.5 text-xs font-bold text-zinc-700 hover:bg-zinc-100 hover:text-[#0F172A] transition-colors truncate block cursor-pointer"
-                        >
-                          {b.name}
-                        </button>
-                      ))}
-                  </div>
-                  <div className="border-t border-zinc-200 p-1.5 bg-zinc-50 space-y-1.5">
-                    <a
-                      href="/dashboard/business"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        router.push("/dashboard/business");
-                        setShowBusinessDropdown(false);
-                      }}
-                      className="w-full text-center py-2 text-[10px] uppercase font-bold tracking-wider text-[#16A34A] hover:text-[#16A34A] block hover:bg-[#DCFCE7] rounded-lg transition-colors cursor-pointer"
-                    >
-                      Manage Switcher
-                    </a>
-                    <button
-                      onClick={handleLogout}
-                      className="w-full flex items-center justify-center gap-1.5 py-2 text-[10px] uppercase font-bold tracking-wider text-zinc-600 hover:text-[#EF4444] hover:bg-rose-50/50 rounded-lg transition-colors cursor-pointer"
-                    >
-                      <LogOut className="h-3.5 w-3.5 text-zinc-400" />
-                      <span>Log Out</span>
-                    </button>
-                  </div>
+                <div className="absolute top-full right-0 mt-2 w-40 bg-white border border-zinc-200 rounded-xl shadow-xl overflow-hidden z-30 animate-fade-in p-1">
+                  <button
+                    onClick={handleLogout}
+                    className="w-full flex items-center justify-center gap-2 py-2 text-[10px] uppercase font-extrabold tracking-wider text-zinc-600 hover:text-[#EF4444] hover:bg-rose-50/50 rounded-lg transition-colors cursor-pointer"
+                  >
+                    <LogOut className="h-4 w-4 text-zinc-400" />
+                    <span>Log Out</span>
+                  </button>
                 </div>
               )}
             </div>

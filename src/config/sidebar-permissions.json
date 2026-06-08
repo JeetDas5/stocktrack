@@ -1,0 +1,36 @@
+{
+  "super_admin": ["*"],
+  "admin": ["*"],
+  "manager": [
+    "/dashboard",
+    "/dashboard/business",
+    "/dashboard/locations",
+    "/dashboard/suppliers",
+    "/dashboard/categories",
+    "/dashboard/stock-items",
+    "/dashboard/recipes",
+    "/dashboard/counts",
+    "/dashboard/refill-planner",
+    "/dashboard/purchase-orders",
+    "/dashboard/deliveries",
+    "/dashboard/sales",
+    "/dashboard/sales-imports",
+    "/dashboard/consumption",
+    "/dashboard/reconciliation",
+    "/dashboard/settings",
+    "/dashboard/staff-dashboard",
+    "/dashboard/staff-directory",
+    "/dashboard/timesheet-entry",
+    "/dashboard/timesheet-review"
+  ],
+  "staff": [
+    "/dashboard",
+    "/dashboard/business",
+    "/dashboard/locations",
+    "/dashboard/counts",
+    "/dashboard/staff-dashboard",
+    "/dashboard/staff-directory",
+    "/dashboard/timesheet-entry",
+    "/dashboard/timesheet-review"
+  ]
+}
