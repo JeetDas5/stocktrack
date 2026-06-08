@@ -7,6 +7,7 @@
   ],
   "manager": [
     "business.read",
+    "staff.read",
     "locations.write",
     "locations.read",
     "stock_items.write",

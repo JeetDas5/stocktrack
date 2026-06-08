@@ -20,6 +20,7 @@ from app.services.deliveries.router import router as deliveries_router
 from app.services.sales.router import router as sales_router
 from app.services.consumption.router import router as consumption_router
 from app.services.reconciliation.router import router as reconciliation_router
+from app.services.staff.router import router as staff_router
 
 
 app = FastAPI(
@@ -71,4 +72,5 @@ app.include_router(deliveries_router)
 app.include_router(sales_router)
 app.include_router(consumption_router)
 app.include_router(reconciliation_router)
+app.include_router(staff_router)
 
