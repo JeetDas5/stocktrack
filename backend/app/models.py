@@ -534,3 +534,25 @@ class ReconciliationItem(SQLModel, table=True):
 
     reconciliation: Reconciliation = Relationship(back_populates="items")
     item: StockItem = Relationship()
+
+
+class Timesheet(SQLModel, table=True):
+    __tablename__ = "timesheets"
+
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
+    business_id: str = Field(foreign_key="businesses.id", ondelete="CASCADE")
+    location_id: str = Field(foreign_key="locations.id", ondelete="CASCADE")
+    staff_id: str = Field(foreign_key="users.id", ondelete="CASCADE")
+    work_date: str = Field(index=True)
+    start_time: str
+    end_time: str
+    unpaid_break: int = Field(default=0)
+    notes: Optional[str] = Field(default=None)
+    total_hours: float = Field(default=0.0)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+    business: Business = Relationship()
+    location: Location = Relationship()
+    staff: User = Relationship()
+

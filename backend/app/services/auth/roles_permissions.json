@@ -26,6 +26,9 @@
     "reconciliation.read",
     "consumption.read",
     "consumption.write",
+    "timesheets.read",
+    "timesheets.write",
+
     "attendance.read",
     "attendance.read_own",
     "attendance.write",
@@ -51,6 +54,9 @@
     "sales.write",
     "sales.read",
     "consumption.read",
+    "timesheets.read",
+    "timesheets.write",
+
     "attendance.read_own",
     "rosters.read_own",
     "dashboard.read",
