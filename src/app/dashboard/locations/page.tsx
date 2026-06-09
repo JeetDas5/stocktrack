@@ -56,6 +56,7 @@ export default function LocationsPage() {
 
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+  const [showUnsavedDialog, setShowUnsavedDialog] = useState(false);
 
   useEffect(() => {
     if (!activeBusinessId) return;
@@ -88,6 +89,7 @@ export default function LocationsPage() {
     setFormAddress("");
     setFormActive(true);
     setShowDrawer(true);
+    setShowUnsavedDialog(false);
   };
 
   const openEditDrawer = (loc: Location) => {
@@ -98,17 +100,56 @@ export default function LocationsPage() {
     setFormAddress(loc.address || "");
     setFormActive(loc.isActive !== false);
     setShowDrawer(true);
+    setShowUnsavedDialog(false);
     setActiveMenuId(null);
   };
 
-  const hasLocationChanges = (loc: Location) => {
+  const getFormSnapshot = () => ({
+    name: formName.trim(),
+    description: formDescription.trim(),
+    type: formType,
+    address: formAddress.trim(),
+    isActive: formActive,
+  });
+
+  const isFormDirty = () => {
+    const current = getFormSnapshot();
+
+    if (editId) {
+      const currentLocation = locations.find((loc) => loc.id === editId);
+      if (!currentLocation) return true;
+
+      return (
+        current.name !== currentLocation.name ||
+        current.description !== (currentLocation.description || "") ||
+        current.type !== currentLocation.type ||
+        current.address !== (currentLocation.address || "") ||
+        current.isActive !== (currentLocation.isActive !== false)
+      );
+    }
+
     return (
-      formName.trim() !== loc.name ||
-      formDescription.trim() !== (loc.description || "") ||
-      formType !== loc.type ||
-      formAddress.trim() !== (loc.address || "") ||
-      formActive !== (loc.isActive !== false)
+      current.name !== "" ||
+      current.description !== "" ||
+      current.type !== "store" ||
+      current.address !== "" ||
+      current.isActive !== true
     );
+  };
+
+  const closeDrawer = () => {
+    setShowDrawer(false);
+    setShowUnsavedDialog(false);
+    setEditId(null);
+  };
+
+  const requestCloseDrawer = () => {
+    if (saving) return;
+    if (isFormDirty()) {
+      setShowUnsavedDialog(true);
+      return;
+    }
+    closeDrawer();
   };
 
   const handleSave = async (e: React.FormEvent) => {
@@ -154,10 +195,8 @@ export default function LocationsPage() {
       };
 
       if (editId) {
-        const currentLocation = locations.find((loc) => loc.id === editId);
-        if (currentLocation && !hasLocationChanges(currentLocation)) {
-          toast.info("No changes to save.");
-          setShowDrawer(false);
+        if (!isFormDirty()) {
+          closeDrawer();
           return;
         }
 
@@ -168,7 +207,7 @@ export default function LocationsPage() {
         toast.success("Location created successfully!");
       }
 
-      setShowDrawer(false);
+      closeDrawer();
     } catch (err: any) {
       console.error(err);
       toast.error(err.message || "Failed to save location. Please try again.");
@@ -422,7 +461,7 @@ export default function LocationsPage() {
         <>
           <div
             className="fixed inset-0 bg-black/20 z-90"
-            onClick={() => setShowDrawer(false)}
+            onClick={requestCloseDrawer}
           />
           <div className="fixed top-0 right-0 h-full w-96 bg-white border-l border-zinc-200 shadow-2xl flex flex-col justify-between z-100 animate-slide-in">
             <div className="p-6 overflow-y-auto space-y-6">
@@ -436,7 +475,7 @@ export default function LocationsPage() {
                   </p>
                 </div>
                 <button
-                  onClick={() => setShowDrawer(false)}
+                  onClick={requestCloseDrawer}
                   className="p-1.5 rounded-lg hover:bg-zinc-100 text-zinc-400 hover:text-zinc-700 cursor-pointer"
                 >
                   <X className="h-5 w-5" />
@@ -554,7 +593,7 @@ export default function LocationsPage() {
             <div className="p-6 border-t border-zinc-200 bg-zinc-50 flex justify-end gap-3 shrink-0">
               <button
                 type="button"
-                onClick={() => setShowDrawer(false)}
+                onClick={requestCloseDrawer}
                 className="bg-white hover:bg-zinc-100 border border-zinc-200 text-zinc-700 rounded-xl px-4 py-2.5 text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer"
                 disabled={saving}
               >
@@ -563,8 +602,13 @@ export default function LocationsPage() {
               <button
                 type="submit"
                 onClick={handleSave}
-                disabled={saving || !formName.trim() || !formAddress.trim()}
-                className="bg-[#16A34A] hover:bg-[#15803D] text-white rounded-xl px-4 py-2.5 text-xs font-bold uppercase tracking-wider shadow-sm flex items-center gap-2 cursor-pointer transition-colors disabled:opacity-50"
+                disabled={
+                  saving ||
+                  !formName.trim() ||
+                  !formAddress.trim() ||
+                  !isFormDirty()
+                }
+                className={`bg-[#16A34A] hover:bg-[#15803D] text-white rounded-xl px-4 py-2.5 text-xs font-bold uppercase tracking-wider shadow-sm flex items-center gap-2  transition-colors disabled:opacity-50 ${!isFormDirty() ? "cursor-not-allowed" : "cursor-pointer"}`}
               >
                 {saving ? (
                   <>
@@ -589,6 +633,17 @@ export default function LocationsPage() {
         cancelLabel="Cancel"
         onConfirm={handleConfirmDelete}
         onCancel={() => setDeleteTarget(null)}
+      />
+
+      <AlertDialog
+        open={showUnsavedDialog}
+        variant="warning"
+        title="Unsaved Changes"
+        description="You have unsaved changes. Are you sure you want to leave?"
+        confirmLabel="Leave"
+        cancelLabel="Stay"
+        onConfirm={closeDrawer}
+        onCancel={() => setShowUnsavedDialog(false)}
       />
     </div>
   );
