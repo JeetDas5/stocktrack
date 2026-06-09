@@ -1,5 +1,12 @@
 import api from "../services/api";
-import { Staff, StaffCreateInput } from "@/types/staff";
+import {
+  Staff,
+  StaffCreateInput,
+  StaffInvitation,
+  StaffInvitationCreateInput,
+  StaffInvitationPublic,
+  PendingStaffAssignment,
+} from "@/types/staff";
 
 interface BackendStaff {
   id: string;
@@ -90,3 +97,60 @@ export const deleteStaff = async (
 ): Promise<void> => {
   await api.delete(`/api/businesses/${businessId}/staff/${staffId}`);
 };
+
+export const createStaffInvitation = async (
+  data: StaffInvitationCreateInput
+): Promise<StaffInvitation> => {
+  const response = await api.post("/api/staff/invitations", {
+    role: data.role,
+    expires_in_hours: data.expiresInHours,
+    assignments: data.assignments,
+  });
+  return response.data;
+};
+
+export const getStaffInvitation = async (
+  invitationId: string
+): Promise<StaffInvitationPublic> => {
+  const response = await api.get(`/api/staff/invitations/${invitationId}`);
+  return response.data;
+};
+
+export const registerStaffInvitation = async (
+  invitationId: string,
+  data: { name: string; phone: string }
+): Promise<{ message: string }> => {
+  const response = await api.post(
+    `/api/staff/invitations/${invitationId}/register`,
+    data
+  );
+  return response.data;
+};
+
+export const getPendingStaff = async (
+  businessId: string
+): Promise<PendingStaffAssignment[]> => {
+  const response = await api.get(`/api/businesses/${businessId}/pending-staff`);
+  return response.data;
+};
+
+export const approvePendingStaff = async (
+  businessId: string,
+  assignmentId: string
+): Promise<{ message: string }> => {
+  const response = await api.post(
+    `/api/businesses/${businessId}/pending-staff/${assignmentId}/approve`
+  );
+  return response.data;
+};
+
+export const rejectPendingStaff = async (
+  businessId: string,
+  assignmentId: string
+): Promise<{ message: string }> => {
+  const response = await api.post(
+    `/api/businesses/${businessId}/pending-staff/${assignmentId}/reject`
+  );
+  return response.data;
+};
+

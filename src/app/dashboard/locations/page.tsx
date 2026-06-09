@@ -294,13 +294,15 @@ export default function LocationsPage() {
             </p>
           </div>
 
-          <button
-            onClick={openAddDrawer}
-            className="bg-[#16A34A] hover:bg-[#15803D] text-white rounded-xl px-5 py-2.5 text-xs font-bold uppercase tracking-wider shadow-sm flex items-center gap-2 cursor-pointer transition-all duration-200"
-          >
-            <Plus className="h-4 w-4 stroke-[3px]" />
-            Add Location
-          </button>
+          {profile?.role !== "staff" && (
+            <button
+              onClick={openAddDrawer}
+              className="bg-[#16A34A] hover:bg-[#15803D] text-white rounded-xl px-5 py-2.5 text-xs font-bold uppercase tracking-wider shadow-sm flex items-center gap-2 cursor-pointer transition-all duration-200"
+            >
+              <Plus className="h-4 w-4 stroke-[3px]" />
+              Add Location
+            </button>
+          )}
         </div>
 
         <div className="flex flex-col sm:flex-row gap-4 justify-between items-center">
@@ -345,9 +347,11 @@ export default function LocationsPage() {
                     <th className="py-4 px-6 font-extrabold">Location Type</th>
                     <th className="py-4 px-6 font-extrabold">Address</th>
                     <th className="py-4 px-6 font-extrabold">Status</th>
-                    <th className="py-4 px-6 font-extrabold text-right">
-                      Actions
-                    </th>
+                    {profile?.role !== "staff" && (
+                      <th className="py-4 px-6 font-extrabold text-right">
+                        Actions
+                      </th>
+                    )}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-200 text-xs text-[#0F172A]">
@@ -406,24 +410,26 @@ export default function LocationsPage() {
                           {loc.isActive !== false ? "Active" : "Inactive"}
                         </span>
                       </td>
-                      <td className="py-4 px-6 text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <button
-                            onClick={() => openEditDrawer(loc)}
-                            className="p-1.5 rounded-lg hover:bg-zinc-100 text-zinc-500 hover:text-[#16A34A] transition-colors cursor-pointer inline-flex items-center justify-center"
-                            title="Edit Details"
-                          >
-                            <Edit2 className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(loc.id)}
-                            className="p-1.5 rounded-lg hover:bg-rose-50 text-zinc-500 hover:text-[#EF4444] transition-colors cursor-pointer inline-flex items-center justify-center"
-                            title="Delete Location"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
-                      </td>
+                      {profile?.role !== "staff" && (
+                        <td className="py-4 px-6 text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              onClick={() => openEditDrawer(loc)}
+                              className="p-1.5 rounded-lg hover:bg-zinc-100 text-zinc-500 hover:text-[#16A34A] transition-colors cursor-pointer inline-flex items-center justify-center"
+                              title="Edit Details"
+                            >
+                              <Edit2 className="h-4 w-4" />
+                            </button>
+                            <button
+                              onClick={() => handleDelete(loc.id)}
+                              className="p-1.5 rounded-lg hover:bg-rose-50 text-zinc-500 hover:text-[#EF4444] transition-colors cursor-pointer inline-flex items-center justify-center"
+                              title="Delete Location"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>

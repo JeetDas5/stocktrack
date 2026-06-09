@@ -20,3 +20,46 @@ export interface StaffCreateInput {
   status: "Active" | "Inactive";
   locationIds: string[];
 }
+
+export interface StaffInvitationCreateInput {
+  role: string;
+  expiresInHours: number;
+  assignments: { business_id: string; location_ids: string[] }[];
+}
+
+export interface StaffInvitation {
+  id: string;
+  role: string;
+  assignments_json: { business_id: string; location_ids: string[] }[];
+  expires_at: string;
+  created_at: string;
+  status: string;
+}
+
+export interface StaffInvitationPublic {
+  id: string;
+  role: string;
+  expires_at: string;
+  status: string;
+  businesses: {
+    id: string;
+    name: string;
+    locations: { id: string; name: string }[];
+  }[];
+}
+
+export interface PendingStaffAssignment {
+  id: string;
+  user_id: string;
+  user_name: string | null;
+  user_email: string;
+  user_phone: string | null;
+  business_id: string;
+  business_name: string;
+  location_id: string | null;
+  location_name: string | null;
+  role: string;
+  status: string;
+  created_at: string;
+}
+

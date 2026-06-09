@@ -147,15 +147,17 @@ export default function DashboardBusinessPage() {
           </p>
         </div>
 
-        <button
-          onClick={() => {
-            setShowAddModal(true);
-          }}
-          className="border-2 border-[#16A34A] text-[#16A34A] bg-white hover:bg-[#DCFCE7]/20 px-5 py-2.5 rounded-xl text-xs font-extrabold uppercase tracking-wider transition-all cursor-pointer flex items-center gap-2 shadow-xs"
-        >
-          <Plus className="h-4 w-4 stroke-[3px]" />
-          Add business
-        </button>
+        {profile?.role !== "staff" && (
+          <button
+            onClick={() => {
+              setShowAddModal(true);
+            }}
+            className="border-2 border-[#16A34A] text-[#16A34A] bg-white hover:bg-[#DCFCE7]/20 px-5 py-2.5 rounded-xl text-xs font-extrabold uppercase tracking-wider transition-all cursor-pointer flex items-center gap-2 shadow-xs"
+          >
+            <Plus className="h-4 w-4 stroke-[3px]" />
+            Add business
+          </button>
+        )}
       </div>
 
 
