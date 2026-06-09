@@ -161,15 +161,18 @@ export default function CategoriesPage() {
       toast.error("Category name cannot contain only special characters.");
       return;
     }
-    if (formDescription.trim().length > 250) {
-      toast.error("Category description must be 250 characters or less.");
-      return;
-    }
-    if (!/[a-zA-Z0-9]/.test(formDescription.trim())) {
-      toast.error(
-        "Category description cannot contain only special characters.",
-      );
-      return;
+    const trimmedDescription = formDescription.trim();
+    if (trimmedDescription) {
+      if (trimmedDescription.length > 250) {
+        toast.error("Category description must be 250 characters or less.");
+        return;
+      }
+      if (!/[a-zA-Z0-9]/.test(trimmedDescription)) {
+        toast.error(
+          "Category description cannot contain only special characters.",
+        );
+        return;
+      }
     }
 
     try {

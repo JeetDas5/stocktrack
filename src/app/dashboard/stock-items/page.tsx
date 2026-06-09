@@ -629,7 +629,11 @@ export default function StockItemsPage() {
       ? item.supplierId === selectedSupplierFilter
       : true;
     const matchesLocation = activeLocationId
-      ? item.locationRules?.some((rule) => rule.locationId === activeLocationId)
+      ? (!item.locationRules ||
+          item.locationRules.length === 0 ||
+          item.locationRules.some(
+            (rule) => rule.locationId === activeLocationId,
+          ))
       : true;
 
     return (
