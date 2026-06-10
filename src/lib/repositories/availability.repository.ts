@@ -1,5 +1,5 @@
 import api from "../services/api";
-import { AvailabilitySubmission } from "@/types/availability";
+import { AvailabilitySubmission, AvailabilityOverviewItem } from "@/types/availability";
 
 interface BackendSlot {
   id: string;
@@ -115,4 +115,62 @@ export const submitAvailability = async (
       })),
     })),
   };
+};
+
+interface BackendOverviewStaff {
+  id: string;
+  name: string;
+  priority: number;
+  already_assigned: number;
+  worked_previous_day: string;
+}
+
+interface BackendOverviewItem {
+  date: string;
+  day: string;
+  location_id?: string;
+  location_name: string;
+  time_from: string;
+  time_to: string;
+  shift_label: string;
+  available_staff_count: number;
+  staff_members: BackendOverviewStaff[];
+}
+
+export const getAvailabilityOverview = async (
+  businessId: string,
+  startDate: string,
+  endDate: string,
+  locationId?: string,
+  shift?: string
+): Promise<AvailabilityOverviewItem[]> => {
+  const params: Record<string, string> = {
+    start_date: startDate,
+    end_date: endDate,
+  };
+  if (locationId) params.location_id = locationId;
+  if (shift) params.shift = shift;
+
+  const response = await api.get(
+    `/api/businesses/${businessId}/availability/overview`,
+    { params }
+  );
+
+  return response.data.map((item: BackendOverviewItem) => ({
+    date: item.date,
+    day: item.day,
+    locationId: item.location_id,
+    locationName: item.location_name,
+    timeFrom: item.time_from,
+    timeTo: item.time_to,
+    shiftLabel: item.shift_label,
+    availableStaffCount: item.available_staff_count,
+    staffMembers: item.staff_members.map((s: BackendOverviewStaff) => ({
+      id: s.id,
+      name: s.name,
+      priority: s.priority,
+      alreadyAssigned: s.already_assigned,
+      workedPreviousDay: s.worked_previous_day,
+    })),
+  }));
 };

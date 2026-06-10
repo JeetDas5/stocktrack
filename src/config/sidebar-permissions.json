@@ -23,7 +23,8 @@
     "/dashboard/timesheet-entry",
     "/dashboard/timesheet-review",
     "/dashboard/timesheet-reports",
-    "/dashboard/roaster-availablity"
+    "/dashboard/roaster-availablity",
+    "/dashboard/availability-overview"
   ],
   "staff": [
     "/dashboard",

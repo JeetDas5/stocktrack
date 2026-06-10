@@ -272,6 +272,8 @@ export default function DashboardLayout({
         return { title: "Timesheet Reports" };
       case "/dashboard/roaster-availablity":
         return { title: "Availability Entry" };
+      case "/dashboard/availability-overview":
+        return { title: "Availability Overview" };
       default:
         return { title: "Dashboard" };
     }
@@ -365,6 +367,11 @@ export default function DashboardLayout({
       name: "Timesheet Reports",
       href: "/dashboard/timesheet-reports",
       icon: FileText,
+    },
+    {
+      name: "Availability Overview",
+      href: "/dashboard/availability-overview",
+      icon: ClipboardList,
     },
   ];
 

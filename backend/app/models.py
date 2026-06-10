@@ -40,6 +40,7 @@ class UserAssignment(SQLModel, table=True):
     is_active: bool = Field(default=True)
     status: str = Field(default="active")  # active, inactive, pending_approval
     created_at: datetime = Field(default_factory=datetime.utcnow)
+    priority: int = Field(default=1)
 
     # Relationships
     user: Optional[User] = Relationship()

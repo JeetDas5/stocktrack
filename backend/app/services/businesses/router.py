@@ -89,7 +89,7 @@ def get_businesses(
             (Business.id.in_(
                 select(UserAssignment.business_id).where(
                     UserAssignment.user_id == current_user.id,
-                    UserAssignment.is_active == True
+                    UserAssignment.is_active
                 )
             ))
         )

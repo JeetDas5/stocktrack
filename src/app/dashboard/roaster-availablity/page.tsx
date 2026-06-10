@@ -747,7 +747,7 @@ export default function AvailabilityEntryPage() {
           </div>
         </div>
 
-        <div className="w-full lg:w-80 space-y-6 shrink-0">
+        <div className="w-full lg:w-80 space-y-6 shrink-0 lg:sticky lg:top-6">
           <div className="bg-white border border-zinc-200 rounded-2xl p-4 md:p-6 shadow-xs space-y-6">
             <h2 className="text-sm font-extrabold text-zinc-950 border-b border-zinc-100 pb-3">
               Availability Summary

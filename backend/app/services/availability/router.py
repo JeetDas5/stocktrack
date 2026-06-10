@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import List, Optional
 from fastapi import APIRouter, Depends, status
 from sqlmodel import Session, select, SQLModel
@@ -6,6 +6,9 @@ from sqlmodel import Session, select, SQLModel
 from app.database import get_session
 from app.models import (
     User,
+    Location,
+    UserAssignment,
+    Timesheet,
     StaffAvailability,
     StaffAvailabilityDay,
     StaffAvailabilitySlot,
@@ -75,6 +78,11 @@ class StaffAvailabilityOut(SQLModel):
     response_model=Optional[StaffAvailabilityOut],
     summary="Get my availability",
     description="Get availability details for the currently authenticated user.",
+    responses={
+        200: {"description": "Availability details successfully retrieved."},
+        401: {"description": "Missing or invalid authorization credentials."},
+        404: {"description": "Availability details not found in database."},
+    },
 )
 def get_my_availability(
     business_id: str,
@@ -141,6 +149,11 @@ def get_my_availability(
     status_code=status.HTTP_201_CREATED,
     summary="Submit user availability",
     description="Submit or update the current user's availability for a specific week/fortnight.",
+    responses={
+        201: {"description": "Availability details successfully submitted."},
+        401: {"description": "Missing or invalid authorization credentials."},
+        403: {"description": "User does not have permission to submit availability."},
+    },
 )
 def submit_availability(
     business_id: str,
@@ -232,3 +245,169 @@ def submit_availability(
         updated_at=availability.updated_at,
         days=days_out,
     )
+
+
+class OverviewStaffMemberOut(SQLModel):
+    id: str
+    name: str
+    priority: int
+    already_assigned: float
+    worked_previous_day: str
+
+
+class AvailabilityOverviewItemOut(SQLModel):
+    date: str
+    day: str
+    location_id: Optional[str] = None
+    location_name: str
+    time_from: str
+    time_to: str
+    shift_label: str
+    available_staff_count: int
+    staff_members: List[OverviewStaffMemberOut] = []
+
+
+@router.get(
+    "/api/businesses/{business_id}/availability/overview",
+    response_model=List[AvailabilityOverviewItemOut],
+    summary="Get availability overview",
+    description="Get aggregated staff availability overview for the period to build the roster.",
+)
+def get_availability_overview(
+    business_id: str,
+    start_date: str,
+    end_date: str,
+    location_id: Optional[str] = None,
+    shift: Optional[str] = None,
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    verify_user_permission(current_user, business_id, "rosters.read", session=session)
+
+    stmt = select(StaffAvailability).where(
+        StaffAvailability.business_id == business_id,
+        StaffAvailability.start_date <= end_date,
+        StaffAvailability.end_date >= start_date,
+    )
+    submissions = session.exec(stmt).all()
+
+    loc_stmt = select(Location).where(
+        Location.business_id == business_id,
+        Location.is_active,
+    )
+    locations = session.exec(loc_stmt).all()
+
+    dates = []
+    curr = datetime.strptime(start_date, "%Y-%m-%d")
+    end_dt = datetime.strptime(end_date, "%Y-%m-%d")
+    while curr <= end_dt:
+        dates.append(curr.strftime("%Y-%m-%d"))
+        curr += timedelta(days=1)
+
+    assignment_stmt = select(UserAssignment).where(
+        UserAssignment.business_id == business_id,
+        UserAssignment.is_active,
+    )
+    assignments = session.exec(assignment_stmt).all()
+    user_priorities = {a.user_id: a.priority for a in assignments}
+
+    prev_start_dt = (
+        datetime.strptime(start_date, "%Y-%m-%d") - timedelta(days=1)
+    ).strftime("%Y-%m-%d")
+    ts_stmt = select(Timesheet).where(
+        Timesheet.business_id == business_id,
+        Timesheet.work_date >= prev_start_dt,
+        Timesheet.work_date <= end_date,
+    )
+    timesheets = session.exec(ts_stmt).all()
+
+    user_weekly_hours = {}
+    for ts in timesheets:
+        if ts.work_date >= start_date:
+            user_weekly_hours[ts.staff_id] = (
+                user_weekly_hours.get(ts.staff_id, 0.0) + ts.total_hours
+            )
+
+    user_worked_dates = set((ts.staff_id, ts.work_date) for ts in timesheets)
+
+    groups = {}
+    for sub in submissions:
+        user = sub.user
+        if not user:
+            continue
+        priority = user_priorities.get(user.id, 1)
+
+        for day in sub.days:
+            if not day.is_available:
+                continue
+            date_str = day.date
+            if date_str < start_date or date_str > end_date:
+                continue
+
+            for slot in day.slots:
+                target_loc_ids = []
+                if slot.location_id:
+                    target_loc_ids.append(slot.location_id)
+                else:
+                    target_loc_ids.extend([loc.id for loc in locations])
+
+                if not target_loc_ids:
+                    target_loc_ids.append(None)
+
+                for loc_id in target_loc_ids:
+                    key = (date_str, loc_id, slot.time_from, slot.time_to)
+                    if key not in groups:
+                        groups[key] = []
+                    groups[key].append((user, priority))
+
+    location_names = {loc.id: loc.name for loc in locations}
+    location_names[None] = "Any Location"
+
+    out = []
+    for (date_str, loc_id, t_from, t_to), users in groups.items():
+        dt = datetime.strptime(date_str, "%Y-%m-%d")
+        day_name = dt.strftime("%a")
+
+        staff_members_out = []
+        for user, priority in users:
+            prev_date_str = (dt - timedelta(days=1)).strftime("%Y-%m-%d")
+            worked_prev = (
+                "Yes" if (user.id, prev_date_str) in user_worked_dates else "No"
+            )
+            already_assigned = user_weekly_hours.get(user.id, 0.0)
+
+            staff_members_out.append(
+                OverviewStaffMemberOut(
+                    id=user.id,
+                    name=user.name or "Unknown",
+                    priority=priority,
+                    already_assigned=already_assigned,
+                    worked_previous_day=worked_prev,
+                )
+            )
+
+        staff_members_out.sort(key=lambda s: (s.priority, s.name))
+        loc_name = location_names.get(loc_id, "Any Location")
+
+        out.append(
+            AvailabilityOverviewItemOut(
+                date=date_str,
+                day=day_name,
+                location_id=loc_id,
+                location_name=loc_name,
+                time_from=t_from,
+                time_to=t_to,
+                shift_label=f"{t_from} - {t_to}",
+                available_staff_count=len(staff_members_out),
+                staff_members=staff_members_out,
+            )
+        )
+
+    if location_id and location_id != "all":
+        out = [item for item in out if item.location_id == location_id]
+
+    if shift and shift != "all":
+        out = [item for item in out if item.shift_label == shift]
+
+    out.sort(key=lambda item: (item.date, item.location_name, item.time_from))
+    return out

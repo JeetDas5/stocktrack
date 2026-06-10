@@ -31,3 +31,23 @@ export interface AvailabilitySubmission {
   createdAt?: string;
   updatedAt?: string;
 }
+
+export interface OverviewStaffMember {
+  id: string;
+  name: string;
+  priority: number;
+  alreadyAssigned: number;
+  workedPreviousDay: string;
+}
+
+export interface AvailabilityOverviewItem {
+  date: string;
+  day: string;
+  locationId?: string;
+  locationName: string;
+  timeFrom: string;
+  timeTo: string;
+  shiftLabel: string;
+  availableStaffCount: number;
+  staffMembers: OverviewStaffMember[];
+}
