@@ -56,9 +56,12 @@ class StaffInvitation(SQLModel, table=True):
     assignments_json: List[dict] = Field(default=[], sa_column=Column(JSON))
     expires_at: datetime
     created_at: datetime = Field(default_factory=datetime.utcnow)
-    status: str = Field(default="pending")  # pending, waiting_approval, completed, expired
-    registered_user_id: Optional[str] = Field(default=None, foreign_key="users.id", ondelete="SET NULL")
-
+    status: str = Field(
+        default="pending"
+    )  # pending, waiting_approval, completed, expired
+    registered_user_id: Optional[str] = Field(
+        default=None, foreign_key="users.id", ondelete="SET NULL"
+    )
 
 
 class SessionTable(SQLModel, table=True):
@@ -572,3 +575,58 @@ class Timesheet(SQLModel, table=True):
     location: Location = Relationship()
     staff: User = Relationship()
 
+
+class StaffAvailability(SQLModel, table=True):
+    __tablename__ = "staff_availabilities"
+
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
+    business_id: str = Field(foreign_key="businesses.id", ondelete="CASCADE")
+    user_id: str = Field(foreign_key="users.id", ondelete="CASCADE")
+    start_date: str = Field(index=True)
+    end_date: str
+    period_type: str = Field(default="weekly")
+    general_note: Optional[str] = None
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+    business: Business = Relationship()
+    user: User = Relationship()
+    days: List["StaffAvailabilityDay"] = Relationship(
+        back_populates="availability",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"},
+    )
+
+
+class StaffAvailabilityDay(SQLModel, table=True):
+    __tablename__ = "staff_availability_days"
+
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
+    availability_id: str = Field(
+        foreign_key="staff_availabilities.id", ondelete="CASCADE"
+    )
+    date: str = Field(index=True)
+    is_available: bool = Field(default=True)
+
+    availability: StaffAvailability = Relationship(back_populates="days")
+    slots: List["StaffAvailabilitySlot"] = Relationship(
+        back_populates="day",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"},
+    )
+
+
+class StaffAvailabilitySlot(SQLModel, table=True):
+    __tablename__ = "staff_availability_slots"
+
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
+    availability_day_id: str = Field(
+        foreign_key="staff_availability_days.id", ondelete="CASCADE"
+    )
+    time_from: str
+    time_to: str
+    location_id: Optional[str] = Field(
+        default=None, foreign_key="locations.id", ondelete="SET NULL"
+    )
+    note: Optional[str] = None
+
+    day: StaffAvailabilityDay = Relationship(back_populates="slots")
+    location: Optional[Location] = Relationship()

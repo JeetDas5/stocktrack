@@ -22,7 +22,8 @@
     "/dashboard/staff-directory",
     "/dashboard/timesheet-entry",
     "/dashboard/timesheet-review",
-    "/dashboard/timesheet-reports"
+    "/dashboard/timesheet-reports",
+    "/dashboard/roaster-availablity"
   ],
   "staff": [
     "/dashboard",
@@ -30,6 +31,7 @@
     "/dashboard/locations",
     "/dashboard/counts",
     "/dashboard/staff-dashboard",
-    "/dashboard/timesheet-entry"
+    "/dashboard/timesheet-entry",
+    "/dashboard/roaster-availablity"
   ]
 }

@@ -41,7 +41,6 @@ import {
   FilePlusCorner,
 } from "lucide-react";
 
-
 interface SidebarLink {
   name: string;
   href: string;
@@ -271,6 +270,8 @@ export default function DashboardLayout({
         return { title: "Timesheet Review" };
       case "/dashboard/timesheet-reports":
         return { title: "Timesheet Reports" };
+      case "/dashboard/roaster-availablity":
+        return { title: "Availability Entry" };
       default:
         return { title: "Dashboard" };
     }
@@ -367,22 +368,50 @@ export default function DashboardLayout({
     },
   ];
 
+  const roasterLinks: SidebarLink[] = [
+    {
+      name: "Availability Entry",
+      href: "/dashboard/roaster-availablity",
+      icon: ClipboardList,
+    },
+  ];
+
   const userRole = profile?.role || "staff";
-  const allowedHrefs = sidebarPermissions[userRole as keyof typeof sidebarPermissions] || [];
+  const allowedHrefs =
+    sidebarPermissions[userRole as keyof typeof sidebarPermissions] || [];
 
   const isLinkAllowed = (href: string) => {
     if (allowedHrefs.includes("*")) return true;
     return allowedHrefs.includes(href);
   };
 
-  const filteredPinnedLinks = pinnedLinks.filter((link) => isLinkAllowed(link.href));
-  const filteredOverviewLinks = overviewLinks.filter((link) => isLinkAllowed(link.href));
-  const filteredMasterDataLinks = masterDataLinks.filter((link) => isLinkAllowed(link.href));
-  const filteredOperationsLinks = operationsLinks.filter((link) => isLinkAllowed(link.href));
-  const filteredStaffOperationsLinks = staffOperationsLinks.filter((link) => isLinkAllowed(link.href));
-  const filteredSalesLinks = salesLinks.filter((link) => isLinkAllowed(link.href));
-  const filteredAnalysisLinks = analysisLinks.filter((link) => isLinkAllowed(link.href));
-  const filteredAdminLinks = adminLinks.filter((link) => isLinkAllowed(link.href));
+  const filteredPinnedLinks = pinnedLinks.filter((link) =>
+    isLinkAllowed(link.href),
+  );
+  const filteredOverviewLinks = overviewLinks.filter((link) =>
+    isLinkAllowed(link.href),
+  );
+  const filteredMasterDataLinks = masterDataLinks.filter((link) =>
+    isLinkAllowed(link.href),
+  );
+  const filteredOperationsLinks = operationsLinks.filter((link) =>
+    isLinkAllowed(link.href),
+  );
+  const filteredStaffOperationsLinks = staffOperationsLinks.filter((link) =>
+    isLinkAllowed(link.href),
+  );
+  const filteredSalesLinks = salesLinks.filter((link) =>
+    isLinkAllowed(link.href),
+  );
+  const filteredAnalysisLinks = analysisLinks.filter((link) =>
+    isLinkAllowed(link.href),
+  );
+  const filteredAdminLinks = adminLinks.filter((link) =>
+    isLinkAllowed(link.href),
+  );
+  const filteredRoasterLinks = roasterLinks.filter((link) =>
+    isLinkAllowed(link.href),
+  );
 
   const isActive = (href: string) => pathname === href;
 
@@ -547,7 +576,12 @@ export default function DashboardLayout({
             { hasGrip: true },
             sidebarCollapsed,
           )}
-          {renderGroup("Overview", filteredOverviewLinks, undefined, sidebarCollapsed)}
+          {renderGroup(
+            "Overview",
+            filteredOverviewLinks,
+            undefined,
+            sidebarCollapsed,
+          )}
           {renderGroup(
             "Inventory Setup",
             filteredMasterDataLinks,
@@ -567,12 +601,23 @@ export default function DashboardLayout({
             sidebarCollapsed,
           )}
           {renderGroup(
+            "Roaster",
+            filteredRoasterLinks,
+            undefined,
+            sidebarCollapsed,
+          )}
+          {renderGroup(
             "Sales & Usage",
             filteredSalesLinks,
             undefined,
             sidebarCollapsed,
           )}
-          {renderGroup("Analysis", filteredAnalysisLinks, undefined, sidebarCollapsed)}
+          {renderGroup(
+            "Analysis",
+            filteredAnalysisLinks,
+            undefined,
+            sidebarCollapsed,
+          )}
           {renderGroup(
             "Admin",
             filteredAdminLinks,
