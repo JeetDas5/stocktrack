@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 "use client";
 
 import { toast } from "sonner";
@@ -184,7 +185,61 @@ export default function SuppliersPage() {
       return;
     }
 
-    // Special characters check for all fields
+    const isDuplicate = suppliers.some(
+      (sup) =>
+        sup.name.trim().toLowerCase() === trimmedName.toLowerCase() &&
+        sup.id !== editId,
+    );
+    if (isDuplicate) {
+      toast.error("A supplier with this name already exists in this business.");
+      return;
+    }
+
+    if (trimmedContact.length > 100) {
+      toast.error("Contact person must be 100 characters or less.");
+      return;
+    }
+
+    if (trimmedPhone.length > 20) {
+      toast.error("Phone number must be 20 characters or less.");
+      return;
+    }
+
+    if (trimmedEmail.length > 100) {
+      toast.error("Email must be 100 characters or less.");
+      return;
+    }
+
+    if (trimmedAddress1.length > 100) {
+      toast.error("Address Line 1 must be 100 characters or less.");
+      return;
+    }
+
+    if (trimmedAddress2.length > 100) {
+      toast.error("Address Line 2 must be 100 characters or less.");
+      return;
+    }
+
+    if (trimmedCity.length > 50) {
+      toast.error("City must be 50 characters or less.");
+      return;
+    }
+
+    if (trimmedState.length > 50) {
+      toast.error("State / Province must be 50 characters or less.");
+      return;
+    }
+
+    if (trimmedPostal.length > 10) {
+      toast.error("Postal code must be 10 characters or less.");
+      return;
+    }
+
+    if (trimmedWebsite.length > 200) {
+      toast.error("Website URL must be 200 characters or less.");
+      return;
+    }
+
     const fieldsToCheck = [
       { label: "Supplier name", value: trimmedName },
       { label: "Contact person", value: trimmedContact },
@@ -206,13 +261,11 @@ export default function SuppliersPage() {
       }
     }
 
-    // Phone validation
     if (trimmedPhone && !/^\+?[0-9\s\-()]{5,20}$/.test(trimmedPhone)) {
       toast.error("Please enter a valid phone number (5 to 20 digits).");
       return;
     }
 
-    // Email validation
     if (trimmedEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
       toast.error("Please enter a valid email address.");
       return;
@@ -431,8 +484,6 @@ export default function SuppliersPage() {
               <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
             </div>
           </div>
-
-
         </div>
 
         {storeError && (
@@ -702,6 +753,7 @@ export default function SuppliersPage() {
                       </span>
                       <input
                         type="text"
+                        maxLength={100}
                         placeholder="Enter contact person name"
                         className="w-full bg-white border border-zinc-300 focus:border-[#16A34A] rounded-xl py-2.5 pl-10 pr-3.5 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#16A34A] transition-all"
                         value={formContactPerson}
@@ -729,6 +781,7 @@ export default function SuppliersPage() {
                         </span>
                         <input
                           type="tel"
+                          maxLength={20}
                           placeholder="Enter phone number"
                           className="w-full bg-white border border-zinc-300 focus:border-[#16A34A] rounded-xl py-2.5 pl-10 pr-3.5 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#16A34A] transition-all"
                           value={formPhone}
@@ -751,6 +804,7 @@ export default function SuppliersPage() {
                         </span>
                         <input
                           type="email"
+                          maxLength={100}
                           placeholder="Enter email address"
                           className="w-full bg-white border border-zinc-300 focus:border-[#16A34A] rounded-xl py-2.5 pl-10 pr-3.5 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#16A34A] transition-all"
                           value={formEmail}
@@ -779,6 +833,7 @@ export default function SuppliersPage() {
                       <input
                         type="text"
                         required
+                        maxLength={100}
                         placeholder="Enter address line 1"
                         className="w-full bg-white border border-zinc-300 focus:border-[#16A34A] rounded-xl py-2.5 pl-10 pr-3.5 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#16A34A] transition-all"
                         value={formAddressLine1}
@@ -793,6 +848,7 @@ export default function SuppliersPage() {
                     </label>
                     <input
                       type="text"
+                      maxLength={100}
                       placeholder="Apartment, suite, unit, building, floor, etc."
                       className="w-full bg-white border border-zinc-300 focus:border-[#16A34A] rounded-xl py-2.5 px-3.5 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#16A34A] transition-all"
                       value={formAddressLine2}
@@ -808,6 +864,7 @@ export default function SuppliersPage() {
                       <input
                         type="text"
                         required
+                        maxLength={50}
                         placeholder="Enter city"
                         className="w-full bg-white border border-zinc-300 focus:border-[#16A34A] rounded-xl py-2.5 px-3.5 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#16A34A] transition-all"
                         value={formCity}
@@ -821,6 +878,7 @@ export default function SuppliersPage() {
                       </label>
                       <input
                         type="text"
+                        maxLength={50}
                         placeholder="Enter state / province"
                         className="w-full bg-white border border-zinc-300 focus:border-[#16A34A] rounded-xl py-2.5 px-3.5 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#16A34A] transition-all"
                         value={formStateProvince}
@@ -837,6 +895,7 @@ export default function SuppliersPage() {
                       <input
                         type="text"
                         inputMode="numeric"
+                        maxLength={10}
                         placeholder="Enter postal code"
                         className="w-full bg-white border border-zinc-300 focus:border-[#16A34A] rounded-xl py-2.5 px-3.5 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#16A34A] transition-all"
                         value={formPostalCode}
@@ -918,6 +977,7 @@ export default function SuppliersPage() {
                       </span>
                       <input
                         type="url"
+                        maxLength={200}
                         placeholder="Enter website URL (e.g. https://example.com)"
                         className="w-full bg-white border border-zinc-300 focus:border-[#16A34A] rounded-xl py-2.5 pl-10 pr-3.5 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#16A34A] transition-all"
                         value={formWebsite}
