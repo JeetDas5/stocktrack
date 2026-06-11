@@ -105,6 +105,7 @@ export const createStaffInvitation = async (
     role: data.role,
     expires_in_hours: data.expiresInHours,
     assignments: data.assignments,
+    business_id: data.business_id,
   });
   return response.data;
 };
@@ -136,10 +137,15 @@ export const getPendingStaff = async (
 
 export const approvePendingStaff = async (
   businessId: string,
-  assignmentId: string
+  assignmentId: string,
+  data?: {
+    role: string;
+    assignments: { business_id: string; location_ids: string[] }[];
+  }
 ): Promise<{ message: string }> => {
   const response = await api.post(
-    `/api/businesses/${businessId}/pending-staff/${assignmentId}/approve`
+    `/api/businesses/${businessId}/pending-staff/${assignmentId}/approve`,
+    data
   );
   return response.data;
 };

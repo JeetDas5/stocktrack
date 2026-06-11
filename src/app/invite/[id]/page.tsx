@@ -90,8 +90,12 @@ export default function InvitePage({
         errorCallbackURL: callbackUrl,
         newUserCallbackURL: callbackUrl,
       });
-    } catch (err: any) {
-      toast.error(err.message || "Failed to sign in with Google.");
+    } catch (err) {
+      if (err instanceof Error) {
+        toast.error(err.message);
+      } else {
+        toast.error("Failed to sign in with Google.");
+      }
     }
   };
 
@@ -117,8 +121,12 @@ export default function InvitePage({
 
       await fetchSession();
       await refreshProfile();
-    } catch (err: any) {
-      toast.error(err.message || "Failed to complete registration.");
+    } catch (err) {
+      if (err instanceof Error) {
+        toast.error(err.message);
+      } else {
+        toast.error("Failed to complete registration.");
+      }
     } finally {
       setSubmitting(false);
     }
@@ -161,10 +169,6 @@ export default function InvitePage({
     );
   }
 
-  const roleLabel =
-    invitation.role.charAt(0).toUpperCase() + invitation.role.slice(1);
-  const businessesText = invitation.businesses.map((b) => b.name).join(", ");
-
   return (
     <div className="min-h-screen bg-[#F8FAFC] flex flex-col items-center justify-center p-4 font-sans select-none relative overflow-hidden">
       <div className="absolute top-0 left-1/4 w-96 h-96 bg-green-200/20 rounded-full blur-3xl pointer-events-none" />
@@ -184,43 +188,16 @@ export default function InvitePage({
             </p>
           </div>
 
-          <div className="bg-zinc-50 border border-zinc-200 rounded-2xl p-5 mb-8 space-y-3">
-            <div className="flex justify-between items-center text-xs font-bold text-zinc-500">
-              <span>INVITED AS:</span>
-              <span className="bg-[#DCFCE7] text-[#16A34A] border border-[#16A34A]/10 px-2.5 py-0.5 rounded-full uppercase text-[10px] tracking-wide">
-                {roleLabel}
-              </span>
-            </div>
-
-            <div className="border-t border-zinc-200/60 pt-3">
-              <span className="text-[10px] font-extrabold text-zinc-400 uppercase tracking-wider block">
-                Assigned Businesses:
-              </span>
-              <span className="text-sm font-extrabold text-[#0F172A] mt-0.5 block">
-                {businessesText}
-              </span>
-            </div>
-
-            {invitation.businesses.map((b) => (
-              <div
-                key={b.id}
-                className="bg-white border border-zinc-150 rounded-xl p-3 text-xs space-y-1"
-              >
-                <span className="font-bold text-zinc-600 block">
-                  Locations in {b.name}:
-                </span>
-                <div className="flex flex-wrap gap-1 mt-1">
-                  {b.locations.map((l) => (
-                    <span
-                      key={l.id}
-                      className="bg-zinc-100 text-zinc-700 px-2 py-0.5 rounded font-semibold text-[11px] border border-zinc-200/50"
-                    >
-                      {l.name}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            ))}
+          <div className="bg-zinc-50 border border-zinc-200 rounded-2xl p-5 mb-8 text-center py-4">
+            <p className="text-sm font-extrabold text-[#0F172A] leading-relaxed">
+              You are invited to join the{" "}
+              <span className="text-[#16A34A]">StockTrack</span> team.
+            </p>
+            <p className="text-xs text-zinc-500 font-semibold mt-2 leading-relaxed">
+              Please register below to submit your details. Once registered, the
+              company administrator will configure your access role, business,
+              and locations.
+            </p>
           </div>
 
           {registered ? (

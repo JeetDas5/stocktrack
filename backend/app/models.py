@@ -53,6 +53,9 @@ class StaffInvitation(SQLModel, table=True):
 
     id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
     created_by_id: str = Field(foreign_key="users.id", ondelete="CASCADE")
+    business_id: Optional[str] = Field(
+        default=None, foreign_key="businesses.id", ondelete="CASCADE"
+    )
     role: str = Field(default="staff")  # Default role for assignments
     assignments_json: List[dict] = Field(default=[], sa_column=Column(JSON))
     expires_at: datetime

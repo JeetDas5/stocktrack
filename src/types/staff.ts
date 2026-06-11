@@ -22,9 +22,10 @@ export interface StaffCreateInput {
 }
 
 export interface StaffInvitationCreateInput {
-  role: string;
-  expiresInHours: number;
-  assignments: { business_id: string; location_ids: string[] }[];
+  role?: string;
+  expiresInHours?: number;
+  assignments?: { business_id: string; location_ids: string[] }[];
+  business_id?: string;
 }
 
 export interface StaffInvitation {

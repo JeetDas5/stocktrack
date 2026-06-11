@@ -30,6 +30,11 @@ engine = create_engine(
 
 def init_db():
     SQLModel.metadata.create_all(engine)
+    with Session(engine) as session:
+        session.execute(text(
+            "ALTER TABLE staff_invitations ADD COLUMN IF NOT EXISTS business_id VARCHAR REFERENCES businesses(id) ON DELETE CASCADE;"
+        ))
+        session.commit()
 
 
 def get_session():

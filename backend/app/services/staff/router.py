@@ -326,9 +326,10 @@ def delete_staff(
 # Staff Invitation Flow
 
 class StaffInvitationCreate(SQLModel):
-    role: str
+    role: Optional[str] = "staff"
     expires_in_hours: int = 48  # default 48, max 720 (30 days)
-    assignments: List[dict]  # list of {"business_id": "...", "location_ids": ["...", ...]}
+    assignments: Optional[List[dict]] = None
+    business_id: Optional[str] = None
 
 
 class StaffInvitationOut(SQLModel):
@@ -338,6 +339,7 @@ class StaffInvitationOut(SQLModel):
     expires_at: datetime
     created_at: datetime
     status: str
+    business_id: Optional[str] = None
 
 
 class StaffInvitationPublicOut(SQLModel):
@@ -374,19 +376,27 @@ def create_staff_invitation(
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
-    for ass in data.assignments:
+    if data.business_id:
+        verify_user_permission(current_user, data.business_id, "staff.write", session=session)
+
+    assignments = data.assignments or []
+    for ass in assignments:
         biz_id = ass.get("business_id")
         if not biz_id:
             raise HTTPException(status_code=400, detail="Missing business_id in assignment")
         verify_user_permission(current_user, biz_id, "staff.write", session=session)
+
+    if not assignments and data.business_id:
+        assignments = [{"business_id": data.business_id, "location_ids": []}]
 
     hours = max(1, min(data.expires_in_hours, 720))
     expires_at = datetime.utcnow() + timedelta(hours=hours)
 
     invite = StaffInvitation(
         created_by_id=current_user.id,
-        role=data.role,
-        assignments_json=data.assignments,
+        business_id=data.business_id,
+        role=data.role or "staff",
+        assignments_json=assignments,
         expires_at=expires_at,
         status="pending"
     )
@@ -412,7 +422,11 @@ def get_staff_invitation(
         session.refresh(invite)
 
     businesses_out = []
-    for ass in invite.assignments_json:
+    assignments = invite.assignments_json
+    if not assignments and invite.business_id:
+        assignments = [{"business_id": invite.business_id, "location_ids": []}]
+
+    for ass in assignments:
         biz_id = ass.get("business_id")
         loc_ids = ass.get("location_ids", [])
         business = session.get(Business, biz_id)
@@ -469,7 +483,11 @@ def register_staff_invitation(
     current_user.role = invite.role
     session.add(current_user)
 
-    for ass in invite.assignments_json:
+    assignments = invite.assignments_json
+    if not assignments and invite.business_id:
+        assignments = [{"business_id": invite.business_id, "location_ids": []}]
+
+    for ass in assignments:
         biz_id = ass.get("business_id")
         loc_ids = ass.get("location_ids", [])
 
@@ -551,10 +569,16 @@ def get_pending_staff(
     return out
 
 
+class StaffApprovalDetails(SQLModel):
+    role: str
+    assignments: List[dict]
+
+
 @router.post("/api/businesses/{business_id}/pending-staff/{assignment_id}/approve")
 def approve_pending_staff(
     business_id: str,
     assignment_id: str,
+    data: StaffApprovalDetails,
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
@@ -567,30 +591,65 @@ def approve_pending_staff(
     if assignment.status != "pending_approval":
         raise HTTPException(status_code=400, detail="Assignment is not pending approval")
 
-    assignment.is_active = True
-    assignment.status = "active"
-    session.add(assignment)
+    user = assignment.user
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
 
-    if assignment.user and assignment.user.role == "admin":
-        assignment.user.role = assignment.role
-        session.add(assignment.user)
+    role = data.role.strip().lower()
+    if role not in ["staff", "manager"]:
+        raise HTTPException(status_code=400, detail="Role must be either 'staff' or 'manager'")
+
+    if not data.assignments:
+        raise HTTPException(status_code=400, detail="At least one business assignment is required")
+
+    user.role = role
+    session.add(user)
+
+    existing_assignments = session.exec(
+        select(UserAssignment).where(UserAssignment.user_id == user.id)
+    ).all()
+    for old_ass in existing_assignments:
+        session.delete(old_ass)
+    session.commit()
+
+    for ass in data.assignments:
+        biz_id = ass.get("business_id")
+        if not biz_id:
+            raise HTTPException(status_code=400, detail="Missing business_id in assignment")
+        verify_user_permission(current_user, biz_id, "staff.write", session=session)
+
+        loc_ids = ass.get("location_ids", [])
+        if loc_ids:
+            for loc_id in loc_ids:
+                new_ass = UserAssignment(
+                    user_id=user.id,
+                    business_id=biz_id,
+                    location_id=loc_id,
+                    role=role,
+                    is_active=True,
+                    status="active"
+                )
+                session.add(new_ass)
+        else:
+            new_ass = UserAssignment(
+                user_id=user.id,
+                business_id=biz_id,
+                location_id=None,
+                role=role,
+                is_active=True,
+                status="active"
+            )
+            session.add(new_ass)
 
     invite = session.exec(
         select(StaffInvitation).where(
-            StaffInvitation.registered_user_id == assignment.user_id,
+            StaffInvitation.registered_user_id == user.id,
             StaffInvitation.status == "waiting_approval"
         )
     ).first()
     if invite:
-        pending_left = session.exec(
-            select(UserAssignment).where(
-                UserAssignment.user_id == assignment.user_id,
-                UserAssignment.status == "pending_approval"
-            )
-        ).all()
-        if len(pending_left) <= 1:
-            invite.status = "completed"
-            session.add(invite)
+        invite.status = "completed"
+        session.add(invite)
 
     session.commit()
     return {"message": "Staff assignment approved and activated."}

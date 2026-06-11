@@ -89,6 +89,13 @@ export default function StaffDirectoryPage() {
   const [generatedLink, setGeneratedLink] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
+  const [isApprovalModalOpen, setIsApprovalModalOpen] = useState(false);
+  const [pendingStaffToApprove, setPendingStaffToApprove] = useState<PendingStaffAssignment | null>(null);
+  const [approvalRole, setApprovalRole] = useState("staff");
+  const [approvalBusinesses, setApprovalBusinesses] = useState<string[]>([]);
+  const [approvalLocations, setApprovalLocations] = useState<Record<string, string[]>>({});
+  const [submittingApproval, setSubmittingApproval] = useState(false);
+
   const loadData = useCallback(async () => {
     if (!activeBusinessId) return;
     try {
@@ -344,28 +351,24 @@ export default function StaffDirectoryPage() {
     }
   };
 
-  const handleGenerateInvitation = async () => {
-    if (selectedBusinesses.length === 0) {
-      toast.error("Please select at least one business.");
-      return;
-    }
-
+  const handleCreateInvitation = async () => {
+    if (!activeBusinessId) return;
     try {
       setGeneratingLink(true);
-      const assignments = selectedBusinesses.map((bizId) => ({
-        business_id: bizId,
-        location_ids: selectedLocations[bizId] || [],
-      }));
-
       const invite = await createStaffInvitation({
-        role: selectedRole,
-        expiresInHours,
-        assignments,
+        role: "staff",
+        expiresInHours: 48,
+        business_id: activeBusinessId,
+        assignments: [{ business_id: activeBusinessId, location_ids: [] }],
       });
 
       const inviteLink = `${window.location.origin}/invite/${invite.id}`;
       setGeneratedLink(inviteLink);
-      toast.success("Invitation link generated!");
+      navigator.clipboard.writeText(inviteLink);
+      setCopied(true);
+      toast.success("Invitation link generated and copied to clipboard!");
+      setTimeout(() => setCopied(false), 2000);
+      setIsAddStaffOpen(true);
     } catch (err: any) {
       toast.error(err.message || "Failed to generate invitation.");
     } finally {
@@ -399,15 +402,111 @@ export default function StaffDirectoryPage() {
     window.open(`mailto:?subject=${subject}&body=${body}`, "_blank");
   };
 
-  const handleApprove = async (assignmentId: string) => {
-    if (!activeBusinessId) return;
+  const handleOpenApprovalModal = async (pending: PendingStaffAssignment) => {
+    setPendingStaffToApprove(pending);
+    setApprovalRole("staff");
+    setApprovalBusinesses([activeBusinessId || ""]);
+    setApprovalLocations({});
+    setIsApprovalModalOpen(true);
+
+    const bizId = activeBusinessId || "";
+    if (bizId && !businessLocations[bizId]) {
+      try {
+        const locs = await getLocations(bizId);
+        setBusinessLocations((prev) => ({ ...prev, [bizId]: locs }));
+      } catch (err) {
+        console.error("Failed to load active business locations:", err);
+      }
+    }
+  };
+
+  const handleToggleApprovalBusiness = async (bizId: string) => {
+    if (approvalBusinesses.includes(bizId)) {
+      setApprovalBusinesses(approvalBusinesses.filter((id) => id !== bizId));
+      setApprovalLocations((prev) => {
+        const next = { ...prev };
+        delete next[bizId];
+        return next;
+      });
+    } else {
+      setApprovalBusinesses([...approvalBusinesses, bizId]);
+      if (!businessLocations[bizId]) {
+        try {
+          const locs = await getLocations(bizId);
+          setBusinessLocations((prev) => ({ ...prev, [bizId]: locs }));
+        } catch (err) {
+          if (err instanceof Error) {
+            toast.error(err.message || "Failed to load locations for this business.");
+          }
+        }
+      }
+    }
+  };
+
+  const handleToggleApprovalLocation = (bizId: string, locId: string) => {
+    const currentLocs = approvalLocations[bizId] || [];
+    if (currentLocs.includes(locId)) {
+      setApprovalLocations((prev) => ({
+        ...prev,
+        [bizId]: currentLocs.filter((id) => id !== locId),
+      }));
+    } else {
+      setApprovalLocations((prev) => ({
+        ...prev,
+        [bizId]: [...currentLocs, locId],
+      }));
+    }
+  };
+
+  const handleToggleApprovalAllLocations = (bizId: string) => {
+    const allLocs = businessLocations[bizId] || [];
+    const currentLocs = approvalLocations[bizId] || [];
+
+    if (currentLocs.length === allLocs.length) {
+      setApprovalLocations((prev) => ({
+        ...prev,
+        [bizId]: [],
+      }));
+    } else {
+      setApprovalLocations((prev) => ({
+        ...prev,
+        [bizId]: allLocs.map((l) => l.id),
+      }));
+    }
+  };
+
+  const handleSubmitApproval = async () => {
+    if (!activeBusinessId || !pendingStaffToApprove) return;
+    if (approvalBusinesses.length === 0) {
+      toast.error("Please select at least one business.");
+      return;
+    }
+
     try {
-      const res = await approvePendingStaff(activeBusinessId, assignmentId);
-      toast.success(res.message || "Staff access activated successfully.");
+      setSubmittingApproval(true);
+      const assignments = approvalBusinesses.map((bizId) => ({
+        business_id: bizId,
+        location_ids: approvalLocations[bizId] || [],
+      }));
+
+      const res = await approvePendingStaff(
+        activeBusinessId,
+        pendingStaffToApprove.id,
+        {
+          role: approvalRole,
+          assignments,
+        }
+      );
+
+      toast.success(res.message || "Staff access approved and configured successfully.");
+      setIsApprovalModalOpen(false);
+      setPendingStaffToApprove(null);
       await loadPending();
       await fetchStaffMembers(activeBusinessId);
     } catch (err: any) {
       toast.error(err.message || "Failed to approve staff.");
+    } finally {
+      setSubmittingApproval(false);
     }
   };
 
@@ -457,11 +556,21 @@ export default function StaffDirectoryPage() {
 
         <div className="flex items-center gap-3 self-end lg:self-auto">
           <button
-            onClick={() => setIsAddStaffOpen(true)}
-            className="bg-[#16A34A] hover:bg-[#15803D] text-white rounded-xl px-5 py-2.5 text-xs font-bold uppercase tracking-wider shadow-sm flex items-center gap-2 cursor-pointer transition-all duration-200"
+            onClick={handleCreateInvitation}
+            disabled={generatingLink}
+            className="bg-[#16A34A] hover:bg-[#15803D] text-white rounded-xl px-5 py-2.5 text-xs font-bold uppercase tracking-wider shadow-sm flex items-center gap-2 cursor-pointer transition-all duration-200 disabled:opacity-50"
           >
-            <Plus className="h-4 w-4 stroke-[3px]" />
-            Add Staff
+            {generatingLink ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Creating...
+              </>
+            ) : (
+              <>
+                <Plus className="h-4 w-4 stroke-[3px]" />
+                Create Invitation
+              </>
+            )}
           </button>
 
           {activeTab === "directory" && (
@@ -877,7 +986,7 @@ export default function StaffDirectoryPage() {
                             Reject
                           </button>
                           <button
-                            onClick={() => handleApprove(p.id)}
+                            onClick={() => handleOpenApprovalModal(p)}
                             className="bg-[#DCFCE7] hover:bg-[#C6F6D5] text-[#16A34A] rounded-lg p-2 text-xs font-bold border border-[#16A34A]/10 cursor-pointer flex items-center gap-1 transition"
                           >
                             <ShieldCheck className="h-4 w-4" />
@@ -900,11 +1009,10 @@ export default function StaffDirectoryPage() {
             <div className="flex justify-between items-start border-b border-zinc-200 pb-4 mb-4">
               <div>
                 <h3 className="text-xl font-extrabold text-[#0F172A]">
-                  Invite Staff Member
+                  Staff Invitation Link
                 </h3>
                 <p className="text-[#64748B] text-xs font-bold mt-1">
-                  Create a unique invitation link with preconfigured roles and
-                  permissions.
+                  Your unique team invitation link is ready.
                 </p>
               </div>
               <button
@@ -915,244 +1023,282 @@ export default function StaffDirectoryPage() {
               </button>
             </div>
 
-            {generatedLink ? (
-              <div className="space-y-6 py-2 animate-scale-in">
-                <div className="bg-zinc-50 border border-zinc-200 rounded-2xl p-5 space-y-4">
-                  <span className="text-[10px] font-extrabold text-zinc-400 uppercase tracking-wider block">
-                    Your unique invitation link is ready:
-                  </span>
+            <div className="space-y-6 py-2 animate-scale-in">
+              <div className="bg-zinc-50 border border-zinc-200 rounded-2xl p-5 space-y-4">
+                <span className="text-[10px] font-extrabold text-zinc-400 uppercase tracking-wider block">
+                  Your unique invitation link is ready:
+                </span>
 
-                  <div className="flex items-center gap-2 bg-white border border-zinc-300 rounded-xl py-2 px-3">
-                    <input
-                      type="text"
-                      readOnly
-                      value={generatedLink}
-                      className="bg-transparent text-xs text-zinc-950 font-semibold flex-1 outline-none select-all"
-                    />
-                    <button
-                      onClick={handleCopyLink}
-                      className="p-1.5 hover:bg-zinc-50 rounded-lg text-zinc-500 hover:text-[#16A34A] transition cursor-pointer"
-                    >
-                      {copied ? (
-                        <Check className="h-4 w-4 text-[#16A34A]" />
-                      ) : (
-                        <Copy className="h-4 w-4" />
-                      )}
-                    </button>
-                  </div>
-
-                  <p className="text-[11px] text-[#64748B] font-semibold leading-relaxed">
-                    Share this unique link via WhatsApp, SMS, or Email. The link
-                    expires in {expiresInHours} hours. Once staff registers, you
-                    can approve their access in the{" "}
-                    <span className="font-bold">Pending Approvals</span> tab.
-                  </p>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
+                <div className="flex items-center gap-2 bg-white border border-zinc-300 rounded-xl py-2 px-3">
+                  <input
+                    type="text"
+                    readOnly
+                    value={generatedLink || ""}
+                    className="bg-transparent text-xs text-zinc-950 font-semibold flex-1 outline-none select-all"
+                  />
                   <button
-                    onClick={handleShareWhatsApp}
-                    className="bg-emerald-50 hover:bg-emerald-100 border border-emerald-200/60 text-emerald-700 rounded-xl py-3 text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer transition"
+                    onClick={handleCopyLink}
+                    className="p-1.5 hover:bg-zinc-50 rounded-lg text-zinc-500 hover:text-[#16A34A] transition cursor-pointer"
                   >
-                    <Send className="h-4 w-4" />
-                    Share on WhatsApp
-                  </button>
-
-                  <button
-                    onClick={handleShareEmail}
-                    className="bg-blue-50 hover:bg-blue-100 border border-blue-200/60 text-blue-700 rounded-xl py-3 text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer transition"
-                  >
-                    <Mail className="h-4 w-4" />
-                    Share via Email
+                    {copied ? (
+                      <Check className="h-4 w-4 text-[#16A34A]" />
+                    ) : (
+                      <Copy className="h-4 w-4" />
+                    )}
                   </button>
                 </div>
+
+                <p className="text-[11px] text-[#64748B] font-semibold leading-relaxed">
+                  Share this unique link via WhatsApp or Email. The link is
+                  valid for <span className="font-bold text-[#16A34A]">48 hours</span>. Once the user registers, you
+                  will receive their profile details in the{" "}
+                  <span className="font-bold">Pending Approvals</span> tab to assign their role, business(es), and location(s).
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  onClick={handleShareWhatsApp}
+                  className="bg-emerald-50 hover:bg-emerald-100 border border-emerald-200/60 text-emerald-700 rounded-xl py-3 text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer transition"
+                >
+                  <Send className="h-4 w-4" />
+                  Share on WhatsApp
+                </button>
 
                 <button
-                  onClick={handleResetModal}
-                  className="w-full bg-[#0F172A] hover:bg-[#1E293B] text-white rounded-xl py-3 text-xs font-bold uppercase tracking-wider transition cursor-pointer"
+                  onClick={handleShareEmail}
+                  className="bg-blue-50 hover:bg-blue-100 border border-blue-200/60 text-blue-700 rounded-xl py-3 text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer transition"
                 >
-                  Done & Close
+                  <Mail className="h-4 w-4" />
+                  Share via Email
                 </button>
               </div>
-            ) : (
-              <div className="space-y-5 py-2">
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-extrabold text-[#0F172A] uppercase tracking-wider block">
-                    Access Role
-                  </label>
-                  <div className="grid grid-cols-2 gap-3">
-                    <button
-                      type="button"
-                      onClick={() => setSelectedRole("staff")}
-                      className={`p-4 border rounded-2xl flex flex-col items-start text-left cursor-pointer transition ${
-                        selectedRole === "staff"
-                          ? "border-[#16A34A] bg-[#DCFCE7]/20 text-[#0F172A]"
-                          : "border-zinc-200 bg-white hover:bg-zinc-50/50 text-zinc-500"
-                      }`}
-                    >
-                      <span className="text-sm font-extrabold block">
-                        Staff
-                      </span>
-                      <span className="text-[11px] text-zinc-400 font-semibold mt-1">
-                        General staff permissions for entering timesheets and
-                        sales records.
-                      </span>
-                    </button>
 
-                    <button
-                      type="button"
-                      onClick={() => setSelectedRole("manager")}
-                      className={`p-4 border rounded-2xl flex flex-col items-start text-left cursor-pointer transition ${
-                        selectedRole === "manager"
-                          ? "border-[#16A34A] bg-[#DCFCE7]/20 text-[#0F172A]"
-                          : "border-zinc-200 bg-white hover:bg-zinc-50/50 text-zinc-500"
-                      }`}
-                    >
-                      <span className="text-sm font-extrabold block">
-                        Manager
-                      </span>
-                      <span className="text-[11px] text-zinc-400 font-semibold mt-1">
-                        Advanced supervisor access for reviewing data and
-                        creating reports.
-                      </span>
-                    </button>
+              <button
+                onClick={handleResetModal}
+                className="w-full bg-[#0F172A] hover:bg-[#1E293B] text-white rounded-xl py-3 text-xs font-bold uppercase tracking-wider transition cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isApprovalModalOpen && pendingStaffToApprove && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-50 animate-fade-in p-4">
+          <div className="bg-white border border-zinc-200 rounded-3xl p-6 w-full max-w-xl shadow-2xl relative animate-scale-in max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-start border-b border-zinc-200 pb-4 mb-4">
+              <div>
+                <h3 className="text-xl font-extrabold text-[#0F172A]">
+                  Configure & Approve Staff
+                </h3>
+                <p className="text-[#64748B] text-xs font-bold mt-1">
+                  Assign role, businesses, and locations for this staff member.
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  setIsApprovalModalOpen(false);
+                  setPendingStaffToApprove(null);
+                }}
+                className="p-1 rounded-lg hover:bg-zinc-100 text-zinc-400 hover:text-zinc-600 transition cursor-pointer"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="space-y-5 py-2">
+              {/* User profile details */}
+              <div className="bg-zinc-50 border border-zinc-200 rounded-2xl p-4 space-y-2">
+                <span className="text-[10px] font-extrabold text-zinc-400 uppercase tracking-wider block">
+                  Registration Details:
+                </span>
+                <div className="grid grid-cols-2 gap-4 text-xs">
+                  <div>
+                    <span className="text-zinc-500 font-bold block">NAME</span>
+                    <span className="text-zinc-900 font-extrabold mt-0.5 block">
+                      {pendingStaffToApprove.user_name || "New Staff"}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-zinc-500 font-bold block">EMAIL</span>
+                    <span className="text-zinc-900 font-extrabold mt-0.5 block truncate">
+                      {pendingStaffToApprove.user_email}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-zinc-500 font-bold block">PHONE</span>
+                    <span className="text-zinc-900 font-extrabold mt-0.5 block">
+                      {pendingStaffToApprove.user_phone || "N/A"}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-zinc-500 font-bold block">SUBMITTED ON</span>
+                    <span className="text-zinc-900 font-extrabold mt-0.5 block">
+                      {new Date(pendingStaffToApprove.created_at).toLocaleDateString()}
+                    </span>
                   </div>
                 </div>
+              </div>
 
-                <div className="space-y-2">
-                  <label className="text-[10px] font-extrabold text-[#0F172A] uppercase tracking-wider block">
-                    Select Businesses & Locations
-                  </label>
+              {/* Compulsory Role Selection */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-extrabold text-[#0F172A] uppercase tracking-wider block">
+                  Access Role (Compulsory)
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setApprovalRole("staff")}
+                    className={`p-4 border rounded-2xl flex flex-col items-start text-left cursor-pointer transition ${
+                      approvalRole === "staff"
+                        ? "border-[#16A34A] bg-[#DCFCE7]/20 text-[#0F172A]"
+                        : "border-zinc-200 bg-white hover:bg-zinc-50/50 text-zinc-500"
+                    }`}
+                  >
+                    <span className="text-sm font-extrabold block">Staff</span>
+                    <span className="text-[11px] text-zinc-400 font-semibold mt-1">
+                      General permissions for entering timesheets and sales records.
+                    </span>
+                  </button>
 
-                  <div className="border border-zinc-200 rounded-2xl p-4 max-h-[30vh] overflow-y-auto space-y-3 bg-zinc-50/30">
-                    {businesses.length === 0 ? (
-                      <span className="text-xs text-zinc-400 font-semibold italic">
-                        No businesses available.
-                      </span>
-                    ) : (
-                      businesses.map((b) => {
-                        const isBizChecked = selectedBusinesses.includes(b.id);
-                        const allLocs = businessLocations[b.id] || [];
-                        const currentCheckedLocs =
-                          selectedLocations[b.id] || [];
-                        const hasLocations = allLocs.length > 0;
-                        const allLocsChecked =
-                          hasLocations &&
-                          currentCheckedLocs.length === allLocs.length;
-
-                        return (
-                          <div
-                            key={b.id}
-                            className="border border-zinc-200/80 rounded-xl bg-white p-3 space-y-2.5"
-                          >
-                            <label className="flex items-center gap-2.5 cursor-pointer select-none">
-                              <input
-                                type="checkbox"
-                                checked={isBizChecked}
-                                onChange={() => handleToggleBusiness(b.id)}
-                                className="h-4 w-4 rounded border-zinc-300 text-[#16A34A] focus:ring-[#16A34A] cursor-pointer"
-                              />
-                              <span className="text-xs font-extrabold text-zinc-950 flex items-center gap-1.5">
-                                <Building2 className="h-3.5 w-3.5 text-zinc-400" />
-                                {b.name}
-                              </span>
-                            </label>
-
-                            {isBizChecked && (
-                              <div className="pl-6 border-l-2 border-zinc-100 space-y-2 py-0.5">
-                                {hasLocations ? (
-                                  <>
-                                    <label className="flex items-center gap-2 cursor-pointer select-none text-[11px] font-bold text-zinc-500">
-                                      <input
-                                        type="checkbox"
-                                        checked={allLocsChecked}
-                                        onChange={() =>
-                                          handleToggleAllLocations(b.id)
-                                        }
-                                        className="h-3.5 w-3.5 rounded border-zinc-300 text-[#16A34A] focus:ring-[#16A34A] cursor-pointer"
-                                      />
-                                      <span>
-                                        Select All Locations ({allLocs.length})
-                                      </span>
-                                    </label>
-
-                                    <div className="grid grid-cols-2 gap-2 mt-1.5">
-                                      {allLocs.map((loc) => (
-                                        <label
-                                          key={loc.id}
-                                          className="flex items-center gap-2 cursor-pointer select-none text-[11px] font-semibold text-zinc-700"
-                                        >
-                                          <input
-                                            type="checkbox"
-                                            checked={currentCheckedLocs.includes(
-                                              loc.id,
-                                            )}
-                                            onChange={() =>
-                                              handleToggleLocation(b.id, loc.id)
-                                            }
-                                            className="h-3.5 w-3.5 rounded border-zinc-300 text-[#16A34A] focus:ring-[#16A34A] cursor-pointer"
-                                          />
-                                          <span className="truncate">
-                                            {loc.name}
-                                          </span>
-                                        </label>
-                                      ))}
-                                    </div>
-                                  </>
-                                ) : (
-                                  <span className="text-[10px] text-zinc-400 font-semibold italic">
-                                    Loading locations...
-                                  </span>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })
-                    )}
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setApprovalRole("manager")}
+                    className={`p-4 border rounded-2xl flex flex-col items-start text-left cursor-pointer transition ${
+                      approvalRole === "manager"
+                        ? "border-[#16A34A] bg-[#DCFCE7]/20 text-[#0F172A]"
+                        : "border-zinc-200 bg-white hover:bg-zinc-50/50 text-zinc-500"
+                    }`}
+                  >
+                    <span className="text-sm font-extrabold block">Manager</span>
+                    <span className="text-[11px] text-zinc-400 font-semibold mt-1">
+                      Advanced access for reviewing data and creating reports.
+                    </span>
+                  </button>
                 </div>
+              </div>
 
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-extrabold text-[#0F172A] uppercase tracking-wider block">
-                    Link Expiration Limit
-                  </label>
-                  <div className="relative">
-                    <select
-                      value={expiresInHours}
-                      onChange={(e) =>
-                        setExpiresInHours(Number(e.target.value))
-                      }
-                      className="w-full bg-white border border-zinc-200 focus:border-[#16A34A] rounded-xl py-3 px-3.5 text-xs text-zinc-950 font-bold focus:outline-none focus:ring-1 focus:ring-[#16A34A] appearance-none cursor-pointer pr-10"
-                    >
-                      <option value={24}>24 Hours</option>
-                      <option value={48}>48 Hours (Default)</option>
-                      <option value={72}>3 Days</option>
-                      <option value={168}>7 Days</option>
-                      <option value={336}>14 Days</option>
-                      <option value={720}>30 Days (Maximum)</option>
-                    </select>
-                    <ChevronDown className="absolute right-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
-                  </div>
+              {/* Business & Location Assignments */}
+              <div className="space-y-2">
+                <label className="text-[10px] font-extrabold text-[#0F172A] uppercase tracking-wider block">
+                  Assign Businesses & Locations (Compulsory)
+                </label>
+
+                <div className="border border-zinc-200 rounded-2xl p-4 max-h-[30vh] overflow-y-auto space-y-3 bg-zinc-50/30">
+                  {businesses.length === 0 ? (
+                    <span className="text-xs text-zinc-400 font-semibold italic">
+                      No businesses available.
+                    </span>
+                  ) : (
+                    businesses.map((b) => {
+                      const isBizChecked = approvalBusinesses.includes(b.id);
+                      const allLocs = businessLocations[b.id] || [];
+                      const currentCheckedLocs = approvalLocations[b.id] || [];
+                      const hasLocations = allLocs.length > 0;
+                      const allLocsChecked =
+                        hasLocations &&
+                        currentCheckedLocs.length === allLocs.length;
+
+                      return (
+                        <div
+                          key={b.id}
+                          className="border border-zinc-200/80 rounded-xl bg-white p-3 space-y-2.5"
+                        >
+                          <label className="flex items-center gap-2.5 cursor-pointer select-none">
+                            <input
+                              type="checkbox"
+                              checked={isBizChecked}
+                              onChange={() => handleToggleApprovalBusiness(b.id)}
+                              className="h-4 w-4 rounded border-zinc-300 text-[#16A34A] focus:ring-[#16A34A] cursor-pointer"
+                            />
+                            <span className="text-xs font-extrabold text-zinc-950 flex items-center gap-1.5">
+                              <Building2 className="h-3.5 w-3.5 text-zinc-400" />
+                              {b.name}
+                            </span>
+                          </label>
+
+                          {isBizChecked && (
+                            <div className="pl-6 border-l-2 border-zinc-100 space-y-2 py-0.5">
+                              {hasLocations ? (
+                                <>
+                                  <label className="flex items-center gap-2 cursor-pointer select-none text-[11px] font-bold text-zinc-500">
+                                    <input
+                                      type="checkbox"
+                                      checked={allLocsChecked}
+                                      onChange={() =>
+                                        handleToggleApprovalAllLocations(b.id)
+                                      }
+                                      className="h-3.5 w-3.5 rounded border-zinc-300 text-[#16A34A] focus:ring-[#16A34A] cursor-pointer"
+                                    />
+                                    <span>
+                                      Select All Locations ({allLocs.length})
+                                    </span>
+                                  </label>
+
+                                  <div className="grid grid-cols-2 gap-2 mt-1.5">
+                                    {allLocs.map((loc) => (
+                                      <label
+                                        key={loc.id}
+                                        className="flex items-center gap-2 cursor-pointer select-none text-[11px] font-semibold text-zinc-700"
+                                      >
+                                        <input
+                                          type="checkbox"
+                                          checked={currentCheckedLocs.includes(loc.id)}
+                                          onChange={() =>
+                                            handleToggleApprovalLocation(b.id, loc.id)
+                                          }
+                                          className="h-3.5 w-3.5 rounded border-zinc-300 text-[#16A34A] focus:ring-[#16A34A] cursor-pointer"
+                                        />
+                                        <span className="truncate">{loc.name}</span>
+                                      </label>
+                                    ))}
+                                  </div>
+                                </>
+                              ) : (
+                                <span className="text-[10px] text-zinc-400 font-semibold italic">
+                                  Loading locations...
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })
+                  )}
                 </div>
+              </div>
 
+              {/* Action Buttons */}
+              <div className="grid grid-cols-2 gap-3 mt-6">
                 <button
                   type="button"
-                  onClick={handleGenerateInvitation}
-                  disabled={generatingLink || selectedBusinesses.length === 0}
-                  className="mt-6 w-full bg-[#16A34A] hover:bg-[#15803D] active:bg-[#14532D] text-white rounded-xl py-3.5 text-xs font-bold uppercase tracking-wider shadow-md transition duration-200 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                  onClick={() => {
+                    setIsApprovalModalOpen(false);
+                    setPendingStaffToApprove(null);
+                  }}
+                  className="bg-white hover:bg-zinc-50 border border-zinc-200 text-zinc-700 rounded-xl py-3 text-xs font-bold uppercase tracking-wider transition cursor-pointer"
                 >
-                  {generatingLink ? (
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSubmitApproval}
+                  disabled={submittingApproval || approvalBusinesses.length === 0 || !approvalRole}
+                  className="bg-[#16A34A] hover:bg-[#15803D] active:bg-[#14532D] text-white rounded-xl py-3 text-xs font-bold uppercase tracking-wider shadow-md transition duration-200 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                >
+                  {submittingApproval ? (
                     <>
                       <Loader2 className="h-4 w-4 animate-spin" />
-                      Generating Invitation...
+                      Approving...
                     </>
                   ) : (
-                    "Generate Invitation Link"
+                    "Approve & Assign"
                   )}
                 </button>
               </div>
-            )}
+            </div>
           </div>
         </div>
       )}
