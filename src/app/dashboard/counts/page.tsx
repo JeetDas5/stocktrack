@@ -487,13 +487,12 @@ export default function StockCountsPage() {
               </div>
             </div>
 
-            {/* COUNT PROGRESS CARD */}
-            <div className="border border-zinc-200 rounded-2xl p-6 bg-white shadow-xs space-y-4">
+            <div className="border border-zinc-200 rounded-2xl p-4 bg-white shadow-xs space-y-2">
               <h3 className="text-xs font-extrabold text-[#0F172A] uppercase tracking-wider">
                 Count Progress
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-4 gap-6 items-center">
-                <div className="text-center md:border-r border-zinc-100 last:border-0 py-2">
+                <div className="text-center md:border-r border-zinc-100 last:border-0">
                   <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider block">
                     Total Items
                   </span>
@@ -501,7 +500,7 @@ export default function StockCountsPage() {
                     {totalItemsCount}
                   </span>
                 </div>
-                <div className="text-center md:border-r border-zinc-100 last:border-0 py-2">
+                <div className="text-center md:border-r border-zinc-100 last:border-0">
                   <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider block">
                     Counted Items
                   </span>
@@ -509,7 +508,7 @@ export default function StockCountsPage() {
                     {countedItemsCount}
                   </span>
                 </div>
-                <div className="text-center md:border-r border-zinc-100 last:border-0 py-2">
+                <div className="text-center md:border-r border-zinc-100 last:border-0">
                   <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider block">
                     Remaining Items
                   </span>

@@ -705,135 +705,141 @@ export default function DashboardLayout({
             >
               <Menu className="h-4.5 w-4.5" />
             </button>
-            <div className="text-xs font-extrabold text-[#0F172A]">
-              <span className="text-[#0F172A]">{breadcrumb.title}</span>
-            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider hidden sm:inline-block">
+                Business
+              </span>
+              <div className="relative" ref={businessDropdownRef}>
+                <button
+                  onClick={() =>
+                    setShowHeaderBusinessDropdown(!showHeaderBusinessDropdown)
+                  }
+                  className="flex items-center gap-2 px-3 py-1.5 bg-zinc-100 hover:bg-zinc-200/70 border border-zinc-200 rounded-xl text-xs font-extrabold text-[#0F172A] transition duration-200 cursor-pointer shadow-2xs"
+                >
+                  <Building2 className="h-3.5 w-3.5 text-[#16A34A]" />
+                  <span>
+                    {activeBusiness?.name
+                      ? activeBusiness.name.length > 20
+                        ? activeBusiness.name.substring(0, 20) + "..."
+                        : activeBusiness.name
+                      : "Select Business"}
+                  </span>
+                  <ChevronDown className="h-3.5 w-3.5 text-zinc-400" />
+                </button>
 
-            <div className="h-4 w-px bg-zinc-200 hidden sm:block" />
-
-            <div className="relative" ref={businessDropdownRef}>
-              <button
-                onClick={() =>
-                  setShowHeaderBusinessDropdown(!showHeaderBusinessDropdown)
-                }
-                className="flex items-center gap-2 px-3 py-1.5 bg-zinc-100 hover:bg-zinc-200/70 border border-zinc-200 rounded-xl text-xs font-extrabold text-[#0F172A] transition duration-200 cursor-pointer shadow-2xs"
-              >
-                <Building2 className="h-3.5 w-3.5 text-[#16A34A]" />
-                <span>
-                  {activeBusiness?.name
-                    ? activeBusiness.name.length > 20
-                      ? activeBusiness.name.substring(0, 20) + "..."
-                      : activeBusiness.name
-                    : "Select Business"}
-                </span>
-                <ChevronDown className="h-3.5 w-3.5 text-zinc-400" />
-              </button>
-
-              {showHeaderBusinessDropdown && (
-                <div className="absolute left-0 mt-1.5 w-52 bg-white border border-zinc-200 rounded-xl shadow-xl overflow-hidden z-30 animate-fade-in">
-                  <div className="max-h-56 overflow-y-auto py-1">
-                    {businesses.map((b) => {
-                      const isSelected = b.id === activeBusinessId;
-                      return (
-                        <button
-                          key={b.id}
-                          onClick={() => {
-                            handleBusinessChange(b.id);
-                            setShowHeaderBusinessDropdown(false);
-                          }}
-                          className={`w-full flex items-center justify-between px-4 py-2.5 text-xs font-bold transition-colors truncate cursor-pointer ${
-                            isSelected
-                              ? "bg-[#DCFCE7] text-[#16A34A]"
-                              : "text-zinc-700 hover:bg-zinc-100 hover:text-[#0F172A]"
-                          }`}
-                        >
-                          <span>{b.name}</span>
-                          {isSelected && (
-                            <Check className="h-3.5 w-3.5 text-[#16A34A]" />
-                          )}
-                        </button>
-                      );
-                    })}
+                {showHeaderBusinessDropdown && (
+                  <div className="absolute left-0 mt-1.5 w-52 bg-white border border-zinc-200 rounded-xl shadow-xl overflow-hidden z-30 animate-fade-in">
+                    <div className="max-h-56 overflow-y-auto py-1">
+                      {businesses.map((b) => {
+                        const isSelected = b.id === activeBusinessId;
+                        return (
+                          <button
+                            key={b.id}
+                            onClick={() => {
+                              handleBusinessChange(b.id);
+                              setShowHeaderBusinessDropdown(false);
+                            }}
+                            className={`w-full flex items-center justify-between px-4 py-2.5 text-xs font-bold transition-colors truncate cursor-pointer ${
+                              isSelected
+                                ? "bg-[#DCFCE7] text-[#16A34A]"
+                                : "text-zinc-700 hover:bg-zinc-100 hover:text-[#0F172A]"
+                            }`}
+                          >
+                            <span>{b.name}</span>
+                            {isSelected && (
+                              <Check className="h-3.5 w-3.5 text-[#16A34A]" />
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <div className="border-t border-zinc-200 p-1.5 bg-zinc-50">
+                      <a
+                        href="/dashboard/business"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          router.push("/dashboard/business");
+                          setShowHeaderBusinessDropdown(false);
+                        }}
+                        className="w-full text-center py-2 text-[10px] uppercase font-bold tracking-wider text-[#16A34A] hover:text-[#16A34A] block hover:bg-[#DCFCE7] rounded-lg transition-colors cursor-pointer"
+                      >
+                        Manage Switcher
+                      </a>
+                    </div>
                   </div>
-                  <div className="border-t border-zinc-200 p-1.5 bg-zinc-50">
-                    <a
-                      href="/dashboard/business"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        router.push("/dashboard/business");
-                        setShowHeaderBusinessDropdown(false);
-                      }}
-                      className="w-full text-center py-2 text-[10px] uppercase font-bold tracking-wider text-[#16A34A] hover:text-[#16A34A] block hover:bg-[#DCFCE7] rounded-lg transition-colors cursor-pointer"
-                    >
-                      Manage Switcher
-                    </a>
-                  </div>
-                </div>
-              )}
+                )}
+              </div>
             </div>
 
             {activeBusinessId && (
               <>
                 <div className="h-4 w-px bg-zinc-200 hidden sm:block" />
-                <div className="relative" ref={locationDropdownRef}>
-                  <button
-                    onClick={() =>
-                      setShowHeaderLocationDropdown(!showHeaderLocationDropdown)
-                    }
-                    className="flex items-center gap-2 px-3 py-1.5 bg-zinc-100 hover:bg-zinc-200/70 border border-zinc-200 rounded-xl text-xs font-extrabold text-[#0F172A] transition duration-200 cursor-pointer shadow-2xs"
-                  >
-                    <MapPin className="h-3.5 w-3.5 text-[#16A34A]" />
-                    <span>
-                      {activeLocation?.name
-                        ? activeLocation.name.length > 20
-                          ? activeLocation.name.substring(0, 20) + "..."
-                          : activeLocation.name
-                        : "Select Location"}
-                    </span>
-                    <ChevronDown className="h-3.5 w-3.5 text-zinc-400" />
-                  </button>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider hidden sm:inline-block">
+                    Location
+                  </span>
+                  <div className="relative" ref={locationDropdownRef}>
+                    <button
+                      onClick={() =>
+                        setShowHeaderLocationDropdown(
+                          !showHeaderLocationDropdown,
+                        )
+                      }
+                      className="flex items-center gap-2 px-3 py-1.5 bg-zinc-100 hover:bg-zinc-200/70 border border-zinc-200 rounded-xl text-xs font-extrabold text-[#0F172A] transition duration-200 cursor-pointer shadow-2xs"
+                    >
+                      <MapPin className="h-3.5 w-3.5 text-[#16A34A]" />
+                      <span>
+                        {activeLocation?.name
+                          ? activeLocation.name.length > 20
+                            ? activeLocation.name.substring(0, 20) + "..."
+                            : activeLocation.name
+                          : "Select Location"}
+                      </span>
+                      <ChevronDown className="h-3.5 w-3.5 text-zinc-400" />
+                    </button>
 
-                  {showHeaderLocationDropdown && (
-                    <div className="absolute left-0 mt-1.5 w-52 bg-white border border-zinc-200 rounded-xl shadow-xl overflow-hidden z-30 animate-fade-in">
-                      <div className="max-h-56 overflow-y-auto py-1">
-                        {locations.map((loc) => {
-                          const isSelected = loc.id === activeLocationId;
-                          return (
-                            <button
-                              key={loc.id}
-                              onClick={() => {
-                                setActiveLocation(loc.id);
-                                setShowHeaderLocationDropdown(false);
-                              }}
-                              className={`w-full flex items-center justify-between px-4 py-2.5 text-xs font-bold transition-colors truncate cursor-pointer ${
-                                isSelected
-                                  ? "bg-[#DCFCE7] text-[#16A34A]"
-                                  : "text-zinc-700 hover:bg-zinc-100 hover:text-[#0F172A]"
-                              }`}
-                            >
-                              <span>{loc.name}</span>
-                              {isSelected && (
-                                <Check className="h-3.5 w-3.5 text-[#16A34A]" />
-                              )}
-                            </button>
-                          );
-                        })}
+                    {showHeaderLocationDropdown && (
+                      <div className="absolute left-0 mt-1.5 w-52 bg-white border border-zinc-200 rounded-xl shadow-xl overflow-hidden z-30 animate-fade-in">
+                        <div className="max-h-56 overflow-y-auto py-1">
+                          {locations.map((loc) => {
+                            const isSelected = loc.id === activeLocationId;
+                            return (
+                              <button
+                                key={loc.id}
+                                onClick={() => {
+                                  setActiveLocation(loc.id);
+                                  setShowHeaderLocationDropdown(false);
+                                }}
+                                className={`w-full flex items-center justify-between px-4 py-2.5 text-xs font-bold transition-colors truncate cursor-pointer ${
+                                  isSelected
+                                    ? "bg-[#DCFCE7] text-[#16A34A]"
+                                    : "text-zinc-700 hover:bg-zinc-100 hover:text-[#0F172A]"
+                                }`}
+                              >
+                                <span>{loc.name}</span>
+                                {isSelected && (
+                                  <Check className="h-3.5 w-3.5 text-[#16A34A]" />
+                                )}
+                              </button>
+                            );
+                          })}
+                        </div>
+                        <div className="border-t border-zinc-200 p-1.5 bg-zinc-50">
+                          <a
+                            href="/dashboard/locations"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              router.push("/dashboard/locations");
+                              setShowHeaderLocationDropdown(false);
+                            }}
+                            className="w-full text-center py-2 text-[10px] uppercase font-bold tracking-wider text-[#16A34A] hover:text-[#16A34A] block hover:bg-[#DCFCE7] rounded-lg transition-colors cursor-pointer"
+                          >
+                            Manage Locations
+                          </a>
+                        </div>
                       </div>
-                      <div className="border-t border-zinc-200 p-1.5 bg-zinc-50">
-                        <a
-                          href="/dashboard/locations"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            router.push("/dashboard/locations");
-                            setShowHeaderLocationDropdown(false);
-                          }}
-                          className="w-full text-center py-2 text-[10px] uppercase font-bold tracking-wider text-[#16A34A] hover:text-[#16A34A] block hover:bg-[#DCFCE7] rounded-lg transition-colors cursor-pointer"
-                        >
-                          Manage Locations
-                        </a>
-                      </div>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
               </>
             )}
