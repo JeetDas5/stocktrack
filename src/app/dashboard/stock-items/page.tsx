@@ -1,5 +1,3 @@
-/* eslint-disable react-hooks/exhaustive-deps */
-/* eslint-disable @typescript-eslint/no-unused-vars */
 "use client";
 
 import Image from "next/image";
@@ -9,7 +7,6 @@ import AlertDialog from "@/components/alert-dialog";
 import { useAuth } from "@/providers/auth-provider";
 import { useBusinessStore } from "@/store/business-store";
 import { useLocationStore } from "@/store/location-store";
-import { getUserBusinesses } from "@/lib/repositories/business.repository";
 import {
   StockItem,
   Category,
@@ -18,7 +15,6 @@ import {
   BaseUnit,
   LocationRule,
 } from "@/types/inventory";
-import { Business } from "@/types/business";
 import {
   Package,
   Plus,
@@ -51,8 +47,6 @@ export default function StockItemsPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
-  const [businesses, setBusinesses] = useState<Business[]>([]);
-  const [activeBusiness, setActiveBusiness] = useState<Business | null>(null);
 
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -70,7 +64,6 @@ export default function StockItemsPage() {
   const [formDescription, setFormDescription] = useState("");
   const [formActive, setFormActive] = useState(true);
   const [formCostPerBaseUnit, setFormCostPerBaseUnit] = useState("");
-  const [formCurrentStock, setFormCurrentStock] = useState("");
   const [countingOptions, setCountingOptions] = useState<
     {
       id?: string;
@@ -107,7 +100,6 @@ export default function StockItemsPage() {
 
   const [saving, setSaving] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
-  const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
   const [validationErrors, setValidationErrors] = useState<
     Record<string, boolean>
   >({});
@@ -173,24 +165,17 @@ export default function StockItemsPage() {
         categoriesList,
         suppliersList,
         locationsList,
-        businessesList,
       ] = await Promise.all([
         getStockItems(activeBusinessId),
         getCategories(activeBusinessId),
         getSuppliers(activeBusinessId),
         getLocations(activeBusinessId),
-        getUserBusinesses([]),
       ]);
 
       setItems(itemsList);
       setCategories(categoriesList);
       setSuppliers(suppliersList);
       setLocations(locationsList.filter((l) => l.isActive !== false));
-      setBusinesses(businessesList);
-
-      const activeDoc =
-        businessesList.find((b) => b.id === activeBusinessId) || null;
-      setActiveBusiness(activeDoc);
     } catch (err) {
       console.error(err);
     } finally {
@@ -199,7 +184,9 @@ export default function StockItemsPage() {
   }
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadData();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeBusinessId, profile]);
 
   const openAddDrawer = () => {
@@ -212,7 +199,6 @@ export default function StockItemsPage() {
     setFormDescription("");
     setFormActive(true);
     setFormCostPerBaseUnit("");
-    setFormCurrentStock("");
     setCountingOptions([]);
 
     setReorderOption("same");
@@ -251,7 +237,6 @@ export default function StockItemsPage() {
     setFormCostPerBaseUnit(
       item.costPerBaseUnit ? String(item.costPerBaseUnit) : "",
     );
-    setFormCurrentStock(item.currentStock ? String(item.currentStock) : "");
     setCountingOptions(
       (item.countingOptions || []).map((co) => ({
         id: co.id,
@@ -316,7 +301,6 @@ export default function StockItemsPage() {
     setSelectedLocations(itemLocIds);
     setValidationErrors({});
     setShowDrawer(true);
-    setActiveMenuId(null);
   };
 
   const handleSave = async (e: React.FormEvent) => {
@@ -326,6 +310,7 @@ export default function StockItemsPage() {
     const errors: Record<string, boolean> = {};
     if (!formName.trim()) errors.name = true;
     if (!formSku.trim()) errors.sku = true;
+    if (!formSupplierId) errors.supplierId = true;
     if (!formCategoryId) errors.categoryId = true;
     if (!formBaseUnit) errors.baseUnit = true;
     if (selectedLocations.length === 0) errors.locations = true;
@@ -588,7 +573,11 @@ export default function StockItemsPage() {
       }
 
       await loadData();
-      toast.success(editId ? "Stock item updated successfully!" : "Stock item created successfully!");
+      toast.success(
+        editId
+          ? "Stock item updated successfully!"
+          : "Stock item created successfully!",
+      );
       setShowDrawer(false);
     } catch (err: any) {
       console.error(err);
@@ -599,7 +588,6 @@ export default function StockItemsPage() {
   };
 
   const handleDelete = (itemId: string) => {
-    setActiveMenuId(null);
     setDeleteTarget(itemId);
   };
 
@@ -629,11 +617,9 @@ export default function StockItemsPage() {
       ? item.supplierId === selectedSupplierFilter
       : true;
     const matchesLocation = activeLocationId
-      ? (!item.locationRules ||
-          item.locationRules.length === 0 ||
-          item.locationRules.some(
-            (rule) => rule.locationId === activeLocationId,
-          ))
+      ? !item.locationRules ||
+        item.locationRules.length === 0 ||
+        item.locationRules.some((rule) => rule.locationId === activeLocationId)
       : true;
 
     return (
@@ -790,8 +776,6 @@ export default function StockItemsPage() {
           </div>
         </div>
 
-
-
         {paginatedItems.length === 0 ? (
           <div className="bg-white border border-zinc-200 rounded-2xl py-20 px-6 text-center flex flex-col items-center justify-center shadow-sm">
             <Package className="h-10 w-10 text-zinc-300 mb-3" />
@@ -938,10 +922,10 @@ export default function StockItemsPage() {
       {showDrawer && (
         <>
           <div
-            className="fixed inset-0 bg-black/30 z-[998] transition-opacity"
+            className="fixed inset-0 bg-black/30 z-98 transition-opacity"
             onClick={() => setShowDrawer(false)}
           />
-          <div className="fixed top-0 right-0 h-full w-[460px] bg-white border-l border-zinc-200 shadow-2xl flex flex-col justify-between z-[999] animate-slide-in">
+          <div className="fixed top-0 right-0 h-full w-[460px] bg-white border-l border-zinc-200 shadow-2xl flex flex-col justify-between z-99 animate-slide-in">
             <div className="p-6 overflow-y-auto space-y-6 flex-1">
               <div className="flex justify-between items-start border-b border-zinc-100 pb-4">
                 <div>
@@ -959,8 +943,6 @@ export default function StockItemsPage() {
                   <X className="h-5 w-5" />
                 </button>
               </div>
-
-
 
               <form onSubmit={handleSave} noValidate className="space-y-5">
                 <div className="space-y-4">
@@ -1012,196 +994,208 @@ export default function StockItemsPage() {
                     </div>
                   </div>
 
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-[#0F172A] uppercase tracking-wider block">
-                      Category <span className="text-rose-500">*</span>
-                    </label>
-                    <div className="relative">
-                      <select
-                        className={getSelectClassName("categoryId")}
-                        value={formCategoryId}
-                        onChange={(e) => {
-                          setFormCategoryId(e.target.value);
-                          if (validationErrors.categoryId) {
-                            setValidationErrors((prev) => ({
-                              ...prev,
-                              categoryId: false,
-                            }));
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-bold text-[#0F172A] uppercase tracking-wider block">
+                        Category <span className="text-rose-500">*</span>
+                      </label>
+                      <div className="relative">
+                        <select
+                          className={getSelectClassName("categoryId")}
+                          value={formCategoryId}
+                          onChange={(e) => {
+                            setFormCategoryId(e.target.value);
+                            if (validationErrors.categoryId) {
+                              setValidationErrors((prev) => ({
+                                ...prev,
+                                categoryId: false,
+                              }));
+                            }
+                          }}
+                        >
+                          <option value="">Select category</option>
+                          {categories.map((cat) => (
+                            <option key={cat.id} value={cat.id}>
+                              {cat.name}
+                            </option>
+                          ))}
+                        </select>
+                        <ChevronDown className="absolute right-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
+                      </div>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-bold text-[#0F172A] uppercase tracking-wider block">
+                        Supplier <span className="text-rose-500">*</span>
+                      </label>
+                      <div className="relative">
+                        <select
+                          className={getSelectClassName("supplierId")}
+                          value={formSupplierId}
+                          onChange={(e) => {
+                            setFormSupplierId(e.target.value);
+                            if (validationErrors.supplierId) {
+                              setValidationErrors((prev) => ({
+                                ...prev,
+                                supplierId: false,
+                              }));
+                            }
+                          }}
+                        >
+                          <option value="">Select supplier</option>
+                          {suppliers.map((sup) => (
+                            <option key={sup.id} value={sup.id}>
+                              {sup.name}
+                            </option>
+                          ))}
+                        </select>
+                        <ChevronDown className="absolute right-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1.5 relative">
+                      <label className="text-[10px] font-bold text-[#0F172A] uppercase tracking-wider block">
+                        Locations <span className="text-rose-500">*</span>
+                      </label>
+                      <div className="relative">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setShowLocationDropdown(!showLocationDropdown)
                           }
-                        }}
-                      >
-                        <option value="">Select category</option>
-                        {categories.map((cat) => (
-                          <option key={cat.id} value={cat.id}>
-                            {cat.name}
-                          </option>
-                        ))}
-                      </select>
-                      <ChevronDown className="absolute right-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
-                    </div>
-                  </div>
+                          className={`w-full bg-white border ${
+                            validationErrors.locations
+                              ? "border-rose-400 focus:border-rose-500 ring-1 ring-rose-500/20"
+                              : "border-zinc-300 focus:border-[#16A34A]"
+                          } rounded-xl py-2.5 px-3.5 text-xs font-semibold text-zinc-800 text-left flex justify-between items-center cursor-pointer`}
+                        >
+                          <span>
+                            {selectedLocations.length === 0
+                              ? "Select locations"
+                              : selectedLocations.length === locations.length
+                                ? "All Locations Selected"
+                                : `${selectedLocations.length} Location${selectedLocations.length > 1 ? "s" : ""} Selected`}
+                          </span>
+                          <ChevronDown className="h-4 w-4 text-zinc-400" />
+                        </button>
 
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-[#0F172A] uppercase tracking-wider block">
-                      Supplier
-                    </label>
-                    <div className="relative">
-                      <select
-                        className="w-full bg-white border border-zinc-300 focus:border-[#16A34A] rounded-xl py-2.5 pl-3.5 pr-10 text-xs text-zinc-950 focus:outline-none focus:ring-1 focus:ring-[#16A34A] appearance-none cursor-pointer font-semibold"
-                        value={formSupplierId}
-                        onChange={(e) => setFormSupplierId(e.target.value)}
-                      >
-                        <option value="">Select supplier (optional)</option>
-                        {suppliers.map((sup) => (
-                          <option key={sup.id} value={sup.id}>
-                            {sup.name}
-                          </option>
-                        ))}
-                      </select>
-                      <ChevronDown className="absolute right-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
-                    </div>
-                  </div>
-
-                  <div className="space-y-1.5 relative">
-                    <label className="text-[10px] font-bold text-[#0F172A] uppercase tracking-wider block">
-                      Locations <span className="text-rose-500">*</span>
-                    </label>
-                    <div className="relative">
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setShowLocationDropdown(!showLocationDropdown)
-                        }
-                        className={`w-full bg-white border ${
-                          validationErrors.locations
-                            ? "border-rose-400 focus:border-rose-500 ring-1 ring-rose-500/20"
-                            : "border-zinc-300 focus:border-[#16A34A]"
-                        } rounded-xl py-2.5 px-3.5 text-xs font-semibold text-zinc-800 text-left flex justify-between items-center cursor-pointer`}
-                      >
-                        <span>
-                          {selectedLocations.length === 0
-                            ? "Select locations"
-                            : selectedLocations.length === locations.length
-                              ? "All Locations Selected"
-                              : `${selectedLocations.length} Location${selectedLocations.length > 1 ? "s" : ""} Selected`}
-                        </span>
-                        <ChevronDown className="h-4 w-4 text-zinc-400" />
-                      </button>
-
-                      {showLocationDropdown && (
-                        <>
-                          <div
-                            className="fixed inset-0 z-40"
-                            onClick={() => setShowLocationDropdown(false)}
-                          />
-                          <div className="absolute left-0 right-0 mt-1.5 bg-white border border-zinc-200 rounded-xl shadow-lg max-h-60 overflow-y-auto p-2.5 z-50 space-y-2">
-                            <div className="flex justify-between items-center pb-2 border-b border-zinc-100 text-[10px] font-extrabold uppercase text-[#64748B]">
-                              <span>Select Locations</span>
-                              <div className="flex gap-2">
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setSelectedLocations(
-                                      locations.map((l) => l.id),
-                                    );
-                                    if (validationErrors.locations) {
-                                      setValidationErrors((prev) => ({
-                                        ...prev,
-                                        locations: false,
-                                      }));
-                                    }
-                                  }}
-                                  className="text-[#16A34A] hover:underline cursor-pointer"
-                                >
-                                  All
-                                </button>
-                                <span>|</span>
-                                <button
-                                  type="button"
-                                  onClick={() => setSelectedLocations([])}
-                                  className="text-rose-500 hover:underline cursor-pointer"
-                                >
-                                  None
-                                </button>
+                        {showLocationDropdown && (
+                          <>
+                            <div
+                              className="fixed inset-0 z-40"
+                              onClick={() => setShowLocationDropdown(false)}
+                            />
+                            <div className="absolute left-0 right-0 mt-1.5 bg-white border border-zinc-200 rounded-xl shadow-lg max-h-60 overflow-y-auto p-2.5 z-50 space-y-2">
+                              <div className="flex justify-between items-center pb-2 border-b border-zinc-100 text-[10px] font-extrabold uppercase text-[#64748B]">
+                                <span>Select Locations</span>
+                                <div className="flex gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setSelectedLocations(
+                                        locations.map((l) => l.id),
+                                      );
+                                      if (validationErrors.locations) {
+                                        setValidationErrors((prev) => ({
+                                          ...prev,
+                                          locations: false,
+                                        }));
+                                      }
+                                    }}
+                                    className="text-[#16A34A] hover:underline cursor-pointer"
+                                  >
+                                    All
+                                  </button>
+                                  <span>|</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => setSelectedLocations([])}
+                                    className="text-rose-500 hover:underline cursor-pointer"
+                                  >
+                                    None
+                                  </button>
+                                </div>
+                              </div>
+                              <div className="space-y-1.5 pt-1">
+                                {locations.map((loc) => {
+                                  const isChecked = selectedLocations.includes(
+                                    loc.id,
+                                  );
+                                  return (
+                                    <label
+                                      key={loc.id}
+                                      className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-zinc-50 cursor-pointer text-xs font-semibold text-zinc-700 transition-colors"
+                                    >
+                                      <input
+                                        type="checkbox"
+                                        className="h-3.5 w-3.5 text-[#16A34A] focus:ring-[#16A34A] border-zinc-300 rounded cursor-pointer"
+                                        checked={isChecked}
+                                        onChange={() => {
+                                          if (isChecked) {
+                                            setSelectedLocations(
+                                              selectedLocations.filter(
+                                                (id) => id !== loc.id,
+                                              ),
+                                            );
+                                          } else {
+                                            setSelectedLocations([
+                                              ...selectedLocations,
+                                              loc.id,
+                                            ]);
+                                            if (validationErrors.locations) {
+                                              setValidationErrors((prev) => ({
+                                                ...prev,
+                                                locations: false,
+                                              }));
+                                            }
+                                          }
+                                        }}
+                                      />
+                                      <span className="truncate">{loc.name}</span>
+                                    </label>
+                                  );
+                                })}
                               </div>
                             </div>
-                            <div className="space-y-1.5 pt-1">
-                              {locations.map((loc) => {
-                                const isChecked = selectedLocations.includes(
-                                  loc.id,
-                                );
-                                return (
-                                  <label
-                                    key={loc.id}
-                                    className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-zinc-50 cursor-pointer text-xs font-semibold text-zinc-700 transition-colors"
-                                  >
-                                    <input
-                                      type="checkbox"
-                                      className="h-3.5 w-3.5 text-[#16A34A] focus:ring-[#16A34A] border-zinc-300 rounded cursor-pointer"
-                                      checked={isChecked}
-                                      onChange={() => {
-                                        if (isChecked) {
-                                          setSelectedLocations(
-                                            selectedLocations.filter(
-                                              (id) => id !== loc.id,
-                                            ),
-                                          );
-                                        } else {
-                                          setSelectedLocations([
-                                            ...selectedLocations,
-                                            loc.id,
-                                          ]);
-                                          if (validationErrors.locations) {
-                                            setValidationErrors((prev) => ({
-                                              ...prev,
-                                              locations: false,
-                                            }));
-                                          }
-                                        }
-                                      }}
-                                    />
-                                    <span className="truncate">{loc.name}</span>
-                                  </label>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        </>
-                      )}
+                          </>
+                        )}
+                      </div>
                     </div>
-                  </div>
 
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-[#0F172A] uppercase tracking-wider block">
-                      Base Unit <span className="text-rose-500">*</span>
-                    </label>
-                    <div className="relative">
-                      <select
-                        className={getSelectClassName("baseUnit")}
-                        value={formBaseUnit}
-                        onChange={(e) => {
-                          setFormBaseUnit(e.target.value as BaseUnit);
-                          if (validationErrors.baseUnit) {
-                            setValidationErrors((prev) => ({
-                              ...prev,
-                              baseUnit: false,
-                            }));
-                          }
-                        }}
-                      >
-                        <option value="">Select base unit</option>
-                        {unitsOptions.map((unit) => (
-                          <option key={unit} value={unit}>
-                            {unit}
-                          </option>
-                        ))}
-                      </select>
-                      <ChevronDown className="absolute right-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-bold text-[#0F172A] uppercase tracking-wider block">
+                        Base Unit <span className="text-rose-500">*</span>
+                      </label>
+                      <div className="relative">
+                        <select
+                          className={getSelectClassName("baseUnit")}
+                          value={formBaseUnit}
+                          onChange={(e) => {
+                            setFormBaseUnit(e.target.value as BaseUnit);
+                            if (validationErrors.baseUnit) {
+                              setValidationErrors((prev) => ({
+                                ...prev,
+                                baseUnit: false,
+                              }));
+                            }
+                          }}
+                        >
+                          <option value="">Select base unit</option>
+                          {unitsOptions.map((unit) => (
+                            <option key={unit} value={unit}>
+                              {unit}
+                            </option>
+                          ))}
+                        </select>
+                        <ChevronDown className="absolute right-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
+                      </div>
+                      <span className="text-[10px] font-bold text-[#64748B] block mt-1">
+                        This is the unit you purchase and receive in (e.g., Pack
+                        24, Box 12).
+                      </span>
                     </div>
-                    <span className="text-[10px] font-bold text-[#64748B] block mt-1">
-                      This is the unit you purchase and receive in (e.g., Pack
-                      24, Box 12).
-                    </span>
                   </div>
 
                   <div className="space-y-1.5">
@@ -1847,7 +1841,7 @@ export default function StockItemsPage() {
                 type="submit"
                 onClick={handleSave}
                 disabled={
-                  saving || !formName.trim() || !formCategoryId || !formBaseUnit
+                  saving || !formName.trim() || !formCategoryId || !formBaseUnit || !formSupplierId
                 }
                 className="bg-[#16A34A] hover:bg-[#15803D] text-white rounded-xl px-5 py-2.5 text-xs font-bold uppercase tracking-wider shadow-sm flex items-center gap-2 cursor-pointer transition-colors disabled:opacity-50"
               >
