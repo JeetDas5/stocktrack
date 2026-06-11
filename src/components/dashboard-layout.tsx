@@ -20,9 +20,8 @@ import {
   ChefHat,
   ClipboardList,
   FileText,
-  PackageOpen,
+  FileChartColumn,
   Scale,
-  Users,
   LogOut,
   Building2,
   ChevronDown,
@@ -38,13 +37,24 @@ import {
   Check,
   ShoppingCart,
   FileDown,
-  FilePlusCorner,
+  Calendar,
+  BarChart2,
+  User,
+  House,
+  Van,
+  IdCard,
+  CalendarPlus,
+  CalendarSearch,
+  ClockPlus,
+  ClockCheck,
+  ClipboardClock,
 } from "lucide-react";
+import Link from "next/link";
 
 interface SidebarLink {
   name: string;
   href: string;
-  icon: React.ComponentType<any>;
+  icon: React.ComponentType<{ className?: string }>;
 }
 
 export default function DashboardLayout({
@@ -230,157 +240,154 @@ export default function DashboardLayout({
     router.push("/login");
   };
 
-  const getHeaderBreadcrumb = (path: string) => {
-    switch (path) {
-      case "/dashboard/business":
-        return { title: "Businesses" };
-      case "/dashboard/locations":
-        return { title: "Locations" };
-      case "/dashboard/stock-items":
-        return { title: "Stock Items" };
-      case "/dashboard/categories":
-        return { title: "Categories" };
-      case "/dashboard/recipes":
-        return { title: "Recipes" };
-      case "/dashboard/suppliers":
-        return { title: "Suppliers" };
-      case "/dashboard/refill-planner":
-        return { title: "Refill Planner" };
-      case "/dashboard/deliveries":
-        return { title: "Deliveries" };
-      case "/dashboard/sales":
-        return { title: "Sales Entry" };
-      case "/dashboard/sales-imports":
-        return { title: "Sales Imports" };
-      case "/dashboard/consumption":
-        return { title: "Consumption Analysis" };
-      case "/dashboard/purchase-orders":
-        return { title: "Purchase Orders" };
-      case "/dashboard/reconciliation":
-        return { title: "Reconciliation" };
-      case "/dashboard/users":
-        return { title: "Users" };
-      case "/dashboard/staff-dashboard":
-        return { title: "Staff Dashboard" };
-      case "/dashboard/staff-directory":
-        return { title: "Staff Directory" };
-      case "/dashboard/timesheet-entry":
-        return { title: "Timesheet Entry" };
-      case "/dashboard/timesheet-review":
-        return { title: "Timesheet Review" };
-      case "/dashboard/timesheet-reports":
-        return { title: "Timesheet Reports" };
-      case "/dashboard/roaster-availablity":
-        return { title: "Availability Entry" };
-      case "/dashboard/availability-overview":
-        return { title: "Availability Overview" };
-      default:
-        return { title: "Dashboard" };
-    }
-  };
+  // const getHeaderBreadcrumb = (path: string) => {
+  //   switch (path) {
+  //     case "/dashboard/business":
+  //       return { title: "Businesses" };
+  //     case "/dashboard/locations":
+  //       return { title: "Locations" };
+  //     case "/dashboard/stock-items":
+  //       return { title: "Stock Items" };
+  //     case "/dashboard/categories":
+  //       return { title: "Categories" };
+  //     case "/dashboard/recipes":
+  //       return { title: "Recipes" };
+  //     case "/dashboard/suppliers":
+  //       return { title: "Suppliers" };
+  //     case "/dashboard/refill-planner":
+  //       return { title: "Refill Planner" };
+  //     case "/dashboard/deliveries":
+  //       return { title: "Deliveries" };
+  //     case "/dashboard/sales":
+  //       return { title: "Sales Entry" };
+  //     case "/dashboard/sales-imports":
+  //       return { title: "Sales Imports" };
+  //     case "/dashboard/consumption":
+  //       return { title: "Consumption Analysis" };
+  //     case "/dashboard/purchase-orders":
+  //       return { title: "Purchase Orders" };
+  //     case "/dashboard/reconciliation":
+  //       return { title: "Reconciliation" };
+  //     case "/dashboard/users":
+  //       return { title: "Users" };
+  //     case "/dashboard/staff-dashboard":
+  //       return { title: "Staff Dashboard" };
+  //     case "/dashboard/staff-directory":
+  //       return { title: "Staff Directory" };
+  //     case "/dashboard/timesheet-entry":
+  //       return { title: "Timesheet Entry" };
+  //     case "/dashboard/timesheet-review":
+  //       return { title: "Timesheet Review" };
+  //     case "/dashboard/timesheet-reports":
+  //       return { title: "Timesheet Reports" };
+  //     case "/dashboard/roaster-availablity":
+  //       return { title: "Availability Entry" };
+  //     case "/dashboard/availability-overview":
+  //       return { title: "Availability Overview" };
+  //     default:
+  //       return { title: "Dashboard" };
+  //   }
+  // };
 
-  const breadcrumb = getHeaderBreadcrumb(pathname);
+  // const pinnedLinks: SidebarLink[] = [
+  //   {
+  //     name: "Refill Planner",
+  //     href: "/dashboard/refill-planner",
+  //     icon: ClipboardList,
+  //   },
+  //   {
+  //     name: "Purchase Orders",
+  //     href: "/dashboard/purchase-orders",
+  //     icon: FileText,
+  //   },
+  //   { name: "Deliveries", href: "/dashboard/deliveries", icon: PackageOpen },
+  // ];
 
-  const pinnedLinks: SidebarLink[] = [
-    {
-      name: "Refill Planner",
-      href: "/dashboard/refill-planner",
-      icon: ClipboardList,
-    },
-    {
-      name: "Purchase Orders",
-      href: "/dashboard/purchase-orders",
-      icon: FileText,
-    },
-    { name: "Deliveries", href: "/dashboard/deliveries", icon: PackageOpen },
-  ];
-
-  const overviewLinks: SidebarLink[] = [
-    { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-    { name: "Businesses", href: "/dashboard/business", icon: Building2 },
-  ];
-
-  const masterDataLinks: SidebarLink[] = [
-    { name: "Locations", href: "/dashboard/locations", icon: MapPin },
-    { name: "Suppliers", href: "/dashboard/suppliers", icon: Truck },
-    { name: "Categories", href: "/dashboard/categories", icon: Layers },
-    { name: "Stock Items", href: "/dashboard/stock-items", icon: Package },
-    { name: "Recipes", href: "/dashboard/recipes", icon: ChefHat },
-  ];
-
-  const operationsLinks: SidebarLink[] = [
+  const inventoryLinks: SidebarLink[] = [
     { name: "Stock Counts", href: "/dashboard/counts", icon: ClipboardList },
     {
       name: "Refill Planner",
       href: "/dashboard/refill-planner",
-      icon: ClipboardList,
+      icon: Calendar,
     },
     {
       name: "Purchase Orders",
       href: "/dashboard/purchase-orders",
       icon: FileText,
     },
-    { name: "Deliveries", href: "/dashboard/deliveries", icon: PackageOpen },
+    { name: "Deliveries", href: "/dashboard/deliveries", icon: Truck },
   ];
 
   const salesLinks: SidebarLink[] = [
-    { name: "Sales Entry", href: "/dashboard/sales", icon: FilePlusCorner },
     {
-      name: "Sales Imports",
-      href: "/dashboard/sales-imports",
-      icon: FileDown,
+      name: "Manual Sales Entry",
+      href: "/dashboard/sales",
+      icon: ShoppingCart,
     },
+    { name: "Sales Imports", href: "/dashboard/sales-imports", icon: FileDown },
   ];
 
-  const analysisLinks: SidebarLink[] = [
-    { name: "Consumption", href: "/dashboard/consumption", icon: ShoppingCart },
+  const reportsLinks: SidebarLink[] = [
+    { name: "Consumption", href: "/dashboard/consumption", icon: BarChart2 },
     { name: "Reconciliation", href: "/dashboard/reconciliation", icon: Scale },
-  ];
-
-  const adminLinks: SidebarLink[] = [
-    // { name: "Users", href: "/dashboard/users", icon: Users },
-    { name: "Settings", href: "/dashboard/settings", icon: Settings },
-  ];
-
-  const staffOperationsLinks: SidebarLink[] = [
     {
-      name: "Staff Dashboard",
-      href: "/dashboard/staff-dashboard",
-      icon: LayoutDashboard,
+      name: "Reports",
+      href: "/dashboard/timesheet-reports",
+      icon: FileChartColumn,
     },
+  ];
+
+  const businessSetupLinks: SidebarLink[] = [
+    { name: "Business", href: "/dashboard/business", icon: Building2 },
+    { name: "Locations", href: "/dashboard/locations", icon: MapPin },
+  ];
+
+  const inventorySetupLinks: SidebarLink[] = [
+    { name: "Stock Items", href: "/dashboard/stock-items", icon: Package },
+    { name: "Categories", href: "/dashboard/categories", icon: Layers },
+    { name: "Suppliers", href: "/dashboard/suppliers", icon: Van },
+    { name: "Recipes", href: "/dashboard/recipes", icon: ChefHat },
+  ];
+
+  const staffLinks: SidebarLink[] = [
     {
       name: "Staff Directory",
       href: "/dashboard/staff-directory",
-      icon: Users,
+      icon: IdCard,
     },
     {
-      name: "Timesheet Entry",
-      href: "/dashboard/timesheet-entry",
-      icon: FilePlusCorner,
-    },
-    {
-      name: "Timesheet Review",
-      href: "/dashboard/timesheet-review",
-      icon: FileText,
-    },
-    {
-      name: "Timesheet Reports",
-      href: "/dashboard/timesheet-reports",
-      icon: FileText,
+      name: "Availability Entry",
+      href: "/dashboard/roaster-availablity",
+      icon: CalendarPlus,
     },
     {
       name: "Availability Overview",
       href: "/dashboard/availability-overview",
-      icon: ClipboardList,
+      icon: CalendarSearch,
+    },
+    {
+      name: "Timesheet Entry",
+      href: "/dashboard/timesheet-entry",
+      icon: ClockPlus,
+    },
+    {
+      name: "Timesheet Review",
+      href: "/dashboard/timesheet-review",
+      icon: ClockCheck,
+    },
+    {
+      name: "Timesheet Reports",
+      href: "/dashboard/timesheet-reports",
+      icon: ClipboardClock,
     },
   ];
 
-  const roasterLinks: SidebarLink[] = [
-    {
-      name: "Availability Entry",
-      href: "/dashboard/roaster-availablity",
-      icon: ClipboardList,
-    },
+  const settingsLinks: SidebarLink[] = [
+    { name: "Settings", href: "/dashboard/settings", icon: Settings },
+  ];
+
+  const accountLinks: SidebarLink[] = [
+    { name: "Profile", href: "/dashboard/profile", icon: User },
   ];
 
   const userRole = profile?.role || "staff";
@@ -389,50 +396,54 @@ export default function DashboardLayout({
 
   const isLinkAllowed = (href: string) => {
     if (allowedHrefs.includes("*")) return true;
+    if (
+      href === "/login" ||
+      href === "/dashboard/profile" ||
+      href === "/dashboard/users"
+    ) {
+      return true;
+    }
     return allowedHrefs.includes(href);
   };
 
-  const filteredPinnedLinks = pinnedLinks.filter((link) =>
-    isLinkAllowed(link.href),
-  );
-  const filteredOverviewLinks = overviewLinks.filter((link) =>
-    isLinkAllowed(link.href),
-  );
-  const filteredMasterDataLinks = masterDataLinks.filter((link) =>
-    isLinkAllowed(link.href),
-  );
-  const filteredOperationsLinks = operationsLinks.filter((link) =>
-    isLinkAllowed(link.href),
-  );
-  const filteredStaffOperationsLinks = staffOperationsLinks.filter((link) =>
+  const filteredInventoryLinks = inventoryLinks.filter((link) =>
     isLinkAllowed(link.href),
   );
   const filteredSalesLinks = salesLinks.filter((link) =>
     isLinkAllowed(link.href),
   );
-  const filteredAnalysisLinks = analysisLinks.filter((link) =>
+  const filteredReportsLinks = reportsLinks.filter((link) =>
     isLinkAllowed(link.href),
   );
-  const filteredAdminLinks = adminLinks.filter((link) =>
+  const filteredBusinessSetupLinks = businessSetupLinks.filter((link) =>
     isLinkAllowed(link.href),
   );
-  const filteredRoasterLinks = roasterLinks.filter((link) =>
+  const filteredInventorySetupLinks = inventorySetupLinks.filter((link) =>
+    isLinkAllowed(link.href),
+  );
+  const filteredStaffLinks = staffLinks.filter((link) =>
+    isLinkAllowed(link.href),
+  );
+  const filteredSettingsLinks = settingsLinks.filter((link) =>
+    isLinkAllowed(link.href),
+  );
+  const filteredAccountLinks = accountLinks.filter((link) =>
     isLinkAllowed(link.href),
   );
 
   const isActive = (href: string) => pathname === href;
 
   const toggleGroup = (groupName: string) => {
-    setCollapsedGroups((prev) => ({
-      ...prev,
-      [groupName]: !prev[groupName],
-    }));
+    setCollapsedGroups((prev) => {
+      const isCurrentlyCollapsed = prev[groupName] !== false;
+      return {
+        [groupName]: !isCurrentlyCollapsed,
+      };
+    });
   };
 
-  const isGroupCollapsed = (groupName: string, links: SidebarLink[]) => {
-    // Auto-expand if the active page is in this group
-    if (links.some((link) => isActive(link.href))) return false;
-    return !!collapsedGroups[groupName];
+  const isGroupCollapsed = (groupName: string) => {
+    return collapsedGroups[groupName] !== false;
   };
 
   const renderLink = (
@@ -442,7 +453,7 @@ export default function DashboardLayout({
   ) => {
     const active = isActive(link.href);
     return (
-      <a
+      <Link
         key={link.href}
         href={link.href}
         title={isCollapsed ? link.name : undefined}
@@ -451,7 +462,7 @@ export default function DashboardLayout({
           router.push(link.href);
           setMobileSidebarOpen(false);
         }}
-        className={`flex items-center ${isCollapsed ? "justify-center" : "justify-between"} px-3 py-2 rounded-lg text-xs font-bold transition-all duration-200 cursor-pointer ${
+        className={`flex items-center ${isCollapsed ? "justify-center" : "justify-between"} px-3 py-2 rounded-lg text-sm font-bold transition-all duration-200 cursor-pointer ${
           active
             ? "bg-[#DCFCE7] text-[#16A34A]"
             : "text-zinc-600 hover:text-[#0F172A] hover:bg-zinc-200/50"
@@ -466,7 +477,7 @@ export default function DashboardLayout({
         {!isCollapsed && hasGrip && (
           <GripVertical className="h-3.5 w-3.5 text-zinc-300 opacity-0 group-hover:opacity-100 transition-opacity" />
         )}
-      </a>
+      </Link>
     );
   };
 
@@ -479,9 +490,7 @@ export default function DashboardLayout({
     if (links.length === 0 && !options?.extraContent) {
       return null;
     }
-    const collapsed = isSidebarCollapsed
-      ? false
-      : isGroupCollapsed(groupName, links);
+    const collapsed = isSidebarCollapsed ? false : isGroupCollapsed(groupName);
     return (
       <div key={groupName} className="space-y-1">
         {!isSidebarCollapsed ? (
@@ -489,7 +498,7 @@ export default function DashboardLayout({
             onClick={() => toggleGroup(groupName)}
             className="w-full flex items-center justify-between px-3 py-1 cursor-pointer group/header hover:bg-zinc-200/30 rounded-md transition-colors"
           >
-            <span className="text-[9px] uppercase font-extrabold tracking-widest text-[#64748B] group-hover/header:text-zinc-700 transition-colors">
+            <span className="text-[12px] uppercase font-extrabold tracking-widest text-[#64748B] group-hover/header:text-zinc-700 transition-colors">
               {groupName}
             </span>
             <ChevronRight
@@ -547,7 +556,7 @@ export default function DashboardLayout({
   return (
     <div className="relative min-h-screen flex bg-white text-[#0F172A] font-sans overflow-x-hidden">
       <aside
-        className={`hidden lg:flex flex-col ${sidebarCollapsed ? "w-16 px-2 py-4" : "w-60 p-4"} border-r border-zinc-200 bg-[#F1F5F9] shrink-0 sticky top-0 h-screen z-20 overflow-y-auto transition-all duration-300`}
+        className={`hidden lg:flex flex-col ${sidebarCollapsed ? "w-16 px-2 py-4" : "w-60 p-4"} border-r border-zinc-200 bg-[#F1F5F9] shrink-0 sticky top-0 h-screen z-20 overflow-y-auto scrollbar-thin scrollbar-track-slate-100 scrollbar-thumb-gray-400 hover:scrollbar-thumb-gray-500 transition-all duration-300`}
       >
         <div
           className={`flex items-center ${sidebarCollapsed ? "justify-center" : "justify-between"} mb-5`}
@@ -555,12 +564,12 @@ export default function DashboardLayout({
           <div className="flex items-center gap-2">
             <div className="h-7 w-7 rounded-lg bg-[#DCFCE7] border border-[#16A34A]/20 flex items-center justify-center shadow-sm">
               <span className="text-[#16A34A] font-extrabold text-base tracking-tighter">
-                S
+                N
               </span>
             </div>
             {!sidebarCollapsed && (
               <span className="font-extrabold text-base tracking-tight text-[#0F172A]">
-                StockTrack
+                NexBrix
               </span>
             )}
           </div>
@@ -576,58 +585,59 @@ export default function DashboardLayout({
           </button>
         </div>
 
-        <div className="flex-1 space-y-3">
+        <div className="flex-1 space-y-4">
+          {isLinkAllowed("/dashboard") &&
+            renderLink(
+              { name: "Dashboard", href: "/dashboard", icon: House },
+              false,
+              sidebarCollapsed,
+            )}
+
           {renderGroup(
-            "Pinned",
-            filteredPinnedLinks,
-            { hasGrip: true },
-            sidebarCollapsed,
-          )}
-          {renderGroup(
-            "Overview",
-            filteredOverviewLinks,
+            "Inventory",
+            filteredInventoryLinks,
             undefined,
             sidebarCollapsed,
           )}
           {renderGroup(
-            "Inventory Setup",
-            filteredMasterDataLinks,
-            undefined,
-            sidebarCollapsed,
-          )}
-          {renderGroup(
-            "Stock Operations",
-            filteredOperationsLinks,
-            undefined,
-            sidebarCollapsed,
-          )}
-          {renderGroup(
-            "Staff Operations",
-            filteredStaffOperationsLinks,
-            undefined,
-            sidebarCollapsed,
-          )}
-          {renderGroup(
-            "Roaster",
-            filteredRoasterLinks,
-            undefined,
-            sidebarCollapsed,
-          )}
-          {renderGroup(
-            "Sales & Usage",
+            "Sales",
             filteredSalesLinks,
             undefined,
             sidebarCollapsed,
           )}
           {renderGroup(
-            "Analysis",
-            filteredAnalysisLinks,
+            "Reports",
+            filteredReportsLinks,
             undefined,
             sidebarCollapsed,
           )}
           {renderGroup(
-            "Admin",
-            filteredAdminLinks,
+            "Business Setup",
+            filteredBusinessSetupLinks,
+            undefined,
+            sidebarCollapsed,
+          )}
+          {renderGroup(
+            "Inventory Setup",
+            filteredInventorySetupLinks,
+            undefined,
+            sidebarCollapsed,
+          )}
+          {renderGroup(
+            "Staff",
+            filteredStaffLinks,
+            undefined,
+            sidebarCollapsed,
+          )}
+          {renderGroup(
+            "Settings",
+            filteredSettingsLinks,
+            undefined,
+            sidebarCollapsed,
+          )}
+          {renderGroup(
+            "Account",
+            filteredAccountLinks,
             {
               extraContent: (
                 <button
@@ -663,23 +673,29 @@ export default function DashboardLayout({
             <div className="flex items-center gap-2 mb-5">
               <div className="h-7 w-7 rounded-lg bg-[#DCFCE7] border border-[#16A34A]/20 flex items-center justify-center">
                 <span className="text-[#16A34A] font-extrabold text-base tracking-tighter">
-                  S
+                  N
                 </span>
               </div>
               <span className="font-extrabold text-base tracking-tight text-[#0F172A]">
-                StockTrack
+                NexBrix
               </span>
             </div>
 
             <div className="flex-1 space-y-3">
-              {renderGroup("Pinned", filteredPinnedLinks, { hasGrip: true })}
-              {renderGroup("Overview", filteredOverviewLinks)}
-              {renderGroup("Inventory Setup", filteredMasterDataLinks)}
-              {renderGroup("Stock Operations", filteredOperationsLinks)}
-              {renderGroup("Staff Operations", filteredStaffOperationsLinks)}
-              {renderGroup("Sales & Usage", filteredSalesLinks)}
-              {renderGroup("Analysis", filteredAnalysisLinks)}
-              {renderGroup("Admin", filteredAdminLinks, {
+              {isLinkAllowed("/dashboard") &&
+                renderLink({
+                  name: "Dashboard",
+                  href: "/dashboard",
+                  icon: LayoutDashboard,
+                })}
+              {renderGroup("Inventory", filteredInventoryLinks)}
+              {renderGroup("Sales", filteredSalesLinks)}
+              {renderGroup("Reports", filteredReportsLinks)}
+              {renderGroup("Business Setup", filteredBusinessSetupLinks)}
+              {renderGroup("Inventory Setup", filteredInventorySetupLinks)}
+              {renderGroup("Staff", filteredStaffLinks)}
+              {renderGroup("Settings", filteredSettingsLinks)}
+              {renderGroup("Account", filteredAccountLinks, {
                 extraContent: (
                   <button
                     onClick={handleLogout}
