@@ -294,7 +294,7 @@ export default function LocationsPage() {
             </p>
           </div>
 
-          {profile?.role === "admin" || profile?.role === "super_admin" && (
+          {(profile?.role === "admin" || profile?.role === "super_admin") && (
             <button
               onClick={openAddDrawer}
               className="bg-[#16A34A] hover:bg-[#15803D] text-white rounded-xl px-5 py-2.5 text-xs font-bold uppercase tracking-wider shadow-sm flex items-center gap-2 cursor-pointer transition-all duration-200"
