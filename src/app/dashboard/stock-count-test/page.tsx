@@ -48,9 +48,9 @@ const formatDateDisplay = (dateStr: string) => {
 };
 
 export default function StockCountTestPage() {
+  const { profile } = useAuth();
   const { activeBusinessId } = useBusinessStore();
   const { activeLocationId } = useLocationStore();
-  const { profile } = useAuth();
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -413,9 +413,9 @@ export default function StockCountTestPage() {
         "All Categories";
 
   return (
-    <div className="flex flex-col bg-white min-h-[85vh] relative select-none pb-12">
-      <div className="flex-1 min-w-0 space-y-6">
-        <div className="border border-zinc-200 rounded-3xl p-6 bg-white flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+    <div className="flex flex-col bg-white h-[calc(100vh-88px)] overflow-hidden relative select-none">
+      <div className="flex-1 min-w-0 flex flex-col space-y-3 min-h-0">
+        <div className="border border-zinc-200 rounded-xl py-3 px-4 bg-white flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shrink-0">
           <div>
             <h1 className="text-2xl font-extrabold text-zinc-900 tracking-tight">
               Stock Counts
@@ -438,7 +438,7 @@ export default function StockCountTestPage() {
           </div>
         </div>
 
-        <div className="flex flex-col sm:flex-row gap-3 justify-between items-stretch sm:items-center">
+        <div className="flex flex-col sm:flex-row gap-3 justify-between items-stretch sm:items-center shrink-0">
           <div className="relative w-full sm:max-w-xs md:max-w-md">
             <span className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-zinc-400">
               <Search className="h-4 w-4" />
@@ -529,11 +529,11 @@ export default function StockCountTestPage() {
           </div>
         )}
 
-        <div className="bg-white border border-zinc-200 rounded-3xl overflow-hidden shadow-2xs">
-          <div className="overflow-x-auto">
+        <div className="bg-white border border-zinc-200 rounded-3xl shadow-2xs flex-1 min-h-0 flex flex-col overflow-hidden">
+          <div className="overflow-x-auto overflow-y-auto scrollbar-thin scrollbar-track-slate-100 scrollbar-thumb-gray-400 hover:scrollbar-thumb-gray-500 transition-all duration-300 flex-1 min-h-0">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="text-[10px] uppercase font-extrabold tracking-wider text-zinc-400 border-b border-zinc-100 bg-white">
+                <tr className="text-[10px] uppercase font-extrabold tracking-wider text-zinc-400 border-b border-zinc-100 bg-white sticky top-0 z-10">
                   <th className="py-5 px-8">Item Name</th>
                   <th className="py-5 px-6 text-center w-48">1st Option</th>
                   <th className="py-5 px-6 text-center w-48">2nd Option</th>
@@ -693,7 +693,7 @@ export default function StockCountTestPage() {
           </div>
         </div>
 
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 py-4 mt-2">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 py-2 shrink-0">
           <div className="flex items-center gap-2 text-xs font-bold text-zinc-500 rounded-full px-3 py-1">
             {lastAutoSave ? (
               <>
