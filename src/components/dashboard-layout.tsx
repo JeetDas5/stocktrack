@@ -11,50 +11,53 @@ import { useLocationStore } from "@/stores/location-store";
 import { useBusinessStore } from "@/stores/business-store";
 import sidebarPermissions from "@/config/sidebar-permissions.json";
 import { getUserBusinesses } from "@/lib/repositories/business.repository";
+import { HugeiconsIcon } from "@hugeicons/react";
 import {
-  LayoutDashboard,
-  MapPin,
-  Layers,
-  Package,
-  Truck,
-  ChefHat,
-  ClipboardList,
-  FileText,
-  FileChartColumn,
-  Scale,
-  LogOut,
-  Building2,
-  ChevronDown,
-  ChevronRight,
-  Menu,
-  X,
-  Loader2,
-  Bell,
-  GripVertical,
-  Settings,
-  ChevronsLeft,
-  ChevronsRight,
-  Check,
-  ShoppingCart,
-  FileDown,
-  Calendar,
-  BarChart2,
-  User,
-  House,
-  Van,
-  IdCard,
-  CalendarPlus,
-  CalendarSearch,
-  ClockPlus,
-  ClockCheck,
-  ClipboardClock,
-} from "lucide-react";
+  DashboardCircleIcon,
+  MapPinIcon,
+  Layers01Icon,
+  PackageIcon,
+  TruckDeliveryIcon,
+  ChefHatIcon,
+  CheckListIcon,
+  Invoice01Icon,
+  Analytics01Icon,
+  BalanceScaleIcon,
+  Logout01Icon,
+  Building01Icon,
+  ChevronDownIcon,
+  Menu01Icon,
+  Cancel01Icon,
+  ListViewIcon,
+  UserGroupIcon,
+  Loading01Icon,
+  BellIcon,
+  MenuTwoLineIcon,
+  Settings01Icon,
+  ChevronsLeftIcon,
+  ChevronsRightIcon,
+  CheckIcon,
+  ShoppingCartIcon,
+  FileImportIcon,
+  CalendarClockIcon,
+  UserIcon,
+  ShippingTruck01Icon,
+  IdentityCardIcon,
+  CalendarPlusIcon,
+  CalendarSearchIcon,
+  ClockPlusIcon,
+  ClockCheckIcon,
+  ClipboardClockIcon,
+  Briefcase01Icon,
+  Location06Icon,
+  Location03Icon,
+} from "@hugeicons/core-free-icons";
 import Link from "next/link";
 
 interface SidebarLink {
   name: string;
   href: string;
-  icon: React.ComponentType<{ className?: string }>;
+  icon: any;
 }
 
 export default function DashboardLayout({
@@ -304,90 +307,110 @@ export default function DashboardLayout({
   // ];
 
   const inventoryLinks: SidebarLink[] = [
-    { name: "Stock Counts", href: "/dashboard/counts", icon: ClipboardList },
+    { name: "Stock Counts", href: "/dashboard/counts", icon: Layers01Icon },
     {
-      name: "Refill Planner",
+      name: "Restock Planner",
       href: "/dashboard/refill-planner",
-      icon: Calendar,
+      icon: CalendarClockIcon,
     },
     {
       name: "Purchase Orders",
       href: "/dashboard/purchase-orders",
-      icon: FileText,
+      icon: Invoice01Icon,
     },
-    { name: "Deliveries", href: "/dashboard/deliveries", icon: Truck },
+    {
+      name: "Deliveries",
+      href: "/dashboard/deliveries",
+      icon: TruckDeliveryIcon,
+    },
   ];
 
   const salesLinks: SidebarLink[] = [
     {
       name: "Manual Sales Entry",
       href: "/dashboard/sales",
-      icon: ShoppingCart,
+      icon: ShoppingCartIcon,
     },
-    { name: "Sales Imports", href: "/dashboard/sales-imports", icon: FileDown },
+    {
+      name: "Sales Imports",
+      href: "/dashboard/sales-imports",
+      icon: FileImportIcon,
+    },
   ];
 
   const reportsLinks: SidebarLink[] = [
-    { name: "Consumption", href: "/dashboard/consumption", icon: BarChart2 },
-    { name: "Reconciliation", href: "/dashboard/reconciliation", icon: Scale },
+    {
+      name: "Consumption",
+      href: "/dashboard/consumption",
+      icon: Analytics01Icon,
+    },
+    {
+      name: "Reconciliation",
+      href: "/dashboard/reconciliation",
+      icon: BalanceScaleIcon,
+    },
     {
       name: "Reports",
       href: "/dashboard/timesheet-reports",
-      icon: FileChartColumn,
+      icon: Analytics01Icon,
     },
   ];
 
   const businessSetupLinks: SidebarLink[] = [
-    { name: "Business", href: "/dashboard/business", icon: Building2 },
-    { name: "Locations", href: "/dashboard/locations", icon: MapPin },
+    { name: "Business", href: "/dashboard/business", icon: Building01Icon },
+    { name: "Locations", href: "/dashboard/locations", icon: Location06Icon },
   ];
 
   const inventorySetupLinks: SidebarLink[] = [
-    { name: "Stock Items", href: "/dashboard/stock-items", icon: Package },
-    { name: "Categories", href: "/dashboard/categories", icon: Layers },
-    { name: "Suppliers", href: "/dashboard/suppliers", icon: Van },
-    { name: "Recipes", href: "/dashboard/recipes", icon: ChefHat },
+    { name: "Stock Items", href: "/dashboard/stock-items", icon: PackageIcon },
+    { name: "Categories", href: "/dashboard/categories", icon: Layers01Icon },
+    {
+      name: "Suppliers",
+      href: "/dashboard/suppliers",
+      icon: ShippingTruck01Icon,
+    },
+    { name: "Recipes", href: "/dashboard/recipes", icon: ChefHatIcon },
   ];
 
   const staffLinks: SidebarLink[] = [
     {
       name: "Staff Directory",
       href: "/dashboard/staff-directory",
-      icon: IdCard,
+      icon: IdentityCardIcon,
     },
     {
       name: "Availability Entry",
       href: "/dashboard/availablity-entry",
-      icon: CalendarPlus,
+      icon: CalendarPlusIcon,
     },
     {
       name: "Availability Overview",
       href: "/dashboard/availability-overview",
-      icon: CalendarSearch,
+      icon: CalendarSearchIcon,
     },
     {
       name: "Timesheet Entry",
       href: "/dashboard/timesheet-entry",
-      icon: ClockPlus,
+      icon: ClockPlusIcon,
     },
     {
       name: "Timesheet Review",
       href: "/dashboard/timesheet-review",
-      icon: ClockCheck,
+      icon: ClockCheckIcon,
     },
     {
       name: "Timesheet Reports",
       href: "/dashboard/timesheet-reports",
-      icon: ClipboardClock,
+      icon: ClipboardClockIcon,
     },
   ];
 
   const settingsLinks: SidebarLink[] = [
-    { name: "Settings", href: "/dashboard/settings", icon: Settings },
+    { name: "Settings", href: "/dashboard/settings", icon: Settings01Icon },
   ];
 
   const accountLinks: SidebarLink[] = [
-    { name: "Profile", href: "/dashboard/profile", icon: User },
+    { name: "Profile", href: "/dashboard/profile", icon: UserIcon },
   ];
 
   const userRole = profile?.role || "staff";
@@ -424,9 +447,6 @@ export default function DashboardLayout({
   const filteredStaffLinks = staffLinks.filter((link) =>
     isLinkAllowed(link.href),
   );
-  const filteredSettingsLinks = settingsLinks.filter((link) =>
-    isLinkAllowed(link.href),
-  );
   const filteredAccountLinks = accountLinks.filter((link) =>
     isLinkAllowed(link.href),
   );
@@ -446,6 +466,17 @@ export default function DashboardLayout({
     return collapsedGroups[groupName] !== false;
   };
 
+  const groupIcons: Record<string, any> = {
+    Inventory: ListViewIcon,
+    Sales: ShoppingCartIcon,
+    Reports: Analytics01Icon,
+    "Business Setup": Building01Icon,
+    "Inventory Setup": PackageIcon,
+    Staff: UserGroupIcon,
+    Account: UserIcon,
+    Settings: Settings01Icon,
+  };
+
   const renderLink = (
     link: SidebarLink,
     hasGrip = false,
@@ -462,20 +493,26 @@ export default function DashboardLayout({
           router.push(link.href);
           setMobileSidebarOpen(false);
         }}
-        className={`flex items-center ${isCollapsed ? "justify-center" : "justify-between"} px-3 py-2 rounded-lg text-sm font-bold transition-all duration-200 cursor-pointer ${
+        className={`flex items-center ${isCollapsed ? "justify-center" : "justify-between"} px-3 py-2 rounded-lg text-sm font-semibold transition-all duration-200 cursor-pointer ${
           active
-            ? "bg-[#DCFCE7] text-[#16A34A]"
-            : "text-zinc-600 hover:text-[#0F172A] hover:bg-zinc-200/50"
+            ? "bg-gray-soft/60 text-black"
+            : "text-gray-dark hover:text-black hover:bg-gray-soft/30"
         }`}
       >
         <div className="flex items-center gap-2.5">
-          <link.icon
-            className={`h-4.5 w-4.5 ${active ? "text-[#16A34A]" : "text-zinc-400"}`}
+          <HugeiconsIcon
+            icon={link.icon}
+            size={18}
+            className={`${active ? "text-black" : "text-gray-muted"}`}
           />
           {!isCollapsed && <span>{link.name}</span>}
         </div>
         {!isCollapsed && hasGrip && (
-          <GripVertical className="h-3.5 w-3.5 text-zinc-300 opacity-0 group-hover:opacity-100 transition-opacity" />
+          <HugeiconsIcon
+            icon={MenuTwoLineIcon}
+            size={14}
+            className="text-gray-light opacity-0 group-hover:opacity-100 transition-opacity"
+          />
         )}
       </Link>
     );
@@ -491,52 +528,67 @@ export default function DashboardLayout({
       return null;
     }
     const collapsed = isSidebarCollapsed ? false : isGroupCollapsed(groupName);
+    const GroupIcon = groupIcons[groupName] || CheckListIcon;
+
     return (
       <div key={groupName} className="space-y-1">
         {!isSidebarCollapsed ? (
           <button
             onClick={() => toggleGroup(groupName)}
-            className="w-full flex items-center justify-between px-3 py-1 cursor-pointer group/header hover:bg-zinc-200/30 rounded-md transition-colors"
+            className="w-full flex items-center justify-between px-3 py-2 cursor-pointer group/header hover:bg-gray-soft/20 rounded-lg transition-colors text-gray-dark hover:text-black font-bold"
           >
-            <span className="text-[12px] uppercase font-extrabold tracking-widest text-[#64748B] group-hover/header:text-zinc-700 transition-colors">
-              {groupName}
-            </span>
-            <ChevronRight
-              className={`h-3 w-3 text-zinc-400 transition-transform duration-200 ${
-                collapsed ? "" : "rotate-90"
+            <div className="flex items-center gap-2.5">
+              <HugeiconsIcon
+                icon={GroupIcon}
+                size={18}
+                className="text-gray-muted group-hover/header:text-black transition-colors"
+              />
+              <span className="text-[12px] uppercase font-bold tracking-widest">
+                {groupName}
+              </span>
+            </div>
+            <HugeiconsIcon
+              icon={ChevronDownIcon}
+              size={16}
+              className={`text-gray-light group-hover/header:text-gray-dark transition-transform duration-200 ${
+                collapsed ? "" : "rotate-180"
               }`}
             />
           </button>
         ) : (
-          <div className="border-t border-zinc-200 my-2 first:hidden" />
+          <div className="border-t border-gray-soft my-2 first:hidden" />
         )}
         <div
-          className={`space-y-0.5 overflow-hidden transition-all duration-200 ${
-            collapsed ? "max-h-0 opacity-0" : "max-h-[500px] opacity-100"
-          }`}
+          className={`accordion-grid ${collapsed ? "" : "accordion-grid-open"}`}
         >
-          {links.map((link) =>
-            options?.hasGrip && !isSidebarCollapsed ? (
-              <div key={link.href} className="group relative">
-                {renderLink(link, true, isSidebarCollapsed)}
-              </div>
-            ) : (
-              renderLink(link, false, isSidebarCollapsed)
-            ),
-          )}
-          {options?.extraContent &&
-            (!isSidebarCollapsed || groupName === "Admin") &&
-            (isSidebarCollapsed ? (
-              <button
-                onClick={handleLogout}
-                title="Log Out"
-                className="w-full flex items-center justify-center px-3 py-2 rounded-lg text-xs font-bold text-zinc-600 hover:text-[#EF4444] hover:bg-rose-50/50 transition-all cursor-pointer"
-              >
-                <LogOut className="h-4.5 w-4.5 text-zinc-400" />
-              </button>
-            ) : (
-              options.extraContent
-            ))}
+          <div className="accordion-grid-inner pl-4 space-y-0.5">
+            {links.map((link) =>
+              options?.hasGrip && !isSidebarCollapsed ? (
+                <div key={link.href} className="group relative">
+                  {renderLink(link, true, isSidebarCollapsed)}
+                </div>
+              ) : (
+                renderLink(link, false, isSidebarCollapsed)
+              ),
+            )}
+            {options?.extraContent &&
+              (!isSidebarCollapsed || groupName === "Admin") &&
+              (isSidebarCollapsed ? (
+                <button
+                  onClick={handleLogout}
+                  title="Log Out"
+                  className="w-full flex items-center justify-center px-3 py-2 rounded-lg text-xs font-bold text-gray-dark hover:text-red-500 hover:bg-red-50/50 transition-all cursor-pointer"
+                >
+                  <HugeiconsIcon
+                    icon={Logout01Icon}
+                    size={18}
+                    className="text-gray-muted"
+                  />
+                </button>
+              ) : (
+                options.extraContent
+              ))}
+          </div>
         </div>
       </div>
     );
@@ -544,9 +596,12 @@ export default function DashboardLayout({
 
   if (authLoading || loading) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-[#F1F5F9] text-[#0F172A]">
-        <Loader2 className="h-8 w-8 text-[#16A34A] animate-spin mb-4" />
-        <p className="text-[#64748B] text-sm font-semibold uppercase tracking-wider">
+      <div className="min-h-screen flex flex-col items-center justify-center bg-white text-black">
+        <HugeiconsIcon
+          icon={Loading01Icon}
+          className="h-8 w-8 text-black animate-spin mb-4"
+        />
+        <p className="text-gray-dark text-sm font-semibold uppercase tracking-wider">
           Syncing dashboard workspace...
         </p>
       </div>
@@ -554,44 +609,59 @@ export default function DashboardLayout({
   }
 
   return (
-    <div className="relative min-h-screen flex bg-white text-[#0F172A] font-sans overflow-x-hidden">
+    <div className="relative min-h-screen flex bg-white text-black font-sans overflow-x-hidden">
       <aside
-        className={`hidden lg:flex flex-col ${sidebarCollapsed ? "w-16 px-2 py-4" : "w-60 p-4"} border-r border-zinc-200 bg-[#F1F5F9] shrink-0 sticky top-0 h-screen z-20 overflow-y-auto scrollbar-thin scrollbar-track-slate-100 scrollbar-thumb-gray-400 hover:scrollbar-thumb-gray-500 transition-all duration-300`}
+        className={`hidden lg:flex flex-col ${sidebarCollapsed ? "w-16 px-2 py-4" : "w-60 p-4"} border-r border-gray-soft bg-white shrink-0 sticky top-0 h-screen z-20 overflow-y-auto scrollbar-thin scrollbar-track-slate-100 scrollbar-thumb-gray-400 hover:scrollbar-thumb-gray-500 transition-all duration-300`}
       >
         <div
           className={`flex items-center ${sidebarCollapsed ? "justify-center" : "justify-between"} mb-5`}
         >
           <div className="flex items-center gap-2">
-            <div className="h-7 w-7 rounded-lg bg-[#DCFCE7] border border-[#16A34A]/20 flex items-center justify-center shadow-sm">
-              <span className="text-[#16A34A] font-extrabold text-base tracking-tighter">
-                N
-              </span>
-            </div>
+            <div className="h-8 w-8 rounded-xl bg-white text-black flex items-center justify-center shadow-sm">N</div>
             {!sidebarCollapsed && (
-              <span className="font-extrabold text-base tracking-tight text-[#0F172A]">
+              <span className="font-bold text-base tracking-tight text-black">
                 NexBrix
               </span>
             )}
           </div>
           <button
             onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-            className="p-1 rounded-lg hover:bg-zinc-200/50 text-zinc-400 hover:text-zinc-600"
+            className="p-1 rounded-lg hover:bg-gray-soft/30 text-gray-muted hover:text-black cursor-pointer transition-colors"
           >
-            {sidebarCollapsed ? (
-              <ChevronsRight className="h-4 w-4" />
-            ) : (
-              <ChevronsLeft className="h-4 w-4" />
-            )}
+            <HugeiconsIcon
+              icon={sidebarCollapsed ? ChevronsRightIcon : ChevronsLeftIcon}
+              size={16}
+            />
           </button>
         </div>
 
         <div className="flex-1 space-y-4">
-          {isLinkAllowed("/dashboard") &&
-            renderLink(
-              { name: "Dashboard", href: "/dashboard", icon: House },
-              false,
-              sidebarCollapsed,
-            )}
+          {isLinkAllowed("/dashboard") && (
+            <Link
+              href="/dashboard"
+              onClick={(e) => {
+                e.preventDefault();
+                router.push("/dashboard");
+                setMobileSidebarOpen(false);
+              }}
+              className={`flex items-center justify-between px-3 py-2.5 rounded-lg text-[12px] font-bold uppercase tracking-widest cursor-pointer transition-all ${
+                isActive("/dashboard")
+                  ? "bg-gray-soft/60 text-black"
+                  : "text-gray-dark hover:text-black hover:bg-gray-soft/20"
+              }`}
+            >
+              <div className="flex items-center gap-2.5">
+                <HugeiconsIcon
+                  icon={DashboardCircleIcon}
+                  size={18}
+                  className={
+                    isActive("/dashboard") ? "text-black" : "text-gray-muted"
+                  }
+                />
+                {!sidebarCollapsed && <span>Dashboard</span>}
+              </div>
+            </Link>
+          )}
 
           {renderGroup(
             "Inventory",
@@ -630,82 +700,158 @@ export default function DashboardLayout({
             sidebarCollapsed,
           )}
           {renderGroup(
-            "Settings",
-            filteredSettingsLinks,
-            undefined,
-            sidebarCollapsed,
-          )}
-          {renderGroup(
             "Account",
             filteredAccountLinks,
             {
               extraContent: (
                 <button
                   onClick={handleLogout}
-                  className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-bold text-zinc-600 hover:text-[#EF4444] hover:bg-rose-50/50 transition-all cursor-pointer"
+                  className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-bold text-gray-dark hover:text-red-500 hover:bg-red-50/50 transition-all cursor-pointer"
                 >
-                  <LogOut className="h-4.5 w-4.5 text-zinc-400" />
+                  <HugeiconsIcon
+                    icon={Logout01Icon}
+                    size={18}
+                    className="text-gray-muted"
+                  />
                   <span>Log Out</span>
                 </button>
               ),
             },
             sidebarCollapsed,
           )}
+
+          {isLinkAllowed("/dashboard/settings") && (
+            <Link
+              href="/dashboard/settings"
+              onClick={(e) => {
+                e.preventDefault();
+                router.push("/dashboard/settings");
+                setMobileSidebarOpen(false);
+              }}
+              className={`flex items-center justify-between px-3 py-2 rounded-lg text-[12px] font-bold uppercase tracking-widest cursor-pointer transition-all ${
+                isActive("/dashboard/settings")
+                  ? "bg-gray-soft/60 text-black"
+                  : "text-gray-dark hover:text-black hover:bg-gray-soft/20"
+              }`}
+            >
+              <div className="flex items-center gap-2.5">
+                <HugeiconsIcon
+                  icon={Settings01Icon}
+                  size={18}
+                  className={
+                    isActive("/dashboard/settings")
+                      ? "text-black"
+                      : "text-gray-muted"
+                  }
+                />
+                {!sidebarCollapsed && <span>Settings</span>}
+              </div>
+            </Link>
+          )}
         </div>
 
         <div
-          className={`pt-4 border-t border-zinc-200 mt-4 text-[10px] font-bold text-[#64748B] ${sidebarCollapsed ? "text-center" : ""}`}
+          className={`pt-4 border-t border-gray-soft mt-4 text-[10px] font-bold text-gray-muted ${sidebarCollapsed ? "text-center" : ""}`}
         >
           {sidebarCollapsed ? "v1.0" : "v1.0.0"}
         </div>
       </aside>
 
       {mobileSidebarOpen && (
-        <div className="lg:hidden fixed inset-0 bg-black/40 backdrop-blur-xs z-30 flex">
-          <aside className="w-60 bg-[#F1F5F9] border-r border-zinc-200 p-4 flex flex-col h-full z-45 relative overflow-y-auto">
+        <div className="lg:hidden fixed inset-0 bg-black/40 backdrop-blur-xs z-30 flex animate-fade-in">
+          <aside className="w-60 bg-white border-r border-gray-soft p-4 flex flex-col h-full z-45 relative overflow-y-auto">
             <button
               onClick={() => setMobileSidebarOpen(false)}
-              className="absolute top-4 right-4 text-zinc-500 hover:text-zinc-900 cursor-pointer"
+              className="absolute top-4 right-4 text-gray-muted hover:text-black cursor-pointer transition-colors"
             >
-              <X className="h-5 w-5" />
+              <HugeiconsIcon icon={Cancel01Icon} size={20} />
             </button>
 
             <div className="flex items-center gap-2 mb-5">
-              <div className="h-7 w-7 rounded-lg bg-[#DCFCE7] border border-[#16A34A]/20 flex items-center justify-center">
-                <span className="text-[#16A34A] font-extrabold text-base tracking-tighter">
-                  N
-                </span>
-              </div>
-              <span className="font-extrabold text-base tracking-tight text-[#0F172A]">
+              <div className="h-8 w-8 rounded-xl bg-black flex items-center justify-center shadow-sm"></div>
+              <span className="font-bold text-base tracking-tight text-black">
                 NexBrix
               </span>
             </div>
 
             <div className="flex-1 space-y-3">
-              {isLinkAllowed("/dashboard") &&
-                renderLink({
-                  name: "Dashboard",
-                  href: "/dashboard",
-                  icon: LayoutDashboard,
-                })}
+              {isLinkAllowed("/dashboard") && (
+                <Link
+                  href="/dashboard"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    router.push("/dashboard");
+                    setMobileSidebarOpen(false);
+                  }}
+                  className={`flex items-center justify-between px-3 py-2.5 rounded-lg text-[12px] font-bold uppercase tracking-widest cursor-pointer transition-all ${
+                    isActive("/dashboard")
+                      ? "bg-gray-soft/60 text-black"
+                      : "text-gray-dark hover:text-black hover:bg-gray-soft/20"
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <HugeiconsIcon
+                      icon={DashboardCircleIcon}
+                      size={18}
+                      className={
+                        isActive("/dashboard")
+                          ? "text-black"
+                          : "text-gray-muted"
+                      }
+                    />
+                    <span>Dashboard</span>
+                  </div>
+                </Link>
+              )}
               {renderGroup("Inventory", filteredInventoryLinks)}
               {renderGroup("Sales", filteredSalesLinks)}
               {renderGroup("Reports", filteredReportsLinks)}
               {renderGroup("Business Setup", filteredBusinessSetupLinks)}
               {renderGroup("Inventory Setup", filteredInventorySetupLinks)}
               {renderGroup("Staff", filteredStaffLinks)}
-              {renderGroup("Settings", filteredSettingsLinks)}
               {renderGroup("Account", filteredAccountLinks, {
                 extraContent: (
                   <button
                     onClick={handleLogout}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-bold text-[#64748B] hover:text-[#EF4444] hover:bg-rose-50/50 cursor-pointer transition-all"
+                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-bold text-gray-dark hover:text-red-500 hover:bg-red-50/50 cursor-pointer transition-all"
                   >
-                    <LogOut className="h-4.5 w-4.5 text-zinc-400" />
+                    <HugeiconsIcon
+                      icon={Logout01Icon}
+                      size={18}
+                      className="text-gray-muted"
+                    />
                     <span>Log Out</span>
                   </button>
                 ),
               })}
+              {isLinkAllowed("/dashboard/settings") && (
+                <Link
+                  href="/dashboard/settings"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    router.push("/dashboard/settings");
+                    setMobileSidebarOpen(false);
+                  }}
+                  className={`flex items-center justify-between px-3 py-2.5 rounded-lg text-[12px] font-bold uppercase tracking-widest cursor-pointer transition-all ${
+                    isActive("/dashboard/settings")
+                      ? "bg-gray-soft/60 text-black"
+                      : "text-gray-dark hover:text-black hover:bg-gray-soft/20"
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <HugeiconsIcon
+                      icon={Settings01Icon}
+                      size={18}
+                      className={
+                        isActive("/dashboard/settings")
+                          ? "text-black"
+                          : "text-gray-muted"
+                      }
+                    />
+                    <span>Settings</span>
+                  </div>
+                </Link>
+              )}
             </div>
           </aside>
           <div className="flex-1" onClick={() => setMobileSidebarOpen(false)} />
@@ -713,148 +859,176 @@ export default function DashboardLayout({
       )}
 
       <div className="flex-1 flex flex-col min-w-0 relative bg-white">
-        <header className="sticky top-0 z-15 bg-white border-b border-zinc-200 px-6 py-3 flex items-center justify-between">
+        <header className="sticky top-0 z-15 bg-white border-b border-gray-soft px-6 py-3 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <button
               onClick={() => setMobileSidebarOpen(true)}
-              className="lg:hidden p-1.5 rounded-lg bg-zinc-100 text-zinc-600 hover:text-[#0F172A] border border-zinc-200 transition-colors cursor-pointer"
+              className="lg:hidden p-1.5 rounded-lg bg-gray-soft/30 text-gray-dark hover:text-black border border-gray-soft/50 transition-colors cursor-pointer"
             >
-              <Menu className="h-4.5 w-4.5" />
+              <HugeiconsIcon icon={Menu01Icon} size={18} />
             </button>
             <div className="flex items-center gap-2">
-              <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider hidden sm:inline-block">
-                Business
-              </span>
-              <div className="relative" ref={businessDropdownRef}>
-                <button
-                  onClick={() =>
-                    setShowHeaderBusinessDropdown(!showHeaderBusinessDropdown)
-                  }
-                  className="flex items-center gap-2 px-3 py-1.5 bg-zinc-100 hover:bg-zinc-200/70 border border-zinc-200 rounded-xl text-xs font-extrabold text-[#0F172A] transition duration-200 cursor-pointer shadow-2xs"
-                >
-                  <Building2 className="h-3.5 w-3.5 text-[#16A34A]" />
-                  <span>
-                    {activeBusiness?.name
-                      ? activeBusiness.name.length > 20
-                        ? activeBusiness.name.substring(0, 20) + "..."
-                        : activeBusiness.name
-                      : "Select Business"}
-                  </span>
-                  <ChevronDown className="h-3.5 w-3.5 text-zinc-400" />
-                </button>
+              <div className="flex flex-col">
+                <span className="text-[10px] font-bold text-gray-muted uppercase tracking-wider">
+                  Business
+                </span>
+                <div className="relative" ref={businessDropdownRef}>
+                  <button
+                    onClick={() =>
+                      setShowHeaderBusinessDropdown(!showHeaderBusinessDropdown)
+                    }
+                    className="flex items-center gap-2 px-3 py-1.5 bg-white hover:bg-gray-soft/20 border border-gray-soft rounded-xl text-xs font-bold text-black transition duration-200 cursor-pointer shadow-2xs mt-1"
+                  >
+                    <HugeiconsIcon
+                      icon={Briefcase01Icon}
+                      size={16}
+                      className="text-gray-dark"
+                    />
+                    <span>
+                      {activeBusiness?.name
+                        ? activeBusiness.name.length > 20
+                          ? activeBusiness.name.substring(0, 20) + "..."
+                          : activeBusiness.name
+                        : "Select Business"}
+                    </span>
+                    <HugeiconsIcon
+                      icon={ChevronDownIcon}
+                      size={14}
+                      className="text-gray-muted"
+                    />
+                  </button>
 
-                {showHeaderBusinessDropdown && (
-                  <div className="absolute left-0 mt-1.5 w-52 bg-white border border-zinc-200 rounded-xl shadow-xl overflow-hidden z-30 animate-fade-in">
-                    <div className="max-h-56 overflow-y-auto py-1">
-                      {businesses.map((b) => {
-                        const isSelected = b.id === activeBusinessId;
-                        return (
-                          <button
-                            key={b.id}
-                            onClick={() => {
-                              handleBusinessChange(b.id);
-                              setShowHeaderBusinessDropdown(false);
-                            }}
-                            className={`w-full flex items-center justify-between px-4 py-2.5 text-xs font-bold transition-colors truncate cursor-pointer ${
-                              isSelected
-                                ? "bg-[#DCFCE7] text-[#16A34A]"
-                                : "text-zinc-700 hover:bg-zinc-100 hover:text-[#0F172A]"
-                            }`}
-                          >
-                            <span>{b.name}</span>
-                            {isSelected && (
-                              <Check className="h-3.5 w-3.5 text-[#16A34A]" />
-                            )}
-                          </button>
-                        );
-                      })}
+                  {showHeaderBusinessDropdown && (
+                    <div className="absolute left-0 mt-1.5 w-52 bg-white border border-gray-soft rounded-xl shadow-xl overflow-hidden z-30 animate-fade-in">
+                      <div className="max-h-56 overflow-y-auto py-1">
+                        {businesses.map((b) => {
+                          const isSelected = b.id === activeBusinessId;
+                          return (
+                            <button
+                              key={b.id}
+                              onClick={() => {
+                                handleBusinessChange(b.id);
+                                setShowHeaderBusinessDropdown(false);
+                              }}
+                              className={`w-full flex items-center justify-between px-4 py-2.5 text-xs font-bold transition-colors truncate cursor-pointer ${
+                                isSelected
+                                  ? "bg-gray-soft/60 text-black"
+                                  : "text-gray-dark hover:bg-gray-soft/30 hover:text-black"
+                              }`}
+                            >
+                              <span>{b.name}</span>
+                              {isSelected && (
+                                <HugeiconsIcon
+                                  icon={CheckIcon}
+                                  size={14}
+                                  className="text-black"
+                                />
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <div className="border-t border-gray-soft p-1.5 bg-white">
+                        <a
+                          href="/dashboard/business"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            router.push("/dashboard/business");
+                            setShowHeaderBusinessDropdown(false);
+                          }}
+                          className="w-full text-center py-2 text-[10px] uppercase font-bold tracking-wider text-black hover:text-black block hover:bg-gray-soft/30 rounded-lg transition-colors cursor-pointer"
+                        >
+                          Manage Switcher
+                        </a>
+                      </div>
                     </div>
-                    <div className="border-t border-zinc-200 p-1.5 bg-zinc-50">
-                      <a
-                        href="/dashboard/business"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          router.push("/dashboard/business");
-                          setShowHeaderBusinessDropdown(false);
-                        }}
-                        className="w-full text-center py-2 text-[10px] uppercase font-bold tracking-wider text-[#16A34A] hover:text-[#16A34A] block hover:bg-[#DCFCE7] rounded-lg transition-colors cursor-pointer"
-                      >
-                        Manage Switcher
-                      </a>
-                    </div>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
             </div>
 
             {activeBusinessId && (
               <>
-                <div className="h-4 w-px bg-zinc-200 hidden sm:block" />
+                <div className="h-8 w-px bg-gray-soft self-end mb-1" />
                 <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider hidden sm:inline-block">
-                    Location
-                  </span>
-                  <div className="relative" ref={locationDropdownRef}>
-                    <button
-                      onClick={() =>
-                        setShowHeaderLocationDropdown(
-                          !showHeaderLocationDropdown,
-                        )
-                      }
-                      className="flex items-center gap-2 px-3 py-1.5 bg-zinc-100 hover:bg-zinc-200/70 border border-zinc-200 rounded-xl text-xs font-extrabold text-[#0F172A] transition duration-200 cursor-pointer shadow-2xs"
-                    >
-                      <MapPin className="h-3.5 w-3.5 text-[#16A34A]" />
-                      <span>
-                        {activeLocation?.name
-                          ? activeLocation.name.length > 20
-                            ? activeLocation.name.substring(0, 20) + "..."
-                            : activeLocation.name
-                          : "Select Location"}
-                      </span>
-                      <ChevronDown className="h-3.5 w-3.5 text-zinc-400" />
-                    </button>
+                  <div className="flex flex-col">
+                    <span className="text-[10px] font-bold text-gray-muted uppercase tracking-wider">
+                      Location
+                    </span>
+                    <div className="relative" ref={locationDropdownRef}>
+                      <button
+                        onClick={() =>
+                          setShowHeaderLocationDropdown(
+                            !showHeaderLocationDropdown,
+                          )
+                        }
+                        className="flex items-center gap-2 px-3 py-1.5 bg-white hover:bg-gray-soft/20 border border-gray-soft rounded-xl text-xs font-bold text-black transition duration-200 cursor-pointer shadow-2xs mt-1"
+                      >
+                        <HugeiconsIcon
+                          icon={Location03Icon}
+                          size={16}
+                          className="text-gray-dark"
+                        />
+                        <span>
+                          {activeLocation?.name
+                            ? activeLocation.name.length > 20
+                              ? activeLocation.name.substring(0, 20) + "..."
+                              : activeLocation.name
+                            : "Select Location"}
+                        </span>
+                        <HugeiconsIcon
+                          icon={ChevronDownIcon}
+                          size={14}
+                          className="text-gray-muted"
+                        />
+                      </button>
 
-                    {showHeaderLocationDropdown && (
-                      <div className="absolute left-0 mt-1.5 w-52 bg-white border border-zinc-200 rounded-xl shadow-xl overflow-hidden z-30 animate-fade-in">
-                        <div className="max-h-56 overflow-y-auto py-1">
-                          {locations.map((loc) => {
-                            const isSelected = loc.id === activeLocationId;
-                            return (
-                              <button
-                                key={loc.id}
-                                onClick={() => {
-                                  setActiveLocation(loc.id);
-                                  setShowHeaderLocationDropdown(false);
-                                }}
-                                className={`w-full flex items-center justify-between px-4 py-2.5 text-xs font-bold transition-colors truncate cursor-pointer ${
-                                  isSelected
-                                    ? "bg-[#DCFCE7] text-[#16A34A]"
-                                    : "text-zinc-700 hover:bg-zinc-100 hover:text-[#0F172A]"
-                                }`}
-                              >
-                                <span>{loc.name}</span>
-                                {isSelected && (
-                                  <Check className="h-3.5 w-3.5 text-[#16A34A]" />
-                                )}
-                              </button>
-                            );
-                          })}
+                      {showHeaderLocationDropdown && (
+                        <div className="absolute left-0 mt-1.5 w-52 bg-white border border-gray-soft rounded-xl shadow-xl overflow-hidden z-30 animate-fade-in">
+                          <div className="max-h-56 overflow-y-auto py-1">
+                            {locations.map((loc) => {
+                              const isSelected = loc.id === activeLocationId;
+                              return (
+                                <button
+                                  key={loc.id}
+                                  onClick={() => {
+                                    setActiveLocation(loc.id);
+                                    setShowHeaderLocationDropdown(false);
+                                  }}
+                                  className={`w-full flex items-center justify-between px-4 py-2.5 text-xs font-bold transition-colors truncate cursor-pointer ${
+                                    isSelected
+                                      ? "bg-gray-soft/60 text-black"
+                                      : "text-gray-dark hover:bg-gray-soft/30 hover:text-black"
+                                  }`}
+                                >
+                                  <span>{loc.name}</span>
+                                  {isSelected && (
+                                    <HugeiconsIcon
+                                      icon={CheckIcon}
+                                      size={14}
+                                      className="text-black"
+                                    />
+                                  )}
+                                </button>
+                              );
+                            })}
+                          </div>
+                          <div className="border-t border-gray-soft p-1.5 bg-white">
+                            <a
+                              href="/dashboard/locations"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                router.push("/dashboard/locations");
+                                setShowHeaderLocationDropdown(false);
+                              }}
+                              className="w-full text-center py-2 text-[10px] uppercase font-bold tracking-wider text-black hover:text-black block hover:bg-gray-soft/30 rounded-lg transition-colors cursor-pointer"
+                            >
+                              Manage Locations
+                            </a>
+                          </div>
                         </div>
-                        <div className="border-t border-zinc-200 p-1.5 bg-zinc-50">
-                          <a
-                            href="/dashboard/locations"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              router.push("/dashboard/locations");
-                              setShowHeaderLocationDropdown(false);
-                            }}
-                            className="w-full text-center py-2 text-[10px] uppercase font-bold tracking-wider text-[#16A34A] hover:text-[#16A34A] block hover:bg-[#DCFCE7] rounded-lg transition-colors cursor-pointer"
-                          >
-                            Manage Locations
-                          </a>
-                        </div>
-                      </div>
-                    )}
+                      )}
+                    </div>
                   </div>
                 </div>
               </>
@@ -862,18 +1036,18 @@ export default function DashboardLayout({
           </div>
 
           <div className="flex items-center gap-5">
-            <button className="relative p-1.5 rounded-full hover:bg-zinc-100 text-zinc-600 transition-colors cursor-pointer">
-              <Bell className="h-5 w-5" />
-              <span className="absolute top-0 right-0 h-4 w-4 bg-[#EF4444] text-white text-[9px] font-extrabold flex items-center justify-center rounded-full ring-2 ring-white">
+            <button className="relative p-1.5 rounded-full hover:bg-gray-soft/30 text-gray-dark hover:text-black transition-colors cursor-pointer animate-fade-in">
+              <HugeiconsIcon icon={BellIcon} size={20} />
+              <span className="absolute top-0 right-0 h-4 w-4 bg-black text-white text-[9px] font-extrabold flex items-center justify-center rounded-full ring-2 ring-white">
                 5
               </span>
             </button>
-            <div className="h-5 w-px bg-zinc-200" />
+            <div className="h-5 w-px bg-gray-soft" />
             <div
               className="flex items-center gap-3 relative"
               ref={profileDropdownRef}
             >
-              <div className="h-9 w-9 rounded-full bg-[#16A34A] text-white flex items-center justify-center font-extrabold text-xs shadow-sm border border-[#16A34A]/10">
+              <div className="h-9 w-9 rounded-full bg-black text-white flex items-center justify-center font-extrabold text-xs shadow-sm border border-gray-soft">
                 {profile?.fullName
                   ?.split(" ")
                   .map((n) => n[0])
@@ -883,33 +1057,34 @@ export default function DashboardLayout({
               </div>
               <div className="hidden md:block text-left">
                 <div className="flex items-center gap-1.5">
-                  <p className="text-xs font-extrabold text-[#0F172A] leading-tight">
+                  <p className="text-xs font-bold text-black leading-tight">
                     {profile?.fullName || "User name"}
                   </p>
-                  {profile?.role && (
-                    <span className="text-[9px] font-extrabold px-1.5 py-0.5 rounded bg-zinc-200/60 text-zinc-600 border border-zinc-300/40 capitalize leading-none">
-                      {profile.role.replace("_", " ")}
-                    </span>
-                  )}
                 </div>
-                <p className="text-[10px] font-bold text-[#64748B] mt-0.5">
-                  {profile?.email || "User email"}
+                <p className="text-[10px] font-bold text-gray-muted mt-0.5">
+                  {profile?.role
+                    ? profile.role.replace("_", " ").toUpperCase()
+                    : "STAFF"}
                 </p>
               </div>
               <button
                 onClick={() => setShowBusinessDropdown(!showBusinessDropdown)}
-                className="p-1 rounded-md hover:bg-zinc-100 text-zinc-400 hover:text-zinc-600 cursor-pointer"
+                className="p-1 rounded-md hover:bg-gray-soft/30 text-gray-muted hover:text-black cursor-pointer transition-colors"
               >
-                <ChevronDown className="h-4 w-4" />
+                <HugeiconsIcon icon={ChevronDownIcon} size={16} />
               </button>
 
               {showBusinessDropdown && (
-                <div className="absolute top-full right-0 mt-2 w-40 bg-white border border-zinc-200 rounded-xl shadow-xl overflow-hidden z-30 animate-fade-in p-1">
+                <div className="absolute top-full right-0 mt-2 w-40 bg-white border border-gray-soft rounded-xl shadow-xl overflow-hidden z-30 animate-fade-in p-1">
                   <button
                     onClick={handleLogout}
-                    className="w-full flex items-center justify-center gap-2 py-2 text-[10px] uppercase font-extrabold tracking-wider text-zinc-600 hover:text-[#EF4444] hover:bg-rose-50/50 rounded-lg transition-colors cursor-pointer"
+                    className="w-full flex items-center justify-center gap-2 py-2 text-[10px] uppercase font-bold tracking-wider text-gray-dark hover:text-red-500 hover:bg-red-50/50 rounded-lg transition-colors cursor-pointer"
                   >
-                    <LogOut className="h-4 w-4 text-zinc-400" />
+                    <HugeiconsIcon
+                      icon={Logout01Icon}
+                      size={14}
+                      className="text-gray-muted"
+                    />
                     <span>Log Out</span>
                   </button>
                 </div>

@@ -3,6 +3,14 @@
 :root {
   --background: #ffffff;
   --foreground: #0f172a;
+
+  /* Black and White Theme Colors */
+  --black: #101010;
+  --gray-dark: #6E6E6E;
+  --gray-muted: #949494;
+  --gray-light: #B5B5B5;
+  --gray-soft: #DDDDDD;
+  --white: #F0F0F0;
 }
 
 @theme inline {
@@ -20,6 +28,14 @@
   --color-warning: #f59e0b;
   --color-error: #ef4444;
   --color-neutral: #64748b;
+
+  /* Black and White Theme */
+  --color-black: var(--black);
+  --color-gray-dark: var(--gray-dark);
+  --color-gray-muted: var(--gray-muted);
+  --color-gray-light: var(--gray-light);
+  --color-gray-soft: var(--gray-soft);
+  --color-white: var(--white);
 }
 
 body {
@@ -74,3 +90,21 @@ body {
 .animate-slide-in {
   animation: slide-in 0.22s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
+
+/* Smooth Accordion/Collapse Grid Transition */
+.accordion-grid {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.22s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.22s ease;
+  opacity: 0;
+}
+
+.accordion-grid-open {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+
+.accordion-grid-inner {
+  overflow: hidden;
+}
+
