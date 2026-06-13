@@ -32,11 +32,12 @@ const AuthContext = createContext<AuthContextType>({
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [session, setSession] = useState<{ user: any; session: any } | null>(null);
   const [profile, setProfile] = useState<AppUser | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [sessionLoading, setSessionLoading] = useState(true);
+  const [profileLoading, setProfileLoading] = useState(false);
 
   const fetchSession = async () => {
     try {
-      setLoading(true);
+      setSessionLoading(true);
       const res = await authClient.getSession();
       if (res?.data) {
         setSession(res.data);
@@ -52,7 +53,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setSession(null);
       localStorage.removeItem("stocktrack_token");
     } finally {
-      setLoading(false);
+      setSessionLoading(false);
     }
   };
 
@@ -69,22 +70,25 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     if (session?.session?.token) {
       localStorage.setItem("stocktrack_token", session.session.token);
-    } else if (session === null && !loading) {
+    } else if (session === null && !sessionLoading) {
       localStorage.removeItem("stocktrack_token");
       localStorage.removeItem("stocktrack_active_business_id");
       setProfile(null);
     }
-  }, [session, loading]);
+  }, [session, sessionLoading]);
 
   const refreshProfile = async () => {
     if (!session?.user) return;
     try {
+      setProfileLoading(true);
       const userProfile = await getMeProfile();
       if (userProfile) {
         setProfile(userProfile);
       }
     } catch (error) {
       console.error("Error refreshing profile:", error);
+    } finally {
+      setProfileLoading(false);
     }
   };
 
@@ -103,6 +107,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     setSession(null);
     setProfile(null);
   };
+
+  const loading = sessionLoading || profileLoading || (session?.user && !profile);
 
   return (
     <AuthContext.Provider

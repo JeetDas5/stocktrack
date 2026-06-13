@@ -7,6 +7,7 @@ export interface AppUser {
   phone?: string;
   role: UserRole;
   isActive: boolean;
+  isApproved?: boolean;
   businessIds: string[];
   activeBusinessId?: string;
   createdAt: string;

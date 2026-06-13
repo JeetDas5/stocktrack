@@ -28,9 +28,43 @@ def create_user_profile(user_data: User, session: Session = Depends(get_session)
     return user_data
 
 
-@router.get("/api/users/me", response_model=User)
-def get_me(current_user: User = Depends(get_current_user)):
-    return current_user
+class UserMeOut(SQLModel):
+    id: str
+    email: str
+    name: Optional[str] = None
+    phone: Optional[str] = None
+    role: str
+    is_approved: bool
+    created_at: datetime
+    updated_at: datetime
+
+
+@router.get("/api/users/me", response_model=UserMeOut)
+def get_me(
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session)
+):
+    if current_user.role in ("super_admin", "admin"):
+        is_approved = True
+    else:
+        active_assignment = session.exec(
+            select(UserAssignment).where(
+                UserAssignment.user_id == current_user.id,
+                UserAssignment.is_active == True
+            )
+        ).first()
+        is_approved = active_assignment is not None
+
+    return UserMeOut(
+        id=current_user.id,
+        email=current_user.email,
+        name=current_user.name,
+        phone=current_user.phone,
+        role=current_user.role,
+        is_approved=is_approved,
+        created_at=current_user.created_at,
+        updated_at=current_user.updated_at
+    )
 
 
 @router.get("/api/users/{uid}", response_model=User)

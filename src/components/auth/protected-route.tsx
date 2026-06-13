@@ -11,21 +11,39 @@ export default function ProtectedRoute({
 }: {
   children: React.ReactNode;
 }) {
-  const { user, loading } = useAuth();
+  const { user, profile, loading } = useAuth();
 
   const router = useRouter();
 
   useEffect(() => {
-    if (!loading && !user) {
-      router.push("/login");
+    if (!loading) {
+      if (!user) {
+        router.push("/login");
+      } else if (
+        profile &&
+        profile.role !== "admin" &&
+        profile.role !== "super_admin" &&
+        !profile.isActive
+      ) {
+        router.push("/invite");
+      }
     }
-  }, [user, loading, router]);
+  }, [user, profile, loading, router]);
 
   if (loading) {
     return <Loading />;
   }
 
   if (!user) {
+    return null;
+  }
+
+  if (
+    profile &&
+    profile.role !== "admin" &&
+    profile.role !== "super_admin" &&
+    !profile.isActive
+  ) {
     return null;
   }
 

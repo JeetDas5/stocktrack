@@ -184,14 +184,14 @@ export default function InvitePage({
               Join the Team
             </h1>
             <p className="text-[#64748B] text-xs font-bold uppercase tracking-wider mt-1.5">
-              StockTrack Staff Onboarding
+              NexBrix Staff Onboarding
             </p>
           </div>
 
           <div className="bg-zinc-50 border border-zinc-200 rounded-2xl p-5 mb-8 text-center py-4">
             <p className="text-sm font-extrabold text-[#0F172A] leading-relaxed">
               You are invited to join the{" "}
-              <span className="text-[#16A34A]">StockTrack</span> team.
+              <span className="text-[#16A34A]">NexBrix</span> team.
             </p>
             <p className="text-xs text-zinc-500 font-semibold mt-2 leading-relaxed">
               Please register below to submit your details. Once registered, the
