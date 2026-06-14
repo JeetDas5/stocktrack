@@ -6,6 +6,13 @@ from app.database import get_session
 from app.models import User
 from app.services.auth.utils import hash_password, verify_password, create_access_token
 
+import os
+import uuid
+import random
+import resend
+from datetime import datetime, timedelta
+from app.models import Verification, SessionTable
+
 router = APIRouter(tags=["Authentication"])
 
 
@@ -35,7 +42,7 @@ class AuthResponse(SQLModel):
     responses={
         201: {"description": "User successfully registered and authenticated."},
         400: {"description": "Email address already registered with another account."},
-    }
+    },
 )
 def register_user(user_data: UserRegister, session: Session = Depends(get_session)):
     """
@@ -50,25 +57,17 @@ def register_user(user_data: UserRegister, session: Session = Depends(get_sessio
     if existing:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Email address already registered"
+            detail="Email address already registered",
         )
 
     hashed = hash_password(user_data.password)
-    user = User(
-        email=user_data.email,
-        name=user_data.name,
-        hashed_password=hashed
-    )
+    user = User(email=user_data.email, name=user_data.name, hashed_password=hashed)
     session.add(user)
     session.commit()
     session.refresh(user)
 
     token = create_access_token(data={"sub": user.id})
-    return {
-        "access_token": token,
-        "token_type": "bearer",
-        "user": user
-    }
+    return {"access_token": token, "token_type": "bearer", "user": user}
 
 
 @router.post(
@@ -79,7 +78,7 @@ def register_user(user_data: UserRegister, session: Session = Depends(get_sessio
     responses={
         200: {"description": "User successfully authenticated and token issued."},
         401: {"description": "Invalid email or password credentials provided."},
-    }
+    },
 )
 def login_user(credentials: UserLogin, session: Session = Depends(get_session)):
     """
@@ -93,21 +92,128 @@ def login_user(credentials: UserLogin, session: Session = Depends(get_session)):
     if not user or not verify_password(credentials.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid email or password credentials"
+            detail="Invalid email or password credentials",
         )
 
     token = create_access_token(data={"sub": user.id})
-    return {
-        "access_token": token,
-        "token_type": "bearer",
-        "user": user
-    }
+    return {"access_token": token, "token_type": "bearer", "user": user}
 
 
 @router.get("/api/auth/roles-permissions")
 def get_roles_permissions():
     from app.services.auth.dependencies import permissions_loader
+
     # Ensure it's populated
     permissions_loader.get_role_permissions("admin")
     return permissions_loader.cached_permissions
 
+
+class OTPSendRequest(SQLModel):
+    email: str
+
+
+class OTPVerifyRequest(SQLModel):
+    email: str
+    otp: str
+
+
+@router.post("/api/auth/send-otp")
+def send_otp(data: OTPSendRequest, session: Session = Depends(get_session)):
+    email = data.email.strip().lower()
+    if not email:
+        raise HTTPException(status_code=400, detail="Email address is required")
+
+    otp = str(random.randint(100000, 999999))
+    expires_at = datetime.utcnow() + timedelta(minutes=10)
+
+    # Store in verifications table
+    stmt = select(Verification).where(Verification.identifier == email)
+    ver = session.exec(stmt).first()
+    if ver:
+        ver.value = otp
+        ver.expires_at = expires_at
+        ver.updated_at = datetime.utcnow()
+        session.add(ver)
+    else:
+        ver = Verification(
+            id=str(uuid.uuid4()), identifier=email, value=otp, expires_at=expires_at
+        )
+        session.add(ver)
+    session.commit()
+
+    # Send email
+    api_key = os.environ.get("RESEND_API_KEY")
+    if not api_key:
+        raise HTTPException(
+            status_code=500,
+            detail="RESEND_API_KEY environment variable is not configured",
+        )
+    resend.api_key = api_key
+
+    try:
+        resend.Emails.send(
+            {
+                "from": "NexBrix <info@nexbrix.com.au>",
+                "to": [email],
+                "subject": "Staff Onboarding - Verification Code | NexBrix",
+                "html": f"<p>Your verification code for Staff Onboarding is: <strong>{otp}</strong></p><p>This code will expire in 10 minutes.</p>",
+            }
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Failed to send verification email: {str(e)}"
+        )
+
+    return {"message": "Verification code sent successfully"}
+
+
+@router.post("/api/auth/verify-otp")
+def verify_otp(data: OTPVerifyRequest, session: Session = Depends(get_session)):
+    email = data.email.strip().lower()
+    otp = data.otp.strip()
+
+    if not email or not otp:
+        raise HTTPException(
+            status_code=400, detail="Email and verification code are required"
+        )
+
+    stmt = select(Verification).where(
+        Verification.identifier == email, Verification.value == otp
+    )
+    ver = session.exec(stmt).first()
+    if not ver or ver.expires_at < datetime.utcnow():
+        raise HTTPException(
+            status_code=400, detail="Invalid or expired verification code"
+        )
+
+    # Delete verification record to prevent reuse
+    session.delete(ver)
+    session.commit()
+
+    user = session.exec(select(User).where(User.email == email)).first()
+    if not user:
+        user = User(
+            id=str(uuid.uuid4()), email=email, email_verified=True, role="staff"
+        )
+        session.add(user)
+        session.commit()
+        session.refresh(user)
+    else:
+        user.email_verified = True
+        session.add(user)
+        session.commit()
+        session.refresh(user)
+
+    # Create session
+    session_token = str(uuid.uuid4()).replace("-", "")
+    session_id = str(uuid.uuid4())
+    db_session = SessionTable(
+        id=session_id,
+        token=session_token,
+        user_id=user.id,
+        expires_at=datetime.utcnow() + timedelta(days=7),
+    )
+    session.add(db_session)
+    session.commit()
+
+    return {"token": session_token, "user": user}

@@ -1,3 +1,4 @@
+import api from "./api";
 import { authClient } from "@/lib/auth/auth-client";
 
 export const loginAdmin = async (email: string, password: string) => {
@@ -41,3 +42,22 @@ export const logoutUser = async () => {
     localStorage.removeItem("stocktrack_active_location_id");
   }
 };
+
+export const sendOtp = async (email: string): Promise<{ message: string }> => {
+  const response = await api.post("/api/auth/send-otp", { email });
+  return response.data;
+};
+
+export const verifyOtp = async (
+  email: string,
+  otp: string
+): Promise<{ token: string; user: any }> => {
+  const response = await api.post("/api/auth/verify-otp", { email, otp });
+  if (response.data?.token) {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("stocktrack_token", response.data.token);
+    }
+  }
+  return response.data;
+};
+

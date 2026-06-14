@@ -348,6 +348,7 @@ class StaffInvitationPublicOut(SQLModel):
     expires_at: datetime
     status: str
     businesses: List[dict]  # list of {"id": "...", "name": "...", "locations": [{"id": "...", "name": "..."}]}
+    invited_by: str
 
 
 class StaffInvitationRegister(SQLModel):
@@ -449,12 +450,16 @@ def get_staff_invitation(
             "locations": locs
         })
 
+    creator = session.get(User, invite.created_by_id)
+    invited_by_name = (creator.name or creator.email) if creator else "Admin"
+
     return StaffInvitationPublicOut(
         id=invite.id,
         role=invite.role,
         expires_at=invite.expires_at,
         status=invite.status,
-        businesses=businesses_out
+        businesses=businesses_out,
+        invited_by=invited_by_name
     )
 
 
@@ -522,9 +527,10 @@ def register_staff_invitation(
             )
             session.add(new_ass)
 
-    invite.status = "waiting_approval"
-    invite.registered_user_id = current_user.id
-    session.add(invite)
+    # Commented out to allow reusable invitation link
+    # invite.status = "waiting_approval"
+    # invite.registered_user_id = current_user.id
+    # session.add(invite)
     session.commit()
 
     return {"message": "Profile submitted and assignments are pending approval."}

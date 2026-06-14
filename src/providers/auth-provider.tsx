@@ -1,9 +1,11 @@
+/* eslint-disable react-hooks/set-state-in-effect */
 "use client";
 
 import { createContext, useContext, useEffect, useState } from "react";
+
 import { AppUser } from "@/types/user";
-import { getMeProfile } from "@/lib/repositories/user.repository";
 import { authClient } from "@/lib/auth/auth-client";
+import { getMeProfile } from "@/lib/repositories/user.repository";
 
 interface CustomUser {
   uid: string;
@@ -30,7 +32,10 @@ const AuthContext = createContext<AuthContextType>({
 });
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
-  const [session, setSession] = useState<{ user: any; session: any } | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [session, setSession] = useState<{ user: any; session: any } | null>(
+    null,
+  );
   const [profile, setProfile] = useState<AppUser | null>(null);
   const [sessionLoading, setSessionLoading] = useState(true);
   const [profileLoading, setProfileLoading] = useState(false);
@@ -38,11 +43,42 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const fetchSession = async () => {
     try {
       setSessionLoading(true);
-      const res = await authClient.getSession();
+      const token =
+        typeof window !== "undefined"
+          ? localStorage.getItem("stocktrack_token")
+          : null;
+      const res = await authClient.getSession({
+        fetchOptions: {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        },
+      });
       if (res?.data) {
         setSession(res.data);
         if (res.data.session?.token) {
           localStorage.setItem("stocktrack_token", res.data.session.token);
+        }
+      } else if (token) {
+        // Fallback: If Better Auth session is null but we have a custom token, fetch user profile from FastAPI backend
+        try {
+          const userProfile = await getMeProfile();
+          if (userProfile) {
+            setProfile(userProfile);
+            setSession({
+              session: { token },
+              user: {
+                id: userProfile.uid,
+                email: userProfile.email,
+                name: userProfile.fullName || "",
+              },
+            });
+          } else {
+            setSession(null);
+            localStorage.removeItem("stocktrack_token");
+          }
+        } catch (profileErr) {
+          console.error("Error fetching fallback profile:", profileErr);
+          setSession(null);
+          localStorage.removeItem("stocktrack_token");
         }
       } else {
         setSession(null);
@@ -50,6 +86,27 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
     } catch (err) {
       console.error("Error fetching Better Auth session:", err);
+      const token =
+        typeof window !== "undefined"
+          ? localStorage.getItem("stocktrack_token")
+          : null;
+      if (token) {
+        try {
+          const userProfile = await getMeProfile();
+          if (userProfile) {
+            setProfile(userProfile);
+            setSession({
+              session: { token },
+              user: {
+                id: userProfile.uid,
+                email: userProfile.email,
+                name: userProfile.fullName || "",
+              },
+            });
+            return;
+          }
+        } catch {}
+      }
       setSession(null);
       localStorage.removeItem("stocktrack_token");
     } finally {
@@ -61,11 +118,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     fetchSession();
   }, []);
 
-  const user = session?.user ? {
-    uid: session.user.id,
-    email: session.user.email,
-    displayName: session.user.name,
-  } : null;
+  const user = session?.user
+    ? {
+        uid: session.user.id,
+        email: session.user.email,
+        displayName: session.user.name,
+      }
+    : null;
 
   useEffect(() => {
     if (session?.session?.token) {
@@ -98,17 +157,20 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     } else {
       setProfile(null);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session?.user]);
 
   const logout = async () => {
     await authClient.signOut();
     localStorage.removeItem("stocktrack_token");
     localStorage.removeItem("stocktrack_active_business_id");
+    localStorage.removeItem("stocktrack_active_location_id");
     setSession(null);
     setProfile(null);
   };
 
-  const loading = sessionLoading || profileLoading || (session?.user && !profile);
+  const loading =
+    sessionLoading || profileLoading || (session?.user && !profile);
 
   return (
     <AuthContext.Provider
