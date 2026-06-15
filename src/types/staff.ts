@@ -10,6 +10,9 @@ export interface Staff {
   status: "Active" | "Inactive";
   createdAt: string;
   locations?: Location[];
+  priority: number;
+  position: string | null;
+  maxWorkingHours: number | null;
 }
 
 export interface StaffCreateInput {
@@ -19,6 +22,9 @@ export interface StaffCreateInput {
   role: string;
   status: "Active" | "Inactive";
   locationIds: string[];
+  priority?: number;
+  position?: string | null;
+  maxWorkingHours?: number | null;
 }
 
 export interface StaffInvitationCreateInput {

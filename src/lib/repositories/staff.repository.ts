@@ -18,6 +18,9 @@ interface BackendStaff {
   status: "Active" | "Inactive";
   created_at: string;
   locations?: { id: string; name: string }[];
+  priority: number;
+  position: string | null;
+  max_working_hours: number | null;
 }
 
 export const getStaffMembers = async (businessId: string): Promise<Staff[]> => {
@@ -32,12 +35,15 @@ export const getStaffMembers = async (businessId: string): Promise<Staff[]> => {
     status: s.status,
     createdAt: s.created_at,
     locations: s.locations,
+    priority: s.priority,
+    position: s.position,
+    maxWorkingHours: s.max_working_hours,
   }));
 };
 
 export const createStaff = async (
   businessId: string,
-  data: StaffCreateInput
+  data: StaffCreateInput,
 ): Promise<Staff> => {
   const response = await api.post(`/api/businesses/${businessId}/staff`, {
     name: data.name,
@@ -46,6 +52,9 @@ export const createStaff = async (
     role: data.role,
     status: data.status,
     location_ids: data.locationIds,
+    priority: data.priority,
+    position: data.position,
+    max_working_hours: data.maxWorkingHours,
   });
   const s = response.data;
   return {
@@ -58,13 +67,16 @@ export const createStaff = async (
     status: s.status,
     createdAt: s.created_at,
     locations: s.locations,
+    priority: s.priority,
+    position: s.position,
+    maxWorkingHours: s.max_working_hours,
   };
 };
 
 export const updateStaff = async (
   businessId: string,
   staffId: string,
-  data: StaffCreateInput
+  data: StaffCreateInput,
 ): Promise<Staff> => {
   const response = await api.put(
     `/api/businesses/${businessId}/staff/${staffId}`,
@@ -75,7 +87,10 @@ export const updateStaff = async (
       role: data.role,
       status: data.status,
       location_ids: data.locationIds,
-    }
+      priority: data.priority,
+      position: data.position,
+      max_working_hours: data.maxWorkingHours,
+    },
   );
   const s = response.data;
   return {
@@ -88,18 +103,21 @@ export const updateStaff = async (
     status: s.status,
     createdAt: s.created_at,
     locations: s.locations,
+    priority: s.priority,
+    position: s.position,
+    maxWorkingHours: s.max_working_hours,
   };
 };
 
 export const deleteStaff = async (
   businessId: string,
-  staffId: string
+  staffId: string,
 ): Promise<void> => {
   await api.delete(`/api/businesses/${businessId}/staff/${staffId}`);
 };
 
 export const createStaffInvitation = async (
-  data: StaffInvitationCreateInput
+  data: StaffInvitationCreateInput,
 ): Promise<StaffInvitation> => {
   const response = await api.post("/api/staff/invitations", {
     role: data.role,
@@ -111,7 +129,7 @@ export const createStaffInvitation = async (
 };
 
 export const getStaffInvitation = async (
-  invitationId: string
+  invitationId: string,
 ): Promise<StaffInvitationPublic> => {
   const response = await api.get(`/api/staff/invitations/${invitationId}`);
   return response.data;
@@ -119,17 +137,17 @@ export const getStaffInvitation = async (
 
 export const registerStaffInvitation = async (
   invitationId: string,
-  data: { name: string; phone: string }
+  data: { name: string; phone: string },
 ): Promise<{ message: string }> => {
   const response = await api.post(
     `/api/staff/invitations/${invitationId}/register`,
-    data
+    data,
   );
   return response.data;
 };
 
 export const getPendingStaff = async (
-  businessId: string
+  businessId: string,
 ): Promise<PendingStaffAssignment[]> => {
   const response = await api.get(`/api/businesses/${businessId}/pending-staff`);
   return response.data;
@@ -141,22 +159,24 @@ export const approvePendingStaff = async (
   data?: {
     role: string;
     assignments: { business_id: string; location_ids: string[] }[];
-  }
+    priority?: number;
+    position?: string | null;
+    max_working_hours?: number | null;
+  },
 ): Promise<{ message: string }> => {
   const response = await api.post(
     `/api/businesses/${businessId}/pending-staff/${assignmentId}/approve`,
-    data
+    data,
   );
   return response.data;
 };
 
 export const rejectPendingStaff = async (
   businessId: string,
-  assignmentId: string
+  assignmentId: string,
 ): Promise<{ message: string }> => {
   const response = await api.post(
-    `/api/businesses/${businessId}/pending-staff/${assignmentId}/reject`
+    `/api/businesses/${businessId}/pending-staff/${assignmentId}/reject`,
   );
   return response.data;
 };
-

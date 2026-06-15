@@ -17,6 +17,9 @@ class StaffCreate(SQLModel):
     role: str
     status: str = "Active"
     location_ids: List[str] = []
+    priority: int = 5
+    position: Optional[str] = None
+    max_working_hours: Optional[float] = None
 
 
 class LocationOut(SQLModel):
@@ -35,6 +38,9 @@ class StaffOut(SQLModel):
     created_at: datetime
     updated_at: datetime
     locations: List[LocationOut] = []
+    priority: int = 5
+    position: Optional[str] = None
+    max_working_hours: Optional[float] = None
 
 
 @router.post("/api/businesses/{business_id}/staff", response_model=StaffOut, status_code=status.HTTP_201_CREATED)
@@ -83,7 +89,10 @@ def create_staff(
                 business_id=business_id,
                 location_id=loc_id,
                 role=data.role,
-                is_active=is_active
+                is_active=is_active,
+                priority=data.priority,
+                position=data.position,
+                max_working_hours=data.max_working_hours
             )
             session.add(ass)
     else:
@@ -92,7 +101,10 @@ def create_staff(
             business_id=business_id,
             location_id=None,
             role=data.role,
-            is_active=is_active
+            is_active=is_active,
+            priority=data.priority,
+            position=data.position,
+            max_working_hours=data.max_working_hours
         )
         session.add(ass)
 
@@ -119,6 +131,14 @@ def create_staff(
 
     created_at = assignments[0].created_at if assignments else datetime.utcnow()
 
+    priority = 5
+    position = None
+    max_working_hours = None
+    if assignments:
+        priority = assignments[0].priority
+        position = assignments[0].position
+        max_working_hours = assignments[0].max_working_hours
+
     return StaffOut(
         id=user.id,
         name=user.name or "",
@@ -129,7 +149,10 @@ def create_staff(
         business_id=business_id,
         created_at=created_at,
         updated_at=datetime.utcnow(),
-        locations=locs
+        locations=locs,
+        priority=priority,
+        position=position,
+        max_working_hours=max_working_hours
     )
 
 
@@ -175,6 +198,10 @@ def get_staff_members(
         role = "Staff"
         is_active = False
 
+        priority = 5
+        position = None
+        max_working_hours = None
+
         for ass in user_assignments:
             if ass.role:
                 role = ass.role
@@ -184,6 +211,13 @@ def get_staff_members(
                 is_all_locations = True
             elif ass.location:
                 locs.append(LocationOut(id=ass.location.id, name=ass.location.name))
+            
+            if ass.priority:
+                priority = ass.priority
+            if ass.position:
+                position = ass.position
+            if ass.max_working_hours is not None:
+                max_working_hours = ass.max_working_hours
 
         if is_all_locations:
             if all_biz_locs is None:
@@ -202,7 +236,10 @@ def get_staff_members(
             business_id=business_id,
             created_at=created_at,
             updated_at=user.updated_at or datetime.utcnow(),
-            locations=locs
+            locations=locs,
+            priority=priority,
+            position=position,
+            max_working_hours=max_working_hours
         ))
 
     return out
@@ -248,7 +285,10 @@ def update_staff(
                 business_id=business_id,
                 location_id=loc_id,
                 role=data.role,
-                is_active=is_active
+                is_active=is_active,
+                priority=data.priority,
+                position=data.position,
+                max_working_hours=data.max_working_hours
             )
             session.add(ass)
     else:
@@ -257,7 +297,10 @@ def update_staff(
             business_id=business_id,
             location_id=None,
             role=data.role,
-            is_active=is_active
+            is_active=is_active,
+            priority=data.priority,
+            position=data.position,
+            max_working_hours=data.max_working_hours
         )
         session.add(ass)
 
@@ -284,6 +327,14 @@ def update_staff(
 
     created_at = assignments[0].created_at if assignments else datetime.utcnow()
 
+    priority = 5
+    position = None
+    max_working_hours = None
+    if assignments:
+        priority = assignments[0].priority
+        position = assignments[0].position
+        max_working_hours = assignments[0].max_working_hours
+
     return StaffOut(
         id=user.id,
         name=user.name or "",
@@ -294,7 +345,10 @@ def update_staff(
         business_id=business_id,
         created_at=created_at,
         updated_at=datetime.utcnow(),
-        locations=locs
+        locations=locs,
+        priority=priority,
+        position=position,
+        max_working_hours=max_working_hours
     )
 
 
@@ -578,6 +632,9 @@ def get_pending_staff(
 class StaffApprovalDetails(SQLModel):
     role: str
     assignments: List[dict]
+    priority: int = 5
+    position: Optional[str] = None
+    max_working_hours: Optional[float] = None
 
 
 @router.post("/api/businesses/{business_id}/pending-staff/{assignment_id}/approve")
@@ -633,7 +690,10 @@ def approve_pending_staff(
                     location_id=loc_id,
                     role=role,
                     is_active=True,
-                    status="active"
+                    status="active",
+                    priority=data.priority,
+                    position=data.position,
+                    max_working_hours=data.max_working_hours
                 )
                 session.add(new_ass)
         else:
@@ -643,7 +703,10 @@ def approve_pending_staff(
                 location_id=None,
                 role=role,
                 is_active=True,
-                status="active"
+                status="active",
+                priority=data.priority,
+                position=data.position,
+                max_working_hours=data.max_working_hours
             )
             session.add(new_ass)
 

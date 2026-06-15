@@ -23,6 +23,7 @@ from app.services.reconciliation.router import router as reconciliation_router
 from app.services.staff.router import router as staff_router
 from app.services.timesheets.router import router as timesheets_router
 from app.services.availability.router import router as availability_router
+from app.services.roster_settings.router import router as roster_settings_router
 
 app = FastAPI(
     title="StockTrack API",
@@ -76,4 +77,5 @@ app.include_router(reconciliation_router)
 app.include_router(staff_router)
 app.include_router(timesheets_router)
 app.include_router(availability_router)
+app.include_router(roster_settings_router)
 

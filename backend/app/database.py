@@ -2,7 +2,6 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv
 from sqlmodel import create_engine, SQLModel, Session
-from sqlalchemy import text
 
 env_path = Path(__file__).resolve().parent.parent.parent / ".env"
 load_dotenv(dotenv_path=env_path)
@@ -30,11 +29,6 @@ engine = create_engine(
 
 def init_db():
     SQLModel.metadata.create_all(engine)
-    with Session(engine) as session:
-        session.execute(text(
-            "ALTER TABLE staff_invitations ADD COLUMN IF NOT EXISTS business_id VARCHAR REFERENCES businesses(id) ON DELETE CASCADE;"
-        ))
-        session.commit()
 
 
 def get_session():

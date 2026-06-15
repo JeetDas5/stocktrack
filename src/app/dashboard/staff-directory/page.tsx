@@ -15,6 +15,7 @@ import {
   approvePendingStaff,
   rejectPendingStaff,
 } from "@/lib/repositories/staff.repository";
+import { getRosterSettings } from "@/lib/repositories/roster-settings.repository";
 import { Business } from "@/types/business";
 import { Location } from "@/types/inventory";
 import { Staff, PendingStaffAssignment } from "@/types/staff";
@@ -37,6 +38,7 @@ import {
   ShieldCheck,
   ShieldX,
   UserCheck,
+  Edit2,
 } from "lucide-react";
 
 export default function StaffDirectoryPage() {
@@ -85,6 +87,10 @@ export default function StaffDirectoryPage() {
   const [generatedLink, setGeneratedLink] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
+  // Available custom positions from roster settings
+  const [positions, setPositions] = useState<string[]>([]);
+
+  // Approval Modal Configuration states
   const [isApprovalModalOpen, setIsApprovalModalOpen] = useState(false);
   const [pendingStaffToApprove, setPendingStaffToApprove] =
     useState<PendingStaffAssignment | null>(null);
@@ -93,7 +99,24 @@ export default function StaffDirectoryPage() {
   const [approvalLocations, setApprovalLocations] = useState<
     Record<string, string[]>
   >({});
+  const [approvalPosition, setApprovalPosition] = useState("");
+  const [approvalPriority, setApprovalPriority] = useState(5);
+  const [approvalMaxHours, setApprovalMaxHours] = useState<number | "">("");
   const [submittingApproval, setSubmittingApproval] = useState(false);
+
+  // Edit Staff Modal states
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [staffToEdit, setStaffToEdit] = useState<Staff | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editEmail, setEditEmail] = useState("");
+  const [editPhone, setEditPhone] = useState("");
+  const [editRole, setEditRole] = useState("staff");
+  const [editStatus, setEditStatus] = useState<"Active" | "Inactive">("Active");
+  const [editLocations, setEditLocations] = useState<string[]>([]);
+  const [editPosition, setEditPosition] = useState("");
+  const [editPriority, setEditPriority] = useState(5);
+  const [editMaxHours, setEditMaxHours] = useState<number | "">("");
+  const [submittingEdit, setSubmittingEdit] = useState(false);
 
   const loadData = useCallback(async () => {
     if (!activeBusinessId) return;
@@ -104,6 +127,15 @@ export default function StaffDirectoryPage() {
       setBusinesses(bizList);
       const currentBiz = bizList.find((b) => b.id === activeBusinessId) || null;
       setActiveBusiness(currentBiz);
+
+      // Fetch positions
+      try {
+        const settings = await getRosterSettings(activeBusinessId);
+        setPositions(settings.positions || []);
+      } catch (e) {
+        console.error("Failed to load roster settings positions:", e);
+        setPositions(["Chef", "Barista", "Kitchen Hand"]);
+      }
     } catch (err) {
       if (err instanceof Error) {
         toast.error(err.message);
@@ -157,6 +189,9 @@ export default function StaffDirectoryPage() {
       "Phone",
       "Email",
       "Role",
+      "Position",
+      "Priority",
+      "Max Hours/Week",
       "Assigned Business",
       "Assigned Locations",
       "Status",
@@ -166,6 +201,9 @@ export default function StaffDirectoryPage() {
       s.phone,
       s.email,
       s.role,
+      s.position || "",
+      s.priority || 5,
+      s.maxWorkingHours !== null && s.maxWorkingHours !== undefined ? s.maxWorkingHours : "Unlimited",
       activeBusiness?.name || "",
       s.locations?.map((l) => l.name).join("; ") || "",
       s.status,
@@ -203,7 +241,8 @@ export default function StaffDirectoryPage() {
         s.name.toLowerCase().includes(query) ||
         s.phone.toLowerCase().includes(query) ||
         s.email.toLowerCase().includes(query) ||
-        s.role.toLowerCase().includes(query);
+        s.role.toLowerCase().includes(query) ||
+        (s.position && s.position.toLowerCase().includes(query));
 
       const matchesBusiness =
         businessFilter === "all" || s.businessId === businessFilter;
@@ -351,11 +390,18 @@ export default function StaffDirectoryPage() {
     window.open(`mailto:?subject=${subject}&body=${body}`, "_blank");
   };
 
+  // Approval Modal Actions
   const handleOpenApprovalModal = async (pending: PendingStaffAssignment) => {
     setPendingStaffToApprove(pending);
     setApprovalRole("staff");
     setApprovalBusinesses([activeBusinessId || ""]);
     setApprovalLocations({});
+    
+    // Set default staff properties
+    setApprovalPosition(positions[0] || "");
+    setApprovalPriority(5);
+    setApprovalMaxHours("");
+    
     setIsApprovalModalOpen(true);
 
     const bizId = activeBusinessId || "";
@@ -446,6 +492,9 @@ export default function StaffDirectoryPage() {
         {
           role: approvalRole,
           assignments,
+          priority: approvalPriority,
+          position: approvalPosition || null,
+          max_working_hours: approvalMaxHours === "" ? null : Number(approvalMaxHours),
         },
       );
 
@@ -479,6 +528,78 @@ export default function StaffDirectoryPage() {
       } else {
         toast.error("Failed to reject staff.");
       }
+    }
+  };
+
+  // Edit Staff Modal Actions
+  const handleOpenEditModal = async (staff: Staff) => {
+    setStaffToEdit(staff);
+    setEditName(staff.name);
+    setEditEmail(staff.email);
+    setEditPhone(staff.phone);
+    setEditRole(staff.role);
+    setEditStatus(staff.status);
+    setEditLocations(staff.locations?.map((l) => l.id) || []);
+    setEditPosition(staff.position || "");
+    setEditPriority(staff.priority || 5);
+    setEditMaxHours(staff.maxWorkingHours !== null && staff.maxWorkingHours !== undefined ? staff.maxWorkingHours : "");
+    setIsEditModalOpen(true);
+
+    const bizId = activeBusinessId || "";
+    if (bizId && !businessLocations[bizId]) {
+      try {
+        const locs = await getLocations(bizId);
+        setBusinessLocations((prev) => ({ ...prev, [bizId]: locs }));
+      } catch (err) {
+        console.error("Failed to load active business locations:", err);
+      }
+    }
+  };
+
+  const handleToggleEditLocation = (locId: string) => {
+    if (editLocations.includes(locId)) {
+      setEditLocations(editLocations.filter((id) => id !== locId));
+    } else {
+      setEditLocations([...editLocations, locId]);
+    }
+  };
+
+  const handleSubmitEdit = async () => {
+    if (!activeBusinessId || !staffToEdit) return;
+    if (!editName.trim() || !editEmail.trim()) {
+      toast.error("Name and Email are required.");
+      return;
+    }
+
+    try {
+      setSubmittingEdit(true);
+      
+      const { updateStaff } = await import("@/lib/repositories/staff.repository");
+
+      await updateStaff(activeBusinessId, staffToEdit.id, {
+        name: editName.trim(),
+        phone: editPhone.trim(),
+        email: editEmail.trim(),
+        role: editRole,
+        status: editStatus,
+        locationIds: editLocations,
+        priority: editPriority,
+        position: editPosition || null,
+        maxWorkingHours: editMaxHours === "" ? null : Number(editMaxHours),
+      });
+
+      toast.success("Staff profile updated successfully.");
+      setIsEditModalOpen(false);
+      setStaffToEdit(null);
+      await fetchStaffMembers(activeBusinessId);
+    } catch (err) {
+      if (err instanceof Error) {
+        toast.error(err.message);
+      } else {
+        toast.error("Failed to update staff.");
+      }
+    } finally {
+      setSubmittingEdit(false);
     }
   };
 
@@ -587,7 +708,7 @@ export default function StaffDirectoryPage() {
               </span>
               <input
                 type="text"
-                placeholder="Search by name, phone, email or role..."
+                placeholder="Search by name, phone, email, role or position..."
                 className="w-full bg-white border border-zinc-200 focus:border-[#16A34A] rounded-xl py-2.5 pl-10 pr-4 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#16A34A] transition-all shadow-xs"
                 value={searchQuery}
                 onChange={(e) => {
@@ -716,11 +837,14 @@ export default function StaffDirectoryPage() {
                       >
                         Role
                       </th>
-                      <th
-                        onClick={() => handleSort("assigned_business")}
-                        className="py-4 px-6 font-extrabold cursor-pointer hover:bg-zinc-100 transition duration-150 select-none"
-                      >
-                        Assigned Business
+                      <th className="py-4 px-6 font-extrabold select-none">
+                        Position
+                      </th>
+                      <th className="py-4 px-6 font-extrabold select-none text-center">
+                        Priority
+                      </th>
+                      <th className="py-4 px-6 font-extrabold select-none text-center">
+                        Max Hours
                       </th>
                       <th
                         onClick={() => handleSort("assigned_locations")}
@@ -733,6 +857,9 @@ export default function StaffDirectoryPage() {
                         className="py-4 px-6 font-extrabold cursor-pointer hover:bg-zinc-100 transition duration-150 select-none"
                       >
                         Status
+                      </th>
+                      <th className="py-4 px-6 font-extrabold text-right select-none">
+                        Actions
                       </th>
                     </tr>
                   </thead>
@@ -767,8 +894,14 @@ export default function StaffDirectoryPage() {
                             {s.role}
                           </span>
                         </td>
-                        <td className="py-4 px-6 text-[#64748B] font-bold">
-                          {activeBusiness?.name || "Business"}
+                        <td className="py-4 px-6 text-zinc-950 font-bold">
+                          {s.position || <span className="text-zinc-400 font-medium italic">None</span>}
+                        </td>
+                        <td className="py-4 px-6 text-center text-[#64748B] font-bold">
+                          {s.priority || 5}
+                        </td>
+                        <td className="py-4 px-6 text-center text-[#64748B] font-bold">
+                          {s.maxWorkingHours !== null && s.maxWorkingHours !== undefined ? `${s.maxWorkingHours} hrs` : "Unlimited"}
                         </td>
                         <td className="py-4 px-6 text-zinc-700">
                           <div className="flex flex-wrap gap-1 items-center">
@@ -802,6 +935,15 @@ export default function StaffDirectoryPage() {
                             />
                             {s.status}
                           </span>
+                        </td>
+                        <td className="py-4 px-6 text-right">
+                          <button
+                            onClick={() => handleOpenEditModal(s)}
+                            className="bg-white hover:bg-zinc-50 border border-zinc-200 text-zinc-700 rounded-xl px-3.5 py-1.5 text-xs font-bold uppercase tracking-wider shadow-3xs flex items-center gap-2 cursor-pointer transition-all duration-200"
+                          >
+                            <Edit2 className="h-3.5 w-3.5 text-zinc-400" />
+                            Edit
+                          </button>
                         </td>
                       </tr>
                     ))}
@@ -1054,7 +1196,7 @@ export default function StaffDirectoryPage() {
                   Configure & Approve Staff
                 </h3>
                 <p className="text-[#64748B] text-xs font-bold mt-1">
-                  Assign role, businesses, and locations for this staff member.
+                  Assign role, businesses, locations, position, priority, and working hours.
                 </p>
               </div>
               <button
@@ -1106,7 +1248,7 @@ export default function StaffDirectoryPage() {
                 </div>
               </div>
 
-              {/* Compulsory Role Selection */}
+              {/* Access Role */}
               <div className="space-y-1.5">
                 <label className="text-[10px] font-extrabold text-[#0F172A] uppercase tracking-wider block">
                   Access Role (Compulsory)
@@ -1147,13 +1289,66 @@ export default function StaffDirectoryPage() {
                 </div>
               </div>
 
+              {/* Custom Roster Details */}
+              <div className="grid grid-cols-3 gap-3">
+                <div className="col-span-1">
+                  <label className="text-[10px] font-extrabold text-zinc-500 uppercase block mb-1">
+                    Position
+                  </label>
+                  <select
+                    value={approvalPosition}
+                    onChange={(e) => setApprovalPosition(e.target.value)}
+                    className="w-full bg-white border border-zinc-200 focus:border-[#16A34A] rounded-xl py-2 px-3 text-xs font-bold text-zinc-950 focus:outline-none focus:ring-1 cursor-pointer"
+                  >
+                    <option value="">-- Choose --</option>
+                    {positions.map((pos) => (
+                      <option key={pos} value={pos}>
+                        {pos}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="col-span-1">
+                  <label className="text-[10px] font-extrabold text-zinc-500 uppercase block mb-1">
+                    Priority (1-10)
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="10"
+                    value={approvalPriority}
+                    onChange={(e) => {
+                      const val = Math.max(1, Math.min(10, Number(e.target.value) || 5));
+                      setApprovalPriority(val);
+                    }}
+                    className="w-full bg-white border border-zinc-200 focus:border-[#16A34A] rounded-xl py-2 px-3 text-xs font-semibold text-zinc-950 focus:outline-none focus:ring-1"
+                  />
+                </div>
+                <div className="col-span-1">
+                  <label className="text-[10px] font-extrabold text-zinc-500 uppercase block mb-1">
+                    Max Hours/Wk
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    placeholder="e.g. 40"
+                    value={approvalMaxHours}
+                    onChange={(e) => {
+                      const val = e.target.value === "" ? "" : Math.max(0, Number(e.target.value));
+                      setApprovalMaxHours(val);
+                    }}
+                    className="w-full bg-white border border-zinc-200 focus:border-[#16A34A] rounded-xl py-2 px-3 text-xs font-semibold text-zinc-950 focus:outline-none focus:ring-1"
+                  />
+                </div>
+              </div>
+
               {/* Business & Location Assignments */}
               <div className="space-y-2">
                 <label className="text-[10px] font-extrabold text-[#0F172A] uppercase tracking-wider block">
                   Assign Businesses & Locations (Compulsory)
                 </label>
 
-                <div className="border border-zinc-200 rounded-2xl p-4 max-h-[30vh] overflow-y-auto space-y-3 bg-zinc-50/30">
+                <div className="border border-zinc-200 rounded-2xl p-4 max-h-[25vh] overflow-y-auto space-y-3 bg-zinc-50/30">
                   {businesses.length === 0 ? (
                     <span className="text-xs text-zinc-400 font-semibold italic">
                       No businesses available.
@@ -1275,6 +1470,209 @@ export default function StaffDirectoryPage() {
                     </>
                   ) : (
                     "Approve & Assign"
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* EDIT STAFF MODAL */}
+      {isEditModalOpen && staffToEdit && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-50 animate-fade-in p-4">
+          <div className="bg-white border border-zinc-200 rounded-3xl p-6 w-full max-w-xl shadow-2xl relative animate-scale-in max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-start border-b border-zinc-200 pb-4 mb-4">
+              <div>
+                <h3 className="text-xl font-extrabold text-[#0F172A]">
+                  Edit Staff Configuration
+                </h3>
+                <p className="text-[#64748B] text-xs font-bold mt-1">
+                  Modify user roles, positions, priority levels, and hours.
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  setIsEditModalOpen(false);
+                  setStaffToEdit(null);
+                }}
+                className="p-1 rounded-lg hover:bg-zinc-100 text-zinc-400 hover:text-zinc-600 transition cursor-pointer"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4 py-2">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-[10px] font-extrabold text-zinc-500 uppercase block mb-1">
+                    Staff Name
+                  </label>
+                  <input
+                    type="text"
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    className="w-full bg-white border border-zinc-200 focus:border-[#16A34A] rounded-xl py-2 px-3 text-xs font-semibold text-zinc-950 focus:outline-none focus:ring-1"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-extrabold text-zinc-500 uppercase block mb-1">
+                    Email
+                  </label>
+                  <input
+                    type="email"
+                    value={editEmail}
+                    onChange={(e) => setEditEmail(e.target.value)}
+                    className="w-full bg-white border border-zinc-200 focus:border-[#16A34A] rounded-xl py-2 px-3 text-xs font-semibold text-zinc-950 focus:outline-none focus:ring-1"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-extrabold text-zinc-500 uppercase block mb-1">
+                    Phone
+                  </label>
+                  <input
+                    type="text"
+                    value={editPhone}
+                    onChange={(e) => setEditPhone(e.target.value)}
+                    className="w-full bg-white border border-zinc-200 focus:border-[#16A34A] rounded-xl py-2 px-3 text-xs font-semibold text-zinc-950 focus:outline-none focus:ring-1"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-extrabold text-zinc-500 uppercase block mb-1">
+                    Status
+                  </label>
+                  <select
+                    value={editStatus}
+                    onChange={(e) => setEditStatus(e.target.value as "Active" | "Inactive")}
+                    className="w-full bg-white border border-zinc-200 focus:border-[#16A34A] rounded-xl py-2 px-3 text-xs font-bold text-zinc-950 focus:outline-none focus:ring-1 cursor-pointer"
+                  >
+                    <option value="Active">Active</option>
+                    <option value="Inactive">Inactive</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-[10px] font-extrabold text-zinc-500 uppercase block mb-1">
+                    Access Role
+                  </label>
+                  <select
+                    value={editRole}
+                    onChange={(e) => setEditRole(e.target.value)}
+                    className="w-full bg-white border border-zinc-200 focus:border-[#16A34A] rounded-xl py-2.5 px-3 text-xs font-bold text-zinc-950 focus:outline-none focus:ring-1 cursor-pointer"
+                  >
+                    <option value="staff">Staff</option>
+                    <option value="manager">Manager</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-extrabold text-zinc-500 uppercase block mb-1">
+                    Roster Position
+                  </label>
+                  <select
+                    value={editPosition}
+                    onChange={(e) => setEditPosition(e.target.value)}
+                    className="w-full bg-white border border-zinc-200 focus:border-[#16A34A] rounded-xl py-2.5 px-3 text-xs font-bold text-zinc-950 focus:outline-none focus:ring-1 cursor-pointer"
+                  >
+                    <option value="">-- No Position --</option>
+                    {positions.map((p) => (
+                      <option key={p} value={p}>
+                        {p}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-[10px] font-extrabold text-zinc-500 uppercase block mb-1">
+                    Staff Priority (1-10)
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="10"
+                    value={editPriority}
+                    onChange={(e) => {
+                      const val = Math.max(1, Math.min(10, Number(e.target.value) || 5));
+                      setEditPriority(val);
+                    }}
+                    className="w-full bg-white border border-zinc-200 focus:border-[#16A34A] rounded-xl py-2 px-3 text-xs font-semibold text-zinc-950 focus:outline-none focus:ring-1"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-extrabold text-zinc-500 uppercase block mb-1">
+                    Max Working Hours / Week
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    placeholder="e.g. 40 (leave empty for unlimited)"
+                    value={editMaxHours}
+                    onChange={(e) => {
+                      const val = e.target.value === "" ? "" : Math.max(0, Number(e.target.value));
+                      setEditMaxHours(val);
+                    }}
+                    className="w-full bg-white border border-zinc-200 focus:border-[#16A34A] rounded-xl py-2 px-3 text-xs font-semibold text-zinc-950 focus:outline-none focus:ring-1"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[10px] font-extrabold text-[#0F172A] uppercase tracking-wider block mb-1.5">
+                  Assign Locations
+                </label>
+                <div className="border border-zinc-200 rounded-2xl p-4 max-h-[20vh] overflow-y-auto grid grid-cols-2 gap-2 bg-zinc-50/30">
+                  {locations.map((loc) => (
+                    <label
+                      key={loc.id}
+                      className="flex items-center gap-2 cursor-pointer select-none text-[11px] font-semibold text-zinc-700"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={editLocations.includes(loc.id)}
+                        onChange={() => handleToggleEditLocation(loc.id)}
+                        className="h-3.5 w-3.5 rounded border-zinc-300 text-[#16A34A] focus:ring-[#16A34A] cursor-pointer"
+                      />
+                      <span className="truncate">{loc.name}</span>
+                    </label>
+                  ))}
+                  {locations.length === 0 && (
+                    <span className="text-zinc-400 italic text-xs col-span-2">
+                      No locations available.
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 mt-6">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsEditModalOpen(false);
+                    setStaffToEdit(null);
+                  }}
+                  className="bg-white hover:bg-zinc-50 border border-zinc-200 text-zinc-700 rounded-xl py-3 text-xs font-bold uppercase tracking-wider transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSubmitEdit}
+                  disabled={submittingEdit}
+                  className="bg-[#16A34A] hover:bg-[#15803D] active:bg-[#14532D] text-white rounded-xl py-3 text-xs font-bold uppercase tracking-wider shadow-md transition duration-200 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                >
+                  {submittingEdit ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    "Save Changes"
                   )}
                 </button>
               </div>

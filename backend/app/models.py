@@ -40,7 +40,9 @@ class UserAssignment(SQLModel, table=True):
     is_active: bool = Field(default=True)
     status: str = Field(default="active")  # active, inactive, pending_approval
     created_at: datetime = Field(default_factory=datetime.utcnow)
-    priority: int = Field(default=1)
+    priority: int = Field(default=5)
+    position: Optional[str] = Field(default=None)
+    max_working_hours: Optional[float] = Field(default=None)
 
     # Relationships
     user: Optional[User] = Relationship()
@@ -634,3 +636,21 @@ class StaffAvailabilitySlot(SQLModel, table=True):
 
     day: StaffAvailabilityDay = Relationship(back_populates="slots")
     location: Optional[Location] = Relationship()
+
+
+class RosterSettings(SQLModel, table=True):
+    __tablename__ = "roster_settings"
+
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
+    business_id: str = Field(
+        foreign_key="businesses.id", ondelete="CASCADE", unique=True
+    )
+    roster_period: str = Field(default="Weekly")
+    availability_deadline_day: str = Field(default="Sunday")
+    availability_deadline_time: str = Field(default="06:00 PM")
+    default_shift_types: List[dict] = Field(default=[], sa_column=Column(JSON))
+    required_roles: List[dict] = Field(default=[], sa_column=Column(JSON))
+    default_priority: int = Field(default=5)
+    allow_admin_override: bool = Field(default=True)
+    notify_staff_approved: bool = Field(default=True)
+    positions: List[str] = Field(default=[], sa_column=Column(JSON))

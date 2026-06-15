@@ -379,6 +379,11 @@ export default function DashboardLayout({
       icon: IdentityCardIcon,
     },
     {
+      name: "Roster Settings",
+      href: "/dashboard/roaster-settings",
+      icon: Settings01Icon,
+    },
+    {
       name: "Availability Entry",
       href: "/dashboard/availablity-entry",
       icon: CalendarPlusIcon,
