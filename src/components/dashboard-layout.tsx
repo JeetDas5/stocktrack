@@ -599,7 +599,7 @@ export default function DashboardLayout({
   }
 
   return (
-    <div className="relative min-h-screen flex bg-white text-black font-sans overflow-x-hidden">
+    <div className="relative h-screen flex bg-white text-black font-sans overflow-x-hidden">
       <aside
         className={`hidden lg:flex flex-col ${sidebarCollapsed ? "w-16 px-2 py-4" : "w-60 p-4"} border-r border-gray-soft bg-white shrink-0 sticky top-0 h-screen z-20 overflow-y-auto scrollbar-thin scrollbar-track-slate-100 scrollbar-thumb-gray-400 hover:scrollbar-thumb-gray-500 transition-all duration-300`}
       >
@@ -852,7 +852,7 @@ export default function DashboardLayout({
         </div>
       )}
 
-      <div className="flex-1 flex flex-col relative bg-white">
+      <div className="flex-1 h-full flex flex-col relative bg-white min-w-0">
         <header className="sticky top-0 z-15 bg-white border-b border-gray-soft w-full">
           <div className="max-w-[1600px] w-full mx-auto px-4 py-2 flex items-center justify-between">
             <div className="flex items-center gap-4">
