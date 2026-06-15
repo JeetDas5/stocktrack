@@ -15,7 +15,6 @@
     "/dashboard/deliveries",
     "/dashboard/reconciliation",
     "/dashboard/staff-dashboard",
-    "/dashboard/staff-directory",
     "/dashboard/timesheet-entry",
     "/dashboard/timesheet-review",
     "/dashboard/timesheet-reports",
@@ -29,7 +28,6 @@
     "/dashboard/counts",
     "/dashboard/deliveries",
     "/dashboard/staff-dashboard",
-    "/dashboard/staff-directory",
     "/dashboard/timesheet-entry",
     "/dashboard/availablity-entry"
   ]
