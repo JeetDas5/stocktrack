@@ -4,7 +4,7 @@
 "use client";
 
 import { useAuth } from "@/providers/auth-provider";
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, Fragment } from "react";
 import { useBusinessStore } from "@/stores/business-store";
 import { useLocationStore } from "@/stores/location-store";
 import { getRefillSuggestions } from "@/lib/repositories/refill.repository";
@@ -31,6 +31,9 @@ import {
   ArrowRight,
   TrendingDown,
   Download,
+  Upload,
+  Calendar,
+  Search,
 } from "lucide-react";
 import { toast } from "sonner";
 import AlertDialog from "@/components/alert-dialog";
@@ -207,6 +210,26 @@ export default function RefillPlannerPage() {
     return Object.values(groups);
   }, [filteredSuggestions, groupBy]);
 
+  const itemsBelowReorder = useMemo(() => {
+    return suggestions.filter((s) => s.currentStock < s.reorderLevel).length;
+  }, [suggestions]);
+
+  const formattedDate = useMemo(() => {
+    return new Date().toLocaleDateString("en-US", {
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+  }, []);
+
+  const uniqueSuppliersCount = useMemo(() => {
+    const supplierIds = new Set(
+      filteredSuggestions.map((s) => s.supplierId).filter(Boolean),
+    );
+    return supplierIds.size;
+  }, [filteredSuggestions]);
+
   const handleSelectAll = (checked: boolean) => {
     const updated = { ...selectedItems };
     filteredSuggestions.forEach((s) => {
@@ -359,142 +382,81 @@ export default function RefillPlannerPage() {
   }
 
   return (
-    <div className="flex bg-[#F8FAFC] min-h-[85vh] relative select-none font-sans antialiased text-[#0F172A]">
-      <div className="flex-1 space-y-6 p-6">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-zinc-200 pb-5 bg-white -mx-6 -mt-6 p-6">
-          <div>
-            <h1 className="text-2xl font-extrabold text-[#0F172A] tracking-tight">
-              Refill Planner
+    <div className="flex flex-col bg-white h-[calc(100vh-88px)] overflow-hidden relative select-none font-sans antialiased text-[#0F172A]">
+      <div className="flex-1 min-w-0 flex flex-col space-y-3 min-h-0 p-2">
+        <div className="border border-zinc-200 rounded-xl py-3 px-4 bg-white flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shrink-0">
+          <div className="flex items-center gap-4">
+            <h1 className="text-2xl font-extrabold text-[#101010] tracking-tight">
+              Restock Planner
             </h1>
-            <p className="text-[#64748B] text-xs font-bold mt-1">
-              Plan refills based on current stock, capacity and reorder levels.
-            </p>
+            {itemsBelowReorder > 0 && (
+              <div className="flex items-center gap-1.5 px-3 py-1 bg-action-neutral-yellow/15 border border-action-neutral-yellow/25 text-[#854d0e] rounded-full text-xs font-bold">
+                <AlertCircle className="h-4 w-4 text-[#b45309]" />
+                <span>
+                  {itemsBelowReorder}{" "}
+                  {itemsBelowReorder === 1 ? "item" : "items"} below reorder
+                  level
+                </span>
+              </div>
+            )}
           </div>
 
-          <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+          <div className="flex items-center gap-3">
             {locationFilter === "all" && (
-              <span className="text-[10px] font-bold text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5 whitespace-nowrap">
+              <span className="text-[10px] font-bold text-[#b45309] bg-action-neutral-yellow/10 border border-action-neutral-yellow/20 rounded-lg px-2.5 py-1.5 whitespace-nowrap animate-fade-in">
                 Select a location to create purchase orders
               </span>
             )}
             <button
               onClick={() => toast("Export feature coming soon!")}
-              className="flex-1 sm:flex-initial bg-white border border-zinc-200 hover:bg-zinc-50 text-zinc-700 rounded-xl px-4 py-2.5 text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs"
+              className="bg-white border border-zinc-200 hover:bg-zinc-50 text-[#101010] rounded-full px-5 py-2.5 text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs"
             >
-              <Download className="h-4 w-4 text-zinc-500" />
+              <Upload className="h-4 w-4 text-zinc-500" />
               Export
             </button>
-            <button
-              onClick={() => requestCreatePurchaseOrders()}
-              disabled={creatingPO || locationFilter === "all"}
-              className="flex-1 sm:flex-initial bg-[#16A34A] hover:bg-[#15803D] disabled:bg-zinc-300 disabled:text-zinc-400 disabled:cursor-not-allowed text-white rounded-xl px-5 py-2.5 text-xs font-bold uppercase tracking-wider shadow-sm flex items-center justify-center gap-2 cursor-pointer transition-all"
-            >
-              {creatingPO ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <FileText className="h-4 w-4" />
-              )}
-              Create Purchase Order
-            </button>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-white p-5 rounded-2xl border border-zinc-200 shadow-xs flex items-center gap-4">
-            <div className="h-10 w-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
-              <Layers className="h-5 w-5" />
-            </div>
-            <div>
-              <p className="text-[10px] uppercase tracking-wider text-[#64748B] font-extrabold">
-                Total Items
-              </p>
-              <h3 className="text-xl font-black text-[#0F172A] mt-0.5">
-                {stats.totalItems}
-              </h3>
-              <p className="text-[10px] text-[#64748B] font-bold mt-0.5">
-                Across all locations
-              </p>
-            </div>
+        <div className="flex flex-col sm:flex-row gap-4 justify-between items-stretch sm:items-center bg-white p-4 rounded-xl border border-zinc-200/80 shadow-xs shrink-0">
+          <div className="relative flex-1 max-w-md">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
+            <input
+              type="text"
+              placeholder="Search items"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full bg-white border border-zinc-200 rounded-xl py-2.5 pl-10 pr-4 text-xs font-bold text-zinc-700 shadow-xs focus:outline-none focus:ring-1 focus:ring-zinc-400 focus:border-zinc-400 placeholder:text-zinc-400"
+            />
           </div>
 
-          <div className="bg-white p-5 rounded-2xl border border-zinc-200 shadow-xs flex items-center gap-4">
-            <div className="h-10 w-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
-              <TrendingDown className="h-5 w-5" />
-            </div>
-            <div>
-              <p className="text-[10px] uppercase tracking-wider text-[#64748B] font-extrabold">
-                Total Capacity
-              </p>
-              <h3 className="text-xl font-black text-[#0F172A] mt-0.5">
-                {stats.totalCapacity.toLocaleString()}
-              </h3>
-              <p className="text-[10px] text-[#64748B] font-bold mt-0.5">
-                Base Units
-              </p>
-            </div>
-          </div>
-
-          <div className="bg-white p-5 rounded-2xl border border-zinc-200 shadow-xs flex items-center gap-4">
-            <div className="h-10 w-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
-              <ArrowRight className="h-5 w-5" />
-            </div>
-            <div>
-              <p className="text-[10px] uppercase tracking-wider text-[#64748B] font-extrabold">
-                Total to Refill
-              </p>
-              <h3 className="text-xl font-black text-[#0F172A] mt-0.5">
-                {stats.totalRefill.toLocaleString()}
-              </h3>
-              <p className="text-[10px] text-[#64748B] font-bold mt-0.5">
-                Base Units
-              </p>
-            </div>
-          </div>
-
-          <div className="bg-white p-5 rounded-2xl border border-zinc-200 shadow-xs flex items-center gap-4">
-            <div className="h-10 w-10 rounded-xl bg-violet-50 text-violet-600 flex items-center justify-center shrink-0">
-              <DollarSign className="h-5 w-5" />
-            </div>
-            <div>
-              <p className="text-[10px] uppercase tracking-wider text-[#64748B] font-extrabold">
-                Est. Purchase Cost
-              </p>
-              <h3 className="text-xl font-black text-[#0F172A] mt-0.5">
-                $
-                {stats.estCost.toLocaleString(undefined, {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-                })}
-              </h3>
-              <p className="text-[10px] text-[#64748B] font-bold mt-0.5">AUD</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="flex flex-col sm:flex-row gap-3 justify-between items-stretch sm:items-center bg-white p-4 rounded-xl border border-zinc-200 shadow-xs">
-          <div className="flex flex-wrap gap-2 flex-1">
-            <div className="relative min-w-[140px]">
+          <div className="flex items-center gap-3 shrink-0">
+            <div className="relative min-w-[160px]">
               <select
                 value={supplierFilter}
                 onChange={(e) => setSupplierFilter(e.target.value)}
-                className="w-full bg-white border border-zinc-200 rounded-xl py-2 px-3.5 pr-8 text-xs font-bold text-zinc-700 shadow-xs appearance-none focus:outline-none focus:ring-1 focus:ring-[#16A34A] focus:border-[#16A34A] cursor-pointer"
+                className="w-full bg-white border border-zinc-200 rounded-xl py-2.5 pl-4 pr-10 text-xs font-bold text-zinc-700 shadow-xs appearance-none focus:outline-none focus:ring-1 focus:ring-zinc-400 focus:border-zinc-400 cursor-pointer"
               >
-                <option value="all">All Suppliers</option>
+                <option value="all">All Supplier</option>
                 {suppliers.map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.name}
                   </option>
                 ))}
               </select>
-              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
+              <ChevronDown className="absolute right-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
+            </div>
+
+            <div className="bg-white border border-zinc-200 rounded-xl py-2.5 px-4 text-xs font-bold text-zinc-700 shadow-xs flex items-center gap-2 select-none shrink-0">
+              <Calendar className="h-4 w-4 text-zinc-400" />
+              <span>{formattedDate}</span>
             </div>
           </div>
         </div>
 
         {groupedData.length === 0 ? (
-          <div className="bg-white border border-zinc-200 rounded-2xl py-20 px-6 text-center flex flex-col items-center justify-center shadow-xs">
+          <div className="bg-white border border-zinc-200 rounded-2xl py-20 px-6 text-center flex flex-col items-center justify-center shadow-xs flex-1">
             <ClipboardList className="h-12 w-12 text-zinc-300 mb-3" />
-            <h3 className="text-base font-bold text-[#0F172A]">
+            <h3 className="text-base font-bold text-[#101010]">
               All items fully stocked!
             </h3>
             <p className="text-[#64748B] text-xs mt-1 font-semibold max-w-xs leading-relaxed">
@@ -503,112 +465,80 @@ export default function RefillPlannerPage() {
             </p>
           </div>
         ) : (
-          <div className="space-y-6">
-            {groupedData.map((group) => {
-              const groupEstCost = group.items.reduce((sum, item) => {
-                const key = `${item.stockItemId}-${item.locationId || "null"}`;
-                if (selectedItems[key]) {
-                  const qty =
-                    quantities[key] !== undefined
-                      ? quantities[key]
-                      : item.toRefill;
-                  return sum + qty * item.costPerBaseUnit;
-                }
-                return sum;
-              }, 0);
+          <div className="bg-white border border-zinc-200 rounded-2xl shadow-2xs flex-1 min-h-0 flex flex-col overflow-hidden">
+            <div className="overflow-x-auto overflow-y-auto scrollbar-thin scrollbar-track-slate-100 scrollbar-thumb-gray-400 hover:scrollbar-thumb-gray-500 transition-all duration-300 flex-1 min-h-0">
+              <table className="w-full text-left border-collapse bg-white">
+                <thead>
+                  <tr className="border-b border-zinc-200/80 text-[10px] uppercase font-extrabold tracking-wider text-[#6e6e6e] bg-white sticky top-0 z-10">
+                    <th className="py-4 px-6 bg-white">Stock Item</th>
+                    <th className="py-4 px-6 bg-white">Capacity</th>
+                    <th className="py-4 px-6 bg-white">Reorder Level</th>
+                    <th className="py-4 px-6 bg-white text-center">
+                      Current Stock
+                    </th>
+                    <th className="py-4 px-6 bg-white">Restock Qty</th>
+                    <th className="py-4 px-6 text-right bg-white">Est. Cost</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-zinc-200/40 text-xs text-[#101010] bg-white">
+                  {groupedData.map((group) => {
+                    const groupEstCost = group.items.reduce((sum, item) => {
+                      const key = `${item.stockItemId}-${item.locationId || "null"}`;
+                      if (selectedItems[key]) {
+                        const qty =
+                          quantities[key] !== undefined
+                            ? quantities[key]
+                            : item.toRefill;
+                        return sum + qty * item.costPerBaseUnit;
+                      }
+                      return sum;
+                    }, 0);
 
-              const isGroupSelected = group.items.every((item) => {
-                const key = `${item.stockItemId}-${item.locationId || "null"}`;
-                return selectedItems[key];
-              });
+                    return (
+                      <Fragment key={group.name}>
+                        <tr className="bg-white">
+                          <td
+                            colSpan={6}
+                            className="p-3 bg-white border-b border-zinc-200/40"
+                          >
+                            <div className="bg-[#e9ebed] rounded-xl px-5 py-3 flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <span className="font-extrabold text-[#101010] text-sm">
+                                  {group.name}
+                                </span>
+                                <span className="bg-zinc-300/60 text-[#6e6e6e] text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ml-2">
+                                  {group.items.length}{" "}
+                                  {group.items.length === 1 ? "ITEM" : "ITEMS"}
+                                </span>
+                              </div>
 
-              return (
-                <div
-                  key={group.name}
-                  className="bg-white border border-zinc-200 rounded-2xl shadow-xs overflow-hidden"
-                >
-                  <div className="bg-zinc-50 border-b border-zinc-200 px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <div className="flex items-center gap-3">
-                      <input
-                        type="checkbox"
-                        checked={isGroupSelected}
-                        onChange={(e) =>
-                          handleGroupSelectAll(group.items, e.target.checked)
-                        }
-                        className="h-4 w-4 text-[#16A34A] focus:ring-[#16A34A] border-zinc-300 rounded cursor-pointer"
-                      />
-                      <div>
-                        <span className="font-extrabold text-[#0F172A] text-sm">
-                          {group.name}
-                        </span>
-                        <span className="text-[#64748B] text-[10px] font-bold ml-2 bg-zinc-200/60 px-2 py-0.5 rounded-full uppercase">
-                          {group.items.length}{" "}
-                          {group.items.length === 1 ? "item" : "items"}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-4">
-                      <span className="text-xs font-bold text-zinc-700">
-                        Est. Cost:{" "}
-                        <span className="font-black text-[#0F172A]">
-                          $
-                          {groupEstCost.toLocaleString(undefined, {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2,
-                          })}
-                        </span>
-                      </span>
-                      {groupBy === "supplier" && group.id && (
-                        <button
-                          disabled={locationFilter === "all"}
-                          onClick={() => requestCreatePurchaseOrders(group.id)}
-                          className="bg-white disabled:bg-zinc-100 disabled:text-zinc-400 disabled:border-zinc-200 disabled:cursor-not-allowed border border-[#16A34A] hover:bg-emerald-50 text-[#16A34A] rounded-lg px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-wider flex items-center gap-1.5 transition-all cursor-pointer"
-                        >
-                          <FileText className="h-3 w-3" />
-                          Create PO
-                        </button>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse">
-                      <thead>
-                        <tr className="border-b border-zinc-200 text-[10px] uppercase font-extrabold tracking-wider text-[#64748B] bg-zinc-50/20">
-                          <th className="py-3 px-6 w-12">
-                            <input
-                              type="checkbox"
-                              checked={isGroupSelected}
-                              onChange={(e) =>
-                                handleGroupSelectAll(
-                                  group.items,
-                                  e.target.checked,
-                                )
-                              }
-                              className="h-4 w-4 text-[#16A34A] focus:ring-[#16A34A] border-zinc-300 rounded cursor-pointer"
-                            />
-                          </th>
-                          <th className="py-3 px-6">Stock Item</th>
-                          <th className="py-3 px-6">Location</th>
-                          {showColumns.currentStock && (
-                            <th className="py-3 px-6">Current Stock</th>
-                          )}
-                          {showColumns.capacity && (
-                            <th className="py-3 px-6">Capacity</th>
-                          )}
-                          {showColumns.reorderLevel && (
-                            <th className="py-3 px-6">Reorder Level</th>
-                          )}
-                          {showColumns.toRefill && (
-                            <th className="py-3 px-6 w-36">To Refill</th>
-                          )}
-                          {showColumns.estCost && (
-                            <th className="py-3 px-6 text-right">Est. Cost</th>
-                          )}
+                              <div className="flex items-center gap-4">
+                                <span className="text-xs font-bold text-zinc-700">
+                                  Supplier Total:{" "}
+                                  <span className="font-black text-[#101010]">
+                                    $
+                                    {groupEstCost.toLocaleString(undefined, {
+                                      minimumFractionDigits: 2,
+                                      maximumFractionDigits: 2,
+                                    })}
+                                  </span>
+                                </span>
+                                <button
+                                  disabled={
+                                    creatingPO || locationFilter === "all"
+                                  }
+                                  onClick={() =>
+                                    requestCreatePurchaseOrders(group.id)
+                                  }
+                                  className="bg-[#101010] hover:bg-black disabled:bg-zinc-300 disabled:text-zinc-400 disabled:cursor-not-allowed text-white rounded-full px-5 py-1.5 text-[10px] font-extrabold uppercase tracking-wider transition-all cursor-pointer"
+                                >
+                                  CREATE PO
+                                </button>
+                              </div>
+                            </div>
+                          </td>
                         </tr>
-                      </thead>
-                      <tbody className="divide-y divide-zinc-200 text-xs text-[#0F172A]">
+
                         {group.items.map((item) => {
                           const key = `${item.stockItemId}-${item.locationId || "null"}`;
                           const isSelected = selectedItems[key] || false;
@@ -618,27 +548,31 @@ export default function RefillPlannerPage() {
                               : item.toRefill;
                           const estCost = currentQty * item.costPerBaseUnit;
 
+                          const isLow = item.currentStock < item.reorderLevel;
+                          const targetQty = isLow
+                            ? item.reorderLevel
+                            : item.currentStock > item.reorderLevel
+                              ? item.capacity
+                              : item.reorderLevel;
+                          const progressPercent = Math.min(
+                            100,
+                            (item.currentStock / targetQty) * 100,
+                          );
+                          const textColorClass = isLow
+                            ? "text-action-critical"
+                            : "text-action-success";
+                          const barColorClass = isLow
+                            ? "bg-action-critical"
+                            : "bg-action-success";
+
                           return (
                             <tr
                               key={key}
-                              className={`hover:bg-zinc-50/30 transition-colors ${isSelected ? "" : "opacity-60 bg-zinc-50/10"}`}
+                              className={`hover:bg-zinc-50/20 bg-white transition-colors ${isSelected ? "" : "opacity-60 bg-zinc-50/10"}`}
                             >
-                              <td className="py-3.5 px-6">
-                                <input
-                                  type="checkbox"
-                                  checked={isSelected}
-                                  onChange={(e) =>
-                                    setSelectedItems((prev) => ({
-                                      ...prev,
-                                      [key]: e.target.checked,
-                                    }))
-                                  }
-                                  className="h-4 w-4 text-[#16A34A] focus:ring-[#16A34A] border-zinc-300 rounded cursor-pointer"
-                                />
-                              </td>
-                              <td className="py-3.5 px-6">
+                              <td className="py-4 px-6 bg-white">
                                 <div>
-                                  <p className="font-extrabold text-[#0F172A]">
+                                  <p className="font-extrabold text-[#101010]">
                                     {item.stockItemName}
                                   </p>
                                   {item.sku && (
@@ -648,60 +582,91 @@ export default function RefillPlannerPage() {
                                   )}
                                 </div>
                               </td>
-                              <td className="py-3.5 px-6 font-bold text-[#64748B]">
-                                {item.locationName}
+                              <td className="py-4 px-6 font-extrabold text-[#6e6e6e] bg-white">
+                                {item.capacity.toLocaleString()}
                               </td>
-                              {showColumns.currentStock && (
-                                <td className="py-3.5 px-6 font-extrabold text-[#64748B]">
-                                  {item.currentStock.toLocaleString()}
-                                </td>
-                              )}
-                              {showColumns.capacity && (
-                                <td className="py-3.5 px-6 font-extrabold text-[#64748B]">
-                                  {item.capacity.toLocaleString()}
-                                </td>
-                              )}
-                              {showColumns.reorderLevel && (
-                                <td className="py-3.5 px-6 font-extrabold text-[#64748B]">
-                                  {item.reorderLevel.toLocaleString()}
-                                </td>
-                              )}
-                              {showColumns.toRefill && (
-                                <td className="py-3.5 px-6">
-                                  <input
-                                    type="number"
-                                    min="0"
-                                    value={currentQty}
-                                    onChange={(e) =>
-                                      handleQuantityChange(
-                                        key,
-                                        parseFloat(e.target.value) || 0,
-                                      )
-                                    }
-                                    className="w-24 bg-white border border-zinc-300 rounded-lg px-2 py-1 text-xs text-right text-zinc-900 font-extrabold focus:outline-none focus:border-[#16A34A] focus:ring-1 focus:ring-[#16A34A]"
-                                  />
-                                </td>
-                              )}
-                              {showColumns.estCost && (
-                                <td className="py-3.5 px-6 font-extrabold text-right text-[#0F172A]">
-                                  $
-                                  {estCost.toLocaleString(undefined, {
-                                    minimumFractionDigits: 2,
-                                    maximumFractionDigits: 2,
-                                  })}
-                                </td>
-                              )}
+                              <td className="py-4 px-6 font-extrabold text-[#6e6e6e] bg-white">
+                                {item.reorderLevel.toLocaleString()}
+                              </td>
+                              <td className="py-4 px-6 bg-white">
+                                <div className="flex flex-col items-center justify-center w-full max-w-[150px] mx-auto">
+                                  <div className="flex items-center gap-2 w-full justify-between">
+                                    <span
+                                      className={`font-bold text-xs ${textColorClass}`}
+                                    >
+                                      {item.currentStock}
+                                    </span>
+                                    <div className="w-20 h-1.5 bg-zinc-200 rounded-full overflow-hidden shrink-0 border border-zinc-200/50">
+                                      <div
+                                        className={`${barColorClass} h-full rounded-full transition-all duration-500`}
+                                        style={{ width: `${progressPercent}%` }}
+                                      />
+                                    </div>
+                                    <span className="font-bold text-xs text-[#6e6e6e]">
+                                      {targetQty}
+                                    </span>
+                                  </div>
+                                  {isLow && (
+                                    <div className="mt-1 flex justify-center w-full">
+                                      <span className="bg-rose-100/70 border border-rose-200/30 text-action-critical text-[9px] font-extrabold px-6 py-0.5 rounded-full uppercase tracking-wider">
+                                        LOW
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
+                              </td>
+                              <td className="py-4 px-6 bg-white">
+                                <input
+                                  type="number"
+                                  min="0"
+                                  value={currentQty}
+                                  onChange={(e) =>
+                                    handleQuantityChange(
+                                      key,
+                                      parseFloat(e.target.value) || 0,
+                                    )
+                                  }
+                                  className="w-16 bg-white border border-[#dddddd] rounded-lg px-2 py-1.5 text-xs text-center text-[#101010] font-extrabold focus:outline-none focus:border-zinc-400 focus:ring-1 focus:ring-zinc-400"
+                                />
+                              </td>
+                              <td className="py-4 px-6 font-extrabold text-right text-[#6e6e6e] bg-white">
+                                $
+                                {estCost.toLocaleString(undefined, {
+                                  minimumFractionDigits: 2,
+                                  maximumFractionDigits: 2,
+                                })}
+                              </td>
                             </tr>
                           );
                         })}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              );
-            })}
+                      </Fragment>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
+
+        <div className="border-t border-dashed border-[#4949ce]/30 pt-4 mt-2 shrink-0">
+          <div className="text-xs text-[#6e6e6e] font-bold">
+            <span className="font-extrabold text-[#101010]">
+              {stats.totalItems}
+            </span>{" "}
+            item{stats.totalItems !== 1 ? "s" : ""} across{" "}
+            <span className="font-extrabold text-[#101010]">
+              {uniqueSuppliersCount}
+            </span>{" "}
+            supplier{uniqueSuppliersCount !== 1 ? "s" : ""} — total est. cost{" "}
+            <span className="font-black text-[#4949ce]">
+              $
+              {stats.estCost.toLocaleString(undefined, {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}
+            </span>
+          </div>
+        </div>
       </div>
 
       <AlertDialog
