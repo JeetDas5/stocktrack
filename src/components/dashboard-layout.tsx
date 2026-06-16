@@ -393,6 +393,11 @@ export default function DashboardLayout({
       icon: CalendarClockIcon,
       subLinks: [
         {
+          name: "Roster Builder",
+          href: "/dashboard/roaster-builder",
+          icon: CalendarClockIcon,
+        },
+        {
           name: "Roster Settings",
           href: "/dashboard/roaster-settings",
           icon: Settings01Icon,

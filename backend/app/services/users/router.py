@@ -37,6 +37,7 @@ class UserMeOut(SQLModel):
     is_approved: bool
     created_at: datetime
     updated_at: datetime
+    start_date: datetime
 
 
 @router.get("/api/users/me", response_model=UserMeOut)
@@ -63,7 +64,8 @@ def get_me(
         role=current_user.role,
         is_approved=is_approved,
         created_at=current_user.created_at,
-        updated_at=current_user.updated_at
+        updated_at=current_user.updated_at,
+        start_date=current_user.start_date or current_user.created_at
     )
 
 

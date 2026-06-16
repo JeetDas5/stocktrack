@@ -22,6 +22,7 @@ class User(SQLModel, table=True):
     ip_address: Optional[str] = Field(default=None)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
+    start_date: datetime = Field(default_factory=datetime.utcnow)
 
     businesses: List["Business"] = Relationship(back_populates="created_by")
 
@@ -654,3 +655,24 @@ class RosterSettings(SQLModel, table=True):
     allow_admin_override: bool = Field(default=True)
     notify_staff_approved: bool = Field(default=True)
     positions: List[str] = Field(default=[], sa_column=Column(JSON))
+
+
+class RosterShift(SQLModel, table=True):
+    __tablename__ = "roster_shifts"
+
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
+    business_id: str = Field(foreign_key="businesses.id", ondelete="CASCADE")
+    location_id: str = Field(foreign_key="locations.id", ondelete="CASCADE")
+    user_id: Optional[str] = Field(default=None, foreign_key="users.id", ondelete="SET NULL")
+    date: str = Field(index=True)  # YYYY-MM-DD
+    shift_name: str  # Morning, Afternoon, Evening, etc.
+    time_from: str  # e.g., "06:00"
+    time_to: str  # e.g., "11:00"
+    required_count: int = Field(default=2)
+    status: str = Field(default="draft")  # draft or published
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+    # Relationships
+    user: Optional[User] = Relationship()
+    location: Optional[Location] = Relationship()
