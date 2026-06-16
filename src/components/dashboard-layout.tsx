@@ -54,10 +54,17 @@ import {
   BankIcon,
 } from "@hugeicons/core-free-icons";
 
-interface SidebarLink {
+interface SidebarSubLink {
   name: string;
   href: string;
   icon: IconSvgElement;
+}
+
+interface SidebarLink {
+  name: string;
+  href?: string;
+  icon: IconSvgElement;
+  subLinks?: SidebarSubLink[];
 }
 
 export default function DashboardLayout({
@@ -84,6 +91,9 @@ export default function DashboardLayout({
   const [loading, setLoading] = useState(true);
   const [locationsLoaded, setLocationsLoaded] = useState(false);
   const [collapsedGroups, setCollapsedGroups] = useState<
+    Record<string, boolean>
+  >({});
+  const [collapsedSubMenus, setCollapsedSubMenus] = useState<
     Record<string, boolean>
   >({});
 
@@ -379,34 +389,46 @@ export default function DashboardLayout({
       icon: IdentityCardIcon,
     },
     {
-      name: "Roster Settings",
-      href: "/dashboard/roaster-settings",
-      icon: Settings01Icon,
+      name: "Roster",
+      icon: CalendarClockIcon,
+      subLinks: [
+        {
+          name: "Roster Settings",
+          href: "/dashboard/roaster-settings",
+          icon: Settings01Icon,
+        },
+        {
+          name: "Availability Entry",
+          href: "/dashboard/availablity-entry",
+          icon: CalendarPlusIcon,
+        },
+        {
+          name: "Availability Overview",
+          href: "/dashboard/availability-overview",
+          icon: CalendarSearchIcon,
+        },
+      ],
     },
     {
-      name: "Availability Entry",
-      href: "/dashboard/availablity-entry",
-      icon: CalendarPlusIcon,
-    },
-    {
-      name: "Availability Overview",
-      href: "/dashboard/availability-overview",
-      icon: CalendarSearchIcon,
-    },
-    {
-      name: "Timesheet Entry",
-      href: "/dashboard/timesheet-entry",
-      icon: ClockPlusIcon,
-    },
-    {
-      name: "Timesheet Review",
-      href: "/dashboard/timesheet-review",
-      icon: ClockCheckIcon,
-    },
-    {
-      name: "Timesheet Reports",
-      href: "/dashboard/timesheet-reports",
+      name: "Timesheet",
       icon: ClipboardClockIcon,
+      subLinks: [
+        {
+          name: "Timesheet Entry",
+          href: "/dashboard/timesheet-entry",
+          icon: ClockPlusIcon,
+        },
+        {
+          name: "Timesheet Review",
+          href: "/dashboard/timesheet-review",
+          icon: ClockCheckIcon,
+        },
+        {
+          name: "Timesheet Reports",
+          href: "/dashboard/timesheet-reports",
+          icon: ClipboardClockIcon,
+        },
+      ],
     },
   ];
 
@@ -420,36 +442,37 @@ export default function DashboardLayout({
 
   const isLinkAllowed = (href: string) => {
     if (allowedHrefs.includes("*")) return true;
-    if (
-      href === "/login" ||
-      href === "/dashboard/profile"
-    ) {
+    if (href === "/login" || href === "/dashboard/profile") {
       return true;
     }
     return allowedHrefs.includes(href);
   };
 
-  const filteredInventoryLinks = inventoryLinks.filter((link) =>
-    isLinkAllowed(link.href),
-  );
-  const filteredSalesLinks = salesLinks.filter((link) =>
-    isLinkAllowed(link.href),
-  );
-  const filteredReportsLinks = reportsLinks.filter((link) =>
-    isLinkAllowed(link.href),
-  );
-  const filteredBusinessSetupLinks = businessSetupLinks.filter((link) =>
-    isLinkAllowed(link.href),
-  );
-  const filteredInventorySetupLinks = inventorySetupLinks.filter((link) =>
-    isLinkAllowed(link.href),
-  );
-  const filteredStaffLinks = staffLinks.filter((link) =>
-    isLinkAllowed(link.href),
-  );
-  const filteredAccountLinks = accountLinks.filter((link) =>
-    isLinkAllowed(link.href),
-  );
+  const filterSidebarLinks = (links: SidebarLink[]) => {
+    return links
+      .map((link) => {
+        if (link.subLinks) {
+          const allowedSubLinks = link.subLinks.filter((sub) =>
+            isLinkAllowed(sub.href),
+          );
+          if (allowedSubLinks.length === 0) return null;
+          return {
+            ...link,
+            subLinks: allowedSubLinks,
+          };
+        }
+        return link.href && isLinkAllowed(link.href) ? link : null;
+      })
+      .filter((link): link is SidebarLink => link !== null);
+  };
+
+  const filteredInventoryLinks = filterSidebarLinks(inventoryLinks);
+  const filteredSalesLinks = filterSidebarLinks(salesLinks);
+  const filteredReportsLinks = filterSidebarLinks(reportsLinks);
+  const filteredBusinessSetupLinks = filterSidebarLinks(businessSetupLinks);
+  const filteredInventorySetupLinks = filterSidebarLinks(inventorySetupLinks);
+  const filteredStaffLinks = filterSidebarLinks(staffLinks);
+  const filteredAccountLinks = filterSidebarLinks(accountLinks);
 
   const flatSidebarLinks: SidebarLink[] = [];
   if (isLinkAllowed("/dashboard")) {
@@ -469,7 +492,17 @@ export default function DashboardLayout({
     ...accountLinks,
   ];
   otherLinks.forEach((link) => {
-    if (
+    if (link.subLinks) {
+      link.subLinks.forEach((sub) => {
+        if (
+          isLinkAllowed(sub.href) &&
+          !flatSidebarLinks.some((l) => l.href === sub.href)
+        ) {
+          flatSidebarLinks.push(sub);
+        }
+      });
+    } else if (
+      link.href &&
       isLinkAllowed(link.href) &&
       !flatSidebarLinks.some((l) => l.href === link.href)
     ) {
@@ -499,6 +532,21 @@ export default function DashboardLayout({
     return collapsedGroups[groupName] !== false;
   };
 
+  const isSubMenuOpen = (menuName: string, subLinks: SidebarSubLink[]) => {
+    if (collapsedSubMenus[menuName] !== undefined) {
+      return !collapsedSubMenus[menuName];
+    }
+    return subLinks.some((sub) => isActive(sub.href));
+  };
+
+  const toggleSubMenu = (menuName: string, subLinks: SidebarSubLink[]) => {
+    const currentOpen = isSubMenuOpen(menuName, subLinks);
+    setCollapsedSubMenus((prev) => ({
+      ...prev,
+      [menuName]: currentOpen,
+    }));
+  };
+
   const groupIcons: Record<string, IconSvgElement> = {
     Inventory: ListViewIcon,
     Sales: ShoppingCartIcon,
@@ -515,15 +563,115 @@ export default function DashboardLayout({
     hasGrip = false,
     isCollapsed = false,
   ) => {
-    const active = isActive(link.href);
+    if (link.subLinks) {
+      if (isCollapsed) {
+        return (
+          <React.Fragment key={link.name}>
+            {link.subLinks.map((sub) => {
+              const active = isActive(sub.href);
+              return (
+                <Link
+                  key={sub.href}
+                  href={sub.href}
+                  title={sub.name}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    router.push(sub.href);
+                    setMobileSidebarOpen(false);
+                  }}
+                  className={`flex items-center justify-center px-3 py-2 rounded-lg text-black text-sm transition-all duration-400 cursor-pointer ${
+                    active ? "bg-primary-50 font-bold" : "hover:bg-gray-soft"
+                  }`}
+                >
+                  <HugeiconsIcon
+                    icon={sub.icon}
+                    size={18}
+                    className="text-black"
+                  />
+                </Link>
+              );
+            })}
+          </React.Fragment>
+        );
+      }
+
+      const isOpen = isSubMenuOpen(link.name, link.subLinks);
+      const isAnyChildActive = link.subLinks.some((sub) => isActive(sub.href));
+
+      return (
+        <div key={link.name} className="space-y-0.5">
+          <button
+            onClick={() => toggleSubMenu(link.name, link.subLinks!)}
+            className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-black text-sm transition-all duration-400 cursor-pointer ${
+              isAnyChildActive
+                ? "bg-primary-50/40 font-semibold"
+                : "hover:bg-gray-soft"
+            }`}
+          >
+            <div className="flex items-center gap-2 text-[16px]">
+              <HugeiconsIcon
+                icon={link.icon}
+                size={18}
+                className="text-black"
+              />
+              <span>{link.name}</span>
+            </div>
+            <HugeiconsIcon
+              icon={ChevronDownIcon}
+              size={14}
+              className={`text-black transition-transform duration-200 ${
+                isOpen ? "rotate-180" : ""
+              }`}
+            />
+          </button>
+
+          <div
+            className={`pl-3.5 space-y-0.5 border-l border-gray-soft ml-5 overflow-hidden transition-all duration-300 ${
+              isOpen
+                ? "max-h-48 opacity-100 mt-0.5"
+                : "max-h-0 opacity-0 pointer-events-none"
+            }`}
+          >
+            {link.subLinks.map((sub) => {
+              const active = isActive(sub.href);
+              return (
+                <Link
+                  key={sub.href}
+                  href={sub.href}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    router.push(sub.href);
+                    setMobileSidebarOpen(false);
+                  }}
+                  className={`flex items-center justify-between px-3 py-1.5 rounded-lg text-black text-[13px] transition-all duration-400 cursor-pointer ${
+                    active ? "bg-primary-50 font-bold" : "hover:bg-gray-soft"
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <HugeiconsIcon
+                      icon={sub.icon}
+                      size={16}
+                      className="text-black opacity-80"
+                    />
+                    <span>{sub.name}</span>
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      );
+    }
+
+    const active = isActive(link.href!);
     return (
       <Link
         key={link.href}
-        href={link.href}
+        href={link.href!}
         title={isCollapsed ? link.name : undefined}
         onClick={(e) => {
           e.preventDefault();
-          router.push(link.href);
+          router.push(link.href!);
           setMobileSidebarOpen(false);
         }}
         className={`flex items-center ${isCollapsed ? "justify-center" : "justify-between"} px-3 py-2 rounded-lg text-black text-sm transition-all duration-400 cursor-pointer ${
@@ -589,15 +737,16 @@ export default function DashboardLayout({
           className={`accordion-grid ${collapsed ? "" : "accordion-grid-open"}`}
         >
           <div className="accordion-grid-inner pl-4 space-y-0.5">
-            {links.map((link) =>
-              options?.hasGrip && !isSidebarCollapsed ? (
-                <div key={link.href} className="group relative">
+            {links.map((link) => {
+              const itemKey = link.href || link.name;
+              return options?.hasGrip && !isSidebarCollapsed ? (
+                <div key={itemKey} className="group relative">
                   {renderLink(link, true, isSidebarCollapsed)}
                 </div>
               ) : (
                 renderLink(link, false, isSidebarCollapsed)
-              ),
-            )}
+              );
+            })}
             {options?.extraContent &&
               (!isSidebarCollapsed || groupName === "Admin") &&
               (isSidebarCollapsed ? (
@@ -664,11 +813,13 @@ export default function DashboardLayout({
           </button>
         </div>
 
-        <div className={`flex-1 ${userRole === "staff" ? "space-y-1.5" : "space-y-4"}`}>
+        <div
+          className={`flex-1 ${userRole === "staff" ? "space-y-1.5" : "space-y-4"}`}
+        >
           {userRole === "staff" ? (
             <>
               {flatSidebarLinks.map((link) =>
-                renderLink(link, false, sidebarCollapsed)
+                renderLink(link, false, sidebarCollapsed),
               )}
               <div className="border-t border-gray-soft my-2" />
               {sidebarCollapsed ? (
@@ -693,7 +844,9 @@ export default function DashboardLayout({
                     size={18}
                     className="text-black group-hover:text-red-500 transition-colors"
                   />
-                  <span className="group-hover:text-red-500 transition-colors">Log Out</span>
+                  <span className="group-hover:text-red-500 transition-colors">
+                    Log Out
+                  </span>
                 </button>
               )}
             </>
@@ -718,7 +871,9 @@ export default function DashboardLayout({
                       icon={DashboardSquare02Icon}
                       size={18}
                       className={
-                        isActive("/dashboard") ? "text-black" : "text-gray-muted"
+                        isActive("/dashboard")
+                          ? "text-black"
+                          : "text-gray-muted"
                       }
                     />
                     {!sidebarCollapsed && <span>Dashboard</span>}
@@ -841,10 +996,14 @@ export default function DashboardLayout({
               </span>
             </div>
 
-            <div className={`flex-1 ${userRole === "staff" ? "space-y-1.5" : "space-y-3"}`}>
+            <div
+              className={`flex-1 ${userRole === "staff" ? "space-y-1.5" : "space-y-3"}`}
+            >
               {userRole === "staff" ? (
                 <>
-                  {flatSidebarLinks.map((link) => renderLink(link, false, false))}
+                  {flatSidebarLinks.map((link) =>
+                    renderLink(link, false, false),
+                  )}
                   <div className="border-t border-gray-soft my-2" />
                   <button
                     onClick={handleLogout}
@@ -855,7 +1014,9 @@ export default function DashboardLayout({
                       size={18}
                       className="text-black group-hover:text-red-500 transition-colors"
                     />
-                    <span className="group-hover:text-red-500 transition-colors">Log Out</span>
+                    <span className="group-hover:text-red-500 transition-colors">
+                      Log Out
+                    </span>
                   </button>
                 </>
               ) : (
