@@ -1,25 +1,22 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 "use client";
 
 import { toast } from "sonner";
-import AlertDialog from "@/components/alert-dialog";
-import { Business } from "@/types/business";
+import { useEffect, useState, useMemo } from "react";
+
 import { useAuth } from "@/providers/auth-provider";
+import { Dropdown } from "@/components/ui/dropdown";
 import { useBusinessStore } from "@/stores/business-store";
 import { useSupplierStore } from "@/stores/supplier-store";
 import { Supplier, OrderingMethod } from "@/types/inventory";
-import { useEffect, useState, useMemo, useRef } from "react";
 import { getUserBusinesses } from "@/lib/repositories/business.repository";
 import {
   Truck,
   Building2,
   Plus,
   Search,
-  ChevronDown,
   X,
   Loader2,
   Edit2,
-  Trash2,
   ChevronLeft,
   ChevronRight,
   Upload,
@@ -29,8 +26,39 @@ import {
   FileText,
   User as UserIcon,
   MapPin,
-  AlertCircle,
 } from "lucide-react";
+import { Business } from "@/types/business";
+
+const STATUS_FILTER_OPTIONS = [
+  { value: "all", label: "All Statuses" },
+  { value: "active", label: "Active" },
+  { value: "inactive", label: "Inactive" },
+] as const;
+
+const FORM_STATUS_OPTIONS = [
+  { value: "active", label: "Active" },
+  { value: "inactive", label: "Inactive" },
+] as const;
+
+const COUNTRY_OPTIONS = [
+  { value: "Australia", label: "Australia" },
+  { value: "United States", label: "United States" },
+  { value: "Canada", label: "Canada" },
+  { value: "India", label: "India" },
+  { value: "United Kingdom", label: "United Kingdom" },
+  { value: "Germany", label: "Germany" },
+  { value: "France", label: "France" },
+  { value: "Singapore", label: "Singapore" },
+  { value: "Japan", label: "Japan" },
+] as const;
+
+const ORDERING_METHOD_OPTIONS = [
+  { value: "none", label: "Select ordering method (Optional)" },
+  { value: "email", label: "Email" },
+  { value: "phone", label: "Phone" },
+  { value: "website", label: "Website" },
+  { value: "manual", label: "Manual" },
+] as const;
 
 export default function SuppliersPage() {
   const { activeBusinessId } = useBusinessStore();
@@ -38,14 +66,11 @@ export default function SuppliersPage() {
   const {
     suppliers,
     loading: suppliersLoading,
-    error: storeError,
     fetchSuppliers,
     addSupplier,
     updateSupplier,
-    deleteSupplier,
   } = useSupplierStore();
 
-  const [businesses, setBusinesses] = useState<Business[]>([]);
   const [activeBusiness, setActiveBusiness] = useState<Business | null>(null);
   const [loadingContext, setLoadingContext] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -55,6 +80,7 @@ export default function SuppliersPage() {
 
   const [showDrawer, setShowDrawer] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
+  const [isViewOnly, setIsViewOnly] = useState(true);
 
   const [formName, setFormName] = useState("");
   const [formContactPerson, setFormContactPerson] = useState("");
@@ -69,28 +95,13 @@ export default function SuppliersPage() {
   const [formWebsite, setFormWebsite] = useState("");
   const [formNotes, setFormNotes] = useState("");
   const [formOrderingMethod, setFormOrderingMethod] = useState<
-    OrderingMethod | ""
-  >("");
+    OrderingMethod | "none"
+  >("none");
   const [formActive, setFormActive] = useState(true);
 
   const [saving, setSaving] = useState(false);
-  const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
-
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 7;
-
-  const menuRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-        setActiveMenuId(null);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
 
   useEffect(() => {
     if (!activeBusinessId) return;
@@ -102,7 +113,6 @@ export default function SuppliersPage() {
         await fetchSuppliers(businessId);
 
         const list = await getUserBusinesses([]);
-        setBusinesses(list);
         const activeDoc = list.find((b) => b.id === businessId) || null;
         setActiveBusiness(activeDoc);
       } catch (err) {
@@ -129,8 +139,9 @@ export default function SuppliersPage() {
     setFormCountry("Australia");
     setFormWebsite("");
     setFormNotes("");
-    setFormOrderingMethod("");
+    setFormOrderingMethod("none");
     setFormActive(true);
+    setIsViewOnly(false);
     setShowDrawer(true);
   };
 
@@ -148,10 +159,10 @@ export default function SuppliersPage() {
     setFormCountry(sup.country || "Australia");
     setFormWebsite(sup.website || "");
     setFormNotes(sup.notes || "");
-    setFormOrderingMethod(sup.orderingMethod || "");
+    setFormOrderingMethod(sup.orderingMethod || "none");
     setFormActive(sup.isActive !== false);
+    setIsViewOnly(true);
     setShowDrawer(true);
-    setActiveMenuId(null);
   };
 
   const handleSave = async (e: React.FormEvent) => {
@@ -349,7 +360,7 @@ export default function SuppliersPage() {
         website: trimmedWebsite || undefined,
         notes: trimmedNotes || undefined,
         orderingMethod:
-          formOrderingMethod !== "" ? formOrderingMethod : undefined,
+          formOrderingMethod !== "none" ? formOrderingMethod : undefined,
         isActive: formActive,
       };
 
@@ -371,59 +382,6 @@ export default function SuppliersPage() {
     } finally {
       setSaving(false);
     }
-  };
-
-  const handleDelete = (supId: string) => {
-    setActiveMenuId(null);
-    setDeleteTarget(supId);
-  };
-
-  const handleConfirmDelete = async () => {
-    if (!activeBusinessId || !deleteTarget) return;
-    try {
-      await deleteSupplier(activeBusinessId, deleteTarget);
-      toast.success("Supplier deleted successfully!");
-    } catch (err) {
-      console.error(err);
-      toast.error("Failed to delete supplier.");
-    } finally {
-      setDeleteTarget(null);
-    }
-  };
-
-  const getInitials = (name: string) => {
-    if (!name) return "";
-    const parts = name.trim().split(/\s+/);
-    if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
-    return (parts[0][0] + parts[1][0]).toUpperCase();
-  };
-
-  const getAvatarColors = (name: string) => {
-    const hash = name
-      .split("")
-      .reduce((acc, char) => acc + char.charCodeAt(0), 0);
-    const colors = [
-      {
-        bg: "bg-emerald-50 text-emerald-600 border-emerald-100",
-        dot: "bg-emerald-500",
-      },
-      {
-        bg: "bg-indigo-50 text-indigo-600 border-indigo-100",
-        dot: "bg-indigo-500",
-      },
-      { bg: "bg-sky-50 text-sky-600 border-sky-100", dot: "bg-sky-500" },
-      {
-        bg: "bg-amber-50 text-amber-600 border-amber-100",
-        dot: "bg-amber-500",
-      },
-      { bg: "bg-rose-50 text-rose-600 border-rose-100", dot: "bg-rose-500" },
-      {
-        bg: "bg-violet-50 text-violet-600 border-violet-100",
-        dot: "bg-violet-500",
-      },
-      { bg: "bg-teal-50 text-teal-600 border-teal-100", dot: "bg-teal-500" },
-    ];
-    return colors[hash % colors.length];
   };
 
   const filteredSuppliers = useMemo(() => {
@@ -469,7 +427,7 @@ export default function SuppliersPage() {
   if (suppliersLoading || loadingContext) {
     return (
       <div className="h-[75vh] flex flex-col items-center justify-center bg-white text-[#0F172A]">
-        <Loader2 className="h-7 w-7 text-[#16A34A] animate-spin mb-3" />
+        <Loader2 className="h-7 w-7 text-[#0a2924] animate-spin mb-3" />
         <span className="text-[#64748B] text-xs font-bold uppercase tracking-wider">
           Loading suppliers directory...
         </span>
@@ -478,94 +436,72 @@ export default function SuppliersPage() {
   }
 
   return (
-    <div className="flex bg-white min-h-[80vh] relative select-none">
-      <div className="flex-1 space-y-6 pr-0 lg:pr-4">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-zinc-200 pb-5">
-          <div>
-            <h1 className="text-3xl font-extrabold text-[#0F172A] tracking-tight">
-              Suppliers
-            </h1>
-            <p className="text-[#64748B] text-xs font-bold mt-1.5">
-              Manage your suppliers and their contact information.
-            </p>
-          </div>
-
-          <div className="flex items-center gap-3 w-full sm:w-auto">
+    <div className="flex flex-col bg-white h-[calc(100vh-120px)] md:h-[85vh] min-h-0 relative select-none">
+      <div className="flex-1 min-h-0 flex flex-col space-y-4 pr-0 lg:pr-4">
+        <div className="bg-white border border-[#E2E8F0] rounded-2xl py-3 px-3 md:py-3 md:px-4 flex justify-between items-center shadow-sm">
+          <h1 className="text-xl md:text-2xl font-bold md:font-extrabold text-zinc-900 tracking-tight">
+            Suppliers
+          </h1>
+          <div className="flex items-center gap-1 md:gap-3">
             <button
               onClick={() => toast.info("Import function coming soon!")}
-              className="flex-1 sm:flex-initial bg-white border border-zinc-200 hover:bg-zinc-50 text-zinc-700 rounded-xl px-4 py-2.5 text-xs font-bold uppercase tracking-wider transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer"
+              className="bg-white border border-zinc-200 hover:bg-zinc-50 text-zinc-700 rounded-full px-3 py-2 md:px-5 md:py-2.5 text-xs font-bold transition-all duration-200 flex items-center justify-center gap-0 md:gap-2 cursor-pointer"
             >
               <Upload className="h-4 w-4" />
-              Import Suppliers
+              Import CSV
             </button>
             <button
               onClick={openAddDrawer}
-              className="flex-1 sm:flex-initial bg-[#16A34A] hover:bg-[#15803D] text-white rounded-xl px-5 py-2.5 text-xs font-bold uppercase tracking-wider shadow-sm flex items-center justify-center gap-2 cursor-pointer transition-all duration-200"
+              className="bg-[#0a2924] hover:bg-[#09231f] text-white rounded-full py-3 px-2 md:px-6 md:py-2.5 text-xs font-bold transition-all duration-200 flex items-center justify-center gap-0 md:gap-2 shadow-xs cursor-pointer"
             >
-              <Plus className="h-4 w-4 stroke-[3px]" />
-              Add Supplier
+              <Plus className="h-4 w-4 stroke-[2.5px]" />
+              Add Suppliers
             </button>
           </div>
         </div>
 
-        <div className="flex flex-col md:flex-row gap-4 justify-between items-stretch md:items-center">
-          <div className="flex flex-col sm:flex-row gap-3 flex-1">
-            <div className="relative flex-1">
-              <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-zinc-400">
-                <Search className="h-4 w-4" />
-              </span>
-              <input
-                type="text"
-                placeholder="Search suppliers..."
-                className="w-full bg-white border border-zinc-200 focus:border-[#16A34A] rounded-xl py-2.5 pl-10 pr-4 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#16A34A] transition-all shadow-xs"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </div>
-
-            <div className="relative min-w-[140px]">
-              <select
-                value={statusFilter}
-                onChange={(e) =>
-                  setStatusFilter(
-                    e.target.value as "all" | "active" | "inactive",
-                  )
-                }
-                className="w-full bg-white border border-zinc-200 rounded-xl py-2.5 pl-3.5 pr-8 text-xs font-bold text-zinc-700 shadow-xs appearance-none focus:outline-none focus:ring-1 focus:ring-[#16A34A] focus:border-[#16A34A] cursor-pointer"
-              >
-                <option value="all">All Status</option>
-                <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
-              </select>
-              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
-            </div>
+        <div className="flex flex-col sm:flex-row gap-3 items-center">
+          <div className="relative w-full sm:w-80">
+            <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-zinc-400">
+              <Search className="h-4 w-4" />
+            </span>
+            <input
+              type="text"
+              placeholder="Search Suppliers"
+              className="w-full bg-white border border-zinc-200 focus:border-[#0a2924] rounded-2xl py-2.5 pl-10 pr-4 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#0a2924] transition-all shadow-xs"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
           </div>
+
+          <Dropdown
+            value={statusFilter}
+            onChange={(val) =>
+              setStatusFilter(val as "all" | "active" | "inactive")
+            }
+            options={STATUS_FILTER_OPTIONS}
+            className="w-full sm:w-40"
+            triggerClassName="rounded-2xl py-2.5 pl-3.5 pr-4"
+          />
         </div>
 
-        {storeError && (
-          <div className="bg-rose-50 border border-rose-200 text-rose-600 text-xs rounded-xl p-3 flex items-center gap-2 justify-center font-bold">
-            <AlertCircle className="h-4 w-4 shrink-0" />
-            {storeError}
-          </div>
-        )}
-
         {filteredSuppliers.length === 0 ? (
-          <div className="bg-white border border-zinc-200 rounded-2xl py-20 px-6 text-center flex flex-col items-center justify-center shadow-sm animate-fade-in">
+          <div className="bg-white border border-zinc-200 rounded-2xl py-20 px-6 text-center flex flex-col items-center justify-center shadow-sm animate-fade-in flex-1">
             <Truck className="h-12 w-12 text-zinc-300 mb-3" />
             <h3 className="text-base font-bold text-[#0F172A]">
               No suppliers found
             </h3>
             <p className="text-[#64748B] text-xs mt-1 font-semibold max-w-xs leading-relaxed">
-              No registered supplier profiles match your criteria. Click + Add
-              Supplier to begin.
+              No registered supplier profiles match your criteria. Click Add
+              Suppliers to begin.
             </p>
           </div>
         ) : (
-          <div className="bg-white border border-zinc-200 rounded-2xl shadow-xs overflow-hidden">
-            <div className="overflow-x-auto">
+          <div className="bg-white border border-zinc-200 rounded-2xl shadow-xs overflow-hidden flex-1 min-h-0 flex flex-col">
+            <div className="overflow-auto flex-1 min-h-0">
               <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="border-b border-zinc-200 text-[10px] uppercase font-extrabold tracking-wider text-[#64748B] bg-zinc-50/50">
+                  <tr className="border-b border-zinc-200 text-[10px] uppercase font-extrabold tracking-wider text-[#64748B] bg-zinc-50 sticky top-0 z-10 text-center">
                     <th className="py-4 px-6 font-extrabold">Supplier Name</th>
                     <th className="py-4 px-6 font-extrabold">Business</th>
                     <th className="py-4 px-6 font-extrabold">Contact Person</th>
@@ -579,90 +515,56 @@ export default function SuppliersPage() {
                 </thead>
                 <tbody className="divide-y divide-zinc-200 text-xs text-[#0F172A]">
                   {paginatedSuppliers.map((sup) => {
-                    const avatarStyle = getAvatarColors(sup.name);
                     return (
                       <tr
                         key={sup.id}
-                        className="hover:bg-zinc-50/40 transition-colors"
+                        onClick={() => openEditDrawer(sup)}
+                        className="hover:bg-zinc-50/40 transition-colors text-center cursor-pointer"
                       >
                         <td className="py-4 px-6">
-                          <div className="flex items-center gap-3.5">
-                            <div
-                              className={`h-9 w-9 rounded-full ${avatarStyle.bg} flex items-center justify-center shrink-0 border border-zinc-100 shadow-xs font-extrabold text-[11px]`}
-                            >
-                              {getInitials(sup.name)}
-                            </div>
-                            <div>
-                              <p
-                                className="font-extrabold text-[#0F172A] hover:text-[#16A34A] transition-colors cursor-pointer"
-                                onClick={() => openEditDrawer(sup)}
-                              >
-                                {sup.name.length > 20
-                                  ? sup.name.substring(0, 20) + "..."
-                                  : sup.name}
-                              </p>
-                              {sup.orderingMethod && (
-                                <p className="text-[10px] text-zinc-400 font-bold mt-0.5 uppercase tracking-wider flex items-center gap-1">
-                                  <FileText className="h-3 w-3" />
-                                  Via {sup.orderingMethod}
-                                </p>
-                              )}
-                            </div>
-                          </div>
+                          <span className="font-semibold text-[#0F172A] hover:text-[#0a2924] transition-colors underline underline-offset-4 decoration-zinc-300">
+                            {sup.name}
+                          </span>
                         </td>
 
-                        <td className="py-4 px-6 font-bold text-[#64748B]">
-                          {activeBusiness?.name
-                            ? activeBusiness.name.length > 20
-                              ? activeBusiness.name.substring(0, 20) + "..."
-                              : activeBusiness.name
-                            : "Active"}
+                        <td className="py-4 px-6 font-semibold">
+                          {activeBusiness?.name || "Active"}
                         </td>
 
-                        <td className="py-4 px-6 font-bold text-zinc-700">
-                          {sup.contactPerson
-                            ? sup.contactPerson.length > 20
-                              ? sup.contactPerson.substring(0, 20) + "..."
-                              : sup.contactPerson
-                            : "—"}
+                        <td className="py-4 px-6 font-semibold">
+                          {sup.contactPerson || "—"}
                         </td>
 
-                        <td className="py-4 px-6 text-[#64748B] font-bold">
+                        <td className="py-4 px-6 font-semibold">
                           {sup.phone || "—"}
                         </td>
 
-                        <td className="py-4 px-6 text-[#64748B] font-bold max-w-xs truncate">
+                        <td className="py-4 px-6 font-semibold">
                           {sup.email || "—"}
                         </td>
 
                         <td className="py-4 px-6">
-                          <div className="inline-flex items-center gap-1.5">
-                            <span
-                              className={`h-1.5 w-1.5 rounded-full ${sup.isActive ? "bg-[#16A34A]" : "bg-[#1E293B]"}`}
-                            />
-                            <span
-                              className={`text-[10px] font-bold ${sup.isActive ? "text-[#16A34A]" : "text-[#1E293B]"}`}
-                            >
-                              {sup.isActive ? "Active" : "Inactive"}
+                          {sup.isActive ? (
+                            <span className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-[10px] font-extrabold bg-[#DEF7EC] text-[#03543F]">
+                              <span className="h-1.5 w-1.5 rounded-full bg-[#0E9F6E]" />
+                              ACTIVE
                             </span>
-                          </div>
+                          ) : (
+                            <span className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-[10px] font-extrabold bg-[#FDE8E8] text-[#9B1C1C]">
+                              <span className="h-1.5 w-1.5 rounded-full bg-[#F05252]" />
+                              INACTIVE
+                            </span>
+                          )}
                         </td>
 
                         <td className="py-4 px-6 text-right">
-                          <div className="flex items-center justify-end gap-2">
+                          <div className="flex items-center justify-end">
                             <button
                               onClick={() => openEditDrawer(sup)}
-                              className="p-1.5 rounded-lg hover:bg-zinc-100 text-zinc-500 hover:text-[#16A34A] transition-colors cursor-pointer inline-flex items-center justify-center"
-                              title="Edit Details"
+                              className="h-8 w-8 flex items-center justify-center text-zinc-500 hover:text-[#0a2924] hover:border-[#0a2924] bg-white transition-colors cursor-pointer"
+                              title="View Supplier"
                             >
-                              <Edit2 className="h-4 w-4" />
-                            </button>
-                            <button
-                              onClick={() => handleDelete(sup.id)}
-                              className="p-1.5 rounded-lg hover:bg-rose-50 text-zinc-500 hover:text-[#EF4444] transition-colors cursor-pointer inline-flex items-center justify-center"
-                              title="Delete Supplier"
-                            >
-                              <Trash2 className="h-4 w-4" />
+                              <Edit2 className="h-3.5 w-3.5" />
                             </button>
                           </div>
                         </td>
@@ -673,7 +575,7 @@ export default function SuppliersPage() {
               </table>
             </div>
 
-            <div className="bg-zinc-50/50 border-t border-zinc-200 py-4 px-6 flex flex-col sm:flex-row justify-between items-center gap-4 text-xs text-[#64748B] font-semibold">
+            <div className="bg-zinc-50/50 border-t border-zinc-200 py-4 px-6 flex flex-col sm:flex-row justify-between items-center gap-4 text-xs text-[#64748B] font-semibold sticky bottom-0 z-10">
               <span>
                 Showing{" "}
                 {Math.min(
@@ -702,7 +604,7 @@ export default function SuppliersPage() {
                         onClick={() => handlePageChange(page)}
                         className={`h-8 w-8 rounded-lg font-bold text-xs cursor-pointer transition-all duration-150 ${
                           currentPage === page
-                            ? "bg-[#16A34A] text-white shadow-xs"
+                            ? "bg-[#0a2924] text-white shadow-xs"
                             : "border border-zinc-200 bg-white hover:bg-zinc-50 text-zinc-700"
                         }`}
                       >
@@ -736,10 +638,16 @@ export default function SuppliersPage() {
               <div className="flex justify-between items-start">
                 <div>
                   <h3 className="text-lg font-extrabold text-[#0F172A]">
-                    {editId ? "Edit Supplier" : "Add Supplier"}
+                    {isViewOnly
+                      ? "Supplier Details"
+                      : editId
+                        ? "Edit Supplier"
+                        : "Add Supplier"}
                   </h3>
                   <p className="text-[#64748B] text-xs font-semibold mt-1">
-                    Enter the details for the supplier.
+                    {isViewOnly
+                      ? "View information details for this supplier profile."
+                      : "Enter the details for the supplier."}
                   </p>
                 </div>
                 <button
@@ -750,394 +658,571 @@ export default function SuppliersPage() {
                 </button>
               </div>
 
-              <form onSubmit={handleSave} className="space-y-6">
-                <div className="space-y-4">
-                  <div className="border-b border-zinc-100 pb-1">
-                    <span className="text-[10px] font-extrabold tracking-widest text-[#64748B] uppercase">
-                      Basic Information
-                    </span>
+              {isViewOnly ? (
+                <div className="space-y-6">
+                  <div className="space-y-4">
+                    <div className="border-b border-zinc-100 pb-1">
+                      <span className="text-[10px] font-extrabold tracking-widest text-[#64748B] uppercase">
+                        Basic Information
+                      </span>
+                    </div>
+                    <div className="space-y-1">
+                      <span className="text-[10px] font-bold text-zinc-400 uppercase">
+                        Supplier Name
+                      </span>
+                      <div className="text-xs font-semibold text-[#0F172A]">
+                        {formName}
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <span className="text-[10px] font-bold text-zinc-400 uppercase">
+                        Business
+                      </span>
+                      <div className="text-xs font-semibold text-[#0F172A]">
+                        {activeBusiness?.name || "—"}
+                      </div>
+                    </div>
+                    {formContactPerson && (
+                      <div className="space-y-1">
+                        <span className="text-[10px] font-bold text-zinc-400 uppercase">
+                          Contact Person
+                        </span>
+                        <div className="text-xs font-semibold text-[#0F172A]">
+                          {formContactPerson}
+                        </div>
+                      </div>
+                    )}
                   </div>
 
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-[#0F172A] block">
-                      Supplier Name <span className="text-rose-500">*</span>
-                    </label>
-                    <div className="relative">
-                      <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-zinc-400">
-                        <Truck className="h-4 w-4" />
+                  <div className="space-y-4">
+                    <div className="border-b border-zinc-100 pb-1">
+                      <span className="text-[10px] font-extrabold tracking-widest text-[#64748B] uppercase">
+                        Contact Information
                       </span>
-                      <input
-                        type="text"
-                        required
-                        maxLength={100}
-                        placeholder="Enter supplier name"
-                        className="w-full bg-white border border-zinc-300 focus:border-[#16A34A] rounded-xl py-2.5 pl-10 pr-3.5 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#16A34A] transition-all"
-                        value={formName}
-                        onChange={(e) => setFormName(e.target.value)}
-                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      {formPhone && (
+                        <div className="space-y-1">
+                          <span className="text-[10px] font-bold text-zinc-400 uppercase">
+                            Phone
+                          </span>
+                          <div className="text-xs font-semibold text-[#0F172A]">
+                            {formPhone}
+                          </div>
+                        </div>
+                      )}
+                      {formEmail && (
+                        <div className="space-y-1">
+                          <span className="text-[10px] font-bold text-zinc-400 uppercase">
+                            Email
+                          </span>
+                          <div className="text-xs font-semibold text-[#0F172A] truncate">
+                            {formEmail}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
 
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-[#0F172A] block">
-                      Business <span className="text-rose-500">*</span>
-                    </label>
-                    <div className="relative">
-                      <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-zinc-400">
-                        <Building2 className="h-4 w-4" />
+                  <div className="space-y-4">
+                    <div className="border-b border-zinc-100 pb-1">
+                      <span className="text-[10px] font-extrabold tracking-widest text-[#64748B] uppercase">
+                        Address
                       </span>
-                      <select
-                        className="w-full bg-zinc-50 border border-zinc-200 rounded-xl py-2.5 pl-10 pr-10 text-xs text-zinc-500 font-bold appearance-none cursor-not-allowed"
-                        disabled
-                        value={activeBusinessId || ""}
-                      >
-                        <option value={activeBusinessId || ""}>
-                          {activeBusiness?.name || "Select business"}
-                        </option>
-                      </select>
-                      <ChevronDown className="absolute right-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
+                    </div>
+                    <div className="space-y-1">
+                      <span className="text-[10px] font-bold text-zinc-400 uppercase">
+                        Address Line 1
+                      </span>
+                      <div className="text-xs font-semibold text-[#0F172A]">
+                        {formAddressLine1}
+                      </div>
+                    </div>
+                    {formAddressLine2 && (
+                      <div className="space-y-1">
+                        <span className="text-[10px] font-bold text-zinc-400 uppercase">
+                          Address Line 2
+                        </span>
+                        <div className="text-xs font-semibold text-[#0F172A]">
+                          {formAddressLine2}
+                        </div>
+                      </div>
+                    )}
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <span className="text-[10px] font-bold text-zinc-400 uppercase">
+                          City
+                        </span>
+                        <div className="text-xs font-semibold text-[#0F172A]">
+                          {formCity}
+                        </div>
+                      </div>
+                      {formStateProvince && (
+                        <div className="space-y-1">
+                          <span className="text-[10px] font-bold text-zinc-400 uppercase">
+                            State / Province
+                          </span>
+                          <div className="text-xs font-semibold text-[#0F172A]">
+                            {formStateProvince}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      {formPostalCode && (
+                        <div className="space-y-1">
+                          <span className="text-[10px] font-bold text-zinc-400 uppercase">
+                            Postal Code
+                          </span>
+                          <div className="text-xs font-semibold text-[#0F172A]">
+                            {formPostalCode}
+                          </div>
+                        </div>
+                      )}
+                      <div className="space-y-1">
+                        <span className="text-[10px] font-bold text-zinc-400 uppercase">
+                          Country
+                        </span>
+                        <div className="text-xs font-semibold text-[#0F172A]">
+                          {formCountry}
+                        </div>
+                      </div>
                     </div>
                   </div>
 
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-[#0F172A] block">
-                      Contact Person
-                    </label>
-                    <div className="relative">
-                      <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-zinc-400">
-                        <UserIcon className="h-4 w-4" />
+                  {(formOrderingMethod !== "none" ||
+                    formWebsite ||
+                    formNotes) && (
+                    <div className="space-y-4">
+                      <div className="border-b border-zinc-100 pb-1">
+                        <span className="text-[10px] font-extrabold tracking-widest text-[#64748B] uppercase">
+                          Additional Information
+                        </span>
+                      </div>
+                      {formOrderingMethod !== "none" && (
+                        <div className="space-y-1">
+                          <span className="text-[10px] font-bold text-zinc-400 uppercase">
+                            Ordering Method
+                          </span>
+                          <div className="text-xs font-semibold text-[#0F172A] capitalize">
+                            {formOrderingMethod}
+                          </div>
+                        </div>
+                      )}
+                      {formWebsite && (
+                        <div className="space-y-1">
+                          <span className="text-[10px] font-bold text-zinc-400 uppercase">
+                            Website
+                          </span>
+                          <div className="text-xs font-semibold text-[#0F172A] truncate">
+                            <a
+                              href={formWebsite}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-[#0a2924] underline hover:no-underline"
+                            >
+                              {formWebsite}
+                            </a>
+                          </div>
+                        </div>
+                      )}
+                      {formNotes && (
+                        <div className="space-y-1">
+                          <span className="text-[10px] font-bold text-zinc-400 uppercase">
+                            Notes
+                          </span>
+                          <div className="text-xs font-semibold text-[#0F172A] whitespace-pre-wrap">
+                            {formNotes}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="space-y-4">
+                    <div className="space-y-1">
+                      <span className="text-[10px] font-bold text-zinc-400 uppercase">
+                        Status
                       </span>
-                      <input
-                        type="text"
-                        maxLength={100}
-                        placeholder="Enter contact person name"
-                        className="w-full bg-white border border-zinc-300 focus:border-[#16A34A] rounded-xl py-2.5 pl-10 pr-3.5 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#16A34A] transition-all"
-                        value={formContactPerson}
-                        onChange={(e) => setFormContactPerson(e.target.value)}
-                      />
+                      <div className="mt-1">
+                        {formActive ? (
+                          <span className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-[10px] font-extrabold bg-[#DEF7EC] text-[#03543F]">
+                            <span className="h-1.5 w-1.5 rounded-full bg-[#0E9F6E]" />
+                            ACTIVE
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-[10px] font-extrabold bg-[#FDE8E8] text-[#9B1C1C]">
+                            <span className="h-1.5 w-1.5 rounded-full bg-[#F05252]" />
+                            INACTIVE
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
+              ) : (
+                <form onSubmit={handleSave} className="space-y-6">
+                  <div className="space-y-4">
+                    <div className="border-b border-zinc-100 pb-1">
+                      <span className="text-[10px] font-extrabold tracking-widest text-[#64748B] uppercase">
+                        Basic Information
+                      </span>
+                    </div>
 
-                <div className="space-y-4">
-                  <div className="border-b border-zinc-100 pb-1">
-                    <span className="text-[10px] font-extrabold tracking-widest text-[#64748B] uppercase">
-                      Contact Information
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1.5">
                       <label className="text-xs font-bold text-[#0F172A] block">
-                        Phone
+                        Supplier Name <span className="text-rose-500">*</span>
                       </label>
                       <div className="relative">
                         <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-zinc-400">
-                          <Phone className="h-4 w-4" />
+                          <Truck className="h-4 w-4" />
                         </span>
                         <input
-                          type="tel"
-                          maxLength={20}
-                          placeholder="Enter phone number"
-                          className="w-full bg-white border border-zinc-300 focus:border-[#16A34A] rounded-xl py-2.5 pl-10 pr-3.5 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#16A34A] transition-all"
-                          value={formPhone}
+                          type="text"
+                          required
+                          maxLength={100}
+                          placeholder="Enter supplier name"
+                          className="w-full bg-white border border-zinc-300 focus:border-[#0a2924] rounded-xl py-2.5 pl-10 pr-3.5 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#0a2924] transition-all"
+                          value={formName}
+                          onChange={(e) => setFormName(e.target.value)}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-[#0F172A] block">
+                        Business <span className="text-rose-500">*</span>
+                      </label>
+                      <div className="relative">
+                        <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-zinc-400">
+                          <Building2 className="h-4 w-4" />
+                        </span>
+                        <div className="w-full bg-zinc-50 border border-zinc-200 rounded-xl py-2.5 pl-10 pr-3.5 text-xs text-zinc-500 font-bold">
+                          {activeBusiness?.name || "Select business"}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-[#0F172A] block">
+                        Contact Person
+                      </label>
+                      <div className="relative">
+                        <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-zinc-400">
+                          <UserIcon className="h-4 w-4" />
+                        </span>
+                        <input
+                          type="text"
+                          maxLength={100}
+                          placeholder="Enter contact person name"
+                          className="w-full bg-white border border-zinc-300 focus:border-[#0a2924] rounded-xl py-2.5 pl-10 pr-3.5 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#0a2924] transition-all"
+                          value={formContactPerson}
+                          onChange={(e) => setFormContactPerson(e.target.value)}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div className="border-b border-zinc-100 pb-1">
+                      <span className="text-[10px] font-extrabold tracking-widest text-[#64748B] uppercase">
+                        Contact Information
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-bold text-[#0F172A] block">
+                          Phone
+                        </label>
+                        <div className="relative">
+                          <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-zinc-400">
+                            <Phone className="h-4 w-4" />
+                          </span>
+                          <input
+                            type="tel"
+                            maxLength={20}
+                            placeholder="Enter phone number"
+                            className="w-full bg-white border border-zinc-300 focus:border-[#0a2924] rounded-xl py-2.5 pl-10 pr-3.5 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#0a2924] transition-all"
+                            value={formPhone}
+                            onChange={(e) =>
+                              setFormPhone(
+                                e.target.value.replace(/[^0-9+\-\s]/g, ""),
+                              )
+                            }
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-bold text-[#0F172A] block">
+                          Email
+                        </label>
+                        <div className="relative">
+                          <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-zinc-400">
+                            <Mail className="h-4 w-4" />
+                          </span>
+                          <input
+                            type="email"
+                            maxLength={100}
+                            placeholder="Enter email address"
+                            className="w-full bg-white border border-zinc-300 focus:border-[#0a2924] rounded-xl py-2.5 pl-10 pr-3.5 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#0a2924] transition-all"
+                            value={formEmail}
+                            onChange={(e) => setFormEmail(e.target.value)}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div className="border-b border-zinc-100 pb-1">
+                      <span className="text-[10px] font-extrabold tracking-widest text-[#64748B] uppercase">
+                        Address
+                      </span>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-[#0F172A] block">
+                        Address Line 1 <span className="text-rose-500">*</span>
+                      </label>
+                      <div className="relative">
+                        <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-zinc-400">
+                          <MapPin className="h-4 w-4" />
+                        </span>
+                        <input
+                          type="text"
+                          required
+                          maxLength={100}
+                          placeholder="Enter address line 1"
+                          className="w-full bg-white border border-zinc-300 focus:border-[#0a2924] rounded-xl py-2.5 pl-10 pr-3.5 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#0a2924] transition-all"
+                          value={formAddressLine1}
+                          onChange={(e) => setFormAddressLine1(e.target.value)}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-[#0F172A] block">
+                        Address Line 2 (Optional)
+                      </label>
+                      <input
+                        type="text"
+                        maxLength={100}
+                        placeholder="Apartment, suite, unit, building, floor, etc."
+                        className="w-full bg-white border border-zinc-300 focus:border-[#0a2924] rounded-xl py-2.5 px-3.5 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#0a2924] transition-all"
+                        value={formAddressLine2}
+                        onChange={(e) => setFormAddressLine2(e.target.value)}
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-bold text-[#0F172A] block">
+                          City <span className="text-rose-500">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          maxLength={50}
+                          placeholder="Enter city"
+                          className="w-full bg-white border border-zinc-300 focus:border-[#0a2924] rounded-xl py-2.5 px-3.5 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#0a2924] transition-all"
+                          value={formCity}
+                          onChange={(e) => setFormCity(e.target.value)}
+                        />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-bold text-[#0F172A] block">
+                          State / Province
+                        </label>
+                        <input
+                          type="text"
+                          maxLength={50}
+                          placeholder="Enter state / province"
+                          className="w-full bg-white border border-zinc-300 focus:border-[#0a2924] rounded-xl py-2.5 px-3.5 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#0a2924] transition-all"
+                          value={formStateProvince}
+                          onChange={(e) => setFormStateProvince(e.target.value)}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-bold text-[#0F172A] block">
+                          Postal Code
+                        </label>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          maxLength={10}
+                          placeholder="Enter postal code"
+                          className="w-full bg-white border border-zinc-300 focus:border-[#0a2924] rounded-xl py-2.5 px-3.5 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#0a2924] transition-all"
+                          value={formPostalCode}
                           onChange={(e) =>
-                            setFormPhone(
-                              e.target.value.replace(/[^0-9+\-\s]/g, ""),
-                            )
+                            setFormPostalCode(e.target.value.replace(/\D/g, ""))
                           }
                         />
                       </div>
+
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-bold text-[#0F172A] block">
+                          Country <span className="text-rose-500">*</span>
+                        </label>
+                        <Dropdown
+                          value={formCountry}
+                          onChange={setFormCountry}
+                          options={COUNTRY_OPTIONS}
+                          className="w-full"
+                          triggerClassName="border-zinc-300 rounded-xl py-2.5 px-3.5 font-bold text-[#0F172A]"
+                          optionClassName="font-bold text-[#0F172A]"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div className="border-b border-zinc-100 pb-1">
+                      <span className="text-[10px] font-extrabold tracking-widest text-[#64748B] uppercase">
+                        Additional Information (Optional)
+                      </span>
                     </div>
 
                     <div className="space-y-1.5">
                       <label className="text-xs font-bold text-[#0F172A] block">
-                        Email
+                        Ordering Method
+                      </label>
+                      <Dropdown
+                        value={formOrderingMethod}
+                        onChange={(val) =>
+                          setFormOrderingMethod(val as OrderingMethod | "none")
+                        }
+                        options={ORDERING_METHOD_OPTIONS}
+                        className="w-full"
+                        triggerClassName="border-zinc-300 rounded-xl py-2.5 px-3.5 font-bold text-[#0F172A]"
+                        optionClassName="font-bold text-[#0F172A]"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-[#0F172A] block">
+                        Website
                       </label>
                       <div className="relative">
                         <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-zinc-400">
-                          <Mail className="h-4 w-4" />
+                          <Globe className="h-4 w-4" />
                         </span>
                         <input
-                          type="email"
-                          maxLength={100}
-                          placeholder="Enter email address"
-                          className="w-full bg-white border border-zinc-300 focus:border-[#16A34A] rounded-xl py-2.5 pl-10 pr-3.5 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#16A34A] transition-all"
-                          value={formEmail}
-                          onChange={(e) => setFormEmail(e.target.value)}
+                          type="url"
+                          maxLength={200}
+                          placeholder="Enter website URL (e.g. https://example.com)"
+                          className="w-full bg-white border border-zinc-300 focus:border-[#0a2924] rounded-xl py-2.5 pl-10 pr-3.5 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#0a2924] transition-all"
+                          value={formWebsite}
+                          onChange={(e) => setFormWebsite(e.target.value)}
                         />
                       </div>
                     </div>
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                  <div className="border-b border-zinc-100 pb-1">
-                    <span className="text-[10px] font-extrabold tracking-widest text-[#64748B] uppercase">
-                      Address
-                    </span>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-[#0F172A] block">
-                      Address Line 1 <span className="text-rose-500">*</span>
-                    </label>
-                    <div className="relative">
-                      <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-zinc-400">
-                        <MapPin className="h-4 w-4" />
-                      </span>
-                      <input
-                        type="text"
-                        required
-                        maxLength={100}
-                        placeholder="Enter address line 1"
-                        className="w-full bg-white border border-zinc-300 focus:border-[#16A34A] rounded-xl py-2.5 pl-10 pr-3.5 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#16A34A] transition-all"
-                        value={formAddressLine1}
-                        onChange={(e) => setFormAddressLine1(e.target.value)}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-[#0F172A] block">
-                      Address Line 2 (Optional)
-                    </label>
-                    <input
-                      type="text"
-                      maxLength={100}
-                      placeholder="Apartment, suite, unit, building, floor, etc."
-                      className="w-full bg-white border border-zinc-300 focus:border-[#16A34A] rounded-xl py-2.5 px-3.5 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#16A34A] transition-all"
-                      value={formAddressLine2}
-                      onChange={(e) => setFormAddressLine2(e.target.value)}
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-[#0F172A] block">
-                        City <span className="text-rose-500">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        maxLength={50}
-                        placeholder="Enter city"
-                        className="w-full bg-white border border-zinc-300 focus:border-[#16A34A] rounded-xl py-2.5 px-3.5 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#16A34A] transition-all"
-                        value={formCity}
-                        onChange={(e) => setFormCity(e.target.value)}
-                      />
-                    </div>
 
                     <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-[#0F172A] block">
-                        State / Province
-                      </label>
-                      <input
-                        type="text"
-                        maxLength={50}
-                        placeholder="Enter state / province"
-                        className="w-full bg-white border border-zinc-300 focus:border-[#16A34A] rounded-xl py-2.5 px-3.5 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#16A34A] transition-all"
-                        value={formStateProvince}
-                        onChange={(e) => setFormStateProvince(e.target.value)}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-[#0F172A] block">
-                        Postal Code
-                      </label>
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        maxLength={10}
-                        placeholder="Enter postal code"
-                        className="w-full bg-white border border-zinc-300 focus:border-[#16A34A] rounded-xl py-2.5 px-3.5 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#16A34A] transition-all"
-                        value={formPostalCode}
-                        onChange={(e) =>
-                          setFormPostalCode(e.target.value.replace(/\D/g, ""))
-                        }
-                      />
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-[#0F172A] block">
-                        Country <span className="text-rose-500">*</span>
-                      </label>
-                      <div className="relative">
-                        <select
-                          required
-                          className="w-full bg-white border border-zinc-300 focus:border-[#16A34A] rounded-xl py-2.5 px-3.5 text-xs text-[#0F172A] font-bold focus:outline-none focus:ring-1 focus:ring-[#16A34A] appearance-none cursor-pointer"
-                          value={formCountry}
-                          onChange={(e) => setFormCountry(e.target.value)}
-                        >
-                          <option value="Australia">Australia</option>
-                          <option value="United States">United States</option>
-                          <option value="Canada">Canada</option>
-                          <option value="India">India</option>
-                          <option value="United Kingdom">United Kingdom</option>
-                          <option value="Australia">Australia</option>
-                          <option value="Germany">Germany</option>
-                          <option value="France">France</option>
-                          <option value="Singapore">Singapore</option>
-                          <option value="Japan">Japan</option>
-                        </select>
-                        <ChevronDown className="absolute right-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
+                      <div className="flex justify-between items-center">
+                        <label className="text-xs font-bold text-[#0F172A] block">
+                          Notes
+                        </label>
+                        <span className="text-[10px] font-bold text-[#64748B]">
+                          {formNotes.length} / 250
+                        </span>
                       </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                  <div className="border-b border-zinc-100 pb-1">
-                    <span className="text-[10px] font-extrabold tracking-widest text-[#64748B] uppercase">
-                      Additional Information (Optional)
-                    </span>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-[#0F172A] block">
-                      Ordering Method
-                    </label>
-                    <div className="relative">
-                      <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-zinc-400">
-                        <FileText className="h-4 w-4" />
-                      </span>
-                      <select
-                        className="w-full bg-white border border-zinc-300 focus:border-[#16A34A] rounded-xl py-2.5 pl-10 pr-10 text-xs text-[#0F172A] font-bold focus:outline-none focus:ring-1 focus:ring-[#16A34A] appearance-none cursor-pointer"
-                        value={formOrderingMethod}
-                        onChange={(e) =>
-                          setFormOrderingMethod(
-                            e.target.value as OrderingMethod,
-                          )
-                        }
-                      >
-                        <option value="">
-                          Select ordering method (Optional)
-                        </option>
-                        <option value="email">Email</option>
-                        <option value="phone">Phone</option>
-                        <option value="website">Website</option>
-                        <option value="manual">Manual</option>
-                      </select>
-                      <ChevronDown className="absolute right-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
-                    </div>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-[#0F172A] block">
-                      Website
-                    </label>
-                    <div className="relative">
-                      <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-zinc-400">
-                        <Globe className="h-4 w-4" />
-                      </span>
-                      <input
-                        type="url"
-                        maxLength={200}
-                        placeholder="Enter website URL (e.g. https://example.com)"
-                        className="w-full bg-white border border-zinc-300 focus:border-[#16A34A] rounded-xl py-2.5 pl-10 pr-3.5 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#16A34A] transition-all"
-                        value={formWebsite}
-                        onChange={(e) => setFormWebsite(e.target.value)}
+                      <textarea
+                        maxLength={250}
+                        placeholder="Enter notes (optional)"
+                        rows={3}
+                        className="w-full bg-white border border-zinc-300 focus:border-[#0a2924] rounded-xl py-2.5 px-3.5 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#0a2924] transition-all resize-none shadow-xs"
+                        value={formNotes}
+                        onChange={(e) => setFormNotes(e.target.value)}
                       />
                     </div>
                   </div>
 
-                  <div className="space-y-1.5">
-                    <div className="flex justify-between items-center">
+                  <div className="space-y-4 pt-2">
+                    <div className="space-y-1.5">
                       <label className="text-xs font-bold text-[#0F172A] block">
-                        Notes
+                        Status <span className="text-rose-500">*</span>
                       </label>
-                      <span className="text-[10px] font-bold text-[#64748B]">
-                        {formNotes.length} / 250
-                      </span>
-                    </div>
-                    <textarea
-                      maxLength={250}
-                      placeholder="Enter notes (optional)"
-                      rows={3}
-                      className="w-full bg-white border border-zinc-300 focus:border-[#16A34A] rounded-xl py-2.5 px-3.5 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#16A34A] transition-all resize-none shadow-xs"
-                      value={formNotes}
-                      onChange={(e) => setFormNotes(e.target.value)}
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-4 pt-2">
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-[#0F172A] block">
-                      Status <span className="text-rose-500">*</span>
-                    </label>
-                    <div className="relative">
-                      <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
-                        <span
-                          className={`h-1.5 w-1.5 rounded-full ${formActive ? "bg-[#16A34A]" : "bg-[#1E293B]"}`}
-                        />
-                      </span>
-                      <select
-                        required
-                        className="w-full bg-white border border-zinc-300 focus:border-[#16A34A] rounded-xl py-2.5 pl-10 pr-10 text-xs text-[#0F172A] font-bold focus:outline-none focus:ring-1 focus:ring-[#16A34A] appearance-none cursor-pointer"
+                      <Dropdown
                         value={formActive ? "active" : "inactive"}
-                        onChange={(e) =>
-                          setFormActive(e.target.value === "active")
-                        }
-                      >
-                        <option value="active">Active</option>
-                        <option value="inactive">Inactive</option>
-                      </select>
-                      <ChevronDown className="absolute right-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
+                        onChange={(val) => setFormActive(val === "active")}
+                        options={FORM_STATUS_OPTIONS}
+                        className="w-full"
+                        triggerClassName="border-zinc-300 rounded-xl py-2.5 px-3.5 font-bold text-[#0F172A]"
+                        optionClassName="font-bold text-[#0F172A]"
+                      />
                     </div>
                   </div>
-                </div>
-              </form>
+                </form>
+              )}
             </div>
 
             <div className="p-6 border-t border-zinc-200 bg-zinc-50 flex justify-end gap-3 shrink-0">
-              <button
-                type="button"
-                onClick={() => setShowDrawer(false)}
-                className="bg-white hover:bg-zinc-100 border border-zinc-200 text-zinc-700 rounded-xl px-4 py-2.5 text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer"
-                disabled={saving}
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                onClick={handleSave}
-                disabled={
-                  saving ||
-                  !formName.trim() ||
-                  !formAddressLine1.trim() ||
-                  !formCity.trim() ||
-                  !formCountry.trim()
-                }
-                className="bg-[#16A34A] hover:bg-[#15803D] text-white rounded-xl px-5 py-2.5 text-xs font-bold uppercase tracking-wider shadow-sm flex items-center gap-2 cursor-pointer transition-colors disabled:opacity-50"
-              >
-                {saving ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Saving...
-                  </>
-                ) : (
-                  "Save Supplier"
-                )}
-              </button>
+              {isViewOnly ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setShowDrawer(false)}
+                    className="bg-white hover:bg-zinc-100 border border-zinc-200 text-zinc-700 rounded-xl px-4 py-2.5 text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer"
+                  >
+                    Close
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsViewOnly(false)}
+                    className="bg-[#0a2924] hover:bg-[#09231f] text-white rounded-xl px-5 py-2.5 text-xs font-bold uppercase tracking-wider shadow-sm flex items-center gap-2 cursor-pointer transition-colors"
+                  >
+                    Edit Details
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (editId) {
+                        setIsViewOnly(true);
+                      } else {
+                        setShowDrawer(false);
+                      }
+                    }}
+                    className="bg-white hover:bg-zinc-100 border border-zinc-200 text-zinc-700 rounded-xl px-4 py-2.5 text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer"
+                    disabled={saving}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    onClick={handleSave}
+                    disabled={
+                      saving ||
+                      !formName.trim() ||
+                      !formAddressLine1.trim() ||
+                      !formCity.trim() ||
+                      !formCountry.trim()
+                    }
+                    className="bg-[#0a2924] hover:bg-[#09231f] text-white rounded-xl px-5 py-2.5 text-xs font-bold uppercase tracking-wider shadow-sm flex items-center gap-2 cursor-pointer transition-colors disabled:opacity-50"
+                  >
+                    {saving ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      "Save Supplier"
+                    )}
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </>
       )}
-
-      <AlertDialog
-        open={deleteTarget !== null}
-        variant="danger"
-        title="Delete Supplier"
-        description="Are you sure you want to delete this supplier? This action cannot be undone."
-        confirmLabel="Delete"
-        cancelLabel="Cancel"
-        onConfirm={handleConfirmDelete}
-        onCancel={() => setDeleteTarget(null)}
-      />
     </div>
   );
 }
