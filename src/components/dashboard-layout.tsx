@@ -422,8 +422,7 @@ export default function DashboardLayout({
     if (allowedHrefs.includes("*")) return true;
     if (
       href === "/login" ||
-      href === "/dashboard/profile" ||
-      href === "/dashboard/users"
+      href === "/dashboard/profile"
     ) {
       return true;
     }
@@ -451,6 +450,39 @@ export default function DashboardLayout({
   const filteredAccountLinks = accountLinks.filter((link) =>
     isLinkAllowed(link.href),
   );
+
+  const flatSidebarLinks: SidebarLink[] = [];
+  if (isLinkAllowed("/dashboard")) {
+    flatSidebarLinks.push({
+      name: "Dashboard",
+      href: "/dashboard",
+      icon: DashboardSquare02Icon,
+    });
+  }
+  const otherLinks = [
+    ...inventoryLinks,
+    ...salesLinks,
+    ...reportsLinks,
+    ...businessSetupLinks,
+    ...inventorySetupLinks,
+    ...staffLinks,
+    ...accountLinks,
+  ];
+  otherLinks.forEach((link) => {
+    if (
+      isLinkAllowed(link.href) &&
+      !flatSidebarLinks.some((l) => l.href === link.href)
+    ) {
+      flatSidebarLinks.push(link);
+    }
+  });
+  if (isLinkAllowed("/dashboard/settings")) {
+    flatSidebarLinks.push({
+      name: "Settings",
+      href: "/dashboard/settings",
+      icon: Settings01Icon,
+    });
+  }
 
   const isActive = (href: string) => pathname === href;
 
@@ -632,120 +664,156 @@ export default function DashboardLayout({
           </button>
         </div>
 
-        <div className="flex-1 space-y-4">
-          {isLinkAllowed("/dashboard") && (
-            <Link
-              href="/dashboard"
-              onClick={(e) => {
-                e.preventDefault();
-                router.push("/dashboard");
-                setMobileSidebarOpen(false);
-              }}
-              className={`flex items-center justify-between px-3 py-2.5 rounded-lg text-[12px] font-bold uppercase tracking-normal cursor-pointer transition-all ${
-                isActive("/dashboard")
-                  ? "bg-gray-soft/60 text-black"
-                  : "text-gray-dark hover:text-black hover:bg-gray-soft/20"
-              }`}
-            >
-              <div className="flex items-center gap-2.5">
-                <HugeiconsIcon
-                  icon={DashboardSquare02Icon}
-                  size={18}
-                  className={
-                    isActive("/dashboard") ? "text-black" : "text-gray-muted"
-                  }
-                />
-                {!sidebarCollapsed && <span>Dashboard</span>}
-              </div>
-            </Link>
-          )}
-
-          {renderGroup(
-            "Inventory",
-            filteredInventoryLinks,
-            undefined,
-            sidebarCollapsed,
-          )}
-          {renderGroup(
-            "Sales",
-            filteredSalesLinks,
-            undefined,
-            sidebarCollapsed,
-          )}
-          {renderGroup(
-            "Reports",
-            filteredReportsLinks,
-            undefined,
-            sidebarCollapsed,
-          )}
-          {renderGroup(
-            "Business Setup",
-            filteredBusinessSetupLinks,
-            undefined,
-            sidebarCollapsed,
-          )}
-          {renderGroup(
-            "Inventory Setup",
-            filteredInventorySetupLinks,
-            undefined,
-            sidebarCollapsed,
-          )}
-          {renderGroup(
-            "Staff",
-            filteredStaffLinks,
-            undefined,
-            sidebarCollapsed,
-          )}
-          {renderGroup(
-            "Account",
-            filteredAccountLinks,
-            {
-              extraContent: (
+        <div className={`flex-1 ${userRole === "staff" ? "space-y-1.5" : "space-y-4"}`}>
+          {userRole === "staff" ? (
+            <>
+              {flatSidebarLinks.map((link) =>
+                renderLink(link, false, sidebarCollapsed)
+              )}
+              <div className="border-t border-gray-soft my-2" />
+              {sidebarCollapsed ? (
                 <button
                   onClick={handleLogout}
-                  className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs text-black hover:text-red-500 hover:bg-red-50/50 transition-all cursor-pointer group"
+                  title="Log Out"
+                  className="w-full flex items-center justify-center px-3 py-2 rounded-lg text-black hover:text-red-500 hover:bg-red-50/50 transition-all cursor-pointer group animate-fade-in"
                 >
                   <HugeiconsIcon
                     icon={Logout01Icon}
                     size={18}
                     className="text-black group-hover:text-red-500 transition-colors"
                   />
-                  <span className="text-[14px] tracking-normal group-hover:text-red-500 transition-colors">
-                    Log Out
-                  </span>
                 </button>
-              ),
-            },
-            sidebarCollapsed,
-          )}
+              ) : (
+                <button
+                  onClick={handleLogout}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-black text-sm hover:text-red-500 hover:bg-red-50/50 transition-all cursor-pointer group animate-fade-in"
+                >
+                  <HugeiconsIcon
+                    icon={Logout01Icon}
+                    size={18}
+                    className="text-black group-hover:text-red-500 transition-colors"
+                  />
+                  <span className="group-hover:text-red-500 transition-colors">Log Out</span>
+                </button>
+              )}
+            </>
+          ) : (
+            <>
+              {isLinkAllowed("/dashboard") && (
+                <Link
+                  href="/dashboard"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    router.push("/dashboard");
+                    setMobileSidebarOpen(false);
+                  }}
+                  className={`flex items-center justify-between px-3 py-2.5 rounded-lg text-[12px] font-bold uppercase tracking-normal cursor-pointer transition-all ${
+                    isActive("/dashboard")
+                      ? "bg-gray-soft/60 text-black"
+                      : "text-gray-dark hover:text-black hover:bg-gray-soft/20"
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <HugeiconsIcon
+                      icon={DashboardSquare02Icon}
+                      size={18}
+                      className={
+                        isActive("/dashboard") ? "text-black" : "text-gray-muted"
+                      }
+                    />
+                    {!sidebarCollapsed && <span>Dashboard</span>}
+                  </div>
+                </Link>
+              )}
 
-          {isLinkAllowed("/dashboard/settings") && (
-            <Link
-              href="/dashboard/settings"
-              onClick={(e) => {
-                e.preventDefault();
-                router.push("/dashboard/settings");
-                setMobileSidebarOpen(false);
-              }}
-              className={`flex items-center justify-between px-3 py-2 rounded-lg text-[12px] font-bold uppercase tracking-widest cursor-pointer transition-all ${
-                isActive("/dashboard/settings")
-                  ? "bg-gray-soft/60 text-black"
-                  : "text-gray-dark hover:text-black hover:bg-gray-soft/20"
-              }`}
-            >
-              <div className="flex items-center gap-2.5">
-                <HugeiconsIcon
-                  icon={Settings01Icon}
-                  size={18}
-                  className={
+              {renderGroup(
+                "Inventory",
+                filteredInventoryLinks,
+                undefined,
+                sidebarCollapsed,
+              )}
+              {renderGroup(
+                "Sales",
+                filteredSalesLinks,
+                undefined,
+                sidebarCollapsed,
+              )}
+              {renderGroup(
+                "Reports",
+                filteredReportsLinks,
+                undefined,
+                sidebarCollapsed,
+              )}
+              {renderGroup(
+                "Business Setup",
+                filteredBusinessSetupLinks,
+                undefined,
+                sidebarCollapsed,
+              )}
+              {renderGroup(
+                "Inventory Setup",
+                filteredInventorySetupLinks,
+                undefined,
+                sidebarCollapsed,
+              )}
+              {renderGroup(
+                "Staff",
+                filteredStaffLinks,
+                undefined,
+                sidebarCollapsed,
+              )}
+              {renderGroup(
+                "Account",
+                filteredAccountLinks,
+                {
+                  extraContent: (
+                    <button
+                      onClick={handleLogout}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs text-black hover:text-red-500 hover:bg-red-50/50 transition-all cursor-pointer group"
+                    >
+                      <HugeiconsIcon
+                        icon={Logout01Icon}
+                        size={18}
+                        className="text-black group-hover:text-red-500 transition-colors"
+                      />
+                      <span className="text-[14px] tracking-normal group-hover:text-red-500 transition-colors">
+                        Log Out
+                      </span>
+                    </button>
+                  ),
+                },
+                sidebarCollapsed,
+              )}
+
+              {isLinkAllowed("/dashboard/settings") && (
+                <Link
+                  href="/dashboard/settings"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    router.push("/dashboard/settings");
+                    setMobileSidebarOpen(false);
+                  }}
+                  className={`flex items-center justify-between px-3 py-2 rounded-lg text-[12px] font-bold uppercase tracking-widest cursor-pointer transition-all ${
                     isActive("/dashboard/settings")
-                      ? "text-black"
-                      : "text-gray-muted"
-                  }
-                />
-                {!sidebarCollapsed && <span>Settings</span>}
-              </div>
-            </Link>
+                      ? "bg-gray-soft/60 text-black"
+                      : "text-gray-dark hover:text-black hover:bg-gray-soft/20"
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <HugeiconsIcon
+                      icon={Settings01Icon}
+                      size={18}
+                      className={
+                        isActive("/dashboard/settings")
+                          ? "text-black"
+                          : "text-gray-muted"
+                      }
+                    />
+                    {!sidebarCollapsed && <span>Settings</span>}
+                  </div>
+                </Link>
+              )}
+            </>
           )}
         </div>
 
@@ -773,83 +841,103 @@ export default function DashboardLayout({
               </span>
             </div>
 
-            <div className="flex-1 space-y-3">
-              {isLinkAllowed("/dashboard") && (
-                <Link
-                  href="/dashboard"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    router.push("/dashboard");
-                    setMobileSidebarOpen(false);
-                  }}
-                  className={`flex items-center justify-between px-3 py-2.5 rounded-lg text-[12px] font-bold uppercase tracking-widest cursor-pointer transition-all ${
-                    isActive("/dashboard")
-                      ? "bg-gray-soft/60 text-black"
-                      : "text-gray-dark hover:text-black hover:bg-gray-soft/20"
-                  }`}
-                >
-                  <div className="flex items-center gap-2.5">
-                    <HugeiconsIcon
-                      icon={DashboardSquare02Icon}
-                      size={18}
-                      className={
-                        isActive("/dashboard")
-                          ? "text-black"
-                          : "text-gray-muted"
-                      }
-                    />
-                    <span>Dashboard</span>
-                  </div>
-                </Link>
-              )}
-              {renderGroup("Inventory", filteredInventoryLinks)}
-              {renderGroup("Sales", filteredSalesLinks)}
-              {renderGroup("Reports", filteredReportsLinks)}
-              {renderGroup("Business Setup", filteredBusinessSetupLinks)}
-              {renderGroup("Inventory Setup", filteredInventorySetupLinks)}
-              {renderGroup("Staff", filteredStaffLinks)}
-              {renderGroup("Account", filteredAccountLinks, {
-                extraContent: (
+            <div className={`flex-1 ${userRole === "staff" ? "space-y-1.5" : "space-y-3"}`}>
+              {userRole === "staff" ? (
+                <>
+                  {flatSidebarLinks.map((link) => renderLink(link, false, false))}
+                  <div className="border-t border-gray-soft my-2" />
                   <button
                     onClick={handleLogout}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-bold text-gray-dark hover:text-red-500 hover:bg-red-50/50 cursor-pointer transition-all"
+                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-black text-sm hover:text-red-500 hover:bg-red-50/50 transition-all cursor-pointer group"
                   >
                     <HugeiconsIcon
                       icon={Logout01Icon}
                       size={18}
-                      className="text-gray-muted"
+                      className="text-black group-hover:text-red-500 transition-colors"
                     />
-                    <span>Log Out</span>
+                    <span className="group-hover:text-red-500 transition-colors">Log Out</span>
                   </button>
-                ),
-              })}
-              {isLinkAllowed("/dashboard/settings") && (
-                <Link
-                  href="/dashboard/settings"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    router.push("/dashboard/settings");
-                    setMobileSidebarOpen(false);
-                  }}
-                  className={`flex items-center justify-between px-3 py-2.5 rounded-lg text-[12px] font-bold uppercase tracking-widest cursor-pointer transition-all ${
-                    isActive("/dashboard/settings")
-                      ? "bg-gray-soft/60 text-black"
-                      : "text-gray-dark hover:text-black hover:bg-gray-soft/20"
-                  }`}
-                >
-                  <div className="flex items-center gap-2.5">
-                    <HugeiconsIcon
-                      icon={Settings01Icon}
-                      size={18}
-                      className={
+                </>
+              ) : (
+                <>
+                  {isLinkAllowed("/dashboard") && (
+                    <Link
+                      href="/dashboard"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        router.push("/dashboard");
+                        setMobileSidebarOpen(false);
+                      }}
+                      className={`flex items-center justify-between px-3 py-2.5 rounded-lg text-[12px] font-bold uppercase tracking-widest cursor-pointer transition-all ${
+                        isActive("/dashboard")
+                          ? "bg-gray-soft/60 text-black"
+                          : "text-gray-dark hover:text-black hover:bg-gray-soft/20"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <HugeiconsIcon
+                          icon={DashboardSquare02Icon}
+                          size={18}
+                          className={
+                            isActive("/dashboard")
+                              ? "text-black"
+                              : "text-gray-muted"
+                          }
+                        />
+                        <span>Dashboard</span>
+                      </div>
+                    </Link>
+                  )}
+                  {renderGroup("Inventory", filteredInventoryLinks)}
+                  {renderGroup("Sales", filteredSalesLinks)}
+                  {renderGroup("Reports", filteredReportsLinks)}
+                  {renderGroup("Business Setup", filteredBusinessSetupLinks)}
+                  {renderGroup("Inventory Setup", filteredInventorySetupLinks)}
+                  {renderGroup("Staff", filteredStaffLinks)}
+                  {renderGroup("Account", filteredAccountLinks, {
+                    extraContent: (
+                      <button
+                        onClick={handleLogout}
+                        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-bold text-gray-dark hover:text-red-500 hover:bg-red-50/50 cursor-pointer transition-all"
+                      >
+                        <HugeiconsIcon
+                          icon={Logout01Icon}
+                          size={18}
+                          className="text-gray-muted"
+                        />
+                        <span>Log Out</span>
+                      </button>
+                    ),
+                  })}
+                  {isLinkAllowed("/dashboard/settings") && (
+                    <Link
+                      href="/dashboard/settings"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        router.push("/dashboard/settings");
+                        setMobileSidebarOpen(false);
+                      }}
+                      className={`flex items-center justify-between px-3 py-2.5 rounded-lg text-[12px] font-bold uppercase tracking-widest cursor-pointer transition-all ${
                         isActive("/dashboard/settings")
-                          ? "text-black"
-                          : "text-gray-muted"
-                      }
-                    />
-                    <span>Settings</span>
-                  </div>
-                </Link>
+                          ? "bg-gray-soft/60 text-black"
+                          : "text-gray-dark hover:text-black hover:bg-gray-soft/20"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <HugeiconsIcon
+                          icon={Settings01Icon}
+                          size={18}
+                          className={
+                            isActive("/dashboard/settings")
+                              ? "text-black"
+                              : "text-gray-muted"
+                          }
+                        />
+                        <span>Settings</span>
+                      </div>
+                    </Link>
+                  )}
+                </>
               )}
             </div>
           </aside>
