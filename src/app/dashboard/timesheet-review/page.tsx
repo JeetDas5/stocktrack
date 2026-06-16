@@ -1,9 +1,10 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 "use client";
 
-import { useEffect, useState, useMemo, useRef, useCallback } from "react";
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { useRouter } from "next/navigation";
+import { useEffect, useState, useMemo, useRef, useCallback } from "react";
+
 import {
   Calendar,
   Clock,
@@ -31,6 +32,7 @@ import {
   updateTimesheet,
   updateTimesheetStatus,
 } from "@/lib/repositories/timesheet.repository";
+import DateRangePicker from "@/components/ui/date-range-picker";
 
 export default function TimesheetReviewPage() {
   const router = useRouter();
@@ -180,6 +182,16 @@ export default function TimesheetReviewPage() {
     e.preventDefault();
     if (!activeBusinessId || !editingTimesheet) return;
     setEditSubmitting(true);
+
+    const hasChanged =
+      editingTimesheet.locationId !== editLocationId ||
+      editingTimesheet.staffId !== editStaffId ||
+      editingTimesheet.workDate !== editWorkDate ||
+      editingTimesheet.startTime !== editStartTime ||
+      editingTimesheet.endTime !== editEndTime ||
+      editingTimesheet.unpaidBreak !== (parseInt(editUnpaidBreak, 10) || 0) ||
+      (editingTimesheet.notes || "") !== editNotes.trim();
+
     try {
       const updated = await updateTimesheet(
         activeBusinessId,
@@ -192,7 +204,7 @@ export default function TimesheetReviewPage() {
           endTime: editEndTime,
           unpaidBreak: parseInt(editUnpaidBreak, 10) || 0,
           notes: editNotes.trim() || undefined,
-          status: "edited",
+          status: hasChanged ? "edited" : editingTimesheet.status,
         },
       );
       setTimesheets((prev) =>
@@ -538,24 +550,15 @@ export default function TimesheetReviewPage() {
             )}
           </div>
 
-          <div className="flex items-center gap-2 border border-zinc-200 rounded-xl bg-white px-3 py-1.5 focus-within:ring-2 focus-within:ring-[#16A34A]/20 focus-within:border-[#16A34A] transition-all">
-            <Calendar className="h-3.5 w-3.5 text-zinc-400 ml-1" />
-            <input
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              className="bg-transparent border-0 text-xs font-bold text-zinc-800 focus:outline-none p-0 w-24 cursor-pointer"
-            />
-            <span className="text-zinc-450 text-xs font-semibold px-0.5">
-              -
-            </span>
-            <input
-              type="date"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              className="bg-transparent border-0 text-xs font-bold text-zinc-800 focus:outline-none p-0 w-24 cursor-pointer"
-            />
-          </div>
+          <DateRangePicker
+            className="sm:w-64"
+            startDate={startDate}
+            endDate={endDate}
+            onChange={(range) => {
+              setStartDate(range.startDate);
+              setEndDate(range.endDate);
+            }}
+          />
 
           <button
             onClick={handleClearFilters}

@@ -14,13 +14,13 @@ import {
 } from "lucide-react";
 
 import { Staff } from "@/types/staff";
+import Calendar from "@/components/ui/calendar";
 import { useAuth } from "@/providers/auth-provider";
+import TimePicker from "@/components/ui/time-picker";
 import { useBusinessStore } from "@/stores/business-store";
 import { useLocationStore } from "@/stores/location-store";
 import { getStaffMembers } from "@/lib/repositories/staff.repository";
 import { createTimesheet } from "@/lib/repositories/timesheet.repository";
-import Calendar from "@/components/ui/calendar";
-import TimePicker from "@/components/ui/time-picker";
 
 export default function TimesheetEntryPage() {
   const { activeBusinessId } = useBusinessStore();
@@ -263,6 +263,18 @@ export default function TimesheetEntryPage() {
     }
     if (!staffId) {
       toast.error("Please select a staff member.");
+      return;
+    }
+    if (startTime > endTime) {
+      toast.error("Start time should be before end time.");
+      return;
+    }
+    if (startTime == endTime) {
+      toast.error("Start time and end time cannot be the same.");
+      return;
+    }
+    if (!workDate) {
+      toast.error("Work date is required.");
       return;
     }
     setSubmitting(true);

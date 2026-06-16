@@ -20,8 +20,10 @@ import { Staff } from "@/types/staff";
 import { TimesheetReport } from "@/types/timesheet-report";
 import { useBusinessStore } from "@/stores/business-store";
 import { useLocationStore } from "@/stores/location-store";
+import DateRangePicker from "@/components/ui/date-range-picker";
 import { useTimesheetReportStore } from "@/stores/timesheet-report-store";
 import { getStaffMembers } from "@/lib/repositories/staff.repository";
+
 
 export default function TimesheetReportsPage() {
   const { activeBusinessId } = useBusinessStore();
@@ -44,6 +46,7 @@ export default function TimesheetReportsPage() {
       businessId: activeBusinessId || "all",
       locationId: activeLocationId || "all",
     });
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setCurrentPage(1);
   }, [activeBusinessId, activeLocationId, setFilters]);
 
@@ -425,30 +428,14 @@ export default function TimesheetReportsPage() {
               <label className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider">
                 Date Range
               </label>
-              <div className="flex items-center gap-2 border border-zinc-200 rounded-xl bg-white px-3 py-2 focus-within:ring-2 focus-within:ring-[#16A34A]/20 focus-within:border-[#16A34A] transition-all h-[42px]">
-                <Calendar className="h-4 w-4 text-zinc-400 shrink-0" />
-                <input
-                  type="date"
-                  value={filters.startDate}
-                  onChange={(e) => {
-                    setFilters({ startDate: e.target.value });
-                    setCurrentPage(1);
-                  }}
-                  className="bg-transparent border-0 text-xs font-bold text-zinc-800 focus:outline-none p-0 w-24 cursor-pointer"
-                />
-                <span className="text-zinc-450 text-xs font-semibold px-0.5">
-                  -
-                </span>
-                <input
-                  type="date"
-                  value={filters.endDate}
-                  onChange={(e) => {
-                    setFilters({ endDate: e.target.value });
-                    setCurrentPage(1);
-                  }}
-                  className="bg-transparent border-0 text-xs font-bold text-zinc-800 focus:outline-none p-0 w-24 cursor-pointer"
-                />
-              </div>
+              <DateRangePicker
+                startDate={filters.startDate}
+                endDate={filters.endDate}
+                onChange={(range) => {
+                  setFilters(range);
+                  setCurrentPage(1);
+                }}
+              />
             </div>
 
             <div className="flex flex-col gap-1.5">
