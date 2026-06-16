@@ -828,7 +828,6 @@ export default function StockCountsPage() {
                     key={item.id}
                     className="bg-white rounded-2xl px-4 py-4 shadow-sm border border-zinc-100 space-y-3"
                   >
-                    {/* Item header */}
                     <div className="flex justify-between items-center gap-2 min-w-0">
                       <h3 className="text-[15px] font-bold text-zinc-900 truncate">
                         {item.name}

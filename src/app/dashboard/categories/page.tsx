@@ -3,56 +3,32 @@
 import { toast } from "sonner";
 import { useEffect, useState, useMemo } from "react";
 
-import { Business } from "@/types/business";
 import { Category } from "@/types/inventory";
-import AlertDialog from "@/components/alert-dialog";
 import { useAuth } from "@/providers/auth-provider";
 import { useBusinessStore } from "@/stores/business-store";
 import { useCategoryStore } from "@/stores/category-store";
-import { getUserBusinesses } from "@/lib/repositories/business.repository";
+import { Dropdown } from "@/components/ui/dropdown";
 import {
   Layers,
   Plus,
   Search,
-  ChevronDown,
   X,
   Loader2,
   Edit2,
-  Trash2,
   ChevronLeft,
   ChevronRight,
-  Package,
-  CupSoda,
-  Beef,
-  Milk,
-  Leaf,
-  Wheat,
-  Flame,
-  Boxes,
-  LucideIcon,
 } from "lucide-react";
 
-const AVAILABLE_ICONS = [
-  { key: "beverage", label: "Beverages", icon: CupSoda },
-  { key: "meat", label: "Meat & Poultry", icon: Beef },
-  { key: "dairy", label: "Dairy", icon: Milk },
-  { key: "produce", label: "Produce", icon: Leaf },
-  { key: "drygoods", label: "Dry Goods", icon: Wheat },
-  { key: "sauce", label: "Condiments & Sauces", icon: Flame },
-  { key: "package", label: "Packaging", icon: Package },
-  { key: "other", label: "Other", icon: Boxes },
-];
+const STATUS_OPTIONS = [
+  { value: "all", label: "All Statuses" },
+  { value: "active", label: "Active" },
+  { value: "inactive", label: "Inactive" },
+] as const;
 
-const ICON_MAP: Record<string, LucideIcon> = {
-  package: Package,
-  beverage: CupSoda,
-  meat: Beef,
-  dairy: Milk,
-  produce: Leaf,
-  drygoods: Wheat,
-  sauce: Flame,
-  other: Boxes,
-};
+const FORM_STATUS_OPTIONS = [
+  { value: "active", label: "Active" },
+  { value: "inactive", label: "Inactive" },
+] as const;
 
 export default function CategoriesPage() {
   const { activeBusinessId } = useBusinessStore();
@@ -64,10 +40,8 @@ export default function CategoriesPage() {
     fetchCategories,
     addCategory,
     updateCategory,
-    deleteCategory,
   } = useCategoryStore();
 
-  const [activeBusiness, setActiveBusiness] = useState<Business | null>(null);
   const [loadingContext, setLoadingContext] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<
@@ -83,7 +57,6 @@ export default function CategoriesPage() {
   const [formStatus, setFormStatus] = useState<"active" | "inactive">("active");
 
   const [saving, setSaving] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 7;
@@ -96,10 +69,6 @@ export default function CategoriesPage() {
       try {
         setLoadingContext(true);
         await fetchCategories(businessId);
-
-        const list = await getUserBusinesses([]);
-        const activeDoc = list.find((b) => b.id === businessId) || null;
-        setActiveBusiness(activeDoc);
       } catch (err) {
         console.error(err);
       } finally {
@@ -194,22 +163,6 @@ export default function CategoriesPage() {
     }
   };
 
-  const handleDelete = (catId: string) => {
-    setDeleteTarget(catId);
-  };
-
-  const handleConfirmDelete = async () => {
-    if (!activeBusinessId || !deleteTarget) return;
-    try {
-      await deleteCategory(activeBusinessId, deleteTarget);
-      toast.success("Category deleted successfully!");
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setDeleteTarget(null);
-    }
-  };
-
   const filteredCategories = useMemo(() => {
     return categories.filter((cat) => {
       const matchesSearch =
@@ -250,7 +203,7 @@ export default function CategoriesPage() {
   if (categoriesLoading || loadingContext) {
     return (
       <div className="h-[75vh] flex flex-col items-center justify-center bg-white text-[#0F172A]">
-        <Loader2 className="h-7 w-7 text-[#16A34A] animate-spin mb-3" />
+        <Loader2 className="h-7 w-7 text-[#0a2924] animate-spin mb-3" />
         <span className="text-[#64748B] text-xs font-bold uppercase tracking-wider">
           Loading categories...
         </span>
@@ -259,72 +212,44 @@ export default function CategoriesPage() {
   }
 
   return (
-    <div className="flex bg-white min-h-[80vh] relative select-none">
-      <div className="flex-1 space-y-6 pr-0 lg:pr-4">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-zinc-200 pb-5">
-          <div>
-            <h1 className="text-3xl font-extrabold text-[#0F172A] tracking-tight">
-              Categories
-            </h1>
-            <p className="text-[#64748B] text-xs font-bold mt-1.5">
-              Organize your stock items into categories for easier management
-              and reporting.
-            </p>
-          </div>
-
-          <div className="flex items-center gap-3 w-full sm:w-auto">
-            <button
-              onClick={openAddDrawer}
-              className="flex-1 sm:flex-initial bg-[#16A34A] hover:bg-[#15803D] text-white rounded-xl px-5 py-2.5 text-xs font-bold uppercase tracking-wider shadow-sm flex items-center justify-center gap-2 cursor-pointer transition-all duration-200"
-            >
-              <Plus className="h-4 w-4 stroke-[3px]" />
-              Add Category
-            </button>
-          </div>
+    <div className="flex flex-col bg-white h-[calc(100vh-120px)] md:h-[85vh] min-h-0 relative select-none">
+      <div className="flex-1 min-h-0 flex flex-col space-y-4 pr-0 lg:pr-4">
+        <div className="bg-white border border-[#E2E8F0] rounded-2xl py-4 px-5 md:py-3 md:px-4  flex justify-between items-center shadow-sm">
+          <h1 className="text-xl md:text-2xl font-extrabold text-zinc-900 tracking-tight">
+            Categories
+          </h1>
+          <button
+            onClick={openAddDrawer}
+            className="bg-[#0a2924] hover:bg-[#09231f] text-white rounded-full px-6 py-2.5 text-xs font-bold transition-all duration-200 flex items-center gap-2 shadow-xs cursor-pointer"
+          >
+            <Plus className="h-4 w-4 stroke-[2.5px]" />
+            Add Categories
+          </button>
         </div>
 
-        <div className="flex flex-col md:flex-row gap-4 justify-between items-stretch md:items-center">
-          <div className="flex flex-col sm:flex-row gap-3 flex-1">
-            <div className="relative flex-1">
-              <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-zinc-400">
-                <Search className="h-4 w-4" />
-              </span>
-              <input
-                type="text"
-                placeholder="Search categories..."
-                className="w-full bg-white border border-zinc-200 focus:border-[#16A34A] rounded-xl py-2.5 pl-10 pr-4 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#16A34A] transition-all shadow-xs"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </div>
-
-            <div className="relative min-w-[140px]">
-              <select
-                value={statusFilter}
-                onChange={(e) =>
-                  setStatusFilter(
-                    e.target.value as "all" | "active" | "inactive",
-                  )
-                }
-                className="w-full bg-white border border-zinc-200 rounded-xl py-2.5 pl-3.5 pr-8 text-xs font-bold text-zinc-700 shadow-xs appearance-none focus:outline-none focus:ring-1 focus:ring-[#16A34A] focus:border-[#16A34A] cursor-pointer"
-              >
-                <option value="all">All Status</option>
-                <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
-              </select>
-              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
-            </div>
-
-            <div className="relative min-w-[180px]">
-              <select
-                disabled
-                className="w-full bg-zinc-50 border border-zinc-200 rounded-xl py-2.5 pl-3.5 pr-8 text-xs font-bold text-zinc-500 shadow-xs appearance-none cursor-not-allowed"
-              >
-                <option>{activeBusiness?.name || "All Businesses"}</option>
-              </select>
-              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
-            </div>
+        <div className="flex flex-col sm:flex-row gap-3 items-center">
+          <div className="relative w-full sm:w-80">
+            <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-zinc-400">
+              <Search className="h-4 w-4" />
+            </span>
+            <input
+              type="text"
+              placeholder="Search Categories"
+              className="w-full bg-white border border-zinc-200 focus:border-[#0a2924] rounded-2xl py-2.5 pl-10 pr-4 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#0a2924] transition-all shadow-xs"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
           </div>
+
+          <Dropdown
+            value={statusFilter}
+            onChange={(val) =>
+              setStatusFilter(val as "all" | "active" | "inactive")
+            }
+            options={STATUS_OPTIONS}
+            className="w-full sm:w-40"
+            triggerClassName="rounded-2xl py-2.5 pl-3.5 pr-4"
+          />
         </div>
 
         {filteredCategories.length === 0 ? (
@@ -334,19 +259,19 @@ export default function CategoriesPage() {
               No categories found
             </h3>
             <p className="text-[#64748B] text-xs mt-1 font-semibold max-w-xs leading-relaxed">
-              No stock categories match your criteria. Click Add Category to
+              No stock categories match your criteria. Click Add Categories to
               begin.
             </p>
           </div>
         ) : (
-          <div className="bg-white border border-zinc-200 rounded-2xl shadow-xs overflow-hidden">
-            <div className="overflow-x-auto">
+          <div className="bg-white border border-zinc-200 rounded-2xl shadow-xs overflow-hidden flex-1 min-h-0 flex flex-col">
+            <div className="overflow-auto flex-1 min-h-0">
               <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="border-b border-zinc-200 text-[10px] uppercase font-extrabold tracking-wider text-[#64748B] bg-zinc-50/50">
+                  <tr className="border-b border-zinc-200 text-[10px] uppercase font-extrabold tracking-wider text-[#64748B] bg-zinc-50 sticky top-0 z-10 text-center">
                     <th className="py-4 px-6 font-extrabold">Category Name</th>
                     <th className="py-4 px-6 font-extrabold">Description</th>
-                    <th className="py-4 px-6 font-extrabold">Items</th>
+                    <th className="py-4 px-6 font-extrabold">ITEMS COUNT</th>
                     <th className="py-4 px-6 font-extrabold">Status</th>
                     <th className="py-4 px-6 font-extrabold text-right">
                       Actions
@@ -355,77 +280,50 @@ export default function CategoriesPage() {
                 </thead>
                 <tbody className="divide-y divide-zinc-200 text-xs text-[#0F172A]">
                   {paginatedCategories.map((cat) => {
-                    const IconComponent =
-                      ICON_MAP[cat.icon || "other"] || Layers;
                     return (
                       <tr
                         key={cat.id}
-                        className="hover:bg-zinc-50/40 transition-colors"
+                        className="hover:bg-zinc-50/40 transition-colors text-center"
                       >
                         <td className="py-4 px-6">
-                          <div className="flex items-center gap-3.5">
-                            <div className="h-9 w-9 rounded-xl bg-emerald-50 text-[#16A34A] flex items-center justify-center shrink-0 border border-emerald-100/50 shadow-xs">
-                              <IconComponent className="h-4 w-4" />
-                            </div>
-                            <span
-                              className="font-extrabold text-[#0F172A] hover:text-[#16A34A] transition-colors cursor-pointer"
-                              onClick={() => openEditDrawer(cat)}
-                            >
-                              {cat.name.length > 15
-                                ? cat.name.substring(0, 15) + "..."
-                                : cat.name}
-                            </span>
-                          </div>
+                          <span
+                            className="font-semibold text-[#0F172A] hover:text-[#0a2924] transition-colors cursor-pointer underline underline-offset-4 decoration-zinc-300"
+                            onClick={() => openEditDrawer(cat)}
+                          >
+                            {cat.name}
+                          </span>
                         </td>
 
-                        <td className="py-4 px-6 font-semibold text-zinc-600 max-w-sm truncate">
-                          {cat.description
-                            ? cat.description.length > 30
-                              ? cat.description.substring(0, 30) + "..."
-                              : cat.description
-                            : "—"}
+                        <td className="py-4 px-6 font-semibold">
+                          {cat.description || "—"}
                         </td>
 
-                        <td className="py-4 px-6 font-extrabold text-zinc-700">
+                        <td className="py-4 px-6 font-semibold text-center text-[#0F172A]">
                           {cat.itemsCount ?? 0}
                         </td>
 
                         <td className="py-4 px-6">
-                          <div className="inline-flex items-center gap-1.5">
-                            <span
-                              className={`h-1.5 w-1.5 rounded-full ${
-                                cat.status === "active"
-                                  ? "bg-[#16A34A]"
-                                  : "bg-[#64748B]"
-                              }`}
-                            />
-                            <span
-                              className={`text-[10px] font-extrabold ${
-                                cat.status === "active"
-                                  ? "text-[#16A34A]"
-                                  : "text-[#64748B]"
-                              }`}
-                            >
-                              {cat.status === "active" ? "Active" : "Inactive"}
+                          {cat.status === "active" ? (
+                            <span className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-[10px] font-extrabold bg-[#DEF7EC] text-[#03543F]">
+                              <span className="h-1.5 w-1.5 rounded-full bg-[#0E9F6E]" />
+                              ACTIVE
                             </span>
-                          </div>
+                          ) : (
+                            <span className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-[10px] font-extrabold bg-[#FDE8E8] text-[#9B1C1C]">
+                              <span className="h-1.5 w-1.5 rounded-full bg-[#F05252]" />
+                              INACTIVE
+                            </span>
+                          )}
                         </td>
 
                         <td className="py-4 px-6 text-right">
-                          <div className="flex items-center justify-end gap-2">
+                          <div className="flex items-center justify-end">
                             <button
                               onClick={() => openEditDrawer(cat)}
-                              className="p-1.5 rounded-lg hover:bg-zinc-100 text-zinc-600 hover:text-[#16A34A] transition-colors cursor-pointer"
-                              title="Edit Details"
+                              className="h-8 w-8 flex items-center justify-center text-zinc-500 hover:text-[#0a2924] hover:border-[#0a2924] bg-white transition-colors cursor-pointer"
+                              title="Edit Category"
                             >
-                              <Edit2 className="h-4 w-4" />
-                            </button>
-                            <button
-                              onClick={() => handleDelete(cat.id)}
-                              className="p-1.5 rounded-lg hover:bg-rose-50 text-zinc-600 hover:text-rose-600 transition-colors cursor-pointer"
-                              title="Delete"
-                            >
-                              <Trash2 className="h-4 w-4" />
+                              <Edit2 className="h-3.5 w-3.5" />
                             </button>
                           </div>
                         </td>
@@ -436,7 +334,7 @@ export default function CategoriesPage() {
               </table>
             </div>
 
-            <div className="bg-zinc-50/50 border-t border-zinc-200 py-4 px-6 flex flex-col sm:flex-row justify-between items-center gap-4 text-xs text-[#64748B] font-semibold">
+            <div className="bg-zinc-50/50 border-t border-zinc-200 py-4 px-6 flex flex-col sm:flex-row justify-between items-center gap-4 text-xs text-[#64748B] font-semibold sticky bottom-0 z-10">
               <span>
                 Showing{" "}
                 {Math.min(
@@ -468,7 +366,7 @@ export default function CategoriesPage() {
                         onClick={() => handlePageChange(page)}
                         className={`h-8 w-8 rounded-lg font-bold text-xs cursor-pointer transition-all duration-150 ${
                           currentPage === page
-                            ? "bg-[#16A34A] text-white shadow-xs"
+                            ? "bg-[#0a2924] text-white shadow-xs"
                             : "border border-zinc-200 bg-white hover:bg-zinc-50 text-zinc-700"
                         }`}
                       >
@@ -529,7 +427,7 @@ export default function CategoriesPage() {
                       required
                       maxLength={100}
                       placeholder="Enter category name"
-                      className="w-full bg-white border border-zinc-300 focus:border-[#16A34A] rounded-xl py-2.5 px-3.5 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#16A34A] transition-all"
+                      className="w-full bg-white border border-zinc-300 focus:border-[#0a2924] rounded-xl py-2.5 px-3.5 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#0a2924] transition-all"
                       value={formName}
                       onChange={(e) => setFormName(e.target.value)}
                     />
@@ -548,60 +446,27 @@ export default function CategoriesPage() {
                       maxLength={250}
                       placeholder="Enter description"
                       rows={4}
-                      className="w-full bg-white border border-zinc-300 focus:border-[#16A34A] rounded-xl py-2.5 px-3.5 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#16A34A] transition-all resize-none"
+                      className="w-full bg-white border border-zinc-300 focus:border-[#0a2924] rounded-xl py-2.5 px-3.5 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#0a2924] transition-all resize-none"
                       value={formDescription}
                       onChange={(e) => setFormDescription(e.target.value)}
                     />
                   </div>
 
-                  <div className="space-y-2">
-                    <label className="text-xs font-bold text-[#0F172A] block">
-                      Icon (Optional)
-                    </label>
-                    <p className="text-[10px] text-zinc-400 font-bold mb-1.5">
-                      Choose an icon to represent this category.
-                    </p>
-                    <div className="grid grid-cols-4 gap-2">
-                      {AVAILABLE_ICONS.map((item) => {
-                        const IconComponent = item.icon;
-                        const isSelected = formIcon === item.key;
-                        return (
-                          <button
-                            key={item.key}
-                            type="button"
-                            onClick={() => setFormIcon(item.key)}
-                            className={`flex flex-col items-center justify-center p-3 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
-                              isSelected
-                                ? "border-[#16A34A] bg-emerald-50/60 text-[#16A34A] ring-1 ring-[#16A34A]"
-                                : "border-zinc-200 hover:bg-zinc-50 text-zinc-600 hover:text-zinc-950"
-                            }`}
-                            title={item.label}
-                          >
-                            <IconComponent className="h-5 w-5 mb-1" />
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-
+                  {/* Reusable Dropdown component for Drawer Status Selector */}
                   <div className="space-y-1.5">
                     <label className="text-xs font-bold text-[#0F172A] block">
                       Status <span className="text-rose-500">*</span>
                     </label>
-                    <div className="relative">
-                      <select
-                        required
-                        className="w-full bg-white border border-zinc-300 focus:border-[#16A34A] rounded-xl py-2.5 px-3.5 text-xs text-[#0F172A] font-bold focus:outline-none focus:ring-1 focus:ring-[#16A34A] appearance-none cursor-pointer"
-                        value={formStatus}
-                        onChange={(e) =>
-                          setFormStatus(e.target.value as "active" | "inactive")
-                        }
-                      >
-                        <option value="active">Active</option>
-                        <option value="inactive">Inactive</option>
-                      </select>
-                      <ChevronDown className="absolute right-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
-                    </div>
+                    <Dropdown
+                      value={formStatus}
+                      onChange={(val) =>
+                        setFormStatus(val as "active" | "inactive")
+                      }
+                      options={FORM_STATUS_OPTIONS}
+                      className="w-full"
+                      triggerClassName="border-zinc-300 rounded-xl py-2.5 px-3.5 font-bold text-[#0F172A]"
+                      optionClassName="font-bold text-[#0F172A]"
+                    />
                     <p className="text-[10px] text-zinc-400 font-bold mt-1.5">
                       Inactive categories will not be available when adding
                       stock items.
@@ -622,7 +487,7 @@ export default function CategoriesPage() {
               <button
                 onClick={handleSave}
                 disabled={saving}
-                className="bg-[#16A34A] hover:bg-[#15803D] disabled:bg-[#16A34A]/60 text-white px-5 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider shadow-sm flex items-center gap-1.5 transition-all duration-150 cursor-pointer"
+                className="bg-[#0a2924] hover:bg-[#09231f] disabled:bg-[#0a2924]/60 text-white px-5 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider shadow-sm flex items-center gap-1.5 transition-all duration-150 cursor-pointer"
               >
                 {saving ? (
                   <>
@@ -637,17 +502,6 @@ export default function CategoriesPage() {
           </div>
         </>
       )}
-
-      <AlertDialog
-        open={deleteTarget !== null}
-        title="Delete Category"
-        description="Are you sure you want to delete this category? This action cannot be undone."
-        confirmLabel="Delete"
-        cancelLabel="Cancel"
-        variant="danger"
-        onConfirm={handleConfirmDelete}
-        onCancel={() => setDeleteTarget(null)}
-      />
     </div>
   );
 }
