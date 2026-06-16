@@ -1,5 +1,6 @@
 import { betterAuth } from "better-auth";
 import { Pool } from "pg";
+import { getResetPasswordTemplate } from "@/lib/email/reset-password-template";
 import { createAuthMiddleware } from "better-auth/api";
 
 if (!process.env.DATABASE_URL) {
@@ -21,6 +22,34 @@ export const auth = betterAuth({
   baseURL: process.env.BETTER_AUTH_URL || "http://localhost:3000",
   emailAndPassword: {
     enabled: true,
+    sendResetPassword: async ({ user, url, token }, request) => {
+      const resendApiKey = process.env.RESEND_API_KEY;
+      if (!resendApiKey) {
+        console.error("RESEND_API_KEY environment variable is missing!");
+        return;
+      }
+      try {
+        const response = await fetch("https://api.resend.com/emails", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${resendApiKey}`,
+          },
+          body: JSON.stringify({
+            from: "NexBrix <info@nexbrix.com.au>",
+            to: [user.email],
+            subject: "Reset your StockTrack Password",
+            html: getResetPasswordTemplate(user.name || "there", url),
+          }),
+        });
+        if (!response.ok) {
+          const errText = await response.text();
+          console.error("Resend API returned error status:", response.status, errText);
+        }
+      } catch (error) {
+        console.error("Error sending reset password email via Resend:", error);
+      }
+    },
   },
   socialProviders: {
     google: {
