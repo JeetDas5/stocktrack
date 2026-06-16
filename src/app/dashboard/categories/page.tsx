@@ -1,14 +1,15 @@
 "use client";
 
-import { useEffect, useState, useMemo, useRef } from "react";
 import { toast } from "sonner";
+import { useEffect, useState, useMemo } from "react";
+
+import { Business } from "@/types/business";
+import { Category } from "@/types/inventory";
 import AlertDialog from "@/components/alert-dialog";
+import { useAuth } from "@/providers/auth-provider";
 import { useBusinessStore } from "@/stores/business-store";
 import { useCategoryStore } from "@/stores/category-store";
-import { useAuth } from "@/providers/auth-provider";
 import { getUserBusinesses } from "@/lib/repositories/business.repository";
-import { Category } from "@/types/inventory";
-import { Business } from "@/types/business";
 import {
   Layers,
   Plus,
@@ -28,8 +29,7 @@ import {
   Wheat,
   Flame,
   Boxes,
-  MoreVertical,
-  AlertCircle,
+  LucideIcon,
 } from "lucide-react";
 
 const AVAILABLE_ICONS = [
@@ -43,7 +43,7 @@ const AVAILABLE_ICONS = [
   { key: "other", label: "Other", icon: Boxes },
 ];
 
-const ICON_MAP: Record<string, any> = {
+const ICON_MAP: Record<string, LucideIcon> = {
   package: Package,
   beverage: CupSoda,
   meat: Beef,
@@ -67,7 +67,6 @@ export default function CategoriesPage() {
     deleteCategory,
   } = useCategoryStore();
 
-  const [businesses, setBusinesses] = useState<Business[]>([]);
   const [activeBusiness, setActiveBusiness] = useState<Business | null>(null);
   const [loadingContext, setLoadingContext] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -84,23 +83,10 @@ export default function CategoriesPage() {
   const [formStatus, setFormStatus] = useState<"active" | "inactive">("active");
 
   const [saving, setSaving] = useState(false);
-  const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 7;
-
-  const menuRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-        setActiveMenuId(null);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
 
   useEffect(() => {
     if (!activeBusinessId) return;
@@ -112,7 +98,6 @@ export default function CategoriesPage() {
         await fetchCategories(businessId);
 
         const list = await getUserBusinesses([]);
-        setBusinesses(list);
         const activeDoc = list.find((b) => b.id === businessId) || null;
         setActiveBusiness(activeDoc);
       } catch (err) {
@@ -124,6 +109,12 @@ export default function CategoriesPage() {
 
     loadContext();
   }, [activeBusinessId, profile, fetchCategories]);
+
+  useEffect(() => {
+    if (storeError) {
+      toast.error(storeError);
+    }
+  }, [storeError]);
 
   const openAddDrawer = () => {
     setEditId(null);
@@ -141,7 +132,6 @@ export default function CategoriesPage() {
     setFormIcon(cat.icon || "other");
     setFormStatus(cat.status);
     setShowDrawer(true);
-    setActiveMenuId(null);
   };
 
   const handleSave = async (e: React.FormEvent) => {
@@ -157,8 +147,10 @@ export default function CategoriesPage() {
       return;
     }
 
-    if (!/[a-zA-Z0-9]/.test(trimmedName)) {
-      toast.error("Category name cannot contain only special characters.");
+    if (!/[a-zA-Z]/.test(trimmedName)) {
+      toast.error(
+        "Category name cannot contain only numbers or special characters.",
+      );
       return;
     }
     const trimmedDescription = formDescription.trim();
@@ -195,16 +187,14 @@ export default function CategoriesPage() {
       }
 
       setShowDrawer(false);
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
-      toast.error(err.message || "Failed to save category. Please try again.");
     } finally {
       setSaving(false);
     }
   };
 
   const handleDelete = (catId: string) => {
-    setActiveMenuId(null);
     setDeleteTarget(catId);
   };
 
@@ -215,7 +205,6 @@ export default function CategoriesPage() {
       toast.success("Category deleted successfully!");
     } catch (err) {
       console.error(err);
-      toast.error("Failed to delete category.");
     } finally {
       setDeleteTarget(null);
     }
@@ -247,6 +236,7 @@ export default function CategoriesPage() {
 
   useEffect(() => {
     if (currentPage > totalPages) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setCurrentPage(totalPages);
     }
   }, [totalPages, currentPage]);
@@ -311,7 +301,11 @@ export default function CategoriesPage() {
             <div className="relative min-w-[140px]">
               <select
                 value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value as any)}
+                onChange={(e) =>
+                  setStatusFilter(
+                    e.target.value as "all" | "active" | "inactive",
+                  )
+                }
                 className="w-full bg-white border border-zinc-200 rounded-xl py-2.5 pl-3.5 pr-8 text-xs font-bold text-zinc-700 shadow-xs appearance-none focus:outline-none focus:ring-1 focus:ring-[#16A34A] focus:border-[#16A34A] cursor-pointer"
               >
                 <option value="all">All Status</option>
@@ -332,13 +326,6 @@ export default function CategoriesPage() {
             </div>
           </div>
         </div>
-
-        {storeError && (
-          <div className="bg-rose-50 border border-rose-200 text-rose-600 text-xs rounded-xl p-3 flex items-center gap-2 justify-center font-bold">
-            <AlertCircle className="h-4 w-4 shrink-0" />
-            {storeError}
-          </div>
-        )}
 
         {filteredCategories.length === 0 ? (
           <div className="bg-white border border-zinc-200 rounded-2xl py-20 px-6 text-center flex flex-col items-center justify-center shadow-sm animate-fade-in">
@@ -424,40 +411,23 @@ export default function CategoriesPage() {
                           </div>
                         </td>
 
-                        <td className="py-4 px-6 text-right relative">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setActiveMenuId(
-                                activeMenuId === cat.id ? null : cat.id,
-                              );
-                            }}
-                            className="p-1.5 rounded-lg hover:bg-zinc-100 text-zinc-400 hover:text-[#0F172A] transition-colors cursor-pointer"
-                          >
-                            <MoreVertical className="h-4 w-4" />
-                          </button>
-
-                          {activeMenuId === cat.id && (
-                            <div
-                              ref={menuRef}
-                              className="absolute right-6 top-10 w-32 bg-white border border-zinc-200 rounded-xl shadow-lg py-1.5 z-10 text-left animate-fade-in"
+                        <td className="py-4 px-6 text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              onClick={() => openEditDrawer(cat)}
+                              className="p-1.5 rounded-lg hover:bg-zinc-100 text-zinc-600 hover:text-[#16A34A] transition-colors cursor-pointer"
+                              title="Edit Details"
                             >
-                              <button
-                                onClick={() => openEditDrawer(cat)}
-                                className="w-full px-4 py-2 text-xs font-bold text-zinc-700 hover:bg-zinc-50 hover:text-[#16A34A] transition-colors flex items-center gap-2 cursor-pointer"
-                              >
-                                <Edit2 className="h-3.5 w-3.5" />
-                                Edit Details
-                              </button>
-                              <button
-                                onClick={() => handleDelete(cat.id)}
-                                className="w-full px-4 py-2 text-xs font-bold text-rose-600 hover:bg-rose-50 transition-colors flex items-center gap-2 cursor-pointer border-t border-zinc-100"
-                              >
-                                <Trash2 className="h-3.5 w-3.5" />
-                                Delete
-                              </button>
-                            </div>
-                          )}
+                              <Edit2 className="h-4 w-4" />
+                            </button>
+                            <button
+                              onClick={() => handleDelete(cat.id)}
+                              className="p-1.5 rounded-lg hover:bg-rose-50 text-zinc-600 hover:text-rose-600 transition-colors cursor-pointer"
+                              title="Delete"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );
@@ -623,7 +593,9 @@ export default function CategoriesPage() {
                         required
                         className="w-full bg-white border border-zinc-300 focus:border-[#16A34A] rounded-xl py-2.5 px-3.5 text-xs text-[#0F172A] font-bold focus:outline-none focus:ring-1 focus:ring-[#16A34A] appearance-none cursor-pointer"
                         value={formStatus}
-                        onChange={(e) => setFormStatus(e.target.value as any)}
+                        onChange={(e) =>
+                          setFormStatus(e.target.value as "active" | "inactive")
+                        }
                       >
                         <option value="active">Active</option>
                         <option value="inactive">Inactive</option>
