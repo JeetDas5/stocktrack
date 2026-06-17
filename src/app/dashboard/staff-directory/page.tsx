@@ -2,7 +2,7 @@
 "use client";
 
 import { toast } from "sonner";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 
 import { useStaffStore } from "@/stores/staff-store";
 import { useBusinessStore } from "@/stores/business-store";
@@ -24,7 +24,6 @@ import {
   ChevronDown,
   Loader2,
   Download,
-  Filter,
   ChevronLeft,
   ChevronRight,
   Building2,
@@ -39,7 +38,10 @@ import {
   ShieldX,
   UserCheck,
   Edit2,
+  MoreVertical,
+  UserX,
 } from "lucide-react";
+import { Dropdown } from "@/components/ui/dropdown";
 
 export default function StaffDirectoryPage() {
   const { activeBusinessId } = useBusinessStore();
@@ -87,10 +89,8 @@ export default function StaffDirectoryPage() {
   const [generatedLink, setGeneratedLink] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
-  // Available custom positions from roster settings
   const [positions, setPositions] = useState<string[]>([]);
 
-  // Approval Modal Configuration states
   const [isApprovalModalOpen, setIsApprovalModalOpen] = useState(false);
   const [pendingStaffToApprove, setPendingStaffToApprove] =
     useState<PendingStaffAssignment | null>(null);
@@ -104,7 +104,6 @@ export default function StaffDirectoryPage() {
   const [approvalMaxHours, setApprovalMaxHours] = useState<number | "">("");
   const [submittingApproval, setSubmittingApproval] = useState(false);
 
-  // Edit Staff Modal states
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [staffToEdit, setStaffToEdit] = useState<Staff | null>(null);
   const [editName, setEditName] = useState("");
@@ -128,7 +127,6 @@ export default function StaffDirectoryPage() {
       const currentBiz = bizList.find((b) => b.id === activeBusinessId) || null;
       setActiveBusiness(currentBiz);
 
-      // Fetch positions
       try {
         const settings = await getRosterSettings(activeBusinessId);
         setPositions(settings.positions || []);
@@ -203,7 +201,9 @@ export default function StaffDirectoryPage() {
       s.role,
       s.position || "",
       s.priority || 5,
-      s.maxWorkingHours !== null && s.maxWorkingHours !== undefined ? s.maxWorkingHours : "Unlimited",
+      s.maxWorkingHours !== null && s.maxWorkingHours !== undefined
+        ? s.maxWorkingHours
+        : "Unlimited",
       activeBusiness?.name || "",
       s.locations?.map((l) => l.name).join("; ") || "",
       s.status,
@@ -310,29 +310,19 @@ export default function StaffDirectoryPage() {
       .substring(0, 2);
   };
 
-  const getAvatarBg = (name: string) => {
-    const charCode = name.charCodeAt(0) || 0;
-    const colors = [
-      "bg-purple-100 text-purple-700 border-purple-200",
-      "bg-amber-100 text-amber-700 border-amber-200",
-      "bg-rose-100 text-rose-700 border-rose-200",
-      "bg-blue-100 text-blue-700 border-blue-200",
-      "bg-emerald-100 text-emerald-700 border-emerald-200",
-      "bg-indigo-100 text-indigo-700 border-indigo-200",
-      "bg-orange-100 text-orange-700 border-orange-200",
-    ];
-    return colors[charCode % colors.length];
+  const getAvatarBg = () => {
+    return "bg-zinc-100 text-zinc-800 border-zinc-200/60";
   };
 
   const getRoleBadgeClass = (role: string) => {
     const r = role.toLowerCase();
     if (r === "manager") {
-      return "bg-blue-50 text-blue-600 border-blue-100";
+      return "bg-black text-white border-black";
     }
     if (r === "supervisor") {
-      return "bg-purple-50 text-purple-600 border-purple-100";
+      return "bg-zinc-800 text-white border-zinc-800";
     }
-    return "bg-zinc-50 text-zinc-600 border-zinc-100";
+    return "bg-zinc-100 text-zinc-800 border-zinc-200";
   };
 
   const handleCreateInvitation = async () => {
@@ -390,18 +380,16 @@ export default function StaffDirectoryPage() {
     window.open(`mailto:?subject=${subject}&body=${body}`, "_blank");
   };
 
-  // Approval Modal Actions
   const handleOpenApprovalModal = async (pending: PendingStaffAssignment) => {
     setPendingStaffToApprove(pending);
     setApprovalRole("staff");
     setApprovalBusinesses([activeBusinessId || ""]);
     setApprovalLocations({});
-    
-    // Set default staff properties
+
     setApprovalPosition(positions[0] || "");
     setApprovalPriority(5);
     setApprovalMaxHours("");
-    
+
     setIsApprovalModalOpen(true);
 
     const bizId = activeBusinessId || "";
@@ -494,7 +482,8 @@ export default function StaffDirectoryPage() {
           assignments,
           priority: approvalPriority,
           position: approvalPosition || null,
-          max_working_hours: approvalMaxHours === "" ? null : Number(approvalMaxHours),
+          max_working_hours:
+            approvalMaxHours === "" ? null : Number(approvalMaxHours),
         },
       );
 
@@ -531,7 +520,6 @@ export default function StaffDirectoryPage() {
     }
   };
 
-  // Edit Staff Modal Actions
   const handleOpenEditModal = async (staff: Staff) => {
     setStaffToEdit(staff);
     setEditName(staff.name);
@@ -542,7 +530,11 @@ export default function StaffDirectoryPage() {
     setEditLocations(staff.locations?.map((l) => l.id) || []);
     setEditPosition(staff.position || "");
     setEditPriority(staff.priority || 5);
-    setEditMaxHours(staff.maxWorkingHours !== null && staff.maxWorkingHours !== undefined ? staff.maxWorkingHours : "");
+    setEditMaxHours(
+      staff.maxWorkingHours !== null && staff.maxWorkingHours !== undefined
+        ? staff.maxWorkingHours
+        : "",
+    );
     setIsEditModalOpen(true);
 
     const bizId = activeBusinessId || "";
@@ -573,8 +565,9 @@ export default function StaffDirectoryPage() {
 
     try {
       setSubmittingEdit(true);
-      
-      const { updateStaff } = await import("@/lib/repositories/staff.repository");
+
+      const { updateStaff } =
+        await import("@/lib/repositories/staff.repository");
 
       await updateStaff(activeBusinessId, staffToEdit.id, {
         name: editName.trim(),
@@ -603,6 +596,36 @@ export default function StaffDirectoryPage() {
     }
   };
 
+  const handleToggleStatus = async (staff: Staff) => {
+    if (!activeBusinessId) return;
+    try {
+      const newStatus = staff.status === "Active" ? "Inactive" : "Active";
+      const { updateStaff } =
+        await import("@/lib/repositories/staff.repository");
+
+      await updateStaff(activeBusinessId, staff.id, {
+        name: staff.name,
+        phone: staff.phone,
+        email: staff.email,
+        role: staff.role,
+        status: newStatus,
+        locationIds: staff.locations?.map((l) => l.id) || [],
+        priority: staff.priority || 5,
+        position: staff.position || null,
+        maxWorkingHours: staff.maxWorkingHours || null,
+      });
+
+      toast.success(`Staff status updated to ${newStatus}.`);
+      await fetchStaffMembers(activeBusinessId);
+    } catch (err) {
+      if (err instanceof Error) {
+        toast.error(err.message);
+      } else {
+        toast.error("Failed to update status.");
+      }
+    }
+  };
+
   const handleResetModal = () => {
     setIsAddStaffOpen(false);
     setGeneratedLink(null);
@@ -611,7 +634,7 @@ export default function StaffDirectoryPage() {
   if (staffLoading || loadingContext) {
     return (
       <div className="h-[75vh] flex flex-col items-center justify-center bg-white text-[#0F172A]">
-        <Loader2 className="h-7 w-7 text-[#16A34A] animate-spin mb-3" />
+        <Loader2 className="h-7 w-7 text-black animate-spin mb-3" />
         <span className="text-[#64748B] text-xs font-bold uppercase tracking-wider">
           Syncing staff records...
         </span>
@@ -620,11 +643,11 @@ export default function StaffDirectoryPage() {
   }
 
   return (
-    <div className="p-6 bg-white min-h-[80vh] relative select-none">
-      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 border-b border-zinc-200 pb-5">
+    <div className="px-4 py-3 bg-white min-h-[80vh] scroll-y-auto">
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 border-b py-3 px-3 md:py-3 md:px-4 border border-[#E2E8F0] rounded-2xl shadow-sm">
         <div>
-          <h1 className="text-3xl font-extrabold text-[#0F172A] tracking-tight">
-            Staff Directory
+          <h1 className="text-xl md:text-2xl font-bold md:font-extrabold tracking-tight">
+            Team Members
           </h1>
           <p className="text-[#64748B] text-xs font-bold mt-1.5">
             View and manage all staff members, invitations, and access
@@ -633,14 +656,24 @@ export default function StaffDirectoryPage() {
         </div>
 
         <div className="flex items-center gap-3 self-end lg:self-auto">
+          {activeTab === "directory" && (
+            <button
+              onClick={handleExport}
+              className="bg-white hover:bg-zinc-50 border border-black text-black rounded-full px-5 py-2.5 text-xs font-bold uppercase tracking-wider shadow-sm flex items-center gap-2 cursor-pointer transition-all duration-200"
+            >
+              <Download className="h-4 w-4" />
+              Export
+            </button>
+          )}
+
           <button
             onClick={handleCreateInvitation}
             disabled={generatingLink}
-            className="bg-[#16A34A] hover:bg-[#15803D] text-white rounded-xl px-5 py-2.5 text-xs font-bold uppercase tracking-wider shadow-sm flex items-center gap-2 cursor-pointer transition-all duration-200 disabled:opacity-50"
+            className="bg-black hover:bg-neutral-800 text-white rounded-full px-5 py-2.5 text-xs font-bold uppercase tracking-wider shadow-sm flex items-center gap-2 cursor-pointer transition-all duration-200 disabled:opacity-50"
           >
             {generatingLink ? (
               <>
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <Loader2 className="h-4 w-4 animate-spin text-white" />
                 Creating...
               </>
             ) : (
@@ -650,66 +683,61 @@ export default function StaffDirectoryPage() {
               </>
             )}
           </button>
-
-          {activeTab === "directory" && (
-            <>
-              <button
-                onClick={handleExport}
-                className="bg-white hover:bg-zinc-50 border border-zinc-200 text-zinc-700 rounded-xl px-4 py-2.5 text-xs font-bold uppercase tracking-wider shadow-2xs flex items-center gap-2 cursor-pointer transition-all duration-200"
-              >
-                <Download className="h-4 w-4" />
-                Export
-                <ChevronDown className="h-3.5 w-3.5 text-zinc-400" />
-              </button>
-
-              <button className="bg-white hover:bg-zinc-50 border border-zinc-200 text-zinc-700 rounded-xl px-4 py-2.5 text-xs font-bold uppercase tracking-wider shadow-2xs flex items-center gap-2 cursor-pointer transition-all duration-200">
-                <Filter className="h-4 w-4" />
-                Filters
-              </button>
-            </>
-          )}
         </div>
       </div>
 
-      <div className="flex border-b border-zinc-200 mt-6 mb-4">
+      <div className="flex border-b border-zinc-200 mt-4 mb-2">
         <button
           onClick={() => setActiveTab("directory")}
-          className={`pb-3 text-xs font-bold uppercase tracking-wider px-4 border-b-2 cursor-pointer transition-all duration-150 ${
+          className={`pb-3 text-xs font-bold uppercase tracking-wider px-4 border-b-2 cursor-pointer transition-all duration-150 flex items-center gap-2 ${
             activeTab === "directory"
-              ? "border-[#16A34A] text-[#16A34A]"
-              : "border-transparent text-zinc-500 hover:text-zinc-700"
+              ? "border-black text-black font-extrabold"
+              : "border-transparent text-zinc-400 hover:text-zinc-600"
           }`}
         >
           Active Staff
+          <span
+            className={`text-[10px] px-2 py-0.5 rounded-full font-bold transition-all duration-150 ${
+              activeTab === "directory"
+                ? "bg-black text-white"
+                : "bg-zinc-100 text-zinc-500"
+            }`}
+          >
+            {staffMembers.length > 0 ? staffMembers.length : ""}
+          </span>
         </button>
         <button
           onClick={() => setActiveTab("pending")}
-          className={`pb-3 text-xs font-bold uppercase tracking-wider px-4 border-b-2 cursor-pointer transition-all duration-150 flex items-center gap-1.5 ${
+          className={`pb-3 text-xs font-bold uppercase tracking-wider px-4 border-b-2 cursor-pointer transition-all duration-150 flex items-center gap-2 ${
             activeTab === "pending"
-              ? "border-[#16A34A] text-[#16A34A]"
-              : "border-transparent text-zinc-500 hover:text-zinc-700"
+              ? "border-black text-black font-extrabold"
+              : "border-transparent text-zinc-400 hover:text-zinc-600"
           }`}
         >
           Pending Approvals
-          {pendingStaff.length > 0 && (
-            <span className="bg-red-500 text-white text-[10px] h-4 w-4 rounded-full flex items-center justify-center font-bold">
-              {pendingStaff.length}
-            </span>
-          )}
+          <span
+            className={`text-[10px] px-2 py-0.5 rounded-full font-bold transition-all duration-150 ${
+              activeTab === "pending"
+                ? "bg-black text-white"
+                : "bg-zinc-100 text-zinc-500"
+            }`}
+          >
+            {pendingStaff.length > 0 ? pendingStaff.length : ""}
+          </span>
         </button>
       </div>
 
       {activeTab === "directory" ? (
         <>
-          <div className="mt-6 flex flex-wrap gap-3 items-center">
-            <div className="relative flex-1 min-w-[280px]">
+          <div className="mt-6 flex flex-wrap justify-between gap-3 items-center">
+            <div className="relative flex-1 w-full max-w-[50svw] md:max-w-[30svw]">
               <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-zinc-400">
                 <Search className="h-4 w-4" />
               </span>
               <input
                 type="text"
                 placeholder="Search by name, phone, email, role or position..."
-                className="w-full bg-white border border-zinc-200 focus:border-[#16A34A] rounded-xl py-2.5 pl-10 pr-4 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#16A34A] transition-all shadow-xs"
+                className="w-full bg-white border border-zinc-200 focus:border-black rounded-xl py-2.5 pl-10 pr-4 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-black transition-all shadow-xs"
                 value={searchQuery}
                 onChange={(e) => {
                   setSearchQuery(e.target.value);
@@ -718,83 +746,32 @@ export default function StaffDirectoryPage() {
               />
             </div>
 
-            <div className="relative min-w-[150px]">
-              <select
-                value={businessFilter}
-                onChange={(e) => {
-                  setBusinessFilter(e.target.value);
-                  setCurrentPage(1);
-                }}
-                className="w-full bg-white border border-zinc-200 focus:border-[#16A34A] rounded-xl py-2.5 px-3 text-xs text-zinc-950 focus:outline-none focus:ring-1 focus:ring-[#16A34A] appearance-none cursor-pointer font-bold pr-8"
-              >
-                <option value="all">All Businesses</option>
-                {businesses.map((b) => (
-                  <option key={b.id} value={b.id}>
-                    {b.name}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
-            </div>
+            <Dropdown
+              value={roleFilter}
+              onChange={(val) => {
+                setRoleFilter(val);
+                setCurrentPage(1);
+              }}
+              options={
+                [
+                  { value: "all", label: "All Roles" },
+                  { value: "manager", label: "Manager" },
+                  { value: "supervisor", label: "Supervisor" },
+                  { value: "staff", label: "Staff" },
+                ] as const
+              }
+              className="min-w-[130px]"
+              triggerClassName="rounded-xl py-2.5 px-3 font-bold text-zinc-950 focus:ring-black focus:border-black"
+            />
 
-            <div className="relative min-w-[150px]">
-              <select
-                value={locationFilter}
-                onChange={(e) => {
-                  setLocationFilter(e.target.value);
-                  setCurrentPage(1);
-                }}
-                className="w-full bg-white border border-zinc-200 focus:border-[#16A34A] rounded-xl py-2.5 px-3 text-xs text-zinc-950 focus:outline-none focus:ring-1 focus:ring-[#16A34A] appearance-none cursor-pointer font-bold pr-8"
+            {(searchQuery || roleFilter !== "all") && (
+              <button
+                onClick={handleClearFilters}
+                className="border border-zinc-200 text-zinc-700 bg-white hover:bg-zinc-50 rounded-xl px-4 py-2.5 text-xs font-bold transition duration-200 cursor-pointer"
               >
-                <option value="all">All Locations</option>
-                {locations.map((l) => (
-                  <option key={l.id} value={l.id}>
-                    {l.name}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
-            </div>
-
-            <div className="relative min-w-[130px]">
-              <select
-                value={roleFilter}
-                onChange={(e) => {
-                  setRoleFilter(e.target.value);
-                  setCurrentPage(1);
-                }}
-                className="w-full bg-white border border-zinc-200 focus:border-[#16A34A] rounded-xl py-2.5 px-3 text-xs text-zinc-950 focus:outline-none focus:ring-1 focus:ring-[#16A34A] appearance-none cursor-pointer font-bold pr-8"
-              >
-                <option value="all">All Roles</option>
-                <option value="manager">Manager</option>
-                <option value="supervisor">Supervisor</option>
-                <option value="staff">Staff</option>
-              </select>
-              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
-            </div>
-
-            <div className="relative min-w-[130px]">
-              <select
-                value={statusFilter}
-                onChange={(e) => {
-                  setStatusFilter(e.target.value);
-                  setCurrentPage(1);
-                }}
-                className="w-full bg-white border border-zinc-200 focus:border-[#16A34A] rounded-xl py-2.5 px-3 text-xs text-zinc-950 focus:outline-none focus:ring-1 focus:ring-[#16A34A] appearance-none cursor-pointer font-bold pr-8"
-              >
-                <option value="all">All Statuses</option>
-                <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
-              </select>
-              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
-            </div>
-
-            <button
-              onClick={handleClearFilters}
-              className="border border-zinc-200 text-zinc-700 bg-white hover:bg-zinc-50 rounded-xl px-4 py-2.5 text-xs font-bold transition duration-200 cursor-pointer"
-            >
-              Clear
-            </button>
+                Clear
+              </button>
+            )}
           </div>
 
           {filteredStaff.length === 0 ? (
@@ -819,17 +796,11 @@ export default function StaffDirectoryPage() {
                       >
                         Staff Name
                       </th>
-                      <th
-                        onClick={() => handleSort("phone")}
-                        className="py-4 px-6 font-extrabold cursor-pointer hover:bg-zinc-100 transition duration-150 select-none"
-                      >
-                        Phone
+                      <th className="py-4 px-6 font-extrabold select-none">
+                        Position
                       </th>
-                      <th
-                        onClick={() => handleSort("email")}
-                        className="py-4 px-6 font-extrabold cursor-pointer hover:bg-zinc-100 transition duration-150 select-none"
-                      >
-                        Email
+                      <th className="py-4 px-6 font-extrabold select-none text-center">
+                        Weekly Hours
                       </th>
                       <th
                         onClick={() => handleSort("role")}
@@ -838,13 +809,7 @@ export default function StaffDirectoryPage() {
                         Role
                       </th>
                       <th className="py-4 px-6 font-extrabold select-none">
-                        Position
-                      </th>
-                      <th className="py-4 px-6 font-extrabold select-none text-center">
-                        Priority
-                      </th>
-                      <th className="py-4 px-6 font-extrabold select-none text-center">
-                        Max Hours
+                        Associate Business
                       </th>
                       <th
                         onClick={() => handleSort("assigned_locations")}
@@ -858,7 +823,7 @@ export default function StaffDirectoryPage() {
                       >
                         Status
                       </th>
-                      <th className="py-4 px-6 font-extrabold text-right select-none">
+                      <th className="p-4 font-extrabold text-right select-none">
                         Actions
                       </th>
                     </tr>
@@ -867,12 +832,13 @@ export default function StaffDirectoryPage() {
                     {paginatedStaff.map((s) => (
                       <tr
                         key={s.id}
-                        className="hover:bg-zinc-50/40 transition-colors"
+                        onClick={() => handleOpenEditModal(s)}
+                        className="hover:bg-zinc-50/40 transition-colors cursor-pointer"
                       >
                         <td className="py-4 px-6">
                           <div className="flex items-center gap-3">
                             <div
-                              className={`h-9 w-9 rounded-full flex items-center justify-center font-extrabold text-xs border shadow-3xs shrink-0 ${getAvatarBg(s.name)}`}
+                              className={`h-9 w-9 rounded-full flex items-center justify-center font-extrabold text-xs border shadow-3xs shrink-0 ${getAvatarBg()}`}
                             >
                               {getInitials(s.name)}
                             </div>
@@ -881,11 +847,18 @@ export default function StaffDirectoryPage() {
                             </span>
                           </div>
                         </td>
-                        <td className="py-4 px-6 text-[#64748B] font-medium">
-                          {s.phone}
+                        <td className="py-4 px-6 text-zinc-950 font-bold">
+                          {s.position || (
+                            <span className="text-zinc-400 font-medium italic">
+                              None
+                            </span>
+                          )}
                         </td>
-                        <td className="py-4 px-6 text-[#64748B] font-medium">
-                          {s.email}
+                        <td className="py-4 px-6 text-center text-[#64748B] font-bold">
+                          {s.maxWorkingHours !== null &&
+                          s.maxWorkingHours !== undefined
+                            ? `${s.maxWorkingHours}`
+                            : "Unlimited"}
                         </td>
                         <td className="py-4 px-6">
                           <span
@@ -895,13 +868,11 @@ export default function StaffDirectoryPage() {
                           </span>
                         </td>
                         <td className="py-4 px-6 text-zinc-950 font-bold">
-                          {s.position || <span className="text-zinc-400 font-medium italic">None</span>}
-                        </td>
-                        <td className="py-4 px-6 text-center text-[#64748B] font-bold">
-                          {s.priority || 5}
-                        </td>
-                        <td className="py-4 px-6 text-center text-[#64748B] font-bold">
-                          {s.maxWorkingHours !== null && s.maxWorkingHours !== undefined ? `${s.maxWorkingHours} hrs` : "Unlimited"}
+                          {activeBusiness?.name || (
+                            <span className="text-zinc-400 font-medium italic">
+                              None
+                            </span>
+                          )}
                         </td>
                         <td className="py-4 px-6 text-zinc-700">
                           <div className="flex flex-wrap gap-1 items-center">
@@ -923,27 +894,27 @@ export default function StaffDirectoryPage() {
                           </div>
                         </td>
                         <td className="py-4 px-6">
-                          <span
-                            className={`text-[10px] uppercase font-extrabold px-3 py-1 rounded-full flex items-center gap-1.5 border shadow-3xs leading-none w-fit ${
-                              s.status === "Active"
-                                ? "bg-[#DCFCE7] text-[#16A34A] border-[#16A34A]/10"
-                                : "bg-red-50 text-red-600 border-red-100"
-                            }`}
-                          >
-                            <span
-                              className={`h-1.5 w-1.5 rounded-full shrink-0 ${s.status === "Active" ? "bg-[#16A34A]" : "bg-red-500"}`}
-                            />
-                            {s.status}
-                          </span>
+                          {s.status === "Active" ? (
+                            <span className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-[10px] font-extrabold bg-[#DEF7EC] text-[#03543F] w-fit leading-none shadow-3xs">
+                              <span className="h-1.5 w-1.5 rounded-full bg-[#0E9F6E] shrink-0" />
+                              ACTIVE
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-[10px] font-extrabold bg-[#FDE8E8] text-[#9B1C1C] w-fit leading-none shadow-3xs">
+                              <span className="h-1.5 w-1.5 rounded-full bg-[#F05252] shrink-0" />
+                              INACTIVE
+                            </span>
+                          )}
                         </td>
-                        <td className="py-4 px-6 text-right">
-                          <button
-                            onClick={() => handleOpenEditModal(s)}
-                            className="bg-white hover:bg-zinc-50 border border-zinc-200 text-zinc-700 rounded-xl px-3.5 py-1.5 text-xs font-bold uppercase tracking-wider shadow-3xs flex items-center gap-2 cursor-pointer transition-all duration-200"
-                          >
-                            <Edit2 className="h-3.5 w-3.5 text-zinc-400" />
-                            Edit
-                          </button>
+                        <td
+                          className="py-4 px-6 text-right"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <ActionsMenu
+                            staff={s}
+                            onEdit={() => handleOpenEditModal(s)}
+                            onToggleStatus={() => handleToggleStatus(s)}
+                          />
                         </td>
                       </tr>
                     ))}
@@ -990,7 +961,7 @@ export default function StaffDirectoryPage() {
                     >
                       <ChevronLeft className="h-4 w-4" />
                     </button>
-                    <span className="h-8 w-8 bg-[#16A34A] text-white flex items-center justify-center rounded-lg font-bold">
+                    <span className="h-8 w-8 bg-black text-white flex items-center justify-center rounded-lg font-bold">
                       {currentPage}
                     </span>
                     <button
@@ -1012,7 +983,7 @@ export default function StaffDirectoryPage() {
         <div className="mt-6">
           {loadingPending ? (
             <div className="py-20 flex flex-col items-center justify-center bg-white border border-zinc-200 rounded-2xl">
-              <Loader2 className="h-6 w-6 text-[#16A34A] animate-spin mb-2" />
+              <Loader2 className="h-6 w-6 text-black animate-spin mb-2" />
               <span className="text-xs text-zinc-500 font-bold uppercase tracking-wider">
                 Loading approval queue...
               </span>
@@ -1079,14 +1050,14 @@ export default function StaffDirectoryPage() {
                         <td className="py-4 px-6 text-right flex items-center justify-end gap-2">
                           <button
                             onClick={() => handleReject(p.id)}
-                            className="bg-red-50 hover:bg-red-100 text-red-600 rounded-lg p-2 text-xs font-bold border border-red-200/50 cursor-pointer flex items-center gap-1 transition"
+                            className="bg-white hover:bg-zinc-50 text-zinc-600 rounded-lg p-2 text-xs font-bold border border-zinc-200 cursor-pointer flex items-center gap-1 transition"
                           >
                             <ShieldX className="h-4 w-4" />
                             Reject
                           </button>
                           <button
                             onClick={() => handleOpenApprovalModal(p)}
-                            className="bg-[#DCFCE7] hover:bg-[#C6F6D5] text-[#16A34A] rounded-lg p-2 text-xs font-bold border border-[#16A34A]/10 cursor-pointer flex items-center gap-1 transition"
+                            className="bg-black hover:bg-neutral-800 text-white rounded-lg p-2 px-3.5 text-xs font-bold cursor-pointer flex items-center gap-1 transition"
                           >
                             <ShieldCheck className="h-4 w-4" />
                             Approve
@@ -1137,10 +1108,10 @@ export default function StaffDirectoryPage() {
                   />
                   <button
                     onClick={handleCopyLink}
-                    className="p-1.5 hover:bg-zinc-50 rounded-lg text-zinc-500 hover:text-[#16A34A] transition cursor-pointer"
+                    className="p-1.5 hover:bg-zinc-50 rounded-lg text-zinc-500 hover:text-black transition cursor-pointer"
                   >
                     {copied ? (
-                      <Check className="h-4 w-4 text-[#16A34A]" />
+                      <Check className="h-4 w-4 text-black" />
                     ) : (
                       <Copy className="h-4 w-4" />
                     )}
@@ -1150,18 +1121,17 @@ export default function StaffDirectoryPage() {
                 <p className="text-[11px] text-[#64748B] font-semibold leading-relaxed">
                   Share this unique link via WhatsApp or Email. The link is
                   valid for{" "}
-                  <span className="font-bold text-[#16A34A]">48 hours</span>.
-                  Once the user registers, you will receive their profile
-                  details in the{" "}
-                  <span className="font-bold">Pending Approvals</span> tab to
-                  assign their role, business(es), and location(s).
+                  <span className="font-bold text-black">48 hours</span>. Once
+                  the user registers, you will receive their profile details in
+                  the <span className="font-bold">Pending Approvals</span> tab
+                  to assign their role, business(es), and location(s).
                 </p>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <button
                   onClick={handleShareWhatsApp}
-                  className="bg-emerald-50 hover:bg-emerald-100 border border-emerald-200/60 text-emerald-700 rounded-xl py-3 text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer transition"
+                  className="bg-white hover:bg-zinc-50 border border-black text-black rounded-xl py-3 text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer transition"
                 >
                   <Send className="h-4 w-4" />
                   Share on WhatsApp
@@ -1169,7 +1139,7 @@ export default function StaffDirectoryPage() {
 
                 <button
                   onClick={handleShareEmail}
-                  className="bg-blue-50 hover:bg-blue-100 border border-blue-200/60 text-blue-700 rounded-xl py-3 text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer transition"
+                  className="bg-zinc-100 hover:bg-zinc-200 text-zinc-950 rounded-xl py-3 text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer transition"
                 >
                   <Mail className="h-4 w-4" />
                   Share via Email
@@ -1178,7 +1148,7 @@ export default function StaffDirectoryPage() {
 
               <button
                 onClick={handleResetModal}
-                className="w-full bg-[#0F172A] hover:bg-[#1E293B] text-white rounded-xl py-3 text-xs font-bold uppercase tracking-wider transition cursor-pointer"
+                className="w-full bg-black hover:bg-neutral-800 text-white rounded-xl py-3 text-xs font-bold uppercase tracking-wider transition cursor-pointer"
               >
                 Close
               </button>
@@ -1196,7 +1166,8 @@ export default function StaffDirectoryPage() {
                   Configure & Approve Staff
                 </h3>
                 <p className="text-[#64748B] text-xs font-bold mt-1">
-                  Assign role, businesses, locations, position, priority, and working hours.
+                  Assign role, businesses, locations, position, priority, and
+                  working hours.
                 </p>
               </div>
               <button
@@ -1211,7 +1182,6 @@ export default function StaffDirectoryPage() {
             </div>
 
             <div className="space-y-5 py-2">
-              {/* User profile details */}
               <div className="bg-zinc-50 border border-zinc-200 rounded-2xl p-4 space-y-2">
                 <span className="text-[10px] font-extrabold text-zinc-400 uppercase tracking-wider block">
                   Registration Details:
@@ -1248,7 +1218,6 @@ export default function StaffDirectoryPage() {
                 </div>
               </div>
 
-              {/* Access Role */}
               <div className="space-y-1.5">
                 <label className="text-[10px] font-extrabold text-[#0F172A] uppercase tracking-wider block">
                   Access Role (Compulsory)
@@ -1259,7 +1228,7 @@ export default function StaffDirectoryPage() {
                     onClick={() => setApprovalRole("staff")}
                     className={`p-4 border rounded-2xl flex flex-col items-start text-left cursor-pointer transition ${
                       approvalRole === "staff"
-                        ? "border-[#16A34A] bg-[#DCFCE7]/20 text-[#0F172A]"
+                        ? "border-black bg-zinc-50 text-[#0F172A]"
                         : "border-zinc-200 bg-white hover:bg-zinc-50/50 text-zinc-500"
                     }`}
                   >
@@ -1275,7 +1244,7 @@ export default function StaffDirectoryPage() {
                     onClick={() => setApprovalRole("manager")}
                     className={`p-4 border rounded-2xl flex flex-col items-start text-left cursor-pointer transition ${
                       approvalRole === "manager"
-                        ? "border-[#16A34A] bg-[#DCFCE7]/20 text-[#0F172A]"
+                        ? "border-black bg-zinc-50 text-[#0F172A]"
                         : "border-zinc-200 bg-white hover:bg-zinc-50/50 text-zinc-500"
                     }`}
                   >
@@ -1289,7 +1258,6 @@ export default function StaffDirectoryPage() {
                 </div>
               </div>
 
-              {/* Custom Roster Details */}
               <div className="grid grid-cols-3 gap-3">
                 <div className="col-span-1">
                   <label className="text-[10px] font-extrabold text-zinc-500 uppercase block mb-1">
@@ -1298,7 +1266,7 @@ export default function StaffDirectoryPage() {
                   <select
                     value={approvalPosition}
                     onChange={(e) => setApprovalPosition(e.target.value)}
-                    className="w-full bg-white border border-zinc-200 focus:border-[#16A34A] rounded-xl py-2 px-3 text-xs font-bold text-zinc-950 focus:outline-none focus:ring-1 cursor-pointer"
+                    className="w-full bg-white border border-zinc-200 focus:border-black rounded-xl py-2 px-3 text-xs font-bold text-zinc-950 focus:outline-none focus:ring-1 focus:ring-black cursor-pointer"
                   >
                     <option value="">-- Choose --</option>
                     {positions.map((pos) => (
@@ -1318,10 +1286,13 @@ export default function StaffDirectoryPage() {
                     max="10"
                     value={approvalPriority}
                     onChange={(e) => {
-                      const val = Math.max(1, Math.min(10, Number(e.target.value) || 5));
+                      const val = Math.max(
+                        1,
+                        Math.min(10, Number(e.target.value) || 5),
+                      );
                       setApprovalPriority(val);
                     }}
-                    className="w-full bg-white border border-zinc-200 focus:border-[#16A34A] rounded-xl py-2 px-3 text-xs font-semibold text-zinc-950 focus:outline-none focus:ring-1"
+                    className="w-full bg-white border border-zinc-200 focus:border-black rounded-xl py-2 px-3 text-xs font-semibold text-zinc-950 focus:outline-none focus:ring-1 focus:ring-black"
                   />
                 </div>
                 <div className="col-span-1">
@@ -1334,15 +1305,17 @@ export default function StaffDirectoryPage() {
                     placeholder="e.g. 40"
                     value={approvalMaxHours}
                     onChange={(e) => {
-                      const val = e.target.value === "" ? "" : Math.max(0, Number(e.target.value));
+                      const val =
+                        e.target.value === ""
+                          ? ""
+                          : Math.max(0, Number(e.target.value));
                       setApprovalMaxHours(val);
                     }}
-                    className="w-full bg-white border border-zinc-200 focus:border-[#16A34A] rounded-xl py-2 px-3 text-xs font-semibold text-zinc-950 focus:outline-none focus:ring-1"
+                    className="w-full bg-white border border-zinc-200 focus:border-black rounded-xl py-2 px-3 text-xs font-semibold text-zinc-950 focus:outline-none focus:ring-1 focus:ring-black"
                   />
                 </div>
               </div>
 
-              {/* Business & Location Assignments */}
               <div className="space-y-2">
                 <label className="text-[10px] font-extrabold text-[#0F172A] uppercase tracking-wider block">
                   Assign Businesses & Locations (Compulsory)
@@ -1375,7 +1348,7 @@ export default function StaffDirectoryPage() {
                               onChange={() =>
                                 handleToggleApprovalBusiness(b.id)
                               }
-                              className="h-4 w-4 rounded border-zinc-300 text-[#16A34A] focus:ring-[#16A34A] cursor-pointer"
+                              className="h-4 w-4 rounded border-zinc-300 text-black focus:ring-black accent-black cursor-pointer"
                             />
                             <span className="text-xs font-extrabold text-zinc-950 flex items-center gap-1.5">
                               <Building2 className="h-3.5 w-3.5 text-zinc-400" />
@@ -1394,7 +1367,7 @@ export default function StaffDirectoryPage() {
                                       onChange={() =>
                                         handleToggleApprovalAllLocations(b.id)
                                       }
-                                      className="h-3.5 w-3.5 rounded border-zinc-300 text-[#16A34A] focus:ring-[#16A34A] cursor-pointer"
+                                      className="h-3.5 w-3.5 rounded border-zinc-300 text-black focus:ring-black accent-black cursor-pointer"
                                     />
                                     <span>
                                       Select All Locations ({allLocs.length})
@@ -1418,7 +1391,7 @@ export default function StaffDirectoryPage() {
                                               loc.id,
                                             )
                                           }
-                                          className="h-3.5 w-3.5 rounded border-zinc-300 text-[#16A34A] focus:ring-[#16A34A] cursor-pointer"
+                                          className="h-3.5 w-3.5 rounded border-zinc-300 text-black focus:ring-black accent-black cursor-pointer"
                                         />
                                         <span className="truncate">
                                           {loc.name}
@@ -1441,7 +1414,6 @@ export default function StaffDirectoryPage() {
                 </div>
               </div>
 
-              {/* Action Buttons */}
               <div className="grid grid-cols-2 gap-3 mt-6">
                 <button
                   type="button"
@@ -1461,11 +1433,11 @@ export default function StaffDirectoryPage() {
                     approvalBusinesses.length === 0 ||
                     !approvalRole
                   }
-                  className="bg-[#16A34A] hover:bg-[#15803D] active:bg-[#14532D] text-white rounded-xl py-3 text-xs font-bold uppercase tracking-wider shadow-md transition duration-200 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                  className="bg-black hover:bg-neutral-800 text-white rounded-xl py-3 text-xs font-bold uppercase tracking-wider shadow-md transition duration-200 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
                 >
                   {submittingApproval ? (
                     <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <Loader2 className="h-4 w-4 animate-spin text-white" />
                       Approving...
                     </>
                   ) : (
@@ -1478,7 +1450,6 @@ export default function StaffDirectoryPage() {
         </div>
       )}
 
-      {/* EDIT STAFF MODAL */}
       {isEditModalOpen && staffToEdit && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-50 animate-fade-in p-4">
           <div className="bg-white border border-zinc-200 rounded-3xl p-6 w-full max-w-xl shadow-2xl relative animate-scale-in max-h-[90vh] overflow-y-auto">
@@ -1512,7 +1483,7 @@ export default function StaffDirectoryPage() {
                     type="text"
                     value={editName}
                     onChange={(e) => setEditName(e.target.value)}
-                    className="w-full bg-white border border-zinc-200 focus:border-[#16A34A] rounded-xl py-2 px-3 text-xs font-semibold text-zinc-950 focus:outline-none focus:ring-1"
+                    className="w-full bg-white border border-zinc-200 focus:border-black rounded-xl py-2 px-3 text-xs font-semibold text-zinc-950 focus:outline-none focus:ring-1 focus:ring-black"
                   />
                 </div>
                 <div>
@@ -1523,7 +1494,7 @@ export default function StaffDirectoryPage() {
                     type="email"
                     value={editEmail}
                     onChange={(e) => setEditEmail(e.target.value)}
-                    className="w-full bg-white border border-zinc-200 focus:border-[#16A34A] rounded-xl py-2 px-3 text-xs font-semibold text-zinc-950 focus:outline-none focus:ring-1"
+                    className="w-full bg-white border border-zinc-200 focus:border-black rounded-xl py-2 px-3 text-xs font-semibold text-zinc-950 focus:outline-none focus:ring-1 focus:ring-black"
                   />
                 </div>
                 <div>
@@ -1534,7 +1505,7 @@ export default function StaffDirectoryPage() {
                     type="text"
                     value={editPhone}
                     onChange={(e) => setEditPhone(e.target.value)}
-                    className="w-full bg-white border border-zinc-200 focus:border-[#16A34A] rounded-xl py-2 px-3 text-xs font-semibold text-zinc-950 focus:outline-none focus:ring-1"
+                    className="w-full bg-white border border-zinc-200 focus:border-black rounded-xl py-2 px-3 text-xs font-semibold text-zinc-950 focus:outline-none focus:ring-1 focus:ring-black"
                   />
                 </div>
                 <div>
@@ -1543,8 +1514,10 @@ export default function StaffDirectoryPage() {
                   </label>
                   <select
                     value={editStatus}
-                    onChange={(e) => setEditStatus(e.target.value as "Active" | "Inactive")}
-                    className="w-full bg-white border border-zinc-200 focus:border-[#16A34A] rounded-xl py-2 px-3 text-xs font-bold text-zinc-950 focus:outline-none focus:ring-1 cursor-pointer"
+                    onChange={(e) =>
+                      setEditStatus(e.target.value as "Active" | "Inactive")
+                    }
+                    className="w-full bg-white border border-zinc-200 focus:border-black rounded-xl py-2 px-3 text-xs font-bold text-zinc-950 focus:outline-none focus:ring-1 focus:ring-black cursor-pointer"
                   >
                     <option value="Active">Active</option>
                     <option value="Inactive">Inactive</option>
@@ -1560,7 +1533,7 @@ export default function StaffDirectoryPage() {
                   <select
                     value={editRole}
                     onChange={(e) => setEditRole(e.target.value)}
-                    className="w-full bg-white border border-zinc-200 focus:border-[#16A34A] rounded-xl py-2.5 px-3 text-xs font-bold text-zinc-950 focus:outline-none focus:ring-1 cursor-pointer"
+                    className="w-full bg-white border border-zinc-200 focus:border-black rounded-xl py-2.5 px-3 text-xs font-bold text-zinc-950 focus:outline-none focus:ring-1 focus:ring-black cursor-pointer"
                   >
                     <option value="staff">Staff</option>
                     <option value="manager">Manager</option>
@@ -1574,7 +1547,7 @@ export default function StaffDirectoryPage() {
                   <select
                     value={editPosition}
                     onChange={(e) => setEditPosition(e.target.value)}
-                    className="w-full bg-white border border-zinc-200 focus:border-[#16A34A] rounded-xl py-2.5 px-3 text-xs font-bold text-zinc-950 focus:outline-none focus:ring-1 cursor-pointer"
+                    className="w-full bg-white border border-zinc-200 focus:border-black rounded-xl py-2.5 px-3 text-xs font-bold text-zinc-950 focus:outline-none focus:ring-1 focus:ring-black cursor-pointer"
                   >
                     <option value="">-- No Position --</option>
                     {positions.map((p) => (
@@ -1597,10 +1570,13 @@ export default function StaffDirectoryPage() {
                     max="10"
                     value={editPriority}
                     onChange={(e) => {
-                      const val = Math.max(1, Math.min(10, Number(e.target.value) || 5));
+                      const val = Math.max(
+                        1,
+                        Math.min(10, Number(e.target.value) || 5),
+                      );
                       setEditPriority(val);
                     }}
-                    className="w-full bg-white border border-zinc-200 focus:border-[#16A34A] rounded-xl py-2 px-3 text-xs font-semibold text-zinc-950 focus:outline-none focus:ring-1"
+                    className="w-full bg-white border border-zinc-200 focus:border-black rounded-xl py-2 px-3 text-xs font-semibold text-zinc-950 focus:outline-none focus:ring-1 focus:ring-black"
                   />
                 </div>
 
@@ -1614,10 +1590,13 @@ export default function StaffDirectoryPage() {
                     placeholder="e.g. 40 (leave empty for unlimited)"
                     value={editMaxHours}
                     onChange={(e) => {
-                      const val = e.target.value === "" ? "" : Math.max(0, Number(e.target.value));
+                      const val =
+                        e.target.value === ""
+                          ? ""
+                          : Math.max(0, Number(e.target.value));
                       setEditMaxHours(val);
                     }}
-                    className="w-full bg-white border border-zinc-200 focus:border-[#16A34A] rounded-xl py-2 px-3 text-xs font-semibold text-zinc-950 focus:outline-none focus:ring-1"
+                    className="w-full bg-white border border-zinc-200 focus:border-black rounded-xl py-2 px-3 text-xs font-semibold text-zinc-950 focus:outline-none focus:ring-1 focus:ring-black"
                   />
                 </div>
               </div>
@@ -1636,7 +1615,7 @@ export default function StaffDirectoryPage() {
                         type="checkbox"
                         checked={editLocations.includes(loc.id)}
                         onChange={() => handleToggleEditLocation(loc.id)}
-                        className="h-3.5 w-3.5 rounded border-zinc-300 text-[#16A34A] focus:ring-[#16A34A] cursor-pointer"
+                        className="h-3.5 w-3.5 rounded border-zinc-300 text-black focus:ring-black accent-black cursor-pointer"
                       />
                       <span className="truncate">{loc.name}</span>
                     </label>
@@ -1664,11 +1643,11 @@ export default function StaffDirectoryPage() {
                   type="button"
                   onClick={handleSubmitEdit}
                   disabled={submittingEdit}
-                  className="bg-[#16A34A] hover:bg-[#15803D] active:bg-[#14532D] text-white rounded-xl py-3 text-xs font-bold uppercase tracking-wider shadow-md transition duration-200 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                  className="bg-black hover:bg-neutral-800 text-white rounded-xl py-3 text-xs font-bold uppercase tracking-wider shadow-md transition duration-200 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
                 >
                   {submittingEdit ? (
                     <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <Loader2 className="h-4 w-4 animate-spin text-white" />
                       Saving...
                     </>
                   ) : (
@@ -1678,6 +1657,85 @@ export default function StaffDirectoryPage() {
               </div>
             </div>
           </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+interface ActionsMenuProps {
+  staff: Staff;
+  onEdit: () => void;
+  onToggleStatus: () => void;
+}
+
+function ActionsMenu({ staff, onEdit, onToggleStatus }: ActionsMenuProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(event.target as Node)
+      ) {
+        setIsOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+
+  return (
+    <div
+      ref={containerRef}
+      className="relative inline-block text-left"
+      onClick={(e) => e.stopPropagation()}
+    >
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          setIsOpen(!isOpen);
+        }}
+        className="p-1.5 hover:bg-zinc-100 rounded-lg text-zinc-500 hover:text-black transition cursor-pointer"
+      >
+        <MoreVertical className="h-4 w-4" />
+      </button>
+      {isOpen && (
+        <div className="absolute right-0 mt-1 w-36 bg-white border border-zinc-200 rounded-xl shadow-lg z-30 py-1 origin-top-right">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onEdit();
+              setIsOpen(false);
+            }}
+            className="flex items-center gap-2 px-3 py-2 text-xs text-zinc-700 hover:bg-zinc-50 hover:text-[#101010] w-full text-left cursor-pointer"
+          >
+            <Edit2 className="h-3.5 w-3.5 text-zinc-400" />
+            Edit
+          </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleStatus();
+              setIsOpen(false);
+            }}
+            className="flex items-center gap-2 px-3 py-2 text-xs text-zinc-700 hover:bg-zinc-50 hover:text-[#101010] w-full text-left cursor-pointer"
+          >
+            {staff.status === "Active" ? (
+              <>
+                <UserX className="h-3.5 w-3.5 text-zinc-400" />
+                Deactivate
+              </>
+            ) : (
+              <>
+                <UserCheck className="h-3.5 w-3.5 text-zinc-400" />
+                Activate
+              </>
+            )}
+          </button>
         </div>
       )}
     </div>

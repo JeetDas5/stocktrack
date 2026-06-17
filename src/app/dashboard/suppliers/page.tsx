@@ -23,7 +23,6 @@ import {
   Globe,
   Mail,
   Phone,
-  FileText,
   User as UserIcon,
   MapPin,
 } from "lucide-react";
