@@ -9,14 +9,13 @@ import {
   Calendar,
   Clock,
   ChevronDown,
-  ChevronRight,
   X,
   Check,
   Edit2,
   Download,
-  Filter,
   Loader2,
-  User,
+  Eye,
+  Search,
 } from "lucide-react";
 
 import { Staff } from "@/types/staff";
@@ -48,12 +47,33 @@ export default function TimesheetReviewPage() {
   const [loading, setLoading] = useState(true);
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
 
-  const [endDate, setEndDate] = useState("");
-  const [startDate, setStartDate] = useState("");
+  const [startDate, setStartDate] = useState(() => {
+    const now = new Date();
+    const day = now.getDay();
+    const diff = now.getDate() - day + (day === 0 ? -6 : 1);
+    const start = new Date(now.getFullYear(), now.getMonth(), diff);
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${start.getFullYear()}-${pad(start.getMonth() + 1)}-${pad(start.getDate())}`;
+  });
+
+  const [endDate, setEndDate] = useState(() => {
+    const now = new Date();
+    const day = now.getDay();
+    const diff = now.getDate() - day + (day === 0 ? -6 : 1);
+    const start = new Date(now.getFullYear(), now.getMonth(), diff);
+    const end = new Date(start);
+    end.setDate(start.getDate() + 6);
+    const pad = (num: number) => String(num).padStart(2, "0");
+    return `${end.getFullYear()}-${pad(end.getMonth() + 1)}-${pad(end.getDate())}`;
+  });
+
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [batchActionLoading, setBatchActionLoading] = useState(false);
+
   const [filterStaff, setFilterStaff] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
 
-  const [showStaffDropdown, setShowStaffDropdown] = useState(false);
   const [showStatusDropdown, setShowStatusDropdown] = useState(false);
 
   const [pageSize, setPageSize] = useState(10);
@@ -72,7 +92,6 @@ export default function TimesheetReviewPage() {
   const [editLocationId, setEditLocationId] = useState("");
   const [editSubmitting, setEditSubmitting] = useState(false);
 
-  const staffRef = useRef<HTMLDivElement>(null);
   const statusRef = useRef<HTMLDivElement>(null);
   const pageSizeRef = useRef<HTMLDivElement>(null);
 
@@ -86,12 +105,6 @@ export default function TimesheetReviewPage() {
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (
-        staffRef.current &&
-        !staffRef.current.contains(event.target as Node)
-      ) {
-        setShowStaffDropdown(false);
-      }
       if (
         statusRef.current &&
         !statusRef.current.contains(event.target as Node)
@@ -224,32 +237,88 @@ export default function TimesheetReviewPage() {
     setFilterStatus("all");
     setStartDate("");
     setEndDate("");
+    setSearchQuery("");
+    setSelectedIds([]);
     toast.success("Filters cleared.");
   };
 
-  const getInitials = (name: string) => {
-    if (!name) return "";
-    return name
-      .split(" ")
-      .map((n) => n[0])
-      .join("")
-      .substring(0, 2)
-      .toUpperCase();
+  const handleToggleSelect = (id: string) => {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+    );
   };
 
-  const getAvatarColor = (name: string) => {
-    const hash = name
-      .split("")
-      .reduce((acc, char) => acc + char.charCodeAt(0), 0);
-    const colors = [
-      "bg-purple-100 text-purple-700 border-purple-200",
-      "bg-emerald-100 text-emerald-700 border-emerald-200",
-      "bg-indigo-100 text-indigo-700 border-indigo-200",
-      "bg-blue-100 text-blue-700 border-blue-200",
-      "bg-rose-100 text-rose-700 border-rose-200",
-      "bg-amber-100 text-amber-700 border-amber-200",
-    ];
-    return colors[hash % colors.length];
+  const handleToggleSelectAll = (paginatedIds: string[]) => {
+    const allSelected = paginatedIds.every((id) => selectedIds.includes(id));
+    if (allSelected) {
+      setSelectedIds((prev) => prev.filter((id) => !paginatedIds.includes(id)));
+    } else {
+      setSelectedIds((prev) => {
+        const next = [...prev];
+        paginatedIds.forEach((id) => {
+          if (!next.includes(id)) next.push(id);
+        });
+        return next;
+      });
+    }
+  };
+
+  const handleBatchApprove = async () => {
+    if (selectedIds.length === 0 || !activeBusinessId) return;
+    setBatchActionLoading(true);
+    try {
+      await Promise.all(
+        selectedIds.map((id) =>
+          updateTimesheetStatus(activeBusinessId, id, "approved"),
+        ),
+      );
+      setTimesheets((prev) =>
+        prev.map((t) =>
+          selectedIds.includes(t.id) ? { ...t, status: "approved" } : t,
+        ),
+      );
+      setSelectedIds([]);
+      toast.success("Selected timesheets approved successfully.");
+    } catch {
+      toast.error("Failed to approve selected timesheets.");
+    } finally {
+      setBatchActionLoading(false);
+    }
+  };
+
+  const handleBatchReject = async () => {
+    if (selectedIds.length === 0 || !activeBusinessId) return;
+    setBatchActionLoading(true);
+    try {
+      await Promise.all(
+        selectedIds.map((id) =>
+          updateTimesheetStatus(activeBusinessId, id, "rejected"),
+        ),
+      );
+      setTimesheets((prev) =>
+        prev.map((t) =>
+          selectedIds.includes(t.id) ? { ...t, status: "rejected" } : t,
+        ),
+      );
+      setSelectedIds([]);
+      toast.success("Selected timesheets rejected successfully.");
+    } catch {
+      toast.error("Failed to reject selected timesheets.");
+    } finally {
+      setBatchActionLoading(false);
+    }
+  };
+
+  const formatDateToDDMMYYYY = (dateStr: string) => {
+    if (!dateStr) return "";
+    const parts = dateStr.split("-");
+    if (parts.length === 3) {
+      return `${parts[2]}/${parts[1]}/${parts[0]}`;
+    }
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return dateStr;
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
   };
 
   const formatTimeToAMPM = (timeStr: string) => {
@@ -259,7 +328,7 @@ export default function TimesheetReviewPage() {
     const ampm = hour >= 12 ? "PM" : "AM";
     const formattedHour = hour % 12 === 0 ? 12 : hour % 12;
     const zeroPaddedHour = formattedHour.toString().padStart(2, "0");
-    return `${zeroPaddedHour}:${minStr} ${ampm}`;
+    return `${zeroPaddedHour}:${minStr}${ampm}`;
   };
 
   const formatDateToDisplay = (dateStr: string) => {
@@ -286,35 +355,22 @@ export default function TimesheetReviewPage() {
     return `${day} ${month} ${year}`;
   };
 
-  const getDayName = (dateStr: string) => {
-    if (!dateStr) return "";
-    const d = new Date(dateStr);
-    if (isNaN(d.getTime())) return "";
-    const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-    return days[d.getDay()];
-  };
-
-  const getStatusBadgeClass = (status: string) => {
-    switch (status) {
-      case "approved":
-        return "bg-emerald-50 text-emerald-700 border-emerald-200";
-      case "rejected":
-        return "bg-rose-50 text-rose-700 border-rose-200";
-      case "edited":
-        return "bg-amber-50 text-amber-700 border-amber-200";
-      default:
-        return "bg-blue-50 text-blue-700 border-blue-200";
-    }
-  };
-
-  const selectedStaffName = useMemo(() => {
-    if (filterStaff === "all") return "All Staff";
-    return staffList.find((s) => s.id === filterStaff)?.name || "All Staff";
-  }, [filterStaff, staffList]);
 
   const selectedStatusName = useMemo(() => {
-    if (filterStatus === "all") return "All Statuses";
-    return filterStatus.charAt(0).toUpperCase() + filterStatus.slice(1);
+    switch (filterStatus) {
+      case "all":
+        return "All Statuses";
+      case "submitted":
+        return "Pending";
+      case "approved":
+        return "Approved";
+      case "rejected":
+        return "Rejected";
+      case "edited":
+        return "Resubmitted";
+      default:
+        return filterStatus.charAt(0).toUpperCase() + filterStatus.slice(1);
+    }
   }, [filterStatus]);
 
   const filteredTimesheets = useMemo(() => {
@@ -325,6 +381,12 @@ export default function TimesheetReviewPage() {
       if (filterStatus !== "all" && ts.status !== filterStatus) return false;
       if (startDate && ts.workDate < startDate) return false;
       if (endDate && ts.workDate > endDate) return false;
+      if (
+        searchQuery.trim() &&
+        !ts.staffName.toLowerCase().includes(searchQuery.toLowerCase())
+      ) {
+        return false;
+      }
       return true;
     });
   }, [
@@ -335,6 +397,7 @@ export default function TimesheetReviewPage() {
     filterStatus,
     startDate,
     endDate,
+    searchQuery,
   ]);
 
   const paginatedTimesheets = useMemo(() => {
@@ -357,6 +420,7 @@ export default function TimesheetReviewPage() {
     startDate,
     endDate,
     pageSize,
+    searchQuery,
   ]);
 
   const handleExport = () => {
@@ -419,7 +483,7 @@ export default function TimesheetReviewPage() {
   if (authLoading || loading) {
     return (
       <div className="h-[75vh] flex flex-col items-center justify-center bg-white text-[#0F172A]">
-        <Loader2 className="h-7 w-7 text-[#16A34A] animate-spin mb-3" />
+        <Loader2 className="h-7 w-7 text-zinc-900 animate-spin mb-3" />
         <span className="text-[#64748B] text-xs font-bold uppercase tracking-wider">
           Syncing timesheet board...
         </span>
@@ -431,263 +495,295 @@ export default function TimesheetReviewPage() {
     return null;
   }
 
+  const paginatedIds = paginatedTimesheets.map((t) => t.id);
+  const isAllSelected =
+    paginatedIds.length > 0 &&
+    paginatedIds.every((id) => selectedIds.includes(id));
+
   return (
-    <div className="p-6 bg-zinc-50/30 min-h-[85vh] relative select-none">
-      <div className="max-w-7xl mx-auto">
-        <div className="flex items-center gap-1.5 text-xs font-bold text-[#16A34A] mb-3 uppercase tracking-wider">
-          <span>Timesheet Review</span>
-          <ChevronRight className="h-3 w-3 text-zinc-400" />
-          <span className="text-zinc-500">Review Entries</span>
-        </div>
+    <div className="flex flex-col bg-white h-[calc(100vh-120px)] md:h-[85vh] min-h-0 relative select-none">
+      <div className="flex-1 min-h-0 flex flex-col space-y-4 pr-0 lg:pr-4">
 
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
-          <div>
-            <h1 className="text-3xl font-extrabold text-[#0F172A] tracking-tight">
-              Timesheet Review
-            </h1>
-            <p className="text-sm text-zinc-500 mt-1">
-              Review, approve or reject submitted timesheets.
-            </p>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <button
-              onClick={handleExport}
-              className="bg-white hover:bg-zinc-50 border border-zinc-200 text-zinc-700 rounded-xl px-4 py-2 text-xs font-bold uppercase tracking-wider shadow-2xs flex items-center gap-2 cursor-pointer transition-all duration-200"
-            >
-              <Download className="h-4 w-4 text-zinc-400" />
-              Export
-            </button>
-            <button
-              onClick={() => toast.info("Filter sidebar option coming soon.")}
-              className="bg-white hover:bg-zinc-50 border border-zinc-200 text-zinc-700 rounded-xl px-4 py-2 text-xs font-bold uppercase tracking-wider shadow-2xs flex items-center gap-2 cursor-pointer transition-all duration-200"
-            >
-              <Filter className="h-4 w-4 text-zinc-400" />
-              Filters
-            </button>
-          </div>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-3 mb-6">
-          <div className="relative" ref={staffRef}>
-            <button
-              type="button"
-              onClick={() => setShowStaffDropdown(!showStaffDropdown)}
-              className="flex items-center gap-2 border border-zinc-200 rounded-xl bg-white px-3.5 py-2 text-left focus:outline-none focus:ring-2 focus:ring-[#16A34A]/20 focus:border-[#16A34A] transition-all cursor-pointer text-xs font-bold text-zinc-800"
-            >
-              <User className="h-3.5 w-3.5 text-zinc-400" />
-              {selectedStaffName}
-              <ChevronDown className="h-3.5 w-3.5 text-zinc-400 ml-1" />
-            </button>
-            {showStaffDropdown && (
-              <div className="absolute top-full left-0 mt-1 w-52 bg-white border border-zinc-200 rounded-xl shadow-lg z-30 max-h-56 overflow-y-auto">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setFilterStaff("all");
-                    setShowStaffDropdown(false);
-                  }}
-                  className="w-full text-left px-4 py-2 hover:bg-zinc-50 transition-colors text-xs font-semibold text-zinc-700"
-                >
-                  All Staff
-                </button>
-                {staffList.map((s) => (
-                  <button
-                    type="button"
-                    key={s.id}
-                    onClick={() => {
-                      setFilterStaff(s.id);
-                      setShowStaffDropdown(false);
-                    }}
-                    className="w-full text-left px-4 py-2 hover:bg-zinc-50 transition-colors text-xs font-semibold text-zinc-700"
-                  >
-                    {s.name}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div className="relative" ref={statusRef}>
-            <button
-              type="button"
-              onClick={() => setShowStatusDropdown(!showStatusDropdown)}
-              className="flex items-center gap-2 border border-zinc-200 rounded-xl bg-white px-3.5 py-2 text-left focus:outline-none focus:ring-2 focus:ring-[#16A34A]/20 focus:border-[#16A34A] transition-all cursor-pointer text-xs font-bold text-zinc-800"
-            >
-              <span className="h-2 w-2 rounded-full bg-zinc-400" />
-              {selectedStatusName}
-              <ChevronDown className="h-3.5 w-3.5 text-zinc-400 ml-1" />
-            </button>
-            {showStatusDropdown && (
-              <div className="absolute top-full left-0 mt-1 w-52 bg-white border border-zinc-200 rounded-xl shadow-lg z-30 max-h-56 overflow-y-auto">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setFilterStatus("all");
-                    setShowStatusDropdown(false);
-                  }}
-                  className="w-full text-left px-4 py-2 hover:bg-zinc-50 transition-colors text-xs font-semibold text-zinc-700"
-                >
-                  All Statuses
-                </button>
-                {["submitted", "approved", "rejected", "edited"].map(
-                  (statusOption) => (
-                    <button
-                      type="button"
-                      key={statusOption}
-                      onClick={() => {
-                        setFilterStatus(statusOption);
-                        setShowStatusDropdown(false);
-                      }}
-                      className="w-full text-left px-4 py-2 hover:bg-zinc-50 transition-colors text-xs font-semibold text-zinc-700"
-                    >
-                      {statusOption.charAt(0).toUpperCase() +
-                        statusOption.slice(1)}
-                    </button>
-                  ),
-                )}
-              </div>
-            )}
-          </div>
-
-          <DateRangePicker
-            className="sm:w-64"
-            startDate={startDate}
-            endDate={endDate}
-            onChange={(range) => {
-              setStartDate(range.startDate);
-              setEndDate(range.endDate);
-            }}
-          />
-
+        <div className="bg-white border border-[#E2E8F0] rounded-2xl py-4 px-5 md:py-3 md:px-4 flex justify-between items-center shadow-sm">
+          <h1 className="text-xl md:text-2xl font-extrabold text-zinc-900 tracking-tight">
+            Timesheet Review
+          </h1>
           <button
-            onClick={handleClearFilters}
-            className="text-xs font-bold uppercase tracking-wider text-zinc-700 bg-zinc-200/50 hover:bg-zinc-200 rounded-xl px-4 py-2 cursor-pointer transition-colors"
+            onClick={handleExport}
+            className="bg-white hover:bg-zinc-50 border border-zinc-200 text-zinc-700 rounded-full px-6 py-2.5 text-xs font-bold transition-all duration-200 flex items-center gap-2 shadow-xs cursor-pointer"
           >
-            Clear
+            <Download className="h-4 w-4 text-zinc-400 stroke-[2.5px]" />
+            Export
           </button>
         </div>
 
-        <div className="bg-white border border-zinc-200 rounded-2xl overflow-hidden shadow-2xs">
-          <div className="overflow-x-auto">
+        <div className="flex flex-col sm:flex-row gap-3 items-center w-full">
+          <div className="relative w-full sm:w-80">
+            <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-zinc-400">
+              <Search className="h-4 w-4" />
+            </span>
+            <input
+              type="text"
+              placeholder="Search Staffs"
+              className="w-full bg-white border border-zinc-200 focus:border-zinc-950 rounded-2xl py-2.5 pl-10 pr-4 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-950/20 transition-all shadow-xs h-[42px]"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-3 items-center w-full sm:w-auto sm:ml-auto justify-end">
+            <div className="relative w-full sm:w-44" ref={statusRef}>
+              <button
+                type="button"
+                onClick={() => setShowStatusDropdown(!showStatusDropdown)}
+                className="flex items-center justify-between w-full border border-zinc-200 rounded-2xl bg-white px-3.5 py-2.5 text-left focus:outline-none focus:ring-2 focus:ring-zinc-950/20 focus:border-zinc-950 transition-all cursor-pointer text-xs font-bold text-zinc-800 h-[42px]"
+              >
+                <span className="flex items-center gap-2 truncate">
+                  <span className="h-2 w-2 rounded-full bg-zinc-400 shrink-0" />
+                  <span className="truncate">{selectedStatusName}</span>
+                </span>
+                <ChevronDown className="h-3.5 w-3.5 text-zinc-400 shrink-0 ml-1" />
+              </button>
+              {showStatusDropdown && (
+                <div className="absolute top-full left-0 mt-1 w-full bg-white border border-zinc-200 rounded-2xl shadow-lg z-30 max-h-56 overflow-y-auto">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFilterStatus("all");
+                      setShowStatusDropdown(false);
+                    }}
+                    className="w-full text-left px-4 py-2.5 hover:bg-zinc-50 transition-colors text-xs font-semibold text-zinc-700"
+                  >
+                    All Statuses
+                  </button>
+                  {[
+                    { value: "submitted", label: "Pending" },
+                    { value: "approved", label: "Approved" },
+                    { value: "rejected", label: "Rejected" },
+                    { value: "edited", label: "Resubmitted" },
+                  ].map((statusOption) => (
+                    <button
+                      type="button"
+                      key={statusOption.value}
+                      onClick={() => {
+                        setFilterStatus(statusOption.value);
+                        setShowStatusDropdown(false);
+                      }}
+                      className="w-full text-left px-4 py-2.5 hover:bg-zinc-50 transition-colors text-xs font-semibold text-zinc-700"
+                    >
+                      {statusOption.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Date Picker */}
+            <DateRangePicker
+              className="w-full sm:w-64"
+              triggerClassName="rounded-2xl"
+              focusClassName="focus:ring-zinc-950/20 focus:border-zinc-950"
+              startDate={startDate}
+              endDate={endDate}
+              onChange={(range) => {
+                setStartDate(range.startDate);
+                setEndDate(range.endDate);
+              }}
+            />
+
+            {/* Clear Button */}
+            <button
+              onClick={handleClearFilters}
+              className="text-xs font-bold uppercase tracking-wider text-zinc-700 bg-zinc-100 hover:bg-zinc-200 border border-zinc-200 rounded-2xl px-5 py-2.5 cursor-pointer transition-colors h-[42px] flex items-center justify-center shadow-xs w-full sm:w-auto"
+            >
+              Clear
+            </button>
+          </div>
+        </div>
+
+        {/* Batch Selection Action Bar */}
+        <div className="flex items-center gap-3 text-xs font-semibold text-zinc-600 px-1 py-0.5">
+          <input
+            type="checkbox"
+            className="h-4 w-4 rounded-sm border-zinc-300 text-zinc-950 focus:ring-zinc-950 cursor-pointer"
+            checked={isAllSelected}
+            onChange={() => handleToggleSelectAll(paginatedIds)}
+          />
+          <span>{selectedIds.length} Selected</span>
+          <span className="text-zinc-350">|</span>
+          <button
+            onClick={handleBatchApprove}
+            disabled={selectedIds.length === 0 || batchActionLoading}
+            className="flex items-center gap-1.5 text-zinc-700 hover:text-zinc-950 disabled:opacity-45 transition-colors font-bold cursor-pointer"
+          >
+            <Check className="h-4.5 w-4.5 text-[#16A34A] stroke-[2.5px]" />
+            Approve Selected
+          </button>
+          <button
+            onClick={handleBatchReject}
+            disabled={selectedIds.length === 0 || batchActionLoading}
+            className="flex items-center gap-1.5 text-zinc-700 hover:text-zinc-950 disabled:opacity-45 transition-colors font-bold cursor-pointer"
+          >
+            <X className="h-4.5 w-4.5 text-[#EF4444] stroke-[2.5px]" />
+            Reject Selected
+          </button>
+          {batchActionLoading && (
+            <Loader2 className="h-4 w-4 animate-spin text-zinc-500" />
+          )}
+        </div>
+
+        {/* Main Table Container */}
+        <div className="bg-white border border-zinc-200 rounded-2xl shadow-xs overflow-hidden flex-1 min-h-0 flex flex-col">
+          <div className="overflow-auto flex-1 min-h-0">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="bg-zinc-50 border-b border-zinc-200 text-[10px] font-extrabold uppercase tracking-wider text-zinc-500">
-                  <th className="px-6 py-4">Staff Name</th>
-                  <th className="px-6 py-4">Date</th>
-                  <th className="px-6 py-4">Business</th>
-                  <th className="px-6 py-4">Location</th>
-                  <th className="px-6 py-4">Start Time</th>
-                  <th className="px-6 py-4">End Time</th>
-                  <th className="px-6 py-4">Break (min)</th>
-                  <th className="px-6 py-4">Total Hours</th>
-                  <th className="px-6 py-4">Status</th>
-                  <th className="px-6 py-4 text-right">Actions</th>
+                <tr className="border-b border-zinc-200 text-[10px] uppercase font-extrabold tracking-wider text-[#64748B] bg-zinc-50 sticky top-0 z-10">
+                  <th className="py-4 px-6 w-10">
+                    {/* Checkbox spacer column */}
+                  </th>
+                  <th className="py-4 px-6 font-extrabold">STAFF NAME</th>
+                  <th className="py-4 px-6 font-extrabold">DATE</th>
+                  <th className="py-4 px-6 font-extrabold">BUSINESS</th>
+                  <th className="py-4 px-6 font-extrabold">LOCATION</th>
+                  <th className="py-4 px-6 font-extrabold">START TIME</th>
+                  <th className="py-4 px-6 font-extrabold">END TIME</th>
+                  <th className="py-4 px-6 font-extrabold">BREAK</th>
+                  <th className="py-4 px-6 font-extrabold">TOTAL HOURS</th>
+                  <th className="py-4 px-6 font-extrabold">STATUS</th>
+                  <th className="py-4 px-6 font-extrabold text-right">
+                    ACTIONS
+                  </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-zinc-200">
-                {paginatedTimesheets.map((ts) => (
-                  <tr
-                    key={ts.id}
-                    className="hover:bg-zinc-50/50 transition-colors"
-                  >
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center gap-3">
-                        <div
-                          className={`h-7 w-7 rounded-full flex items-center justify-center font-extrabold text-[10px] border shrink-0 ${getAvatarColor(ts.staffName)}`}
-                        >
-                          {getInitials(ts.staffName)}
-                        </div>
-                        <span className="text-xs font-bold text-[#0F172A]">
-                          {ts.staffName}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex flex-col">
-                        <span className="text-xs font-semibold text-[#0F172A]">
-                          {formatDateToDisplay(ts.workDate)}
-                        </span>
-                        <span className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider">
-                          {getDayName(ts.workDate)}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-xs font-semibold text-zinc-650">
-                      {businesses.find((b) => b.id === ts.businessId)?.name ||
-                        "Unknown"}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-xs font-semibold text-zinc-650">
-                      {ts.locationName}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-xs font-semibold text-zinc-650">
-                      {formatTimeToAMPM(ts.startTime)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-xs font-semibold text-zinc-650">
-                      {formatTimeToAMPM(ts.endTime)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-xs font-semibold text-zinc-650">
-                      {ts.unpaidBreak}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-xs font-extrabold text-zinc-800">
-                      {Math.floor(ts.totalHours)}h{" "}
-                      {Math.round((ts.totalHours % 1) * 60)
-                        .toString()
-                        .padStart(2, "0")}
-                      m
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span
-                        className={`inline-flex items-center px-2 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider border ${getStatusBadgeClass(ts.status)}`}
-                      >
-                        {ts.status}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        {actionLoadingId === ts.id ? (
-                          <Loader2 className="h-4 w-4 animate-spin text-[#16A34A]" />
-                        ) : (
-                          <>
-                            <button
-                              onClick={() => handleApprove(ts.id)}
-                              disabled={ts.status === "approved"}
-                              className={`p-1.5 rounded-lg border transition-all cursor-pointer ${
-                                ts.status === "approved"
-                                  ? "bg-zinc-50 border-zinc-200 text-zinc-300 cursor-not-allowed"
-                                  : "bg-[#ECFDF5] border-[#A7F3D0]/60 text-[#16A34A] hover:bg-[#D1FAE5]"
-                              }`}
-                            >
-                              <Check className="h-3.5 w-3.5" />
-                            </button>
-                            <button
-                              onClick={() => handleOpenEditModal(ts)}
-                              className="p-1.5 rounded-lg border bg-zinc-50 border-zinc-200 text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 transition-all cursor-pointer"
-                            >
-                              <Edit2 className="h-3.5 w-3.5" />
-                            </button>
-                            <button
-                              onClick={() => handleReject(ts.id)}
-                              disabled={ts.status === "rejected"}
-                              className={`p-1.5 rounded-lg border transition-all cursor-pointer ${
-                                ts.status === "rejected"
-                                  ? "bg-zinc-50 border-zinc-200 text-zinc-300 cursor-not-allowed"
-                                  : "bg-rose-50 border-rose-200 text-rose-600 hover:bg-rose-100"
-                              }`}
-                            >
-                              <X className="h-3.5 w-3.5" />
-                            </button>
-                          </>
+              <tbody className="divide-y divide-zinc-200 text-xs text-[#0F172A]">
+                {paginatedTimesheets.map((ts) => {
+                  const isRowSelected = selectedIds.includes(ts.id);
+                  const isPending = ts.status === "submitted";
+                  const isEdited = ts.status === "edited";
+                  const isApproved = ts.status === "approved";
+                  const isRejected = ts.status === "rejected";
+
+                  return (
+                    <tr
+                      key={ts.id}
+                      className={`hover:bg-zinc-50/40 transition-colors ${
+                        isRowSelected ? "bg-zinc-50/50" : ""
+                      }`}
+                    >
+                      <td className="py-4 px-6">
+                        <input
+                          type="checkbox"
+                          className="h-4 w-4 rounded-sm border-zinc-350 text-zinc-950 focus:ring-zinc-950 cursor-pointer"
+                          checked={isRowSelected}
+                          onChange={() => handleToggleSelect(ts.id)}
+                        />
+                      </td>
+
+                      <td className="py-4 px-6 font-bold text-zinc-900">
+                        {ts.staffName}
+                      </td>
+
+                      <td className="py-4 px-6 font-semibold">
+                        {formatDateToDDMMYYYY(ts.workDate)}
+                      </td>
+
+                      <td className="py-4 px-6 font-semibold text-zinc-450">
+                        {businesses.find((b) => b.id === ts.businessId)?.name ||
+                          "—"}
+                      </td>
+
+                      <td className="py-4 px-6 font-semibold text-zinc-500">
+                        {ts.locationName || "—"}
+                      </td>
+
+                      <td className="py-4 px-6 font-semibold">
+                        {formatTimeToAMPM(ts.startTime)}
+                      </td>
+
+                      <td className="py-4 px-6 font-semibold">
+                        {formatTimeToAMPM(ts.endTime)}
+                      </td>
+
+                      <td className="py-4 px-6 font-semibold">
+                        {ts.unpaidBreak} mis
+                      </td>
+
+                      <td className="py-4 px-6 font-bold text-zinc-800">
+                        {Number(ts.totalHours.toFixed(2))}
+                      </td>
+
+                      <td className="py-4 px-6">
+                        {isApproved && (
+                          <span className="font-bold text-zinc-900">
+                            Approved
+                          </span>
                         )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                        {isRejected && (
+                          <span className="font-bold text-zinc-900">
+                            Rejected
+                          </span>
+                        )}
+                        {isPending && (
+                          <span className="inline-flex items-center px-3.5 py-1.5 rounded-lg text-xs font-bold bg-[#D6D8F8] text-[#4F46E5]">
+                            Pending
+                          </span>
+                        )}
+                        {isEdited && (
+                          <span className="inline-flex items-center px-3.5 py-1.5 rounded-lg text-xs font-bold bg-[#FFE8A3] text-[#854D0E]">
+                            Resubmitted
+                          </span>
+                        )}
+                      </td>
+
+                      <td className="py-4 px-6 text-right">
+                        <div className="flex items-center justify-end">
+                          {actionLoadingId === ts.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin text-zinc-900" />
+                          ) : isPending ? (
+                            <div className="flex items-center gap-3.5">
+                              <button
+                                onClick={() => handleApprove(ts.id)}
+                                className="text-green-600 hover:text-green-800 transition-colors cursor-pointer"
+                                title="Approve"
+                              >
+                                <Check className="h-4.5 w-4.5 stroke-[2.5px]" />
+                              </button>
+                              <button
+                                onClick={() => handleReject(ts.id)}
+                                className="text-red-500 hover:text-red-700 transition-colors cursor-pointer"
+                                title="Reject"
+                              >
+                                <X className="h-4.5 w-4.5 stroke-[2.5px]" />
+                              </button>
+                              <button
+                                onClick={() => handleOpenEditModal(ts)}
+                                className="text-zinc-400 hover:text-zinc-700 transition-colors cursor-pointer"
+                                title="View/Edit"
+                              >
+                                <Eye className="h-4.5 w-4.5" />
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-3.5">
+                              <button
+                                onClick={() => handleOpenEditModal(ts)}
+                                className="text-zinc-400 hover:text-zinc-700 transition-colors cursor-pointer"
+                                title="View/Edit"
+                              >
+                                <Eye className="h-4.5 w-4.5" />
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
                 {filteredTimesheets.length === 0 && (
                   <tr>
                     <td
-                      colSpan={10}
-                      className="text-center py-10 text-xs text-zinc-400 font-semibold"
+                      colSpan={11}
+                      className="text-center py-12 text-xs text-zinc-400 font-semibold"
                     >
                       No timesheets found matching filters
                     </td>
@@ -697,8 +793,9 @@ export default function TimesheetReviewPage() {
             </table>
           </div>
 
-          <div className="bg-zinc-50/50 px-6 py-4 border-t border-zinc-200 flex items-center justify-between flex-wrap gap-4">
-            <span className="text-xs text-zinc-500 font-bold">
+          {/* Pagination Container */}
+          <div className="bg-zinc-50/50 border-t border-zinc-200 py-4 px-6 flex flex-col sm:flex-row justify-between items-center gap-4 text-xs text-[#64748B] font-semibold sticky bottom-0 z-10">
+            <span>
               Showing{" "}
               {filteredTimesheets.length > 0
                 ? (currentPage - 1) * pageSize + 1
@@ -708,52 +805,54 @@ export default function TimesheetReviewPage() {
             </span>
 
             <div className="flex items-center gap-5">
-              <div className="flex items-center gap-1.5">
-                <button
-                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                  disabled={currentPage === 1}
-                  className="p-1.5 rounded-lg border border-zinc-200 bg-white hover:bg-zinc-50 transition-colors disabled:opacity-50 cursor-pointer text-xs font-bold"
-                >
-                  &lt;
-                </button>
-                {Array.from({ length: totalPages }).map((_, i) => {
-                  const pageNum = i + 1;
-                  const isSelected = pageNum === currentPage;
-                  return (
-                    <button
-                      key={pageNum}
-                      onClick={() => setCurrentPage(pageNum)}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-extrabold transition-all cursor-pointer ${
-                        isSelected
-                          ? "bg-[#16A34A] text-white"
-                          : "border border-zinc-200 bg-white hover:bg-zinc-50 text-zinc-700"
-                      }`}
-                    >
-                      {pageNum}
-                    </button>
-                  );
-                })}
-                <button
-                  onClick={() =>
-                    setCurrentPage((p) => Math.min(totalPages, p + 1))
-                  }
-                  disabled={currentPage === totalPages}
-                  className="p-1.5 rounded-lg border border-zinc-200 bg-white hover:bg-zinc-50 transition-colors disabled:opacity-50 cursor-pointer text-xs font-bold"
-                >
-                  &gt;
-                </button>
-              </div>
+              {totalPages > 1 && (
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                    className="p-1.5 rounded-lg border border-zinc-200 bg-white hover:bg-zinc-50 text-zinc-500 disabled:opacity-40 disabled:hover:bg-white cursor-pointer disabled:cursor-not-allowed"
+                    disabled={currentPage === 1}
+                  >
+                    &lt;
+                  </button>
+
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map(
+                    (page) => (
+                      <button
+                        key={page}
+                        onClick={() => setCurrentPage(page)}
+                        className={`h-8 w-8 rounded-lg font-bold text-xs cursor-pointer transition-all duration-150 ${
+                          currentPage === page
+                            ? "bg-zinc-950 text-white shadow-xs"
+                            : "border border-zinc-200 bg-white hover:bg-zinc-50 text-zinc-700"
+                        }`}
+                      >
+                        {page}
+                      </button>
+                    ),
+                  )}
+
+                  <button
+                    onClick={() =>
+                      setCurrentPage((p) => Math.min(totalPages, p + 1))
+                    }
+                    className="p-1.5 rounded-lg border border-zinc-200 bg-white hover:bg-zinc-50 text-zinc-500 disabled:opacity-40 disabled:hover:bg-white cursor-pointer disabled:cursor-not-allowed"
+                    disabled={currentPage === totalPages}
+                  >
+                    &gt;
+                  </button>
+                </div>
+              )}
 
               <div className="relative" ref={pageSizeRef}>
                 <button
                   onClick={() => setShowPageSizeDropdown(!showPageSizeDropdown)}
-                  className="flex items-center gap-1.5 border border-zinc-200 rounded-xl bg-white px-3 py-1.5 text-xs font-bold text-zinc-800 transition-all cursor-pointer"
+                  className="flex items-center gap-1.5 border border-zinc-200 rounded-xl bg-white px-3 py-1.5 text-xs font-bold text-zinc-805 transition-all cursor-pointer"
                 >
                   {pageSize} / page
                   <ChevronDown className="h-3.5 w-3.5 text-zinc-400" />
                 </button>
                 {showPageSizeDropdown && (
-                  <div className="absolute bottom-full right-0 mb-1 bg-white border border-zinc-200 rounded-xl shadow-lg z-30 overflow-hidden w-28">
+                  <div className="absolute bottom-full right-0 mb-1 bg-white border border-zinc-200 rounded-xl shadow-lg z-30 overflow-hidden w-28 animate-scale-in">
                     {[5, 10, 20, 50].map((size) => (
                       <button
                         key={size}
@@ -773,33 +872,35 @@ export default function TimesheetReviewPage() {
           </div>
         </div>
 
-        <div className="mt-6 border border-zinc-200 bg-white rounded-2xl p-4 flex flex-wrap items-center gap-6 shadow-3xs">
+        {/* Legend Panel */}
+        <div className="mt-2 border border-zinc-200 bg-white rounded-2xl p-4 flex flex-wrap items-center gap-6 shadow-3xs">
           <div className="flex items-center gap-2 text-xs font-bold text-zinc-700">
-            <span className="h-2 w-2 rounded-full bg-blue-500 inline-block" />
+            <span className="h-2 w-2 rounded-full bg-zinc-950 inline-block" />
             <span>Submitted: Awaiting review</span>
           </div>
-          <div className="flex items-center gap-2 text-xs font-bold text-zinc-700">
-            <span className="h-2 w-2 rounded-full bg-emerald-500 inline-block" />
+          <div className="flex items-center gap-2 text-xs font-bold text-zinc-750">
+            <span className="h-2 w-2 rounded-full bg-zinc-300 inline-block" />
             <span>Approved: Timesheet approved</span>
           </div>
-          <div className="flex items-center gap-2 text-xs font-bold text-zinc-700">
-            <span className="h-2 w-2 rounded-full bg-rose-500 inline-block" />
+          <div className="flex items-center gap-2 text-xs font-bold text-zinc-750">
+            <span className="h-2 w-2 rounded-full bg-zinc-200 inline-block" />
             <span>Rejected: Timesheet rejected</span>
           </div>
-          <div className="flex items-center gap-2 text-xs font-bold text-zinc-700">
-            <span className="h-2 w-2 rounded-full bg-amber-500 inline-block" />
+          <div className="flex items-center gap-2 text-xs font-bold text-zinc-750">
+            <span className="h-2 w-2 rounded-full bg-zinc-400 inline-block" />
             <span>Edited: Timesheet has been edited</span>
           </div>
         </div>
       </div>
 
+      {/* Edit Timesheet Modal */}
       {editingTimesheet && (
         <div className="fixed inset-0 bg-black/45 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-          <div className="bg-white border border-zinc-200 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+          <div className="bg-white border border-zinc-200 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden animate-scale-in">
             <div className="px-6 py-4 border-b border-zinc-100 flex items-center justify-between bg-zinc-50">
               <div className="flex items-center gap-2">
-                <Edit2 className="h-4.5 w-4.5 text-[#16A34A]" />
-                <h3 className="text-base font-extrabold text-[#0F172A]">
+                <Edit2 className="h-4.5 w-4.5 text-zinc-900" />
+                <h3 className="text-base font-extrabold text-zinc-900">
                   Edit Timesheet
                 </h3>
               </div>
@@ -814,13 +915,13 @@ export default function TimesheetReviewPage() {
             <form onSubmit={handleSaveEdit} className="p-6 space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="flex flex-col space-y-1.5">
-                  <label className="text-xs font-bold text-zinc-700 uppercase tracking-wider">
+                  <label className="text-xs font-bold text-zinc-750 uppercase tracking-wider">
                     Staff Member
                   </label>
                   <select
                     value={editStaffId}
                     onChange={(e) => setEditStaffId(e.target.value)}
-                    className="w-full bg-white border border-zinc-200 rounded-xl py-2 px-3 text-xs text-zinc-800 font-bold placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#16A34A] focus:border-[#16A34A] transition-all cursor-pointer"
+                    className="w-full bg-white border border-zinc-200 rounded-xl py-2 px-3 text-xs text-zinc-800 font-bold placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-950 focus:border-zinc-950 transition-all cursor-pointer"
                     required
                   >
                     {staffList.map((s) => (
@@ -832,13 +933,13 @@ export default function TimesheetReviewPage() {
                 </div>
 
                 <div className="flex flex-col space-y-1.5">
-                  <label className="text-xs font-bold text-zinc-700 uppercase tracking-wider">
+                  <label className="text-xs font-bold text-zinc-755 uppercase tracking-wider">
                     Location
                   </label>
                   <select
                     value={editLocationId}
                     onChange={(e) => setEditLocationId(e.target.value)}
-                    className="w-full bg-white border border-zinc-200 rounded-xl py-2 px-3 text-xs text-zinc-800 font-bold placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#16A34A] focus:border-[#16A34A] transition-all cursor-pointer"
+                    className="w-full bg-white border border-zinc-200 rounded-xl py-2 px-3 text-xs text-zinc-800 font-bold placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-950 focus:border-zinc-950 transition-all cursor-pointer"
                     required
                   >
                     {locations.map((l) => (
@@ -852,11 +953,11 @@ export default function TimesheetReviewPage() {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="flex flex-col space-y-1.5">
-                  <label className="text-xs font-bold text-zinc-700 uppercase tracking-wider flex items-center">
+                  <label className="text-xs font-bold text-zinc-755 uppercase tracking-wider flex items-center">
                     Work Date
                   </label>
-                  <div className="relative flex items-center border border-zinc-200 rounded-xl bg-white px-3 py-2 focus-within:ring-1 focus-within:ring-[#16A34A] focus-within:border-[#16A34A] transition-all">
-                    <Calendar className="h-4 w-4 text-zinc-400 mr-2" />
+                  <div className="relative flex items-center border border-zinc-200 rounded-xl bg-white px-3 py-2 focus-within:ring-1 focus-within:ring-zinc-950 focus-within:border-zinc-950 transition-all">
+                    <Calendar className="h-4 w-4 text-zinc-450 mr-2" />
                     <span className="text-xs font-extrabold text-zinc-800">
                       {formatDateToDisplay(editWorkDate) || "Select Work Date"}
                     </span>
@@ -871,7 +972,7 @@ export default function TimesheetReviewPage() {
                 </div>
 
                 <div className="flex flex-col space-y-1.5">
-                  <label className="text-xs font-bold text-zinc-700 uppercase tracking-wider">
+                  <label className="text-xs font-bold text-zinc-755 uppercase tracking-wider">
                     Unpaid Break (mins)
                   </label>
                   <input
@@ -879,7 +980,7 @@ export default function TimesheetReviewPage() {
                     min="0"
                     value={editUnpaidBreak}
                     onChange={(e) => setEditUnpaidBreak(e.target.value)}
-                    className="w-full bg-white border border-zinc-200 rounded-xl py-2 px-3 text-xs text-zinc-800 font-bold placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#16A34A] focus:border-[#16A34A] transition-all"
+                    className="w-full bg-white border border-zinc-200 rounded-xl py-2 px-3 text-xs text-zinc-800 font-bold placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-950 focus:border-zinc-950 transition-all"
                     required
                   />
                 </div>
@@ -887,12 +988,12 @@ export default function TimesheetReviewPage() {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="flex flex-col space-y-1.5">
-                  <label className="text-xs font-bold text-zinc-700 uppercase tracking-wider flex items-center">
+                  <label className="text-xs font-bold text-zinc-755 uppercase tracking-wider flex items-center">
                     Start Time
                   </label>
-                  <div className="relative flex items-center border border-zinc-200 rounded-xl bg-white px-3 py-2 focus-within:ring-1 focus-within:ring-[#16A34A] focus-within:border-[#16A34A] transition-all">
-                    <Clock className="h-4 w-4 text-zinc-400 mr-2" />
-                    <span className="text-xs font-extrabold text-zinc-800">
+                  <div className="relative flex items-center border border-zinc-200 rounded-xl bg-white px-3 py-2 focus-within:ring-1 focus-within:ring-zinc-950 focus-within:border-zinc-950 transition-all">
+                    <Clock className="h-4 w-4 text-zinc-450 mr-2" />
+                    <span className="text-xs font-extrabold text-zinc-805">
                       {formatTimeToAMPM(editStartTime) || "Select Start Time"}
                     </span>
                     <input
@@ -906,12 +1007,12 @@ export default function TimesheetReviewPage() {
                 </div>
 
                 <div className="flex flex-col space-y-1.5">
-                  <label className="text-xs font-bold text-zinc-700 uppercase tracking-wider flex items-center">
+                  <label className="text-xs font-bold text-zinc-755 uppercase tracking-wider flex items-center">
                     End Time
                   </label>
-                  <div className="relative flex items-center border border-zinc-200 rounded-xl bg-white px-3 py-2 focus-within:ring-1 focus-within:ring-[#16A34A] focus-within:border-[#16A34A] transition-all">
-                    <Clock className="h-4 w-4 text-zinc-400 mr-2" />
-                    <span className="text-xs font-extrabold text-zinc-800">
+                  <div className="relative flex items-center border border-zinc-200 rounded-xl bg-white px-3 py-2 focus-within:ring-1 focus-within:ring-zinc-950 focus-within:border-zinc-950 transition-all">
+                    <Clock className="h-4 w-4 text-zinc-450 mr-2" />
+                    <span className="text-xs font-extrabold text-zinc-805">
                       {formatTimeToAMPM(editEndTime) || "Select End Time"}
                     </span>
                     <input
@@ -925,18 +1026,18 @@ export default function TimesheetReviewPage() {
                 </div>
               </div>
 
-              <div className="bg-[#ECFDF5] border border-[#A7F3D0]/60 rounded-xl p-3 flex justify-between items-center">
-                <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-800 flex items-center gap-1.5">
-                  <Clock className="h-3.5 w-3.5 text-emerald-600" />
+              <div className="bg-zinc-50 border border-zinc-200 rounded-xl p-3 flex justify-between items-center animate-fade-in">
+                <span className="text-[10px] font-extrabold uppercase tracking-wider text-zinc-700 flex items-center gap-1.5">
+                  <Clock className="h-3.5 w-3.5 text-zinc-500" />
                   Calculated Hours
                 </span>
-                <span className="text-sm font-extrabold text-emerald-950">
+                <span className="text-sm font-extrabold text-zinc-950">
                   {editTotalHoursCalculated.text}
                 </span>
               </div>
 
               <div className="flex flex-col space-y-1.5">
-                <label className="text-xs font-bold text-zinc-700 uppercase tracking-wider">
+                <label className="text-xs font-bold text-zinc-755 uppercase tracking-wider">
                   Notes (Optional)
                 </label>
                 <textarea
@@ -944,7 +1045,7 @@ export default function TimesheetReviewPage() {
                   rows={2}
                   value={editNotes}
                   onChange={(e) => setEditNotes(e.target.value)}
-                  className="w-full bg-white border border-zinc-200 rounded-xl py-2 px-3 text-xs text-zinc-800 font-semibold focus:outline-none focus:ring-1 focus:ring-[#16A34A] focus:border-[#16A34A] transition-all resize-none"
+                  className="w-full bg-white border border-zinc-200 rounded-xl py-2 px-3 text-xs text-zinc-800 font-semibold focus:outline-none focus:ring-1 focus:ring-zinc-950 focus:border-zinc-950 transition-all resize-none"
                 />
               </div>
 
@@ -960,7 +1061,7 @@ export default function TimesheetReviewPage() {
                 <button
                   type="submit"
                   disabled={editSubmitting}
-                  className="bg-[#16A34A] hover:bg-[#15803D] text-white rounded-xl px-5 py-2 text-xs font-bold uppercase tracking-wider shadow-sm flex items-center gap-2 cursor-pointer transition-colors disabled:opacity-50"
+                  className="bg-zinc-950 hover:bg-black text-white rounded-xl px-5 py-2 text-xs font-bold uppercase tracking-wider shadow-sm flex items-center gap-2 cursor-pointer transition-colors disabled:opacity-50"
                 >
                   {editSubmitting ? (
                     <>

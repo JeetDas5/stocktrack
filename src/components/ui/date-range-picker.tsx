@@ -13,6 +13,8 @@ interface DateRangePickerProps {
   endDate: string;
   onChange: (range: { startDate: string; endDate: string }) => void;
   className?: string;
+  triggerClassName?: string;
+  focusClassName?: string;
 }
 
 export default function DateRangePicker({
@@ -20,6 +22,8 @@ export default function DateRangePicker({
   endDate,
   onChange,
   className = "",
+  triggerClassName = "",
+  focusClassName = "focus:ring-[#16A34A]/20 focus:border-[#16A34A]",
 }: DateRangePickerProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [currentDate, setCurrentDate] = useState(() => {
@@ -121,11 +125,83 @@ export default function DateRangePicker({
 
   const rangeText = () => {
     if (startDate && endDate) {
-      return `${formatDateDisplay(startDate)} - ${formatDateDisplay(endDate)}`;
+      const today = new Date();
+      const day = today.getDay();
+      const diff = today.getDate() - day + (day === 0 ? -6 : 1);
+      const thisWeekStart = new Date(today.getFullYear(), today.getMonth(), diff);
+      thisWeekStart.setHours(0, 0, 0, 0);
+      const thisWeekEnd = new Date(thisWeekStart);
+      thisWeekEnd.setDate(thisWeekStart.getDate() + 6);
+      thisWeekEnd.setHours(23, 59, 59, 999);
+
+      const pad = (n: number) => String(n).padStart(2, "0");
+      const thisWeekStartStr = `${thisWeekStart.getFullYear()}-${pad(thisWeekStart.getMonth() + 1)}-${pad(thisWeekStart.getDate())}`;
+      const thisWeekEndStr = `${thisWeekEnd.getFullYear()}-${pad(thisWeekEnd.getMonth() + 1)}-${pad(thisWeekEnd.getDate())}`;
+
+      if (startDate === thisWeekStartStr && endDate === thisWeekEndStr) {
+        return "This week";
+      }
+
+      const lastWeekStart = new Date(thisWeekStart);
+      lastWeekStart.setDate(thisWeekStart.getDate() - 7);
+      const lastWeekEnd = new Date(lastWeekStart);
+      lastWeekEnd.setDate(lastWeekStart.getDate() + 6);
+      const lastWeekStartStr = `${lastWeekStart.getFullYear()}-${pad(lastWeekStart.getMonth() + 1)}-${pad(lastWeekStart.getDate())}`;
+      const lastWeekEndStr = `${lastWeekEnd.getFullYear()}-${pad(lastWeekEnd.getMonth() + 1)}-${pad(lastWeekEnd.getDate())}`;
+
+      if (startDate === lastWeekStartStr && endDate === lastWeekEndStr) {
+        return "Last week";
+      }
+
+      const nextWeekStart = new Date(thisWeekStart);
+      nextWeekStart.setDate(thisWeekStart.getDate() + 7);
+      const nextWeekEnd = new Date(nextWeekStart);
+      nextWeekEnd.setDate(nextWeekStart.getDate() + 6);
+      const nextWeekStartStr = `${nextWeekStart.getFullYear()}-${pad(nextWeekStart.getMonth() + 1)}-${pad(nextWeekStart.getDate())}`;
+      const nextWeekEndStr = `${nextWeekEnd.getFullYear()}-${pad(nextWeekEnd.getMonth() + 1)}-${pad(nextWeekEnd.getDate())}`;
+
+      if (startDate === nextWeekStartStr && endDate === nextWeekEndStr) {
+        return "Next week";
+      }
+
+      const formatDateStr = (dStr: string) => {
+        const parts = dStr.split("-");
+        if (parts.length !== 3) return dStr;
+        return `${parts[2]}/${parts[1]}/${parts[0]}`;
+      };
+      return `${formatDateStr(startDate)} - ${formatDateStr(endDate)}`;
     } else if (startDate) {
       return `${formatDateDisplay(startDate)} - Select end date`;
     }
     return "Select date range";
+  };
+
+  const handlePrevWeek = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!startDate || !endDate) return;
+    const start = new Date(startDate + "T00:00:00");
+    const end = new Date(endDate + "T00:00:00");
+    start.setDate(start.getDate() - 7);
+    end.setDate(end.getDate() - 7);
+    const pad = (n: number) => String(n).padStart(2, "0");
+    onChange({
+      startDate: `${start.getFullYear()}-${pad(start.getMonth() + 1)}-${pad(start.getDate())}`,
+      endDate: `${end.getFullYear()}-${pad(end.getMonth() + 1)}-${pad(end.getDate())}`,
+    });
+  };
+
+  const handleNextWeek = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!startDate || !endDate) return;
+    const start = new Date(startDate + "T00:00:00");
+    const end = new Date(endDate + "T00:00:00");
+    start.setDate(start.getDate() + 7);
+    end.setDate(end.getDate() + 7);
+    const pad = (n: number) => String(n).padStart(2, "0");
+    onChange({
+      startDate: `${start.getFullYear()}-${pad(start.getMonth() + 1)}-${pad(start.getDate())}`,
+      endDate: `${end.getFullYear()}-${pad(end.getMonth() + 1)}-${pad(end.getDate())}`,
+    });
   };
 
   const handleClear = (e: React.MouseEvent) => {
@@ -140,21 +216,44 @@ export default function DateRangePicker({
     >
       <div
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center justify-between border border-zinc-200 rounded-xl bg-white px-3.5 py-2 text-left focus:outline-none focus:ring-2 focus:ring-[#16A34A]/20 focus:border-[#16A34A] transition-all cursor-pointer text-xs font-bold text-zinc-805 h-[42px]"
+        className={`flex items-center justify-between border border-zinc-200 bg-white px-3.5 py-2 text-left focus:outline-none focus:ring-2 transition-all cursor-pointer text-xs font-bold text-zinc-800 h-[42px] ${triggerClassName || "rounded-xl"} ${focusClassName}`}
       >
-        <div className="flex items-center gap-2 overflow-hidden truncate">
+        <div className="flex items-center gap-2 overflow-hidden truncate mr-1">
           <CalendarIcon className="h-4 w-4 text-zinc-400 shrink-0" />
           <span className="truncate">{rangeText()}</span>
         </div>
-        {(startDate || endDate) && (
-          <button
-            type="button"
-            onClick={handleClear}
-            className="p-0.5 rounded-full hover:bg-zinc-100 text-zinc-400 hover:text-zinc-600 transition-colors shrink-0 ml-1"
-          >
-            <X className="h-3.5 w-3.5" />
-          </button>
-        )}
+        <div className="flex items-center gap-1 shrink-0">
+          {startDate && endDate && (
+            <div className="flex items-center gap-0.5 border-l border-zinc-150 pl-1.5 mr-0.5">
+              <button
+                type="button"
+                onClick={handlePrevWeek}
+                className="p-1 rounded-md hover:bg-zinc-100 text-zinc-400 hover:text-zinc-750 transition-colors"
+                title="Previous Week"
+              >
+                <ChevronLeft className="h-3.5 w-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={handleNextWeek}
+                className="p-1 rounded-md hover:bg-zinc-100 text-zinc-400 hover:text-zinc-750 transition-colors"
+                title="Next Week"
+              >
+                <ChevronRight className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          )}
+          {(startDate || endDate) && (
+            <button
+              type="button"
+              onClick={handleClear}
+              className="p-0.5 rounded-full hover:bg-zinc-100 text-zinc-400 hover:text-zinc-600 transition-colors shrink-0"
+              title="Clear date filter"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
       </div>
 
       {isOpen && (

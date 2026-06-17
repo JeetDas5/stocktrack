@@ -26,8 +26,6 @@
     "/dashboard/business",
     "/dashboard/locations",
     "/dashboard/counts",
-    "/dashboard/deliveries",
-    "/dashboard/staff-dashboard",
     "/dashboard/timesheet-entry",
     "/dashboard/availablity-entry"
   ]
