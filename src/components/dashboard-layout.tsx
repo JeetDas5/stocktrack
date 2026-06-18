@@ -384,8 +384,8 @@ export default function DashboardLayout({
 
   const staffLinks: SidebarLink[] = [
     {
-      name: "Staff Directory",
-      href: "/dashboard/staff-directory",
+      name: "Team Members",
+      href: "/dashboard/team-members",
       icon: IdentityCardIcon,
     },
     {

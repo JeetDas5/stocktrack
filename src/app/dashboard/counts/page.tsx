@@ -47,6 +47,7 @@ const formatDateDisplay = (dateStr: string) => {
   });
 };
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const getOptionLabel = (option: any, baseUnit: string) => {
   if (!option) return "";
   const name = option.displayName || "";
@@ -700,6 +701,7 @@ export default function StockCountsPage() {
                               </span>
                               <input
                                 type="number"
+                                inputMode="decimal"
                                 min="0"
                                 placeholder="0"
                                 className="w-20 bg-white border border-zinc-200 focus:border-zinc-950 focus:ring-1 focus:ring-zinc-950 rounded-lg py-1.5 px-3 text-center text-xs font-bold focus:outline-none transition-all"
@@ -731,6 +733,7 @@ export default function StockCountsPage() {
                               </span>
                               <input
                                 type="number"
+                                inputMode="decimal"
                                 min="0"
                                 placeholder="0"
                                 className="w-20 bg-white border border-zinc-200 focus:border-zinc-950 focus:ring-1 focus:ring-zinc-950 rounded-lg py-1.5 px-3 text-center text-xs font-bold focus:outline-none transition-all"
@@ -758,6 +761,7 @@ export default function StockCountsPage() {
                             </span>
                             <input
                               type="number"
+                              inputMode="decimal"
                               min="0"
                               step="any"
                               placeholder="0"
@@ -852,6 +856,7 @@ export default function StockCountsPage() {
                         </span>
                         <input
                           type="number"
+                          inputMode="decimal"
                           min="0"
                           placeholder="0"
                           disabled={!(hasOptions && item.countingOptions?.[0])}
@@ -880,6 +885,7 @@ export default function StockCountsPage() {
                         </span>
                         <input
                           type="number"
+                          inputMode="decimal"
                           min="0"
                           placeholder="0"
                           disabled={!(hasOptions && item.countingOptions?.[1])}
@@ -905,6 +911,7 @@ export default function StockCountsPage() {
                         </span>
                         <input
                           type="number"
+                          inputMode="decimal"
                           min="0"
                           step="any"
                           placeholder="0"
