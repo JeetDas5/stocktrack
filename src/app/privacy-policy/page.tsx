@@ -1,326 +1,195 @@
-export default function PrivacyPolicy() {
+import React from 'react'
+import LegalLayout from '@/components/site/LegalLayout'
+
+export const metadata = {
+  title: 'Privacy Policy — NexBrix',
+  description: 'How NexBrix collects, uses, stores, shares and protects information.',
+}
+
+function H({ children }: { children: React.ReactNode }) { return <h2 className="text-[24px] sm:text-[28px] font-semibold tracking-tight text-neutral-900 mt-12 first:mt-0">{children}</h2> }
+function H3({ children }: { children: React.ReactNode }) { return <h3 className="text-[17px] font-semibold tracking-tight text-neutral-900 mt-6">{children}</h3> }
+function P({ children }: { children: React.ReactNode }) { return <p className="text-neutral-700">{children}</p> }
+function UL({ children }: { children: React.ReactNode }) { return <ul className="list-disc pl-6 space-y-1.5 text-neutral-700 marker:text-neutral-400">{children}</ul> }
+
+export default function PrivacyPolicyPage() {
   return (
-    <div className="min-h-screen bg-slate-50 py-12 px-4 sm:px-6 lg:px-8 font-sans">
-      <div className="max-w-3xl mx-auto bg-white border border-slate-200 rounded-2xl p-8 md:p-12 shadow-sm">
-        <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight mb-2">
-          Privacy Policy &ndash; StockTrack
-        </h1>
-        <p className="text-sm text-slate-500 mb-8 pb-6 border-b border-slate-100">
-          Effective Date: 8th June, 2026
-        </p>
+    <LegalLayout eyebrow="Legal" title="Privacy Policy" effectiveDate="8th June, 2026">
+      <P>
+        ELITE REWARDS PTY LTD (“we”, “our”, “us”) respects your privacy and is committed to protecting personal information in accordance with applicable Australian privacy laws.
+      </P>
+      <P>
+        This Privacy Policy explains how NexBrix collects, uses, stores, shares, and protects information collected through our mobile applications, websites, web administration portals, and related services.
+      </P>
 
-        <div className="space-y-6 text-slate-600 text-sm leading-relaxed">
-          <p>
-            ELITE REWARDS PTY LTD (&ldquo;we&rdquo;, &ldquo;our&rdquo;,
-            &ldquo;us&rdquo;) respects your privacy and is committed to
-            protecting personal information in accordance with applicable
-            Australian privacy laws.
-          </p>
+      <H>1. Scope</H>
+      <P>This Privacy Policy applies to:</P>
+      <UL>
+        <li>NexBrix mobile applications</li>
+        <li>NexBrix web administration portals</li>
+        <li>Websites and online services</li>
+        <li>Customer support interactions</li>
+        <li>Marketing communications</li>
+      </UL>
 
-          <p>
-            This Privacy Policy explains how StockTrack collects, uses, stores,
-            shares, and protects information collected through our mobile
-            applications, websites, web administration portals, and related
-            services.
-          </p>
+      <H>2. Information We Collect</H>
+      <P>We may collect and process:</P>
 
-          <div>
-            <h2 className="text-lg font-bold text-slate-900 mt-8 mb-3">
-              1. Scope
-            </h2>
-            <p className="mb-2">This Privacy Policy applies to:</p>
-            <ul className="list-disc pl-5 space-y-1">
-              <li>StockTrack mobile applications</li>
-              <li>StockTrack web administration portals</li>
-              <li>Websites and online services</li>
-              <li>Customer support interactions</li>
-              <li>Marketing communications</li>
-            </ul>
-          </div>
+      <H3>Account Information</H3>
+      <UL>
+        <li>Name</li>
+        <li>Email address</li>
+        <li>Mobile number</li>
+        <li>Login credentials</li>
+        <li>Authentication information</li>
+      </UL>
 
-          <div>
-            <h2 className="text-lg font-bold text-slate-900 mt-8 mb-3">
-              2. Information We Collect
-            </h2>
-            <p className="mb-3">We may collect and process:</p>
+      <H3>Business Information</H3>
+      <UL>
+        <li>Business name</li>
+        <li>Locations</li>
+        <li>Supplier records</li>
+        <li>Operational information</li>
+        <li>Inventory information</li>
+      </UL>
 
-            <div className="space-y-4 pl-4 border-l-2 border-slate-100">
-              <div>
-                <h3 className="font-semibold text-slate-800">
-                  Account Information
-                </h3>
-                <ul className="list-disc pl-5 space-y-1 mt-1">
-                  <li>Name</li>
-                  <li>Email address</li>
-                  <li>Mobile number</li>
-                  <li>Login credentials</li>
-                  <li>Authentication information</li>
-                </ul>
-              </div>
+      <H3>Employee Information</H3>
+      <P>Businesses using NexBrix may upload:</P>
+      <UL>
+        <li>Employee names</li>
+        <li>Employee phone numbers</li>
+        <li>Employee addresses</li>
+        <li>Date of birth</li>
+        <li>Bank details</li>
+        <li>Superannuation information</li>
+        <li>Timesheet information</li>
+        <li>Employment-related information</li>
+      </UL>
 
-              <div>
-                <h3 className="font-semibold text-slate-800">
-                  Business Information
-                </h3>
-                <ul className="list-disc pl-5 space-y-1 mt-1">
-                  <li>Business name</li>
-                  <li>Locations</li>
-                  <li>Supplier records</li>
-                  <li>Operational information</li>
-                  <li>Inventory information</li>
-                </ul>
-              </div>
+      <H3>Location Information</H3>
+      <P>We may collect:</P>
+      <UL>
+        <li>Clock-in locations</li>
+        <li>GPS information</li>
+        <li>Device location information</li>
+        <li>Background location information where enabled</li>
+      </UL>
 
-              <div>
-                <h3 className="font-semibold text-slate-800">
-                  Employee Information
-                </h3>
-                <p className="text-xs text-slate-500 mb-1">
-                  Businesses using StockTrack may upload:
-                </p>
-                <ul className="list-disc pl-5 space-y-1">
-                  <li>Employee names</li>
-                  <li>Employee phone numbers</li>
-                  <li>Employee addresses</li>
-                  <li>Date of birth</li>
-                  <li>Bank details</li>
-                  <li>Superannuation information</li>
-                  <li>Timesheet information</li>
-                  <li>Employment-related information</li>
-                </ul>
-              </div>
+      <H3>Technical Information</H3>
+      <UL>
+        <li>Device information</li>
+        <li>IP address</li>
+        <li>Browser information</li>
+        <li>Usage logs</li>
+        <li>Error logs</li>
+        <li>App analytics</li>
+      </UL>
 
-              <div>
-                <h3 className="font-semibold text-slate-800">
-                  Location Information
-                </h3>
-                <p className="text-xs text-slate-500 mb-1">We may collect:</p>
-                <ul className="list-disc pl-5 space-y-1">
-                  <li>Clock-in locations</li>
-                  <li>GPS information</li>
-                  <li>Device location information</li>
-                  <li>Background location information where enabled</li>
-                </ul>
-              </div>
+      <H3>Communications Information</H3>
+      <UL>
+        <li>Support requests</li>
+        <li>Emails</li>
+        <li>SMS interactions</li>
+        <li>Notification preferences</li>
+      </UL>
 
-              <div>
-                <h3 className="font-semibold text-slate-800">
-                  Technical Information
-                </h3>
-                <ul className="list-disc pl-5 space-y-1 mt-1">
-                  <li>Device information</li>
-                  <li>IP address</li>
-                  <li>Browser information</li>
-                  <li>Usage logs</li>
-                  <li>Error logs</li>
-                  <li>App analytics</li>
-                </ul>
-              </div>
+      <H>3. How We Use Information</H>
+      <P>We use information to:</P>
+      <UL>
+        <li>Provide and operate NexBrix</li>
+        <li>Authenticate users</li>
+        <li>Manage business records</li>
+        <li>Provide rostering and timesheet services</li>
+        <li>Send notifications</li>
+        <li>Provide support</li>
+        <li>Improve services</li>
+        <li>Prevent fraud and abuse</li>
+        <li>Meet legal obligations</li>
+      </UL>
 
-              <div>
-                <h3 className="font-semibold text-slate-800">
-                  Communications Information
-                </h3>
-                <ul className="list-disc pl-5 space-y-1 mt-1">
-                  <li>Support requests</li>
-                  <li>Emails</li>
-                  <li>SMS interactions</li>
-                  <li>Notification preferences</li>
-                </ul>
-              </div>
-            </div>
-          </div>
+      <H>4. Information Uploaded By Businesses</H>
+      <P>
+        Businesses using NexBrix are responsible for ensuring they have lawful authority, consent, or permission to upload employee, contractor, supplier, or third-party information into the Platform.
+      </P>
+      <P>We process uploaded information on behalf of our business customers.</P>
 
-          <div>
-            <h2 className="text-lg font-bold text-slate-900 mt-8 mb-3">
-              3. How We Use Information
-            </h2>
-            <p className="mb-2">We use information to:</p>
-            <ul className="list-disc pl-5 space-y-1">
-              <li>Provide and operate StockTrack</li>
-              <li>Authenticate users</li>
-              <li>Manage business records</li>
-              <li>Provide rostering and timesheet services</li>
-              <li>Send notifications</li>
-              <li>Provide support</li>
-              <li>Improve services</li>
-              <li>Prevent fraud and abuse</li>
-              <li>Meet legal obligations</li>
-            </ul>
-          </div>
+      <H>5. Overseas Storage and Access</H>
+      <P>Information may be stored or processed using cloud infrastructure located outside Australia.</P>
+      <P>Customer information may be accessed by authorised support personnel located outside Australia, including support personnel located in India.</P>
+      <P>By using NexBrix, you acknowledge that overseas disclosure or access may occur.</P>
 
-          <div>
-            <h2 className="text-lg font-bold text-slate-900 mt-8 mb-3">
-              4. Information Uploaded By Businesses
-            </h2>
-            <p className="mb-3">
-              Businesses using StockTrack are responsible for ensuring they have
-              lawful authority, consent, or permission to upload employee,
-              contractor, supplier, or third-party information into the
-              Platform.
-            </p>
-            <p>
-              We process uploaded information on behalf of our business
-              customers.
-            </p>
-          </div>
+      <H>6. Security Measures</H>
+      <P>We implement reasonable administrative, technical, and operational safeguards including:</P>
+      <UL>
+        <li>Encryption</li>
+        <li>Access controls</li>
+        <li>Authentication measures</li>
+        <li>Monitoring systems</li>
+        <li>Backup processes</li>
+        <li>Security reviews</li>
+      </UL>
+      <P>No online platform can guarantee complete security.</P>
 
-          <div>
-            <h2 className="text-lg font-bold text-slate-900 mt-8 mb-3">
-              5. Overseas Storage and Access
-            </h2>
-            <p className="mb-3">
-              Information may be stored or processed using cloud infrastructure
-              located outside Australia.
-            </p>
-            <p className="mb-3">
-              Customer information may be accessed by authorised support
-              personnel located outside Australia, including support personnel
-              located in India.
-            </p>
-            <p>
-              By using StockTrack, you acknowledge that overseas disclosure or
-              access may occur.
-            </p>
-          </div>
+      <H>7. Data Retention</H>
+      <P>We retain information for as long as reasonably required to:</P>
+      <UL>
+        <li>Provide services</li>
+        <li>Meet legal obligations</li>
+        <li>Resolve disputes</li>
+        <li>Maintain backups</li>
+        <li>Support recovery procedures</li>
+      </UL>
+      <P>Customers may choose:</P>
+      <UL>
+        <li>Account deletion</li>
+        <li>Data export</li>
+        <li>Extended retention services where available</li>
+      </UL>
 
-          <div>
-            <h2 className="text-lg font-bold text-slate-900 mt-8 mb-3">
-              6. Security Measures
-            </h2>
-            <p className="mb-2">
-              We implement reasonable administrative, technical, and operational
-              safeguards including:
-            </p>
-            <ul className="list-disc pl-5 space-y-1 mb-3">
-              <li>Encryption</li>
-              <li>Access controls</li>
-              <li>Authentication measures</li>
-              <li>Monitoring systems</li>
-              <li>Backup processes</li>
-              <li>Security reviews</li>
-            </ul>
-            <p>No online platform can guarantee complete security.</p>
-          </div>
+      <H>8. Marketing Communications</H>
+      <P>We may send:</P>
+      <UL>
+        <li>Product updates</li>
+        <li>Service notifications</li>
+        <li>Marketing communications</li>
+        <li>Push notifications</li>
+        <li>SMS messages</li>
+      </UL>
+      <P>Users may unsubscribe from marketing communications at any time.</P>
+      <P>Operational notifications may still be sent where necessary.</P>
 
-          <div>
-            <h2 className="text-lg font-bold text-slate-900 mt-8 mb-3">
-              7. Data Retention
-            </h2>
-            <p className="mb-2">
-              We retain information for as long as reasonably required to:
-            </p>
-            <ul className="list-disc pl-5 space-y-1 mb-3">
-              <li>Provide services</li>
-              <li>Meet legal obligations</li>
-              <li>Resolve disputes</li>
-              <li>Maintain backups</li>
-              <li>Support recovery procedures</li>
-            </ul>
-            <p className="mb-2">Customers may choose:</p>
-            <ul className="list-disc pl-5 space-y-1">
-              <li>Account deletion</li>
-              <li>Data export</li>
-              <li>Extended retention services where available</li>
-            </ul>
-          </div>
+      <H>9. Access, Correction and Deletion</H>
+      <P>Users may request:</P>
+      <UL>
+        <li>Access to information</li>
+        <li>Correction of inaccurate information</li>
+        <li>Export of information</li>
+        <li>Deletion requests</li>
+      </UL>
+      <P>Some information may be retained where legally required.</P>
 
-          <div>
-            <h2 className="text-lg font-bold text-slate-900 mt-8 mb-3">
-              8. Marketing Communications
-            </h2>
-            <p className="mb-2">We may send:</p>
-            <ul className="list-disc pl-5 space-y-1 mb-3">
-              <li>Product updates</li>
-              <li>Service notifications</li>
-              <li>Marketing communications</li>
-              <li>Push notifications</li>
-              <li>SMS messages</li>
-            </ul>
-            <p className="mb-3">
-              Users may unsubscribe from marketing communications at any time.
-            </p>
-            <p>Operational notifications may still be sent where necessary.</p>
-          </div>
+      <H>10. Cookies and Analytics</H>
+      <P>We may use cookies, analytics, and tracking technologies to improve services and user experience.</P>
+      <P>Users may adjust browser settings where available.</P>
 
-          <div>
-            <h2 className="text-lg font-bold text-slate-900 mt-8 mb-3">
-              9. Access, Correction and Deletion
-            </h2>
-            <p className="mb-2">Users may request:</p>
-            <ul className="list-disc pl-5 space-y-1 mb-3">
-              <li>Access to information</li>
-              <li>Correction of inaccurate information</li>
-              <li>Export of information</li>
-              <li>Deletion requests</li>
-            </ul>
-            <p>Some information may be retained where legally required.</p>
-          </div>
+      <H>11. Data Breaches</H>
+      <P>Where required by law, we may notify affected individuals and relevant authorities regarding eligible data breaches.</P>
 
-          <div>
-            <h2 className="text-lg font-bold text-slate-900 mt-8 mb-3">
-              10. Cookies and Analytics
-            </h2>
-            <p className="mb-3">
-              We may use cookies, analytics, and tracking technologies to
-              improve services and user experience.
-            </p>
-            <p>Users may adjust browser settings where available.</p>
-          </div>
+      <H>12. Children and Young Workers</H>
+      <P>NexBrix is intended for business use.</P>
+      <P>Users under 18 may access the platform where authorised by their employer or business.</P>
 
-          <div>
-            <h2 className="text-lg font-bold text-slate-900 mt-8 mb-3">
-              11. Data Breaches
-            </h2>
-            <p>
-              Where required by law, we may notify affected individuals and
-              relevant authorities regarding eligible data breaches.
-            </p>
-          </div>
+      <H>13. Changes to This Policy</H>
+      <P>We may update this Privacy Policy from time to time.</P>
+      <P>Continued use of NexBrix constitutes acceptance of updated policies.</P>
 
-          <div>
-            <h2 className="text-lg font-bold text-slate-900 mt-8 mb-3">
-              12. Children and Young Workers
-            </h2>
-            <p className="mb-3">StockTrack is intended for business use.</p>
-            <p>
-              Users under 18 may access the platform where authorised by their
-              employer or business.
-            </p>
-          </div>
-
-          <div>
-            <h2 className="text-lg font-bold text-slate-900 mt-8 mb-3">
-              13. Changes to This Policy
-            </h2>
-            <p className="mb-3">
-              We may update this Privacy Policy from time to time.
-            </p>
-            <p>
-              Continued use of StockTrack constitutes acceptance of updated
-              policies.
-            </p>
-          </div>
-
-          <div>
-            <h2 className="text-lg font-bold text-slate-900 mt-8 mb-3">
-              14. Contact and Complaints
-            </h2>
-            <p className="mb-3">
-              Privacy enquiries or complaints may be directed to:
-            </p>
-            <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 font-medium text-slate-800 space-y-1 mb-3">
-              <p>hello@rewardshub.com.au</p>
-              <p>ELITE REWARDS PTY LTD</p>
-              <p>Australia</p>
-            </div>
-            <p>
-              If concerns cannot be resolved directly, users may contact
-              relevant Australian privacy regulators.
-            </p>
-          </div>
-        </div>
+      <H>14. Contact and Complaints</H>
+      <P>Privacy enquiries or complaints may be directed to:</P>
+      <div className="rounded-2xl border border-neutral-200 bg-neutral-50 p-6 not-prose">
+        <p className="text-[15px] text-neutral-900 font-medium">hello@rewardshub.com.au</p>
+        <p className="text-[14px] text-neutral-600 mt-1">ELITE REWARDS PTY LTD</p>
+        <p className="text-[14px] text-neutral-600">Australia</p>
       </div>
-    </div>
-  );
+      <P>If concerns cannot be resolved directly, users may contact relevant Australian privacy regulators.</P>
+    </LegalLayout>
+  )
 }

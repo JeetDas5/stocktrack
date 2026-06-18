@@ -677,3 +677,18 @@ class RosterShift(SQLModel, table=True):
     # Relationships
     user: Optional[User] = Relationship()
     location: Optional[Location] = Relationship()
+
+
+class ContactMessage(SQLModel, table=True):
+    __tablename__ = "contact_messages"
+
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
+    name: str
+    business: Optional[str] = Field(default=None)
+    email: str
+    phone: Optional[str] = Field(default=None)
+    business_type: Optional[str] = Field(default=None)
+    message: Optional[str] = Field(default=None)
+    intent: str = Field(default="contact")
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+

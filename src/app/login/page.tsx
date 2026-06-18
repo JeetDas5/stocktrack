@@ -1,13 +1,23 @@
 "use client";
 
+import Link from "next/link";
+import { toast } from "sonner";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
+import {
+  Mail,
+  Lock,
+  Loader2,
+  ArrowRight,
+  Sparkles,
+  Eye,
+  EyeOff,
+} from "lucide-react";
+
+import { useAuth } from "@/providers/auth-provider";
 import { loginAdmin } from "@/lib/services/auth.service";
 import { signInWithGoogle } from "@/lib/services/sign-in";
-import { useAuth } from "@/providers/auth-provider";
-import { KeyRound, Mail, Eye, EyeOff, Loader2 } from "lucide-react";
-import { toast } from "sonner";
+import { Reveal, RevealText } from "@/components/site/Reveal";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -66,151 +76,171 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="relative min-h-screen flex items-center justify-center bg-[#F1F5F9] font-sans">
-      <div className="relative w-full max-w-md mx-4 z-10">
-        <div className="bg-white border border-zinc-200 rounded-2xl p-8 shadow-xl shadow-zinc-200/50">
-          <div className="flex flex-col items-center mb-8 text-center">
-            <div className="h-12 w-12 rounded-xl bg-[#DCFCE7] border border-[#16A34A]/20 flex items-center justify-center mb-4">
-              <span className="text-[#16A34A] font-extrabold text-2xl tracking-tighter">
-                S
-              </span>
-            </div>
-            <h1 className="text-3xl font-extrabold text-[#0F172A] tracking-tight">
-              StockTrack
-            </h1>
-            <p className="text-[#64748B] text-sm mt-1">
-              Hospitality Inventory Intelligence Portal
-            </p>
-          </div>
-
-          <form onSubmit={handleLogin} className="space-y-6">
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-[#0F172A] uppercase tracking-wider block">
-                Email Address
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-zinc-400">
-                  <Mail className="h-4 w-4" />
-                </div>
-                <input
-                  type="email"
-                  placeholder="Enter your email"
-                  className="w-full bg-white border border-zinc-300 focus:border-[#16A34A] rounded-xl py-3 pl-10 pr-4 text-sm text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#16A34A] transition-all"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  disabled={loading}
-                />
+    <main className="min-h-screen bg-white">
+      <section className="pt-36 lg:pt-24 pb-28 lg:pb-40">
+        <div className="max-w-7xl mx-auto px-6 lg:px-10 grid lg:grid-cols-12 gap-16 items-center">
+          <div className="lg:col-span-6">
+            <Reveal>
+              <div className="text-[12px] tracking-[0.2em] uppercase text-neutral-500">
+                Customer portal
               </div>
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex justify-between items-center">
-                <label className="text-xs font-bold text-[#0F172A] uppercase tracking-wider block">
-                  Password
-                </label>
+            </Reveal>
+            <h1 className="mt-6 text-[44px] sm:text-[60px] md:text-[80px] font-semibold tracking-tightest leading-none text-neutral-900 text-balance">
+              <RevealText text="Welcome" />
+              <br />
+              <RevealText
+                text="back."
+                delay={0.15}
+                className="text-neutral-400"
+              />
+            </h1>
+            <Reveal delay={0.4}>
+              <p className="mt-8 max-w-md text-[17px] leading-relaxed text-neutral-600">
+                Sign in to your NexBrix workspace. Early Access members can use
+                the credentials shared by our team.
+              </p>
+            </Reveal>
+            <Reveal delay={0.5}>
+              <div className="mt-10 inline-flex items-center gap-2 text-[13px] text-neutral-600 rounded-full border border-neutral-200 bg-neutral-50 px-3.5 py-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                Don’t have an account yet?
                 <Link
-                  href="/forgot-password"
-                  className="text-xs font-semibold text-[#16A34A] hover:underline"
+                  href="/contact?demo=1"
+                  className="text-neutral-900 font-medium underline-offset-4 hover:underline"
                 >
-                  Forgot Password?
+                  Request access
                 </Link>
               </div>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-zinc-400">
-                  <KeyRound className="h-4 w-4" />
+            </Reveal>
+          </div>
+
+          <Reveal delay={0.15} className="lg:col-span-6">
+            <div className="rounded-3xl border border-neutral-200 bg-white p-8 lg:p-10 shadow-[0_20px_60px_-30px_rgba(0,0,0,0.15)]">
+              <form onSubmit={handleLogin} className="space-y-5">
+                <div>
+                  <label className="text-[12px] font-medium tracking-wide text-neutral-700">
+                    Email Address
+                  </label>
+                  <div className="mt-2 relative">
+                    <Mail className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400" />
+                    <input
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      required
+                      placeholder="you@business.com"
+                      disabled={loading}
+                      className="w-full pl-11 pr-4 py-3.5 rounded-xl border border-neutral-200 bg-white text-[15px] focus:outline-none focus:border-neutral-900 focus:ring-4 focus:ring-neutral-900/5 transition"
+                    />
+                  </div>
                 </div>
-                <input
-                  type={showPassword ? "text" : "password"}
-                  placeholder="Enter your password"
-                  className="w-full bg-white border border-zinc-300 focus:border-[#16A34A] rounded-xl py-3 pl-10 pr-10 text-sm text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#16A34A] transition-all"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  disabled={loading}
-                />
+
+                <div>
+                  <div className="flex items-center justify-between">
+                    <label className="text-[12px] font-medium tracking-wide text-neutral-700">
+                      Password
+                    </label>
+                    <Link
+                      href="/forgot-password"
+                      className="text-[12px] text-neutral-500 hover:text-neutral-900"
+                    >
+                      Forgot?
+                    </Link>
+                  </div>
+                  <div className="mt-2 relative">
+                    <Lock className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400" />
+                    <input
+                      type={showPassword ? "text" : "password"}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                      placeholder="••••••••"
+                      disabled={loading}
+                      className="w-full pl-11 pr-11 py-3.5 rounded-xl border border-neutral-200 bg-white text-[15px] focus:outline-none focus:border-neutral-900 focus:ring-4 focus:ring-neutral-900/5 transition"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600 transition-colors"
+                      disabled={loading}
+                    >
+                      {showPassword ? (
+                        <EyeOff className="w-4 h-4" />
+                      ) : (
+                        <Eye className="w-4 h-4" />
+                      )}
+                    </button>
+                  </div>
+                </div>
+
                 <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-zinc-400 hover:text-zinc-600 transition-colors"
+                  type="submit"
+                  disabled={loading || !email.trim() || !password}
+                  className="w-full inline-flex items-center justify-center gap-2 bg-neutral-900 text-white px-6 py-3.5 rounded-full text-[15px] font-medium hover:bg-neutral-800 transition-all hover:gap-3 disabled:opacity-60"
                 >
-                  {showPassword ? (
-                    <EyeOff className="h-4 w-4" />
+                  {loading ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Authenticating...
+                    </>
                   ) : (
-                    <Eye className="h-4 w-4" />
+                    <>
+                      Sign in <ArrowRight className="w-4 h-4" />
+                    </>
                   )}
                 </button>
+              </form>
+
+              <div className="my-6 flex items-center gap-3">
+                <div className="h-px flex-1 bg-neutral-200" />
+                <span className="text-[11px] tracking-[0.18em] uppercase text-neutral-400">
+                  or
+                </span>
+                <div className="h-px flex-1 bg-neutral-200" />
+              </div>
+
+              <button
+                type="button"
+                onClick={handleGoogleLogin}
+                disabled={loading}
+                className="w-full inline-flex items-center justify-center gap-3 bg-white text-neutral-900 px-6 py-3.5 rounded-xl text-[15px] font-medium border border-neutral-200 hover:border-neutral-300 hover:bg-neutral-50 transition-colors disabled:opacity-60"
+              >
+                <svg className="w-5 h-5" viewBox="0 0 24 24" aria-hidden="true">
+                  <path
+                    fill="#4285F4"
+                    d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.75h3.57c2.08-1.92 3.28-4.74 3.28-8.07z"
+                  />
+                  <path
+                    fill="#34A853"
+                    d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.75c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84A10.99 10.99 0 0 0 12 23z"
+                  />
+                  <path
+                    fill="#FBBC05"
+                    d="M5.84 14.12c-.22-.66-.35-1.36-.35-2.12s.13-1.46.35-2.12V7.04H2.18A10.99 10.99 0 0 0 1 12c0 1.78.43 3.46 1.18 4.96l3.66-2.84z"
+                  />
+                  <path
+                    fill="#EA4335"
+                    d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.04l3.66 2.84C6.71 7.31 9.14 5.38 12 5.38z"
+                  />
+                </svg>
+                Continue with Google
+              </button>
+
+              <div className="mt-8 pt-6 border-t border-neutral-100 text-center">
+                <p className="text-[12px] text-neutral-500">
+                  New to NexBrix?{" "}
+                  <Link
+                    href="/contact?demo=1"
+                    className="text-neutral-900 font-medium underline-offset-4 hover:underline"
+                  >
+                    Request a demo
+                  </Link>
+                </p>
               </div>
             </div>
-
-            <button
-              type="submit"
-              disabled={loading || !email.trim() || !password}
-              className="w-full bg-primary-green hover:bg-green-700 active:bg-green-800 text-white rounded-xl py-3 text-sm font-semibold tracking-wide shadow-md shadow-zinc-200 transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Authenticating...
-                </>
-              ) : (
-                "Sign In"
-              )}
-            </button>
-          </form>
-
-          <div className="relative my-6 flex items-center justify-center">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-zinc-200"></div>
-            </div>
-            <div className="relative bg-white px-4 text-xs font-semibold text-zinc-400 uppercase tracking-wider">
-              Or continue with
-            </div>
-          </div>
-
-          <button
-            type="button"
-            onClick={handleGoogleLogin}
-            disabled={loading}
-            className="w-full bg-white hover:bg-zinc-50 border border-zinc-300 active:bg-zinc-100 text-zinc-700 rounded-xl py-3 text-sm font-semibold tracking-wide shadow-sm transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              x="0px"
-              y="0px"
-              width="28"
-              height="22"
-              viewBox="0 0 48 48"
-            >
-              <path
-                fill="#FFC107"
-                d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12c0-6.627,5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C12.955,4,4,12.955,4,24c0,11.045,8.955,20,20,20c11.045,0,20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z"
-              ></path>
-              <path
-                fill="#FF3D00"
-                d="M6.306,14.691l6.571,4.819C14.655,15.108,18.961,12,24,12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C16.318,4,9.656,8.337,6.306,14.691z"
-              ></path>
-              <path
-                fill="#4CAF50"
-                d="M24,44c5.166,0,9.86-1.977,13.409-5.192l-6.19-5.238C29.211,35.091,26.715,36,24,36c-5.202,0-9.619-3.317-11.283-7.946l-6.522,5.025C9.505,39.556,16.227,44,24,44z"
-              ></path>
-              <path
-                fill="#1976D2"
-                d="M43.611,20.083H42V20H24v8h11.303c-0.792,2.237-2.231,4.166-4.087,5.571c0.001-0.001,0.002-0.001,0.003-0.002l6.19,5.238C36.971,39.205,44,34,44,24C44,22.659,43.862,21.35,43.611,20.083z"
-              ></path>
-            </svg>
-            Google
-          </button>
-
-          <div className="mt-6 text-center text-xs font-semibold text-zinc-500">
-            Don&apos;t have an account?{" "}
-            <Link
-              href="/signup"
-              className="text-[#16A34A] hover:underline font-extrabold"
-            >
-              Sign Up
-            </Link>
-          </div>
+          </Reveal>
         </div>
-      </div>
-    </div>
+      </section>
+    </main>
   );
 }

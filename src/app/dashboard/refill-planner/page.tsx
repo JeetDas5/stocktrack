@@ -36,7 +36,7 @@ import {
   Search,
 } from "lucide-react";
 import { toast } from "sonner";
-import AlertDialog from "@/components/alert-dialog";
+import AlertDialog from "@/components/ui/alert-dialog";
 
 export default function RefillPlannerPage() {
   const { activeBusinessId } = useBusinessStore();

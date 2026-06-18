@@ -3,6 +3,7 @@ import { Toaster } from "sonner";
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import { AuthProvider } from "@/providers/auth-provider";
+import LayoutWrapper from "@/components/site/LayoutWrapper";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -33,7 +34,7 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col bg-white text-zinc-900">
         <AuthProvider>
-          {children}
+          <LayoutWrapper>{children}</LayoutWrapper>
           <Toaster position="bottom-right" duration={3000} richColors />
         </AuthProvider>
       </body>

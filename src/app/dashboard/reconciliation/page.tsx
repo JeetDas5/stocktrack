@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import { useEffect, useState, useMemo, useRef } from "react";
 
 import { Business } from "@/types/business";
-import AlertDialog from "@/components/alert-dialog";
+import AlertDialog from "@/components/ui/alert-dialog";
 import { useBusinessStore } from "@/stores/business-store";
 import { useLocationStore } from "@/stores/location-store";
 import { useCategoryStore } from "@/stores/category-store";

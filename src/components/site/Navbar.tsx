@@ -4,11 +4,13 @@ import { Menu, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
+
 import { useAuth } from "@/providers/auth-provider";
 
 const LINKS = [
   { href: "/", label: "Home" },
   { href: "/about", label: "About" },
+  { href: "/pricing", label: "Pricing" },
   { href: "/contact", label: "Contact" },
 ];
 
@@ -27,7 +29,7 @@ export default function Navbar() {
 
   return (
     <header
-      className={`fixed top-0 inset-x-0 z-50 transition-all duration-500 ${scrolled ? "backdrop-blur-xl bg-white/70 border-b border-neutral-200/60" : "bg-transparent"}`}
+      className={`fixed top-0 inset-x-0 z-50 transition-all duration-500 shadow-sm ${scrolled ? "backdrop-blur-xl" : "bg-transparent"}`}
     >
       <nav className="max-w-7xl mx-auto px-6 lg:px-10 h-16 flex items-center justify-between">
         <Link href="/" className="flex items-center gap-2 group">

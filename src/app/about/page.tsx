@@ -1,9 +1,8 @@
 "use client";
+
 import Link from "next/link";
 import Image from "next/image";
 import { ArrowRight } from "lucide-react";
-import Navbar from "@/components/site/Navbar";
-import Footer from "@/components/site/Footer";
 import { Reveal, RevealText } from "@/components/site/Reveal";
 
 const HERO_IMG =
@@ -12,8 +11,6 @@ const HERO_IMG =
 export default function AboutPage() {
   return (
     <main className="min-h-screen bg-white">
-      <Navbar />
-
       <section className="pt-36 lg:pt-48 pb-20 lg:pb-28">
         <div className="max-w-7xl mx-auto px-6 lg:px-10">
           <Reveal>
@@ -226,8 +223,6 @@ export default function AboutPage() {
           </Reveal>
         </div>
       </section>
-
-      <Footer />
     </main>
   );
 }

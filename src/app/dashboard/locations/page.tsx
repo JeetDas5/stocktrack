@@ -26,7 +26,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { toast } from "sonner";
-import AlertDialog from "@/components/alert-dialog";
+import AlertDialog from "@/components/ui/alert-dialog";
 
 export default function LocationsPage() {
   const { activeBusinessId } = useBusinessStore();

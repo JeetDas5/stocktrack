@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { useEffect, useState, useRef } from "react";
 
 import { useAuth } from "@/providers/auth-provider";
-import AlertDialog from "@/components/alert-dialog";
+import AlertDialog from "@/components/ui/alert-dialog";
 import CustomCalendar from "@/components/ui/calendar";
 import { useBusinessStore } from "@/stores/business-store";
 import { useLocationStore } from "@/stores/location-store";

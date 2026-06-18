@@ -30,7 +30,7 @@ import {
   Building2,
 } from "lucide-react";
 import { toast } from "sonner";
-import AlertDialog from "@/components/alert-dialog";
+import AlertDialog from "@/components/ui/alert-dialog";
 import { Business } from "@/types/business";
 
 interface UserAssignmentOut {

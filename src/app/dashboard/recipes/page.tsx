@@ -7,7 +7,7 @@ import { useEffect, useState, useMemo } from "react";
 
 import { Business } from "@/types/business";
 import { useAuth } from "@/providers/auth-provider";
-import AlertDialog from "@/components/alert-dialog";
+import AlertDialog from "@/components/ui/alert-dialog";
 import { Recipe, StockItem } from "@/types/inventory";
 import { useRecipeStore } from "@/stores/recipe-store";
 import { useCategoryStore } from "@/stores/category-store";

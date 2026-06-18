@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import AlertDialog from "@/components/alert-dialog";
+import AlertDialog from "@/components/ui/alert-dialog";
 import { useAuth } from "@/providers/auth-provider";
 import { useBusinessStore } from "@/stores/business-store";
 import { useLocationStore } from "@/stores/location-store";
