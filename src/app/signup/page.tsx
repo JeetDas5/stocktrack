@@ -226,7 +226,7 @@ export default function SignupPage() {
                 />
                 <span className="text-xs font-semibold text-zinc-700 leading-tight select-none">
                   I agree to the{" "}
-                  <Link href="/terms-and-condition" className="text-[#16A34A] hover:underline" target="_blank">
+                  <Link href="/terms" className="text-[#16A34A] hover:underline" target="_blank">
                     Terms &amp; Conditions
                   </Link>{" "}
                   and{" "}
@@ -238,7 +238,7 @@ export default function SignupPage() {
               
               <p className="text-[11px] text-zinc-500 leading-normal">
                 By creating an account, you acknowledge that StockTrack is business assistance software and that you have read and accepted our{" "}
-                <Link href="/terms-and-condition" className="text-[#16A34A] hover:underline" target="_blank">
+                <Link href="/terms" className="text-[#16A34A] hover:underline" target="_blank">
                   Terms &amp; Conditions
                 </Link>
                 .

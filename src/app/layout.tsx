@@ -8,10 +8,16 @@ const inter = Inter({
   variable: "--font-inter",
   subsets: ["latin"],
 });
-
 export const metadata: Metadata = {
-  title: "NexBrix",
-  description: "Hospitality Inventory Operations Platform",
+  title: "NexBrix — Business Operating System for Small Businesses",
+  description:
+    "NexBrix is the Business Operating System for small businesses. Manage workforce, inventory and operations from a single platform.",
+  openGraph: {
+    title: "NexBrix — Business Operating System for Small Businesses",
+    description:
+      "One platform to manage workforce, inventory, and business operations.",
+    type: "website",
+  },
 };
 
 export default function RootLayout({
@@ -20,7 +26,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${inter.variable} h-full antialiased`}>
+    <html
+      lang="en"
+      data-scroll-behavior="smooth"
+      className={`${inter.variable} h-full antialiased`}
+    >
       <body className="min-h-full flex flex-col bg-white text-zinc-900">
         <AuthProvider>
           {children}
