@@ -9,7 +9,9 @@ from pathlib import Path
 env_path = Path(__file__).resolve().parent.parent.parent.parent.parent / ".env"
 load_dotenv(dotenv_path=env_path)
 
-JWT_SECRET = os.getenv("JWT_SECRET", "super-secret-key-change-in-production")
+JWT_SECRET = os.getenv("JWT_SECRET")
+if not JWT_SECRET:
+    raise RuntimeError("JWT_SECRET environment variable is required")
 JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
 ACCESS_TOKEN_EXPIRE_MINUTES = int(
     os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "10080")

@@ -10,8 +10,11 @@ import os
 import uuid
 import random
 import resend
+import logging
 from datetime import datetime, timedelta
 from app.models import Verification, SessionTable
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["Authentication"])
 
@@ -123,20 +126,31 @@ def send_otp(data: OTPSendRequest, session: Session = Depends(get_session)):
     if not email:
         raise HTTPException(status_code=400, detail="Email address is required")
 
-    otp = str(random.randint(100000, 999999))
-    expires_at = datetime.utcnow() + timedelta(minutes=10)
-
     # Store in verifications table
     stmt = select(Verification).where(Verification.identifier == email)
     ver = session.exec(stmt).first()
+
     if ver:
-        ver.value = otp
+        # Rate limiting: 1 request per 60 seconds
+        last_sent = ver.updated_at or ver.created_at or datetime.utcnow()
+        if datetime.utcnow() - last_sent < timedelta(seconds=60):
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail="Please wait 60 seconds before requesting another verification code."
+            )
+
+    otp = str(random.randint(100000, 999999))
+    hashed_otp = hash_password(otp)
+    expires_at = datetime.utcnow() + timedelta(minutes=10)
+
+    if ver:
+        ver.value = hashed_otp
         ver.expires_at = expires_at
         ver.updated_at = datetime.utcnow()
         session.add(ver)
     else:
         ver = Verification(
-            id=str(uuid.uuid4()), identifier=email, value=otp, expires_at=expires_at
+            id=str(uuid.uuid4()), identifier=email, value=hashed_otp, expires_at=expires_at
         )
         session.add(ver)
     session.commit()
@@ -160,8 +174,10 @@ def send_otp(data: OTPSendRequest, session: Session = Depends(get_session)):
             }
         )
     except Exception as e:
+        logger.exception("Failed to send verification email via Resend")
         raise HTTPException(
-            status_code=500, detail=f"Failed to send verification email: {str(e)}"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to send verification email. Please try again later."
         )
 
     return {"message": "Verification code sent successfully"}
@@ -177,11 +193,9 @@ def verify_otp(data: OTPVerifyRequest, session: Session = Depends(get_session)):
             status_code=400, detail="Email and verification code are required"
         )
 
-    stmt = select(Verification).where(
-        Verification.identifier == email, Verification.value == otp
-    )
+    stmt = select(Verification).where(Verification.identifier == email)
     ver = session.exec(stmt).first()
-    if not ver or ver.expires_at < datetime.utcnow():
+    if not ver or ver.expires_at < datetime.utcnow() or not verify_password(otp, ver.value):
         raise HTTPException(
             status_code=400, detail="Invalid or expired verification code"
         )
