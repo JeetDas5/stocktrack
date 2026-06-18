@@ -29,7 +29,7 @@ export default function Footer() {
             </h4>
             <ul className="mt-4 space-y-3 text-[14px] text-neutral-600">
               <li>
-                <Link href="/home" className="hover:text-neutral-900">
+                <Link href="/" className="hover:text-neutral-900">
                   Home
                 </Link>
               </li>

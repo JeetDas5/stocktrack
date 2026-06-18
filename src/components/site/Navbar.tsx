@@ -4,15 +4,17 @@ import { Menu, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
+import { useAuth } from "@/providers/auth-provider";
 
 const LINKS = [
-  { href: "/home", label: "Home" },
+  { href: "/", label: "Home" },
   { href: "/about", label: "About" },
   { href: "/contact", label: "Contact" },
 ];
 
 export default function Navbar() {
   const pathname = usePathname();
+  const { user, profile } = useAuth();
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
 
@@ -53,12 +55,29 @@ export default function Navbar() {
         </div>
 
         <div className="hidden md:flex items-center gap-3">
-          <Link
-            href="/contact?demo=1"
-            className="inline-flex items-center gap-2 bg-neutral-900 text-white px-4 py-2 rounded-full text-[14px] font-medium hover:bg-neutral-800 transition-colors"
-          >
-            Request a Demo
-          </Link>
+          {user && profile?.isInternal ? (
+            <Link
+              href="/dashboard"
+              className="inline-flex items-center gap-2 bg-neutral-900 text-white px-4 py-2 rounded-full text-[14px] font-medium hover:bg-neutral-800 transition-colors"
+            >
+              Dashboard
+            </Link>
+          ) : (
+            <>
+              <Link
+                href="/login"
+                className="px-4 py-2 text-[14px] text-neutral-600 hover:text-neutral-900 font-medium transition-colors"
+              >
+                Sign In
+              </Link>
+              <Link
+                href="/contact?demo=1"
+                className="inline-flex items-center gap-2 bg-neutral-900 text-white px-4 py-2 rounded-full text-[14px] font-medium hover:bg-neutral-800 transition-colors"
+              >
+                Request a Demo
+              </Link>
+            </>
+          )}
         </div>
 
         <button
@@ -90,13 +109,32 @@ export default function Navbar() {
                   {l.label}
                 </Link>
               ))}
-              <Link
-                href="/contact?demo=1"
-                onClick={() => setOpen(false)}
-                className="mt-2 inline-flex items-center justify-center bg-neutral-900 text-white px-5 py-3 rounded-full text-[15px] font-medium"
-              >
-                Request a Demo
-              </Link>
+              {user && profile?.isInternal ? (
+                <Link
+                  href="/dashboard"
+                  onClick={() => setOpen(false)}
+                  className="mt-2 inline-flex items-center justify-center bg-neutral-900 text-white px-5 py-3 rounded-full text-[15px] font-medium"
+                >
+                  Dashboard
+                </Link>
+              ) : (
+                <>
+                  <Link
+                    href="/login"
+                    onClick={() => setOpen(false)}
+                    className="text-lg font-medium text-neutral-600 hover:text-neutral-900"
+                  >
+                    Sign In
+                  </Link>
+                  <Link
+                    href="/contact?demo=1"
+                    onClick={() => setOpen(false)}
+                    className="mt-2 inline-flex items-center justify-center bg-neutral-900 text-white px-5 py-3 rounded-full text-[15px] font-medium"
+                  >
+                    Request a Demo
+                  </Link>
+                </>
+              )}
             </div>
           </motion.div>
         )}

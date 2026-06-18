@@ -3,7 +3,7 @@ import os
 import json
 import time
 from typing import Optional, List
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, status, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlmodel import Session, select
 
@@ -46,6 +46,7 @@ permissions_loader = PermissionsLoader(PERMISSIONS_FILE)
 
 
 def get_current_user(
+    request: Request,
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
     session: Session = Depends(get_session)
 ) -> User:
@@ -79,6 +80,20 @@ def get_current_user(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User profile not found in database"
         )
+
+    # Secure endpoints for non-internal users
+    if not user.is_internal and user.role != "super_admin":
+        path = request.url.path
+        is_public_backend_route = (
+            path == "/api/users/me" or 
+            (path == "/api/users" and request.method == "POST") or
+            path.startswith("/api/auth/")
+        )
+        if not is_public_backend_route:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Access restricted to internal users only"
+            )
 
     return user
 

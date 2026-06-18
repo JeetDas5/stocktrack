@@ -19,13 +19,16 @@ export default function ProtectedRoute({
     if (!loading) {
       if (!user) {
         router.push("/login");
-      } else if (
-        profile &&
-        profile.role !== "admin" &&
-        profile.role !== "super_admin" &&
-        !profile.isActive
-      ) {
-        router.push("/invite");
+      } else if (profile) {
+        if (!profile.isInternal) {
+          router.push("/invite");
+        } else if (
+          profile.role !== "admin" &&
+          profile.role !== "super_admin" &&
+          !profile.isActive
+        ) {
+          router.push("/invite");
+        }
       }
     }
   }, [user, profile, loading, router]);
@@ -38,13 +41,17 @@ export default function ProtectedRoute({
     return null;
   }
 
-  if (
-    profile &&
-    profile.role !== "admin" &&
-    profile.role !== "super_admin" &&
-    !profile.isActive
-  ) {
-    return null;
+  if (profile) {
+    if (!profile.isInternal) {
+      return null;
+    }
+    if (
+      profile.role !== "admin" &&
+      profile.role !== "super_admin" &&
+      !profile.isActive
+    ) {
+      return null;
+    }
   }
 
   return children;

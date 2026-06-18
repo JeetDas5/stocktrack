@@ -35,6 +35,7 @@ class UserMeOut(SQLModel):
     phone: Optional[str] = None
     role: str
     is_approved: bool
+    is_internal: bool
     created_at: datetime
     updated_at: datetime
     start_date: datetime
@@ -63,6 +64,7 @@ def get_me(
         phone=current_user.phone,
         role=current_user.role,
         is_approved=is_approved,
+        is_internal=current_user.is_internal,
         created_at=current_user.created_at,
         updated_at=current_user.updated_at,
         start_date=current_user.start_date or current_user.created_at

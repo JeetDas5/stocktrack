@@ -8,6 +8,7 @@ export interface AppUser {
   role: UserRole;
   isActive: boolean;
   isApproved?: boolean;
+  isInternal: boolean;
   businessIds: string[];
   activeBusinessId?: string;
   createdAt: string;
