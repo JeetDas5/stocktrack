@@ -1,6 +1,6 @@
 # NexBrix — Design System & Agent Instructions
 
-> Use this file as the single source of truth when building, redesigning, or extending any page in this project. Every new screen MUST follow the patterns documented here so the experience stays cohesive.
+> Use this file as the single source of truth when building, redesigning, or creating any page in this project. Every new screen MUST follow the patterns documented here so the experience stays cohesive.
 
 The aesthetic target is: **"If Apple launched a Business Operating System for small businesses."**
 
