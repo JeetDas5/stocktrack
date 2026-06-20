@@ -8,7 +8,7 @@ import { HugeiconsIcon, IconSvgElement } from "@hugeicons/react";
 
 import { Business } from "@/types/business";
 import { useAuth } from "@/providers/auth-provider";
-import { logoutUser } from "@/lib/services/auth.service";
+
 import { useLocationStore } from "@/stores/location-store";
 import { useBusinessStore } from "@/stores/business-store";
 import sidebarPermissions from "@/config/sidebar-permissions.json";
@@ -72,7 +72,7 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { user, profile, loading: authLoading } = useAuth();
+  const { user, profile, loading: authLoading, logout } = useAuth();
   const { activeBusinessId, setActiveBusiness } = useBusinessStore();
   const router = useRouter();
   const pathname = usePathname();
@@ -249,7 +249,7 @@ export default function DashboardLayout({
   };
 
   const handleLogout = async () => {
-    await logoutUser();
+    await logout();
     router.push("/login");
   };
 
