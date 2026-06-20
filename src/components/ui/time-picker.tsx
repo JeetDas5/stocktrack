@@ -66,10 +66,10 @@ export default function TimePicker({
 
   return (
     <div
-      className={`absolute right-0 mt-2 bg-white border border-zinc-200 rounded-3xl shadow-xl p-4 z-50 w-64 animate-scale-in flex gap-2 ${className}`}
+      className={`absolute right-0 mt-2 bg-white border border-black/10 rounded-3xl shadow-xl p-4 z-50 w-64 animate-scale-in flex gap-2 ${className}`}
     >
       <div className="flex-1 flex flex-col items-center">
-        <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-2">
+        <span className="text-[10px] font-bold text-black/40 uppercase tracking-wider mb-2">
           Hour
         </span>
         <div className="w-full h-40 overflow-y-auto flex flex-col gap-1 pr-1 scrollbar-thin">
@@ -82,8 +82,8 @@ export default function TimePicker({
                 onClick={() => handleSelectHour(h)}
                 className={`py-1 text-xs rounded-full transition-all cursor-pointer font-bold w-full text-center ${
                   isSelected
-                    ? "bg-zinc-950 text-white font-extrabold"
-                    : "text-zinc-900 hover:bg-zinc-100"
+                    ? "bg-black text-white font-extrabold"
+                    : "text-black hover:bg-black hover:text-white"
                 }`}
               >
                 {h.toString().padStart(2, "0")}
@@ -93,11 +93,11 @@ export default function TimePicker({
         </div>
       </div>
 
-      <div className="w-px bg-zinc-100 h-44 mt-2" />
+      <div className="w-px bg-black/10 h-44 mt-2" />
 
       {/* Minutes Column */}
       <div className="flex-1 flex flex-col items-center">
-        <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-2">
+        <span className="text-[10px] font-bold text-black/40 uppercase tracking-wider mb-2">
           Min
         </span>
         <div className="w-full h-40 overflow-y-auto flex flex-col gap-1 pr-1 scrollbar-thin">
@@ -110,8 +110,8 @@ export default function TimePicker({
                 onClick={() => handleSelectMinute(m)}
                 className={`py-1 text-xs rounded-full transition-all cursor-pointer font-bold w-full text-center ${
                   isSelected
-                    ? "bg-zinc-950 text-white font-extrabold"
-                    : "text-zinc-900 hover:bg-zinc-100"
+                    ? "bg-black text-white font-extrabold"
+                    : "text-black hover:bg-black hover:text-white"
                 }`}
               >
                 {m}
@@ -122,7 +122,7 @@ export default function TimePicker({
       </div>
 
       {/* Divider */}
-      <div className="w-px bg-zinc-100 h-44 mt-2" />
+      <div className="w-px bg-black/10 h-44 mt-2" />
 
       {/* AM/PM Column */}
       <div className="w-16 flex flex-col items-center justify-center h-44 mt-2 gap-2">
@@ -135,8 +135,8 @@ export default function TimePicker({
               onClick={() => handleSelectPeriod(p)}
               className={`py-2 text-xs rounded-full transition-all cursor-pointer font-extrabold w-full text-center ${
                 isSelected
-                  ? "bg-zinc-950 text-white"
-                  : "text-zinc-400 hover:bg-zinc-100 hover:text-zinc-900"
+                  ? "bg-black text-white"
+                  : "text-black/40 hover:bg-black hover:text-white"
               }`}
             >
               {p}
