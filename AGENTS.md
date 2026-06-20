@@ -11,7 +11,7 @@ The aesthetic target is: **"If Apple launched a Business Operating System for sm
 | Layer      | Choice                                                                                              |
 | ---------- | --------------------------------------------------------------------------------------------------- |
 | Framework  | Next.js 16 — App Router                                                                             |
-| Language   | TypeScript (avoid using `any` unless necessary)                                                     |
+| Language   | TypeScript (avoid using `any` unless extreme necessary)                                                     |
 | Styling    | Tailwind CSS (semantic neutrals, no custom hex outside this guide)                                  |
 | Components | Custom design ,(similar to shadcn) (in `@/components/ui/*`) or build new components with similar ui |
 | Icons      | `lucide-react` only                                                                                 |
