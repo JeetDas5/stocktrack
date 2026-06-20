@@ -17,7 +17,7 @@ The aesthetic target is: **"If Apple launched a Business Operating System for sm
 | Icons      | `lucide-react` only                                                                                 |
 | Motion     | `framer-motion` only                                                                                |
 | Fonts      | `Inter` via `next/font/google`, weights 300–900                                                     |
-| DB         | MongoDB via `DATABASE_URL` env                                                                      |
+| DB         | MongoDB database via `DATABASE_URL` env                                                                      |
 
 Do **not** introduce Material UI, Chakra, daisyUI, custom CSS-in-JS libraries, or icon libraries beyond `lucide-react`.
 
