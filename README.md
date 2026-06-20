@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-StockTrack is a backend service built with FastAPI and SQLModel that provides inventory management capabilities such as user authentication, business management, stock items, recipes, stock counts, purchase orders, deliveries, and dashboard metrics. The API follows a modular service architecture where each functional area lives in its own router..
+StockTrack is a backend service built with FastAPI and SQLModel that provides inventory management capabilities such as user authentication, business management, stock items, recipes, stock counts, purchase orders, deliveries, and dashboard metrics. The API follows a modular service architecture where each functional area lives in its own router.
 
 ## Tech Stack
 
