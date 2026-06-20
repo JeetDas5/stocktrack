@@ -77,23 +77,23 @@ export default function Calendar({
 
   return (
     <div
-      className={`absolute right-0 mt-2 bg-white border border-zinc-200 rounded-3xl shadow-xl p-5 z-50 w-72 animate-scale-in ${className}`}
+      className={`absolute right-0 mt-2 bg-white border border-black/10 rounded-3xl shadow-xl p-5 z-50 w-72 animate-scale-in ${className}`}
     >
       <div className="flex justify-between items-center mb-4">
         <button
           type="button"
           onClick={handlePrevMonth}
-          className="p-1.5 rounded-full hover:bg-zinc-100 text-zinc-600 transition-colors"
+          className="p-1.5 rounded-full hover:bg-black hover:text-white text-black transition-colors"
         >
           <ChevronLeft className="h-4 w-4" />
         </button>
-        <span className="text-xs font-bold text-zinc-900 uppercase tracking-wider">
+        <span className="text-xs font-bold text-black uppercase tracking-wider">
           {monthName} {year}
         </span>
         <button
           type="button"
           onClick={handleNextMonth}
-          className="p-1.5 rounded-full hover:bg-zinc-100 text-zinc-600 transition-colors"
+          className="p-1.5 rounded-full hover:bg-black hover:text-white text-black transition-colors"
         >
           <ChevronRight className="h-4 w-4" />
         </button>
@@ -103,7 +103,7 @@ export default function Calendar({
         {["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map((day) => (
           <span
             key={day}
-            className="text-[10px] font-bold text-zinc-400 uppercase"
+            className="text-[10px] font-bold text-black/40 uppercase"
           >
             {day}
           </span>
@@ -120,10 +120,10 @@ export default function Calendar({
               onClick={() => onChange(cell.dateStr)}
               className={`py-1.5 text-xs rounded-full transition-all cursor-pointer font-bold ${
                 isSelected
-                  ? "bg-zinc-950 text-white font-extrabold"
+                  ? "bg-black text-white font-extrabold"
                   : cell.isCurrentMonth
-                    ? "text-zinc-900 hover:bg-zinc-100"
-                    : "text-zinc-300 hover:bg-zinc-50"
+                    ? "text-black hover:bg-black hover:text-white"
+                    : "text-black/20 hover:bg-black/5 hover:text-black"
               }`}
             >
               {cell.dayNum}
@@ -132,11 +132,11 @@ export default function Calendar({
         })}
       </div>
 
-      <div className="border-t border-zinc-100 mt-3.5 pt-3">
+      <div className="border-t border-black/10 mt-3.5 pt-3">
         <button
           type="button"
           onClick={handleTodayClick}
-          className="w-full text-center text-xs font-bold text-zinc-900 bg-zinc-50 hover:bg-zinc-100 rounded-2xl py-2 transition-colors cursor-pointer border border-zinc-200"
+          className="w-full text-center text-xs font-bold text-black bg-white hover:bg-black hover:text-white rounded-2xl py-2 transition-colors cursor-pointer border border-black/10"
         >
           Today
         </button>
