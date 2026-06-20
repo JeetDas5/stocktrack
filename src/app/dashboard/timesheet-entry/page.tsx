@@ -571,7 +571,7 @@ export default function TimesheetEntryPage() {
     <div className="flex flex-col bg-white h-[calc(100vh-120px)] md:h-[85vh] min-h-0 relative select-none pb-4">
       <div className="flex-1 min-h-0 flex flex-col space-y-4 pr-0 lg:pr-4">
         <div className="bg-white border border-neutral-200 rounded-3xl py-4 px-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 shadow-sm">
-          <h1 className="text-[28px] font-semibold text-neutral-900 tracking-tight">
+          <h1 className="text-[24px] font-bold text-neutral-900 tracking-tight">
             Enter Timesheet
           </h1>
           <div className="flex items-center gap-3">
