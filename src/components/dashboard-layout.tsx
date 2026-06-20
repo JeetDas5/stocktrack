@@ -1113,7 +1113,7 @@ export default function DashboardLayout({
 
       <div className="flex-1 h-full flex flex-col relative bg-white min-w-0">
         <header className="sticky top-0 z-15 bg-white border-b border-gray-soft w-full">
-          <div className="max-w-[1600px] w-full mx-auto px-4 py-2 flex items-center justify-between">
+          <div className="max-w-[1600px] w-full mx-auto px-6 py-2 flex items-center justify-between">
             <div className="flex items-center gap-4">
               <button
                 onClick={() => setMobileSidebarOpen(true)}

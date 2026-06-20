@@ -18,6 +18,7 @@ class TimesheetCreate(SQLModel):
     end_time: str
     unpaid_break: int = 0
     notes: Optional[str] = None
+    project: Optional[str] = None
     status: Optional[str] = None
 
 
@@ -33,6 +34,7 @@ class TimesheetOut(SQLModel):
     end_time: str
     unpaid_break: int
     notes: Optional[str]
+    project: Optional[str] = None
     total_hours: float
     status: str
     created_at: datetime
@@ -51,6 +53,7 @@ class TimesheetReportOut(SQLModel):
     end_time: str
     unpaid_break: int
     notes: Optional[str] = None
+    project: Optional[str] = None
     total_hours: float
     status: str
     created_at: datetime
@@ -155,6 +158,7 @@ def create_timesheet(
         end_time=data.end_time,
         unpaid_break=data.unpaid_break,
         notes=data.notes,
+        project=data.project,
         total_hours=total_h,
         status=data.status or "submitted",
     )
@@ -175,6 +179,7 @@ def create_timesheet(
         end_time=ts.end_time,
         unpaid_break=ts.unpaid_break,
         notes=ts.notes,
+        project=ts.project,
         total_hours=ts.total_hours,
         status=ts.status,
         created_at=ts.created_at,
@@ -223,6 +228,7 @@ def get_timesheets(
                 end_time=ts.end_time,
                 unpaid_break=ts.unpaid_break,
                 notes=ts.notes,
+                project=ts.project,
                 total_hours=ts.total_hours,
                 status=ts.status,
                 created_at=ts.created_at,
@@ -288,6 +294,7 @@ def update_timesheet(
     ts.end_time = data.end_time
     ts.unpaid_break = data.unpaid_break
     ts.notes = data.notes
+    ts.project = data.project
     ts.total_hours = total_h
     ts.status = data.status or "edited"
     ts.updated_at = datetime.utcnow()
@@ -308,6 +315,7 @@ def update_timesheet(
         end_time=ts.end_time,
         unpaid_break=ts.unpaid_break,
         notes=ts.notes,
+        project=ts.project,
         total_hours=ts.total_hours,
         status=ts.status,
         created_at=ts.created_at,
@@ -521,6 +529,7 @@ def get_timesheet_reports(
                 end_time=ts.end_time,
                 unpaid_break=ts.unpaid_break,
                 notes=ts.notes,
+                project=ts.project,
                 total_hours=ts.total_hours,
                 status=ts.status,
                 created_at=ts.created_at,

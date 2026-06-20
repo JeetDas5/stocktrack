@@ -574,6 +574,7 @@ class Timesheet(SQLModel, table=True):
     end_time: str
     unpaid_break: int = Field(default=0)
     notes: Optional[str] = Field(default=None)
+    project: Optional[str] = Field(default=None)
     total_hours: float = Field(default=0.0)
     status: str = Field(default="submitted")
     created_at: datetime = Field(default_factory=datetime.utcnow)

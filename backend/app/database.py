@@ -27,8 +27,16 @@ engine = create_engine(
 )
 
 
+from sqlalchemy import text
+
 def init_db():
     SQLModel.metadata.create_all(engine)
+    try:
+        with Session(engine) as session:
+            session.execute(text("ALTER TABLE timesheets ADD COLUMN IF NOT EXISTS project VARCHAR"))
+            session.commit()
+    except Exception as e:
+        print(f"Database migration note: {e}")
 
 
 def get_session():
