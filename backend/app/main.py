@@ -28,7 +28,7 @@ from app.services.roster.router import router as roster_router
 from app.services.contact.router import router as contact_router
 
 app = FastAPI(
-    title="StockTrack API",
+    title="NexBrix API",
     description="Python FastAPI + SQLModel + Neon PostgreSQL backend"
 )
 

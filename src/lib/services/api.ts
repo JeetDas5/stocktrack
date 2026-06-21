@@ -28,6 +28,16 @@ api.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+
+    // Attach Impersonation Header if active and if not a super-admin route
+    const impersonatedUserId =
+      typeof window !== "undefined"
+        ? localStorage.getItem("stocktrack_impersonated_user_id")
+        : null;
+    if (impersonatedUserId && !config.url?.includes("/api/super-admin/")) {
+      config.headers["X-Impersonate-User"] = impersonatedUserId;
+    }
+
     return config;
   },
   (error) => {

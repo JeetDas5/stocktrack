@@ -13,6 +13,7 @@ import { useLocationStore } from "@/stores/location-store";
 import { useBusinessStore } from "@/stores/business-store";
 import sidebarPermissions from "@/config/sidebar-permissions.json";
 import { getUserBusinesses } from "@/lib/repositories/business.repository";
+import api from "@/lib/services/api";
 import {
   DashboardSquare02Icon,
   Layers01Icon,
@@ -98,8 +99,9 @@ export default function DashboardLayout({
   >({});
 
   const [isReadOnly, setIsReadOnly] = useState<boolean>(false);
-  const [businessSearch, setBusinessSearch] = useState("");
+  const [userSearch, setUserSearch] = useState("");
   const [showSuperAdminDropdown, setShowSuperAdminDropdown] = useState(false);
+  const [allUsers, setAllUsers] = useState<any[]>([]);
 
   const businessDropdownRef = useRef<HTMLDivElement>(null);
   const locationDropdownRef = useRef<HTMLDivElement>(null);
@@ -152,6 +154,40 @@ export default function DashboardLayout({
     setIsReadOnly(val);
     if (typeof window !== "undefined") {
       localStorage.setItem("stocktrack_super_admin_readonly", val ? "true" : "false");
+    }
+  };
+
+  useEffect(() => {
+    const isSuperAdmin =
+      profile?.role === "super_admin" ||
+      (typeof window !== "undefined" &&
+        !!localStorage.getItem("stocktrack_impersonated_user_id"));
+    if (isSuperAdmin) {
+      api.get("/api/super-admin/users")
+        .then((res) => {
+          setAllUsers(res.data);
+        })
+        .catch((err) => {
+          console.error("Failed to load users for super admin:", err);
+        });
+    }
+  }, [profile]);
+
+  const handleUserImpersonate = (userId: string) => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("stocktrack_impersonated_user_id", userId);
+      localStorage.removeItem("stocktrack_active_business_id");
+      localStorage.removeItem("stocktrack_active_location_id");
+      window.location.reload();
+    }
+  };
+
+  const handleStopImpersonating = () => {
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("stocktrack_impersonated_user_id");
+      localStorage.removeItem("stocktrack_active_business_id");
+      localStorage.removeItem("stocktrack_active_location_id");
+      window.location.reload();
     }
   };
 
@@ -1140,16 +1176,29 @@ export default function DashboardLayout({
 
       <div className="flex-1 h-full flex flex-col relative bg-white min-w-0">
         {/* Super Admin Impersonation Bar */}
-        {profile?.role === "super_admin" && (
-          <div className="bg-neutral-950 text-white px-6 py-2 flex flex-wrap items-center justify-between gap-4 border-b border-white/10 z-20 select-none">
+        {(profile?.role === "super_admin" || (typeof window !== "undefined" && !!localStorage.getItem("stocktrack_impersonated_user_id"))) && (
+          <div className="bg-neutral-950 text-white px-6 py-2.5 flex flex-wrap items-center justify-between gap-4 border-b border-white/10 z-20 select-none">
             <div className="flex items-center gap-3">
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-[10px] tracking-wide text-amber-500 font-semibold uppercase">
-                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-[10px] tracking-wide text-amber-500 font-semibold uppercase animate-pulse">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
                 Super Admin Mode
               </span>
               <span className="text-[12px] text-neutral-400 font-medium">
-                Impersonating: <strong className="text-white">{activeBusiness?.name || "None"}</strong>
+                Impersonating:{" "}
+                <strong className="text-white">
+                  {typeof window !== "undefined" && localStorage.getItem("stocktrack_impersonated_user_id")
+                    ? `${profile?.fullName || ""} (${profile?.email || ""})`
+                    : "None (Self)"}
+                </strong>
               </span>
+              {typeof window !== "undefined" && localStorage.getItem("stocktrack_impersonated_user_id") && (
+                <button
+                  onClick={handleStopImpersonating}
+                  className="ml-2 text-[10px] bg-white/10 hover:bg-white/20 text-white px-2.5 py-1 rounded-md font-bold uppercase transition duration-200 cursor-pointer"
+                >
+                  Reset View
+                </button>
+              )}
             </div>
 
             <div className="flex items-center gap-6">
@@ -1167,65 +1216,69 @@ export default function DashboardLayout({
                 </span>
               </label>
 
-              {/* Searchable Business Impersonator Dropdown */}
+              {/* Searchable User Impersonator Dropdown */}
               <div className="relative" ref={superAdminDropdownRef}>
                 <button
                   onClick={() => setShowSuperAdminDropdown(!showSuperAdminDropdown)}
                   className="flex items-center gap-2 px-3 py-1.5 bg-neutral-900 hover:bg-neutral-800 border border-white/10 rounded-full text-xs font-medium text-white transition-all cursor-pointer shadow-sm hover:border-white/20"
                 >
-                  <span>Select Customer Account...</span>
+                  <span>Select Customer User...</span>
                   <HugeiconsIcon icon={ChevronDownIcon} size={14} className="text-neutral-400" />
                 </button>
 
                 {showSuperAdminDropdown && (
-                  <div className="absolute right-0 mt-2 w-64 bg-neutral-900 border border-white/10 rounded-2xl shadow-2xl overflow-hidden z-30 animate-fade-in p-2">
+                  <div className="absolute right-0 mt-2 w-72 bg-neutral-900 border border-white/10 rounded-2xl shadow-2xl overflow-hidden z-30 animate-fade-in p-2">
                     {/* Search Field */}
                     <div className="relative mb-2">
                       <input
                         type="text"
-                        placeholder="Search customer account..."
-                        value={businessSearch}
-                        onChange={(e) => setBusinessSearch(e.target.value)}
+                        placeholder="Search customer by name or email..."
+                        value={userSearch}
+                        onChange={(e) => setUserSearch(e.target.value)}
                         className="w-full px-3 py-2 bg-neutral-950 border border-white/10 rounded-xl text-xs text-white focus:outline-none focus:border-white/20 focus:ring-1 focus:ring-white/20 transition-all placeholder-neutral-500"
                       />
                     </div>
                     {/* List */}
                     <div className="max-h-56 overflow-y-auto space-y-0.5">
-                      {businesses
-                        .filter((b) =>
-                          b.name.toLowerCase().includes(businessSearch.toLowerCase())
+                      {allUsers
+                        .filter(
+                          (u) =>
+                            (u.name || "").toLowerCase().includes(userSearch.toLowerCase()) ||
+                            (u.email || "").toLowerCase().includes(userSearch.toLowerCase())
                         )
-                        .map((b) => {
-                          const isSelected = b.id === activeBusinessId;
+                        .map((u) => {
+                          const isSelected =
+                            typeof window !== "undefined" &&
+                            localStorage.getItem("stocktrack_impersonated_user_id") === u.id;
                           return (
                             <button
-                              key={b.id}
+                              key={u.id}
                               onClick={() => {
-                                handleBusinessChange(b.id);
+                                handleUserImpersonate(u.id);
                                 setShowSuperAdminDropdown(false);
                               }}
-                              className={`w-full flex items-center justify-between px-3 py-2 text-xs font-semibold rounded-lg transition-colors truncate cursor-pointer ${
+                              className={`w-full text-left px-3 py-2 text-xs font-semibold rounded-lg transition-colors cursor-pointer block ${
                                 isSelected
                                   ? "bg-white/10 text-white"
                                   : "text-neutral-400 hover:bg-white/5 hover:text-white"
                               }`}
                             >
-                              <span>{b.name}</span>
-                              {isSelected && (
-                                <HugeiconsIcon
-                                  icon={CheckIcon}
-                                  size={12}
-                                  className="text-white"
-                                />
-                              )}
+                              <div className="font-bold text-white truncate">
+                                {u.name || "No Name"}
+                              </div>
+                              <div className="text-[10px] text-neutral-400 truncate mt-0.5">
+                                {u.email}
+                              </div>
                             </button>
                           );
                         })}
-                      {businesses.filter((b) =>
-                        b.name.toLowerCase().includes(businessSearch.toLowerCase())
+                      {allUsers.filter(
+                        (u) =>
+                          (u.name || "").toLowerCase().includes(userSearch.toLowerCase()) ||
+                          (u.email || "").toLowerCase().includes(userSearch.toLowerCase())
                       ).length === 0 && (
                         <div className="px-3 py-2 text-xs text-neutral-500 text-center">
-                          No accounts found
+                          No users found
                         </div>
                       )}
                     </div>
