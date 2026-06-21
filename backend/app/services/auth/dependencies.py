@@ -81,6 +81,14 @@ def get_current_user(
             detail="User profile not found in database"
         )
 
+    # Super Admin User Impersonation
+    impersonate_uid = request.headers.get("X-Impersonate-User")
+    is_super_admin_route = request.url.path.startswith("/api/super-admin/")
+    if impersonate_uid and user.role == "super_admin" and not is_super_admin_route:
+        impersonated_user = session.get(User, impersonate_uid)
+        if impersonated_user:
+            return impersonated_user
+
     # Secure endpoints for non-internal users
     if not user.is_internal and user.role != "super_admin":
         path = request.url.path
