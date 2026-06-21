@@ -809,13 +809,13 @@ export default function StaffDirectoryPage() {
                         Role
                       </th>
                       <th className="py-4 px-6 font-extrabold select-none">
-                        Associate Business
+                        Business
                       </th>
                       <th
                         onClick={() => handleSort("assigned_locations")}
                         className="py-4 px-6 font-extrabold cursor-pointer hover:bg-zinc-100 transition duration-150 select-none"
                       >
-                        Assigned Locations
+                        Locations
                       </th>
                       <th
                         onClick={() => handleSort("status")}
