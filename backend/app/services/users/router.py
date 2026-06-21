@@ -300,3 +300,29 @@ def delete_user_assignment(
     session.commit()
     return {"message": "User assignment deleted successfully"}
 
+
+@router.get("/api/super-admin/users", response_model=List[UserMeOut])
+def list_all_users_for_super_admin(
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session)
+):
+    if current_user.role != "super_admin":
+        raise HTTPException(status_code=403, detail="Only super admin can access this resource")
+    
+    users = session.exec(select(User)).all()
+    out = []
+    for u in users:
+        out.append(UserMeOut(
+            id=u.id,
+            email=u.email,
+            name=u.name,
+            phone=u.phone,
+            role=u.role,
+            is_approved=True,
+            is_internal=u.is_internal,
+            created_at=u.created_at,
+            updated_at=u.updated_at,
+            start_date=u.start_date or u.created_at
+        ))
+    return out
+

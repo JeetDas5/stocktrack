@@ -40,6 +40,8 @@ export const logoutUser = async () => {
     localStorage.removeItem("stocktrack_token");
     localStorage.removeItem("stocktrack_active_business_id");
     localStorage.removeItem("stocktrack_active_location_id");
+    localStorage.removeItem("stocktrack_impersonated_user_id");
+    localStorage.removeItem("stocktrack_super_admin_readonly");
   }
 };
 
