@@ -32,6 +32,14 @@ import {
   updateTimesheetStatus,
 } from "@/lib/repositories/timesheet.repository";
 import DateRangePicker from "@/components/ui/date-range-picker";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { cn } from "@/lib/utils";
 
 export default function TimesheetReviewPage() {
   const router = useRouter();
@@ -74,8 +82,6 @@ export default function TimesheetReviewPage() {
   const [filterStaff, setFilterStaff] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
 
-  const [showStatusDropdown, setShowStatusDropdown] = useState(false);
-
   const [pageSize, setPageSize] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
   const [showPageSizeDropdown, setShowPageSizeDropdown] = useState(false);
@@ -92,7 +98,6 @@ export default function TimesheetReviewPage() {
   const [editLocationId, setEditLocationId] = useState("");
   const [editSubmitting, setEditSubmitting] = useState(false);
 
-  const statusRef = useRef<HTMLDivElement>(null);
   const pageSizeRef = useRef<HTMLDivElement>(null);
 
   const isStaff = profile?.role === "staff";
@@ -105,12 +110,6 @@ export default function TimesheetReviewPage() {
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (
-        statusRef.current &&
-        !statusRef.current.contains(event.target as Node)
-      ) {
-        setShowStatusDropdown(false);
-      }
       if (
         pageSizeRef.current &&
         !pageSizeRef.current.contains(event.target as Node)
@@ -355,24 +354,6 @@ export default function TimesheetReviewPage() {
     return `${day} ${month} ${year}`;
   };
 
-
-  const selectedStatusName = useMemo(() => {
-    switch (filterStatus) {
-      case "all":
-        return "All Statuses";
-      case "submitted":
-        return "Pending";
-      case "approved":
-        return "Approved";
-      case "rejected":
-        return "Rejected";
-      case "edited":
-        return "Resubmitted";
-      default:
-        return filterStatus.charAt(0).toUpperCase() + filterStatus.slice(1);
-    }
-  }, [filterStatus]);
-
   const filteredTimesheets = useMemo(() => {
     return timesheets.filter((ts) => {
       if (activeBusinessId && ts.businessId !== activeBusinessId) return false;
@@ -501,88 +482,83 @@ export default function TimesheetReviewPage() {
     paginatedIds.every((id) => selectedIds.includes(id));
 
   return (
-    <div className="flex flex-col bg-white h-[calc(100vh-120px)] md:h-[85vh] min-h-0 relative select-none">
+    <div className="flex flex-col bg-white h-[calc(100vh-120px)] md:h-[85vh] min-h-0 relative select-none pb-4">
       <div className="flex-1 min-h-0 flex flex-col space-y-4 pr-0 lg:pr-4">
-
-        <div className="bg-white border border-[#E2E8F0] rounded-2xl py-4 px-5 md:py-3 md:px-4 flex justify-between items-center shadow-sm">
-          <h1 className="text-xl md:text-2xl font-extrabold text-zinc-900 tracking-tight">
+        {/* Header container */}
+        <div className="bg-white border border-neutral-200 rounded-3xl py-4 px-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 shadow-sm">
+          <h1 className="text-[24px] font-bold text-neutral-900 tracking-tight">
             Timesheet Review
           </h1>
           <button
+            type="button"
             onClick={handleExport}
-            className="bg-white hover:bg-zinc-50 border border-zinc-200 text-zinc-700 rounded-full px-6 py-2.5 text-xs font-bold transition-all duration-200 flex items-center gap-2 shadow-xs cursor-pointer"
+            className="inline-flex items-center gap-2 bg-white hover:bg-neutral-50 border border-neutral-200 text-neutral-900 px-5 py-2.5 rounded-full text-xs font-semibold transition-all duration-200 cursor-pointer shadow-sm animate-fade-in"
           >
-            <Download className="h-4 w-4 text-zinc-400 stroke-[2.5px]" />
+            <Download className="h-3.5 w-3.5 text-neutral-450 shrink-0" />
             Export
           </button>
         </div>
 
-        <div className="flex flex-col sm:flex-row gap-3 items-center w-full">
+        {/* Filter inputs row */}
+        <div className="flex flex-col sm:flex-row gap-3 items-center justify-between">
           <div className="relative w-full sm:w-80">
-            <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-zinc-400">
+            <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-neutral-400">
               <Search className="h-4 w-4" />
             </span>
             <input
               type="text"
               placeholder="Search Staffs"
-              className="w-full bg-white border border-zinc-200 focus:border-zinc-950 rounded-2xl py-2.5 pl-10 pr-4 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-950/20 transition-all shadow-xs h-[42px]"
+              className="w-full bg-white border border-neutral-200 focus:border-neutral-900 focus:ring-4 focus:ring-neutral-900/5 rounded-xl py-2.5 pl-10 pr-4 text-xs font-medium text-neutral-900 placeholder-neutral-400 focus:outline-none transition shadow-2xs h-10"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
 
-          <div className="flex flex-col sm:flex-row gap-3 items-center w-full sm:w-auto sm:ml-auto justify-end">
-            <div className="relative w-full sm:w-44" ref={statusRef}>
-              <button
-                type="button"
-                onClick={() => setShowStatusDropdown(!showStatusDropdown)}
-                className="flex items-center justify-between w-full border border-zinc-200 rounded-2xl bg-white px-3.5 py-2.5 text-left focus:outline-none focus:ring-2 focus:ring-zinc-950/20 focus:border-zinc-950 transition-all cursor-pointer text-xs font-bold text-zinc-800 h-[42px]"
-              >
-                <span className="flex items-center gap-2 truncate">
-                  <span className="h-2 w-2 rounded-full bg-zinc-400 shrink-0" />
-                  <span className="truncate">{selectedStatusName}</span>
-                </span>
-                <ChevronDown className="h-3.5 w-3.5 text-zinc-400 shrink-0 ml-1" />
-              </button>
-              {showStatusDropdown && (
-                <div className="absolute top-full left-0 mt-1 w-full bg-white border border-zinc-200 rounded-2xl shadow-lg z-30 max-h-56 overflow-y-auto">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setFilterStatus("all");
-                      setShowStatusDropdown(false);
-                    }}
-                    className="w-full text-left px-4 py-2.5 hover:bg-zinc-50 transition-colors text-xs font-semibold text-zinc-700"
+          <div className="flex flex-col sm:flex-row gap-3 items-center w-full sm:w-auto relative">
+            <div className="w-full sm:w-44">
+              <Select value={filterStatus} onValueChange={setFilterStatus}>
+                <SelectTrigger className="w-full h-10 rounded-xl border border-neutral-200 bg-white px-3.5 py-2 text-left focus:outline-none focus:border-neutral-900 focus:ring-4 focus:ring-neutral-900/5 transition cursor-pointer font-semibold text-xs text-neutral-900 hover:bg-neutral-50">
+                  <SelectValue placeholder="All Statuses" />
+                </SelectTrigger>
+                <SelectContent className="rounded-xl border border-neutral-200 bg-white p-1 max-h-56">
+                  <SelectItem
+                    value="all"
+                    className="rounded-lg px-3 py-2 text-xs font-semibold hover:bg-neutral-50 hover:text-neutral-900 text-neutral-900 cursor-pointer"
                   >
                     All Statuses
-                  </button>
-                  {[
-                    { value: "submitted", label: "Pending" },
-                    { value: "approved", label: "Approved" },
-                    { value: "rejected", label: "Rejected" },
-                    { value: "edited", label: "Resubmitted" },
-                  ].map((statusOption) => (
-                    <button
-                      type="button"
-                      key={statusOption.value}
-                      onClick={() => {
-                        setFilterStatus(statusOption.value);
-                        setShowStatusDropdown(false);
-                      }}
-                      className="w-full text-left px-4 py-2.5 hover:bg-zinc-50 transition-colors text-xs font-semibold text-zinc-700"
-                    >
-                      {statusOption.label}
-                    </button>
-                  ))}
-                </div>
-              )}
+                  </SelectItem>
+                  <SelectItem
+                    value="submitted"
+                    className="rounded-lg px-3 py-2 text-xs font-semibold hover:bg-neutral-50 hover:text-neutral-900 text-neutral-900 cursor-pointer"
+                  >
+                    Pending
+                  </SelectItem>
+                  <SelectItem
+                    value="approved"
+                    className="rounded-lg px-3 py-2 text-xs font-semibold hover:bg-neutral-50 hover:text-neutral-900 text-neutral-900 cursor-pointer"
+                  >
+                    Approved
+                  </SelectItem>
+                  <SelectItem
+                    value="rejected"
+                    className="rounded-lg px-3 py-2 text-xs font-semibold hover:bg-neutral-50 hover:text-neutral-900 text-neutral-900 cursor-pointer"
+                  >
+                    Rejected
+                  </SelectItem>
+                  <SelectItem
+                    value="edited"
+                    className="rounded-lg px-3 py-2 text-xs font-semibold hover:bg-neutral-50 hover:text-neutral-900 text-neutral-900 cursor-pointer"
+                  >
+                    Resubmitted
+                  </SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
-            {/* Date Picker */}
+            {/* Date Range Picker */}
             <DateRangePicker
               className="w-full sm:w-64"
-              triggerClassName="rounded-2xl"
-              focusClassName="focus:ring-zinc-950/20 focus:border-zinc-950"
+              triggerClassName="!rounded-xl !border-neutral-200 !text-neutral-900 !font-semibold focus:!border-neutral-900 focus:!ring-4 focus:!ring-neutral-900/5 !h-10"
               startDate={startDate}
               endDate={endDate}
               onChange={(range) => {
@@ -593,8 +569,9 @@ export default function TimesheetReviewPage() {
 
             {/* Clear Button */}
             <button
+              type="button"
               onClick={handleClearFilters}
-              className="text-xs font-bold uppercase tracking-wider text-zinc-700 bg-zinc-100 hover:bg-zinc-200 border border-zinc-200 rounded-2xl px-5 py-2.5 cursor-pointer transition-colors h-[42px] flex items-center justify-center shadow-xs w-full sm:w-auto"
+              className="inline-flex items-center justify-center bg-white hover:bg-neutral-50 border border-neutral-200 text-neutral-700 rounded-xl px-5 py-2 text-xs font-semibold transition-colors duration-200 cursor-pointer h-10 shadow-2xs w-full sm:w-auto"
             >
               Clear
             </button>
@@ -602,60 +579,62 @@ export default function TimesheetReviewPage() {
         </div>
 
         {/* Batch Selection Action Bar */}
-        <div className="flex items-center gap-3 text-xs font-semibold text-zinc-600 px-1 py-0.5">
+        <div className="flex items-center gap-3 text-xs font-semibold text-neutral-600 px-1 py-0.5">
           <input
             type="checkbox"
-            className="h-4 w-4 rounded-sm border-zinc-300 text-zinc-950 focus:ring-zinc-950 cursor-pointer"
+            className="h-4 w-4 rounded-md border-neutral-300 text-neutral-900 focus:ring-neutral-900/5 cursor-pointer"
             checked={isAllSelected}
             onChange={() => handleToggleSelectAll(paginatedIds)}
           />
           <span>{selectedIds.length} Selected</span>
-          <span className="text-zinc-350">|</span>
+          <span className="text-neutral-300">|</span>
           <button
+            type="button"
             onClick={handleBatchApprove}
             disabled={selectedIds.length === 0 || batchActionLoading}
-            className="flex items-center gap-1.5 text-zinc-700 hover:text-zinc-950 disabled:opacity-45 transition-colors font-bold cursor-pointer"
+            className="flex items-center gap-1.5 text-neutral-700 hover:text-neutral-900 disabled:opacity-45 transition-colors font-bold cursor-pointer"
           >
-            <Check className="h-4.5 w-4.5 text-[#16A34A] stroke-[2.5px]" />
+            <Check className="h-4.5 w-4.5 text-emerald-600 stroke-[2.5px]" />
             Approve Selected
           </button>
           <button
+            type="button"
             onClick={handleBatchReject}
             disabled={selectedIds.length === 0 || batchActionLoading}
-            className="flex items-center gap-1.5 text-zinc-700 hover:text-zinc-950 disabled:opacity-45 transition-colors font-bold cursor-pointer"
+            className="flex items-center gap-1.5 text-neutral-700 hover:text-neutral-900 disabled:opacity-45 transition-colors font-bold cursor-pointer"
           >
-            <X className="h-4.5 w-4.5 text-[#EF4444] stroke-[2.5px]" />
+            <X className="h-4.5 w-4.5 text-red-500 stroke-[2.5px]" />
             Reject Selected
           </button>
           {batchActionLoading && (
-            <Loader2 className="h-4 w-4 animate-spin text-zinc-500" />
+            <Loader2 className="h-4 w-4 animate-spin text-neutral-500" />
           )}
         </div>
 
         {/* Main Table Container */}
-        <div className="bg-white border border-zinc-200 rounded-2xl shadow-xs overflow-hidden flex-1 min-h-0 flex flex-col">
+        <div className="bg-white border border-neutral-200 rounded-3xl shadow-2xs overflow-hidden flex-1 min-h-0 flex flex-col">
           <div className="overflow-auto flex-1 min-h-0">
-            <table className="w-full text-left border-collapse">
+            <table className="w-full text-left border-collapse min-w-[1000px]">
               <thead>
-                <tr className="border-b border-zinc-200 text-[10px] uppercase font-extrabold tracking-wider text-[#64748B] bg-zinc-50 sticky top-0 z-10">
+                <tr className="border-b border-neutral-200 text-[11px] uppercase font-semibold tracking-wider text-neutral-550 bg-white sticky top-0 z-10">
                   <th className="py-4 px-6 w-10">
                     {/* Checkbox spacer column */}
                   </th>
-                  <th className="py-4 px-6 font-extrabold">STAFF NAME</th>
-                  <th className="py-4 px-6 font-extrabold">DATE</th>
-                  <th className="py-4 px-6 font-extrabold">BUSINESS</th>
-                  <th className="py-4 px-6 font-extrabold">LOCATION</th>
-                  <th className="py-4 px-6 font-extrabold">START TIME</th>
-                  <th className="py-4 px-6 font-extrabold">END TIME</th>
-                  <th className="py-4 px-6 font-extrabold">BREAK</th>
-                  <th className="py-4 px-6 font-extrabold">TOTAL HOURS</th>
-                  <th className="py-4 px-6 font-extrabold">STATUS</th>
-                  <th className="py-4 px-6 font-extrabold text-right">
+                  <th className="py-4 px-6 font-semibold">STAFF NAME</th>
+                  <th className="py-4 px-6 font-semibold">DATE</th>
+                  <th className="py-4 px-6 font-semibold">BUSINESS</th>
+                  <th className="py-4 px-6 font-semibold">LOCATION</th>
+                  <th className="py-4 px-6 font-semibold">START TIME</th>
+                  <th className="py-4 px-6 font-semibold">END TIME</th>
+                  <th className="py-4 px-6 font-semibold">BREAK</th>
+                  <th className="py-4 px-6 font-semibold">TOTAL HOURS</th>
+                  <th className="py-4 px-6 font-semibold">STATUS</th>
+                  <th className="py-4 px-6 font-semibold text-right">
                     ACTIONS
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-zinc-200 text-xs text-[#0F172A]">
+              <tbody className="divide-y divide-neutral-200 text-xs text-neutral-800 bg-white">
                 {paginatedTimesheets.map((ts) => {
                   const isRowSelected = selectedIds.includes(ts.id);
                   const isPending = ts.status === "submitted";
@@ -666,70 +645,71 @@ export default function TimesheetReviewPage() {
                   return (
                     <tr
                       key={ts.id}
-                      className={`hover:bg-zinc-50/40 transition-colors ${
-                        isRowSelected ? "bg-zinc-50/50" : ""
-                      }`}
+                      className={cn(
+                        "hover:bg-neutral-50/50 transition-colors",
+                        isRowSelected && "bg-neutral-50/30",
+                      )}
                     >
                       <td className="py-4 px-6">
                         <input
                           type="checkbox"
-                          className="h-4 w-4 rounded-sm border-zinc-350 text-zinc-950 focus:ring-zinc-950 cursor-pointer"
+                          className="h-4 w-4 rounded-sm border-neutral-300 text-neutral-900 focus:ring-neutral-900/5 cursor-pointer"
                           checked={isRowSelected}
                           onChange={() => handleToggleSelect(ts.id)}
                         />
                       </td>
 
-                      <td className="py-4 px-6 font-bold text-zinc-900">
+                      <td className="py-4 px-6 font-bold text-neutral-900">
                         {ts.staffName}
                       </td>
 
-                      <td className="py-4 px-6 font-semibold">
+                      <td className="py-4 px-6 font-bold text-neutral-900">
                         {formatDateToDDMMYYYY(ts.workDate)}
                       </td>
 
-                      <td className="py-4 px-6 font-semibold text-zinc-450">
+                      <td className="py-4 px-6 font-medium text-neutral-500">
                         {businesses.find((b) => b.id === ts.businessId)?.name ||
                           "—"}
                       </td>
 
-                      <td className="py-4 px-6 font-semibold text-zinc-500">
+                      <td className="py-4 px-6 font-medium text-neutral-500 max-w-[120px] whitespace-normal leading-tight">
                         {ts.locationName || "—"}
                       </td>
 
-                      <td className="py-4 px-6 font-semibold">
+                      <td className="py-4 px-6 font-bold text-neutral-900">
                         {formatTimeToAMPM(ts.startTime)}
                       </td>
 
-                      <td className="py-4 px-6 font-semibold">
+                      <td className="py-4 px-6 font-bold text-neutral-900">
                         {formatTimeToAMPM(ts.endTime)}
                       </td>
 
-                      <td className="py-4 px-6 font-semibold">
+                      <td className="py-4 px-6 font-medium text-neutral-500">
                         {ts.unpaidBreak} mis
                       </td>
 
-                      <td className="py-4 px-6 font-bold text-zinc-800">
+                      <td className="py-4 px-6 font-bold text-neutral-900">
                         {Number(ts.totalHours.toFixed(2))}
                       </td>
 
                       <td className="py-4 px-6">
                         {isApproved && (
-                          <span className="font-bold text-zinc-900">
+                          <span className="font-bold text-neutral-900">
                             Approved
                           </span>
                         )}
                         {isRejected && (
-                          <span className="font-bold text-zinc-900">
+                          <span className="font-bold text-neutral-900">
                             Rejected
                           </span>
                         )}
                         {isPending && (
-                          <span className="inline-flex items-center px-3.5 py-1.5 rounded-lg text-xs font-bold bg-[#D6D8F8] text-[#4F46E5]">
+                          <span className="inline-flex items-center px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-[#D6D8F8] text-[#4F46E5]">
                             Pending
                           </span>
                         )}
                         {isEdited && (
-                          <span className="inline-flex items-center px-3.5 py-1.5 rounded-lg text-xs font-bold bg-[#FFE8A3] text-[#854D0E]">
+                          <span className="inline-flex items-center px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-[#FFE8A3] text-[#854D0E]">
                             Resubmitted
                           </span>
                         )}
@@ -738,7 +718,7 @@ export default function TimesheetReviewPage() {
                       <td className="py-4 px-6 text-right">
                         <div className="flex items-center justify-end">
                           {actionLoadingId === ts.id ? (
-                            <Loader2 className="h-4 w-4 animate-spin text-zinc-900" />
+                            <Loader2 className="h-4 w-4 animate-spin text-neutral-900" />
                           ) : isPending ? (
                             <div className="flex items-center gap-3.5">
                               <button
@@ -757,7 +737,7 @@ export default function TimesheetReviewPage() {
                               </button>
                               <button
                                 onClick={() => handleOpenEditModal(ts)}
-                                className="text-zinc-400 hover:text-zinc-700 transition-colors cursor-pointer"
+                                className="text-neutral-400 hover:text-neutral-700 transition-colors cursor-pointer"
                                 title="View/Edit"
                               >
                                 <Eye className="h-4.5 w-4.5" />
@@ -767,7 +747,7 @@ export default function TimesheetReviewPage() {
                             <div className="flex items-center gap-3.5">
                               <button
                                 onClick={() => handleOpenEditModal(ts)}
-                                className="text-zinc-400 hover:text-zinc-700 transition-colors cursor-pointer"
+                                className="text-neutral-450 hover:text-neutral-900 transition-colors cursor-pointer"
                                 title="View/Edit"
                               >
                                 <Eye className="h-4.5 w-4.5" />
@@ -783,7 +763,7 @@ export default function TimesheetReviewPage() {
                   <tr>
                     <td
                       colSpan={11}
-                      className="text-center py-12 text-xs text-zinc-400 font-semibold"
+                      className="text-center py-12 text-xs text-neutral-400 font-semibold"
                     >
                       No timesheets found matching filters
                     </td>
@@ -794,7 +774,7 @@ export default function TimesheetReviewPage() {
           </div>
 
           {/* Pagination Container */}
-          <div className="bg-zinc-50/50 border-t border-zinc-200 py-4 px-6 flex flex-col sm:flex-row justify-between items-center gap-4 text-xs text-[#64748B] font-semibold sticky bottom-0 z-10">
+          <div className="bg-neutral-50/50 border-t border-neutral-200 py-4 px-6 flex flex-col sm:flex-row justify-between items-center gap-4 text-xs text-neutral-500 font-semibold sticky bottom-0 z-10">
             <span>
               Showing{" "}
               {filteredTimesheets.length > 0
@@ -809,7 +789,7 @@ export default function TimesheetReviewPage() {
                 <div className="flex items-center gap-1">
                   <button
                     onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                    className="p-1.5 rounded-lg border border-zinc-200 bg-white hover:bg-zinc-50 text-zinc-500 disabled:opacity-40 disabled:hover:bg-white cursor-pointer disabled:cursor-not-allowed"
+                    className="p-1.5 rounded-lg border border-neutral-200 bg-white hover:bg-neutral-50 text-neutral-500 disabled:opacity-40 disabled:hover:bg-white cursor-pointer disabled:cursor-not-allowed"
                     disabled={currentPage === 1}
                   >
                     &lt;
@@ -822,8 +802,8 @@ export default function TimesheetReviewPage() {
                         onClick={() => setCurrentPage(page)}
                         className={`h-8 w-8 rounded-lg font-bold text-xs cursor-pointer transition-all duration-150 ${
                           currentPage === page
-                            ? "bg-zinc-950 text-white shadow-xs"
-                            : "border border-zinc-200 bg-white hover:bg-zinc-50 text-zinc-700"
+                            ? "bg-neutral-900 text-white shadow-xs"
+                            : "border border-neutral-200 bg-white hover:bg-neutral-50 text-neutral-700"
                         }`}
                       >
                         {page}
@@ -835,7 +815,7 @@ export default function TimesheetReviewPage() {
                     onClick={() =>
                       setCurrentPage((p) => Math.min(totalPages, p + 1))
                     }
-                    className="p-1.5 rounded-lg border border-zinc-200 bg-white hover:bg-zinc-50 text-zinc-500 disabled:opacity-40 disabled:hover:bg-white cursor-pointer disabled:cursor-not-allowed"
+                    className="p-1.5 rounded-lg border border-neutral-200 bg-white hover:bg-neutral-50 text-neutral-500 disabled:opacity-40 disabled:hover:bg-white cursor-pointer disabled:cursor-not-allowed"
                     disabled={currentPage === totalPages}
                   >
                     &gt;
@@ -846,13 +826,13 @@ export default function TimesheetReviewPage() {
               <div className="relative" ref={pageSizeRef}>
                 <button
                   onClick={() => setShowPageSizeDropdown(!showPageSizeDropdown)}
-                  className="flex items-center gap-1.5 border border-zinc-200 rounded-xl bg-white px-3 py-1.5 text-xs font-bold text-zinc-805 transition-all cursor-pointer"
+                  className="flex items-center gap-1.5 border border-neutral-200 rounded-xl bg-white px-3 py-1.5 text-xs font-bold text-neutral-800 transition-all cursor-pointer"
                 >
                   {pageSize} / page
-                  <ChevronDown className="h-3.5 w-3.5 text-zinc-400" />
+                  <ChevronDown className="h-3.5 w-3.5 text-neutral-400" />
                 </button>
                 {showPageSizeDropdown && (
-                  <div className="absolute bottom-full right-0 mb-1 bg-white border border-zinc-200 rounded-xl shadow-lg z-30 overflow-hidden w-28 animate-scale-in">
+                  <div className="absolute bottom-full right-0 mb-1 bg-white border border-neutral-200 rounded-xl shadow-lg z-30 overflow-hidden w-28 animate-scale-in">
                     {[5, 10, 20, 50].map((size) => (
                       <button
                         key={size}
@@ -860,7 +840,7 @@ export default function TimesheetReviewPage() {
                           setPageSize(size);
                           setShowPageSizeDropdown(false);
                         }}
-                        className="w-full text-left px-4 py-2 hover:bg-zinc-50 transition-colors text-xs font-semibold text-zinc-700"
+                        className="w-full text-left px-4 py-2 hover:bg-neutral-55 transition-colors text-xs font-semibold text-neutral-700"
                       >
                         {size} / page
                       </button>
@@ -873,21 +853,21 @@ export default function TimesheetReviewPage() {
         </div>
 
         {/* Legend Panel */}
-        <div className="mt-2 border border-zinc-200 bg-white rounded-2xl p-4 flex flex-wrap items-center gap-6 shadow-3xs">
-          <div className="flex items-center gap-2 text-xs font-bold text-zinc-700">
-            <span className="h-2 w-2 rounded-full bg-zinc-950 inline-block" />
+        <div className="mt-2 border border-neutral-200 bg-white rounded-3xl p-4 flex flex-wrap items-center gap-6 shadow-3xs px-6 py-4">
+          <div className="flex items-center gap-2 text-xs font-bold text-neutral-700">
+            <span className="h-2 w-2 rounded-full bg-neutral-900 inline-block" />
             <span>Submitted: Awaiting review</span>
           </div>
-          <div className="flex items-center gap-2 text-xs font-bold text-zinc-750">
-            <span className="h-2 w-2 rounded-full bg-zinc-300 inline-block" />
+          <div className="flex items-center gap-2 text-xs font-bold text-neutral-700">
+            <span className="h-2 w-2 rounded-full bg-neutral-300 inline-block" />
             <span>Approved: Timesheet approved</span>
           </div>
-          <div className="flex items-center gap-2 text-xs font-bold text-zinc-750">
-            <span className="h-2 w-2 rounded-full bg-zinc-200 inline-block" />
+          <div className="flex items-center gap-2 text-xs font-bold text-neutral-750">
+            <span className="h-2 w-2 rounded-full bg-neutral-200 inline-block" />
             <span>Rejected: Timesheet rejected</span>
           </div>
-          <div className="flex items-center gap-2 text-xs font-bold text-zinc-750">
-            <span className="h-2 w-2 rounded-full bg-zinc-400 inline-block" />
+          <div className="flex items-center gap-2 text-xs font-bold text-neutral-750">
+            <span className="h-2 w-2 rounded-full bg-neutral-400 inline-block" />
             <span>Edited: Timesheet has been edited</span>
           </div>
         </div>
@@ -895,18 +875,18 @@ export default function TimesheetReviewPage() {
 
       {/* Edit Timesheet Modal */}
       {editingTimesheet && (
-        <div className="fixed inset-0 bg-black/45 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-          <div className="bg-white border border-zinc-200 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden animate-scale-in">
-            <div className="px-6 py-4 border-b border-zinc-100 flex items-center justify-between bg-zinc-50">
+        <div className="fixed inset-0 bg-neutral-950/40 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div className="bg-white border border-neutral-200 rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden animate-scale-in">
+            <div className="px-6 py-4 border-b border-neutral-100 flex items-center justify-between bg-neutral-50">
               <div className="flex items-center gap-2">
-                <Edit2 className="h-4.5 w-4.5 text-zinc-900" />
-                <h3 className="text-base font-extrabold text-zinc-900">
+                <Edit2 className="h-4.5 w-4.5 text-neutral-900" />
+                <h3 className="text-base font-bold text-neutral-900">
                   Edit Timesheet
                 </h3>
               </div>
               <button
                 onClick={() => setEditingTimesheet(null)}
-                className="p-1 rounded-lg hover:bg-zinc-200/50 text-zinc-400 hover:text-zinc-650 transition-colors"
+                className="p-1 rounded-lg hover:bg-neutral-100 text-neutral-400 hover:text-neutral-705 transition-colors"
               >
                 <X className="h-4.5 w-4.5" />
               </button>
@@ -915,13 +895,13 @@ export default function TimesheetReviewPage() {
             <form onSubmit={handleSaveEdit} className="p-6 space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="flex flex-col space-y-1.5">
-                  <label className="text-xs font-bold text-zinc-750 uppercase tracking-wider">
+                  <label className="text-xs font-bold text-neutral-600 uppercase tracking-wider">
                     Staff Member
                   </label>
                   <select
                     value={editStaffId}
                     onChange={(e) => setEditStaffId(e.target.value)}
-                    className="w-full bg-white border border-zinc-200 rounded-xl py-2 px-3 text-xs text-zinc-800 font-bold placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-950 focus:border-zinc-950 transition-all cursor-pointer"
+                    className="w-full bg-white border border-neutral-200 rounded-xl py-2 px-3 text-xs text-neutral-800 font-semibold focus:outline-none focus:border-neutral-900 focus:ring-4 focus:ring-neutral-900/5 transition cursor-pointer animate-fade-in"
                     required
                   >
                     {staffList.map((s) => (
@@ -933,13 +913,13 @@ export default function TimesheetReviewPage() {
                 </div>
 
                 <div className="flex flex-col space-y-1.5">
-                  <label className="text-xs font-bold text-zinc-755 uppercase tracking-wider">
+                  <label className="text-xs font-bold text-neutral-600 uppercase tracking-wider">
                     Location
                   </label>
                   <select
                     value={editLocationId}
                     onChange={(e) => setEditLocationId(e.target.value)}
-                    className="w-full bg-white border border-zinc-200 rounded-xl py-2 px-3 text-xs text-zinc-800 font-bold placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-950 focus:border-zinc-950 transition-all cursor-pointer"
+                    className="w-full bg-white border border-neutral-200 rounded-xl py-2 px-3 text-xs text-neutral-800 font-semibold focus:outline-none focus:border-neutral-900 focus:ring-4 focus:ring-neutral-900/5 transition cursor-pointer animate-fade-in"
                     required
                   >
                     {locations.map((l) => (
@@ -953,12 +933,12 @@ export default function TimesheetReviewPage() {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="flex flex-col space-y-1.5">
-                  <label className="text-xs font-bold text-zinc-755 uppercase tracking-wider flex items-center">
+                  <label className="text-xs font-bold text-neutral-600 uppercase tracking-wider flex items-center">
                     Work Date
                   </label>
-                  <div className="relative flex items-center border border-zinc-200 rounded-xl bg-white px-3 py-2 focus-within:ring-1 focus-within:ring-zinc-950 focus-within:border-zinc-950 transition-all">
-                    <Calendar className="h-4 w-4 text-zinc-450 mr-2" />
-                    <span className="text-xs font-extrabold text-zinc-800">
+                  <div className="relative flex items-center border border-neutral-200 rounded-xl bg-white px-3 py-2 focus-within:ring-4 focus-within:ring-neutral-900/5 focus-within:border-neutral-900 transition-all h-10">
+                    <Calendar className="h-4 w-4 text-neutral-400 mr-2" />
+                    <span className="text-xs font-semibold text-neutral-800">
                       {formatDateToDisplay(editWorkDate) || "Select Work Date"}
                     </span>
                     <input
@@ -972,7 +952,7 @@ export default function TimesheetReviewPage() {
                 </div>
 
                 <div className="flex flex-col space-y-1.5">
-                  <label className="text-xs font-bold text-zinc-755 uppercase tracking-wider">
+                  <label className="text-xs font-bold text-neutral-600 uppercase tracking-wider">
                     Unpaid Break (mins)
                   </label>
                   <input
@@ -980,7 +960,7 @@ export default function TimesheetReviewPage() {
                     min="0"
                     value={editUnpaidBreak}
                     onChange={(e) => setEditUnpaidBreak(e.target.value)}
-                    className="w-full bg-white border border-zinc-200 rounded-xl py-2 px-3 text-xs text-zinc-800 font-bold placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-950 focus:border-zinc-950 transition-all"
+                    className="w-full bg-white border border-neutral-200 rounded-xl py-2 px-3 text-xs text-neutral-800 font-semibold focus:outline-none focus:border-neutral-900 focus:ring-4 focus:ring-neutral-900/5 transition h-10"
                     required
                   />
                 </div>
@@ -988,12 +968,12 @@ export default function TimesheetReviewPage() {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="flex flex-col space-y-1.5">
-                  <label className="text-xs font-bold text-zinc-755 uppercase tracking-wider flex items-center">
+                  <label className="text-xs font-bold text-neutral-600 uppercase tracking-wider flex items-center">
                     Start Time
                   </label>
-                  <div className="relative flex items-center border border-zinc-200 rounded-xl bg-white px-3 py-2 focus-within:ring-1 focus-within:ring-zinc-950 focus-within:border-zinc-950 transition-all">
-                    <Clock className="h-4 w-4 text-zinc-450 mr-2" />
-                    <span className="text-xs font-extrabold text-zinc-805">
+                  <div className="relative flex items-center border border-neutral-200 rounded-xl bg-white px-3 py-2 focus-within:ring-4 focus-within:ring-neutral-900/5 focus-within:border-neutral-900 transition-all h-10">
+                    <Clock className="h-4 w-4 text-neutral-400 mr-2" />
+                    <span className="text-xs font-semibold text-neutral-850">
                       {formatTimeToAMPM(editStartTime) || "Select Start Time"}
                     </span>
                     <input
@@ -1007,12 +987,12 @@ export default function TimesheetReviewPage() {
                 </div>
 
                 <div className="flex flex-col space-y-1.5">
-                  <label className="text-xs font-bold text-zinc-755 uppercase tracking-wider flex items-center">
+                  <label className="text-xs font-bold text-neutral-600 uppercase tracking-wider flex items-center">
                     End Time
                   </label>
-                  <div className="relative flex items-center border border-zinc-200 rounded-xl bg-white px-3 py-2 focus-within:ring-1 focus-within:ring-zinc-950 focus-within:border-zinc-950 transition-all">
-                    <Clock className="h-4 w-4 text-zinc-450 mr-2" />
-                    <span className="text-xs font-extrabold text-zinc-805">
+                  <div className="relative flex items-center border border-neutral-200 rounded-xl bg-white px-3 py-2 focus-within:ring-4 focus-within:ring-neutral-900/5 focus-within:border-neutral-900 transition-all h-10">
+                    <Clock className="h-4 w-4 text-neutral-400 mr-2" />
+                    <span className="text-xs font-semibold text-neutral-855">
                       {formatTimeToAMPM(editEndTime) || "Select End Time"}
                     </span>
                     <input
@@ -1026,18 +1006,18 @@ export default function TimesheetReviewPage() {
                 </div>
               </div>
 
-              <div className="bg-zinc-50 border border-zinc-200 rounded-xl p-3 flex justify-between items-center animate-fade-in">
-                <span className="text-[10px] font-extrabold uppercase tracking-wider text-zinc-700 flex items-center gap-1.5">
-                  <Clock className="h-3.5 w-3.5 text-zinc-500" />
+              <div className="bg-neutral-50 border border-neutral-200 rounded-xl p-3 flex justify-between items-center animate-fade-in">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-600 flex items-center gap-1.5">
+                  <Clock className="h-3.5 w-3.5 text-neutral-500" />
                   Calculated Hours
                 </span>
-                <span className="text-sm font-extrabold text-zinc-950">
+                <span className="text-sm font-bold text-neutral-955">
                   {editTotalHoursCalculated.text}
                 </span>
               </div>
 
               <div className="flex flex-col space-y-1.5">
-                <label className="text-xs font-bold text-zinc-755 uppercase tracking-wider">
+                <label className="text-xs font-bold text-neutral-600 uppercase tracking-wider">
                   Notes (Optional)
                 </label>
                 <textarea
@@ -1045,27 +1025,27 @@ export default function TimesheetReviewPage() {
                   rows={2}
                   value={editNotes}
                   onChange={(e) => setEditNotes(e.target.value)}
-                  className="w-full bg-white border border-zinc-200 rounded-xl py-2 px-3 text-xs text-zinc-800 font-semibold focus:outline-none focus:ring-1 focus:ring-zinc-950 focus:border-zinc-950 transition-all resize-none"
+                  className="w-full bg-white border border-neutral-200 rounded-xl py-2 px-3 text-xs text-neutral-800 font-semibold focus:outline-none focus:border-neutral-900 focus:ring-4 focus:ring-neutral-900/5 transition resize-none"
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-3 pt-3 border-t border-zinc-150">
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-neutral-100">
                 <button
                   type="button"
                   onClick={() => setEditingTimesheet(null)}
                   disabled={editSubmitting}
-                  className="bg-white hover:bg-zinc-50 border border-zinc-200 text-zinc-700 rounded-xl px-4 py-2 text-xs font-bold uppercase tracking-wider shadow-2xs cursor-pointer transition-colors"
+                  className="bg-white hover:bg-neutral-50 border border-neutral-200 text-neutral-700 rounded-full px-5 py-2.5 text-xs font-semibold shadow-xs cursor-pointer transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={editSubmitting}
-                  className="bg-zinc-950 hover:bg-black text-white rounded-xl px-5 py-2 text-xs font-bold uppercase tracking-wider shadow-sm flex items-center gap-2 cursor-pointer transition-colors disabled:opacity-50"
+                  className="bg-neutral-900 hover:bg-neutral-850 text-white rounded-full px-5 py-2.5 text-xs font-semibold shadow-sm flex items-center gap-2 cursor-pointer transition-colors disabled:opacity-50"
                 >
                   {editSubmitting ? (
                     <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <Loader2 className="h-4 w-4 animate-spin text-white" />
                       Saving...
                     </>
                   ) : (
