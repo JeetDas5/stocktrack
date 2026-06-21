@@ -2,7 +2,7 @@
 
 interface TimePickerProps {
   value: string; // "HH:MM" in 24h format
-  onChange: (timeStr: string) => void;
+  onChange: (timeStr: string, source: "hour" | "minute" | "period") => void;
   className?: string;
 }
 
@@ -51,17 +51,17 @@ export default function TimePicker({
 
   const handleSelectHour = (h: number) => {
     const new24h = to24Hour(h, currentMin, currentPeriod);
-    onChange(new24h);
+    onChange(new24h, "hour");
   };
 
   const handleSelectMinute = (m: string) => {
     const new24h = to24Hour(currentHour12, m, currentPeriod);
-    onChange(new24h);
+    onChange(new24h, "minute");
   };
 
   const handleSelectPeriod = (p: string) => {
     const new24h = to24Hour(currentHour12, currentMin, p);
-    onChange(new24h);
+    onChange(new24h, "period");
   };
 
   return (

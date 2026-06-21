@@ -1,6 +1,6 @@
 # NexBrix — Design System & Agent Instructions
 
-> Use this file as the single source of truth when building, redesigning, or extending any page in this project. Every new screen MUST follow the patterns documented here so the experience stays cohesive.
+> Use this file as the single source of truth when building, redesigning, or creating any page in this project. Every new screen MUST follow the patterns documented here so the experience stays cohesive.
 
 The aesthetic target is: **"If Apple launched a Business Operating System for small businesses."**
 
@@ -11,13 +11,13 @@ The aesthetic target is: **"If Apple launched a Business Operating System for sm
 | Layer      | Choice                                                                                              |
 | ---------- | --------------------------------------------------------------------------------------------------- |
 | Framework  | Next.js 16 — App Router                                                                             |
-| Language   | TypeScript (avoid using `any` unless necessary)                                                     |
+| Language   | TypeScript (avoid using `any` unless extreme necessary)                                                     |
 | Styling    | Tailwind CSS (semantic neutrals, no custom hex outside this guide)                                  |
 | Components | Custom design ,(similar to shadcn) (in `@/components/ui/*`) or build new components with similar ui |
 | Icons      | `lucide-react` only                                                                                 |
 | Motion     | `framer-motion` only                                                                                |
 | Fonts      | `Inter` via `next/font/google`, weights 300–900                                                     |
-| DB         | MongoDB via `DATABASE_URL` env                                                                      |
+| DB         | MongoDB database via `DATABASE_URL` env                                                                      |
 
 Do **not** introduce Material UI, Chakra, daisyUI, custom CSS-in-JS libraries, or icon libraries beyond `lucide-react`.
 

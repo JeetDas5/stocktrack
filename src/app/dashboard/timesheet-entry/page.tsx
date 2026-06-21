@@ -9,7 +9,6 @@ import {
   ChevronLeft,
   ChevronRight,
   X,
-  Send,
   Loader2,
   Copy,
   Search,
@@ -36,6 +35,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { cn } from "@/lib/utils";
 
 const PROJECT_OPTIONS = [
   "Inventory Check",
@@ -105,6 +105,26 @@ export default function TimesheetEntryPage() {
     return monday;
   };
 
+  const isCurrentWeek = (monday: Date) => {
+    const today = new Date();
+    const day = today.getDay();
+    const diff = today.getDate() - day + (day === 0 ? -6 : 1);
+    const currentMonday = new Date(today.setDate(diff));
+    currentMonday.setHours(0, 0, 0, 0);
+    return monday.getTime() === currentMonday.getTime();
+  };
+
+  const formatWeekRangeShort = (monday: Date) => {
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+    const formatD = (d: Date) => {
+      const day = d.getDate();
+      const month = d.getMonth() + 1;
+      return `${day.toString().padStart(2, "0")}/${month.toString().padStart(2, "0")}`;
+    };
+    return `${formatD(monday)} - ${formatD(sunday)}`;
+  };
+
   const isFutureDate = (dateStr: string) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -130,30 +150,6 @@ export default function TimesheetEntryPage() {
       });
     }
     return days;
-  };
-
-  const formatWeekRange = (monday: Date) => {
-    const sunday = new Date(monday);
-    sunday.setDate(monday.getDate() + 6);
-    const formatDate = (d: Date) => {
-      const day = d.getDate();
-      const months = [
-        "Jan",
-        "Feb",
-        "Mar",
-        "Apr",
-        "May",
-        "Jun",
-        "Jul",
-        "Aug",
-        "Sep",
-        "Oct",
-        "Nov",
-        "Dec",
-      ];
-      return `${day} ${months[d.getMonth()]} ${d.getFullYear()}`;
-    };
-    return `${formatDate(monday)} - ${formatDate(sunday)}`;
   };
 
   useEffect(() => {
@@ -560,17 +556,6 @@ export default function TimesheetEntryPage() {
       .toUpperCase();
   };
 
-  const getAvatarColor = (name: string) => {
-    const hash = name
-      .split("")
-      .reduce((acc, char) => acc + char.charCodeAt(0), 0);
-    const colors = [
-      "bg-neutral-100 text-neutral-700 border-neutral-200",
-      "bg-neutral-50 text-neutral-800 border-neutral-200",
-    ];
-    return colors[hash % colors.length];
-  };
-
   if (authLoading || loadingContext) {
     return (
       <div className="h-[75vh] flex flex-col items-center justify-center bg-white text-black">
@@ -583,14 +568,14 @@ export default function TimesheetEntryPage() {
   }
 
   return (
-    <div className="flex flex-col bg-white h-[calc(100vh-120px)] md:h-[85vh] min-h-0 relative select-none">
+    <div className="flex flex-col bg-white h-[calc(100vh-120px)] md:h-[85vh] min-h-0 relative select-none pb-4">
       <div className="flex-1 min-h-0 flex flex-col space-y-4 pr-0 lg:pr-4">
-        <div className="bg-white border border-black/10 rounded-2xl py-4 px-5 md:py-5 md:px-4 flex justify-between items-center shadow-sm">
-          <h1 className="text-xl md:text-2xl font-extrabold text-black tracking-tight">
+        <div className="bg-white border border-neutral-200 rounded-3xl py-4 px-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 shadow-sm">
+          <h1 className="text-[28px] font-semibold text-neutral-900 tracking-tight">
             Enter Timesheet
           </h1>
-          <div className="flex items-center gap-2.5">
-            <div className="inline-flex items-center gap-1.5 border border-black/10 bg-white px-3.5 py-2 rounded-full text-black font-extrabold text-xs">
+          <div className="flex items-center gap-3">
+            <div className="inline-flex items-center bg-[#BAEBCE] text-[#0A2924] font-semibold px-4.5 py-2.5 rounded-full text-xs">
               Total Hours This week: {totalWeeklyHours.toFixed(1)}
             </div>
 
@@ -598,7 +583,7 @@ export default function TimesheetEntryPage() {
               type="button"
               onClick={handleCopyPreviousWeek}
               disabled={submitting}
-              className="inline-flex items-center gap-1.5 bg-black hover:bg-white hover:text-black border border-black/10 text-white px-4 py-2 rounded-full text-xs font-bold transition-all duration-200 cursor-pointer disabled:opacity-50"
+              className="inline-flex items-center gap-2 bg-[#0A2924] hover:bg-[#0A2924]/90 border border-[#0A2924] text-white px-5 py-2.5 rounded-full text-xs font-semibold transition-all duration-200 cursor-pointer disabled:opacity-50 shadow-sm"
             >
               <Copy className="w-3.5 h-3.5" />
               Copy Previous Week
@@ -608,19 +593,19 @@ export default function TimesheetEntryPage() {
 
         <div className="flex flex-col sm:flex-row gap-3 items-center justify-between">
           <div className="relative w-full sm:w-80">
-            <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-black">
+            <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-neutral-400">
               <Search className="h-4 w-4" />
             </span>
             <input
               type="text"
               placeholder="Search Timesheet"
-              className="w-full bg-white border border-black/10 focus:border-black/20 rounded-2xl py-2.5 pl-10 pr-4 text-xs text-black placeholder-black/50 focus:outline-none focus:ring-1 focus:ring-black/10 transition-all shadow-xs"
+              className="w-full bg-white border border-neutral-200 focus:border-neutral-900 focus:ring-4 focus:ring-neutral-900/5 rounded-xl py-2.5 pl-10 pr-4 text-xs font-medium text-neutral-900 placeholder-neutral-400 focus:outline-none transition shadow-2xs h-10"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
 
-          <div className="flex flex-col sm:flex-row gap-3 items-center w-full sm:w-auto">
+          <div className="flex flex-col sm:flex-row gap-3 items-center w-full sm:w-auto relative">
             {!isStaff && (
               <div className="w-full sm:w-56">
                 <Select
@@ -628,29 +613,29 @@ export default function TimesheetEntryPage() {
                   onValueChange={setStaffId}
                   disabled={submitting}
                 >
-                  <SelectTrigger className="w-full h-10 rounded-2xl border border-black/10 bg-white px-3.5 py-2 text-left focus:outline-none focus:border-black/20 focus:ring-1 focus:ring-black/10 transition cursor-pointer font-bold text-xs text-black hover:bg-black/5">
+                  <SelectTrigger className="w-full h-10 rounded-xl border border-neutral-200 bg-white px-3.5 py-2 text-left focus:outline-none focus:border-neutral-900 focus:ring-4 focus:ring-neutral-900/5 transition cursor-pointer font-semibold text-xs text-neutral-900 hover:bg-neutral-50">
                     {staffId ? (
                       <div className="flex items-center gap-2">
-                        <div className="h-5 w-5 rounded-full flex items-center justify-center font-extrabold text-[9px] border border-black/10 bg-white text-black">
+                        <div className="h-5 w-5 rounded-full flex items-center justify-center font-bold text-[9px] border border-neutral-200 bg-neutral-50 text-neutral-700">
                           {getInitials(selectedStaffName)}
                         </div>
                         <span className="truncate">{selectedStaffName}</span>
                       </div>
                     ) : (
-                      <span className="text-black/50 font-normal">
+                      <span className="text-neutral-400 font-normal">
                         Select Staff Member
                       </span>
                     )}
                   </SelectTrigger>
-                  <SelectContent className="rounded-xl border border-black/10 bg-white p-1 max-h-56">
+                  <SelectContent className="rounded-xl border border-neutral-200 bg-white p-1 max-h-56">
                     {filteredStaffList.map((staff) => (
                       <SelectItem
                         value={staff.id}
                         key={staff.id}
-                        className="rounded-lg px-3 py-2 text-xs font-bold hover:bg-black hover:text-white text-black cursor-pointer flex items-center gap-2.5"
+                        className="rounded-lg px-3 py-2 text-xs font-semibold hover:bg-neutral-50 hover:text-neutral-900 text-neutral-900 cursor-pointer flex items-center gap-2.5"
                       >
                         <div className="flex items-center gap-2">
-                          <div className="h-5 w-5 rounded-full flex items-center justify-center font-extrabold text-[9px] border border-black/10 bg-white text-black">
+                          <div className="h-5 w-5 rounded-full flex items-center justify-center font-bold text-[9px] border border-neutral-200 bg-neutral-50 text-neutral-700">
                             {getInitials(staff.name)}
                           </div>
                           <span>{staff.name}</span>
@@ -658,7 +643,7 @@ export default function TimesheetEntryPage() {
                       </SelectItem>
                     ))}
                     {filteredStaffList.length === 0 && (
-                      <div className="p-3 text-center text-xs text-black/50 font-bold">
+                      <div className="p-3 text-center text-xs text-neutral-400 font-semibold">
                         No staff members found
                       </div>
                     )}
@@ -668,45 +653,50 @@ export default function TimesheetEntryPage() {
             )}
 
             <div
-              className="flex items-center gap-1.5 w-full sm:w-auto justify-end"
+              className="relative w-full sm:w-auto flex justify-end"
               ref={calendarRef}
             >
-              <button
-                type="button"
-                onClick={handlePrevWeek}
-                disabled={submitting}
-                className="p-2 rounded-2xl border border-black/10 hover:bg-black hover:text-white transition cursor-pointer disabled:opacity-50 text-black shrink-0 h-10 w-10 flex items-center justify-center"
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setIsCalendarOpen(!isCalendarOpen)}
-                disabled={submitting}
-                className="flex items-center gap-2 px-3.5 py-2 border border-black/10 rounded-2xl bg-white hover:bg-black hover:text-white transition font-bold text-xs text-black cursor-pointer justify-center w-full sm:w-52 h-10"
-              >
-                <CalendarIcon className="h-4 w-4" />
-                <span className="truncate">
-                  {formatWeekRange(currentWeekStart)}
-                </span>
-              </button>
-
-              <button
-                type="button"
-                onClick={handleNextWeek}
-                disabled={submitting}
-                className="p-2 rounded-2xl border border-black/10 hover:bg-black hover:text-white transition cursor-pointer disabled:opacity-50 text-black shrink-0 h-10 w-10 flex items-center justify-center"
-              >
-                <ChevronRight className="h-4 w-4" />
-              </button>
+              <div className="flex items-center border border-neutral-200 rounded-xl bg-white h-10 px-3 select-none hover:bg-neutral-50/50 cursor-pointer transition-colors shadow-2xs w-full sm:w-auto">
+                <button
+                  type="button"
+                  onClick={() => setIsCalendarOpen(!isCalendarOpen)}
+                  disabled={submitting}
+                  className="flex items-center gap-2 text-neutral-700 hover:text-neutral-900 transition-colors font-semibold text-xs mr-3 cursor-pointer"
+                >
+                  <CalendarIcon className="h-4 w-4 text-neutral-400" />
+                  <span className="truncate">
+                    {isCurrentWeek(currentWeekStart)
+                      ? "This week"
+                      : formatWeekRangeShort(currentWeekStart)}
+                  </span>
+                </button>
+                <div className="w-px h-4 bg-neutral-200 mr-2" />
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={handlePrevWeek}
+                    disabled={submitting}
+                    className="p-1 text-neutral-400 hover:text-neutral-900 hover:bg-neutral-50 rounded-md transition cursor-pointer disabled:opacity-40"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleNextWeek}
+                    disabled={submitting}
+                    className="p-1 text-neutral-400 hover:text-neutral-900 hover:bg-neutral-50 rounded-md transition cursor-pointer disabled:opacity-40"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
 
               {isCalendarOpen && (
-                <div className="relative">
+                <div className="absolute right-0 top-11 z-50 animate-scale-in">
                   <Calendar
                     selectedDate={currentWeekStart.toISOString().split("T")[0]}
                     onChange={handleCalendarChange}
-                    className="right-0 left-auto top-2.5 shadow-2xl border-black/10"
+                    className="shadow-xl border border-neutral-200 rounded-2xl bg-white"
                   />
                 </div>
               )}
@@ -716,49 +706,58 @@ export default function TimesheetEntryPage() {
 
         <form
           onSubmit={handleSubmit}
-          className="flex-1 min-h-0 flex flex-col space-y-4"
+          className="flex-1 min-h-0 flex flex-col space-y-6"
         >
-          <div className="bg-white border border-black/10 rounded-2xl shadow-xs overflow-hidden flex-1 min-h-0 flex flex-col">
+          {/* Table Container Card */}
+          <div className="bg-white border border-neutral-200 rounded-3xl shadow-2xs overflow-hidden flex-1 min-h-0 flex flex-col">
             <div className="overflow-auto flex-1 min-h-0">
               <table className="w-full text-left border-collapse min-w-[1000px]">
                 <thead>
-                  <tr className="border-b border-black/10 text-[12px] font-extrabold uppercase tracking-wider text-black bg-white sticky top-0 z-10 text-center">
-                    <th className="py-4 px-6 font-extrabold">Day</th>
-                    <th className="py-4 px-6 font-extrabold">Date</th>
-                    <th className="py-4 px-3 font-extrabold">Start Time</th>
-                    <th className="py-4 px-3 font-extrabold">End Time</th>
-                    <th className="py-4 px-3 font-extrabold">
+                  <tr className="border-b border-neutral-200 text-[11px] font-semibold uppercase tracking-wider text-neutral-500 bg-white sticky top-0 z-10 text-center">
+                    <th className="py-4 px-6 text-left font-semibold">Day</th>
+                    <th className="py-4 px-6 text-left font-semibold">Date</th>
+                    <th className="py-4 px-3 text-center font-semibold">
+                      Start Time
+                    </th>
+                    <th className="py-4 px-3 text-center font-semibold">
+                      End Time
+                    </th>
+                    <th className="py-4 px-3 text-center font-semibold">
                       Unpaid Break (Mins)
                     </th>
-                    <th className="py-4 px-3 font-extrabold">Total Hours</th>
-                    <th className="py-4 px-3 font-extrabold">Project</th>
-                    <th className="py-4 px-3 font-extrabold">Notes</th>
+                    <th className="py-4 px-3 text-center font-semibold">
+                      Total Hours
+                    </th>
+                    <th className="py-4 px-3 text-left font-semibold">
+                      Project
+                    </th>
+                    <th className="py-4 px-3 text-left font-semibold">Notes</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-black/10 text-xs text-black bg-white">
+                <tbody className="divide-y divide-neutral-200 text-xs text-neutral-800 bg-white">
                   {filteredWeekRows.map(({ row, index: idx }) => {
                     const isApproved = row.status === "approved";
-                    const isRejected = row.status === "rejected";
                     const hours = calculateRowHours(
                       row.startTime,
                       row.endTime,
                       row.unpaidBreak,
                     );
+                    const hasProjectSelected = !!row.project;
 
                     return (
                       <tr
                         key={row.dateStr}
-                        className={`hover:bg-black/5 transition-colors text-center ${
-                          row.isFuture
-                            ? "opacity-45 select-none bg-black/2"
-                            : ""
-                        }`}
+                        className={cn(
+                          "hover:bg-neutral-50/50 transition-colors text-center",
+                          row.isFuture &&
+                            "opacity-45 select-none bg-neutral-50/20",
+                        )}
                       >
-                        <td className="py-4 px-6 font-bold text-black text-center">
+                        <td className="py-4 px-6 font-semibold text-neutral-900 text-left">
                           {row.dayName}
                         </td>
 
-                        <td className="py-4 px-6 text-black text-center">
+                        <td className="py-4 px-6 text-neutral-600 text-left">
                           {row.displayDate}
                         </td>
 
@@ -768,7 +767,7 @@ export default function TimesheetEntryPage() {
                         >
                           <div className="relative">
                             {row.isFuture || isApproved ? (
-                              <div className="flex items-center justify-center w-full border border-black/10 rounded-lg bg-black/3 px-2.5 py-1.5 font-bold text-xs text-black/50 h-9">
+                              <div className="flex items-center justify-center w-full border border-neutral-200/60 rounded-xl bg-neutral-100 px-3 py-2 font-medium text-[13px] text-neutral-400 h-10">
                                 {row.startTime
                                   ? formatTimeToAMPM(row.startTime)
                                   : "—"}
@@ -784,25 +783,27 @@ export default function TimesheetEntryPage() {
                                       type: "start",
                                     })
                                   }
-                                  className="flex items-center justify-between gap-2 w-full border border-black/10 rounded-lg bg-white px-2.5 py-1.5 text-left focus:outline-none focus:border-black/20 focus:ring-1 focus:ring-black/10 transition hover:bg-black hover:text-white group cursor-pointer font-bold text-xs text-black h-9 disabled:opacity-50"
+                                  className="flex items-center justify-between w-full border border-neutral-200 rounded-xl bg-white hover:bg-neutral-50 px-3 py-2 text-left focus:outline-none focus:border-neutral-900 focus:ring-4 focus:ring-neutral-900/5 transition group cursor-pointer font-medium text-[13px] text-neutral-900 h-10 disabled:opacity-50"
                                 >
                                   <span>
                                     {row.startTime
                                       ? formatTimeToAMPM(row.startTime)
                                       : "—"}
                                   </span>
-                                  <ChevronDown className="w-3.5 h-3.5 text-black/40 group-hover:text-white shrink-0" />
+                                  <ChevronDown className="w-4 h-4 text-neutral-400 group-hover:text-neutral-600 shrink-0 transition-colors" />
                                 </button>
 
                                 {openTimePicker?.dayIndex === idx &&
                                   openTimePicker?.type === "start" && (
                                     <TimePicker
                                       value={row.startTime}
-                                      onChange={(val) => {
+                                      onChange={(val, source) => {
                                         handleTimeChange(idx, "start", val);
-                                        setOpenTimePicker(null);
+                                        if (source === "period") {
+                                          setOpenTimePicker(null);
+                                        }
                                       }}
-                                      className="left-0 right-auto shadow-2xl border-black/10"
+                                      className="left-0 right-auto shadow-2xl border border-neutral-200 rounded-2xl"
                                     />
                                   )}
                               </>
@@ -816,7 +817,7 @@ export default function TimesheetEntryPage() {
                         >
                           <div className="relative">
                             {row.isFuture || isApproved ? (
-                              <div className="flex items-center justify-center w-full border border-black/10 rounded-lg bg-black/3 px-2.5 py-1.5 font-bold text-xs text-black/50 h-9">
+                              <div className="flex items-center justify-center w-full border border-neutral-200/60 rounded-xl bg-neutral-100 px-3 py-2 font-medium text-[13px] text-neutral-400 h-10">
                                 {row.endTime
                                   ? formatTimeToAMPM(row.endTime)
                                   : "—"}
@@ -832,25 +833,27 @@ export default function TimesheetEntryPage() {
                                       type: "end",
                                     })
                                   }
-                                  className="flex items-center justify-between gap-2 w-full border border-black/10 rounded-lg bg-white px-2.5 py-1.5 text-left focus:outline-none focus:border-black/20 focus:ring-1 focus:ring-black/10 transition hover:bg-black hover:text-white group cursor-pointer font-bold text-xs text-black h-9 disabled:opacity-50"
+                                  className="flex items-center justify-between w-full border border-neutral-200 rounded-xl bg-white hover:bg-neutral-50 px-3 py-2 text-left focus:outline-none focus:border-neutral-900 focus:ring-4 focus:ring-neutral-900/5 transition group cursor-pointer font-medium text-[13px] text-neutral-900 h-10 disabled:opacity-50"
                                 >
                                   <span>
                                     {row.endTime
                                       ? formatTimeToAMPM(row.endTime)
                                       : "—"}
                                   </span>
-                                  <ChevronDown className="w-3.5 h-3.5 text-black/40 group-hover:text-white shrink-0" />
+                                  <ChevronDown className="w-4 h-4 text-neutral-400 group-hover:text-neutral-600 shrink-0 transition-colors" />
                                 </button>
 
                                 {openTimePicker?.dayIndex === idx &&
                                   openTimePicker?.type === "end" && (
                                     <TimePicker
                                       value={row.endTime}
-                                      onChange={(val) => {
+                                      onChange={(val, source) => {
                                         handleTimeChange(idx, "end", val);
-                                        setOpenTimePicker(null);
+                                        if (source === "period") {
+                                          setOpenTimePicker(null);
+                                        }
                                       }}
-                                      className="left-0 right-auto shadow-2xl border-black/10"
+                                      className="left-0 right-auto shadow-2xl border border-neutral-200 rounded-2xl"
                                     />
                                   )}
                               </>
@@ -858,43 +861,83 @@ export default function TimesheetEntryPage() {
                           </div>
                         </td>
 
-                        {/* Unpaid Break */}
+                        {/* Unpaid Break with spinner */}
                         <td className="py-4 px-3 text-center">
                           {row.isFuture || isApproved ? (
-                            <div className="w-full border border-black/10 rounded-lg bg-black/[0.03] px-2 py-1.5 text-center font-bold text-xs text-black/50 h-9 flex items-center justify-center">
+                            <div className="w-20 mx-auto border border-neutral-200/60 rounded-xl bg-neutral-100 px-2 py-2 text-center font-medium text-[13px] text-neutral-400 h-10 flex items-center justify-center">
                               {row.unpaidBreak}
                             </div>
                           ) : (
-                            <input
-                              type="number"
-                              min="0"
-                              step="5"
-                              disabled={
-                                submitting || (!row.startTime && !row.endTime)
-                              }
-                              value={row.unpaidBreak}
-                              onChange={(e) =>
-                                handleBreakChange(idx, e.target.value)
-                              }
-                              className="w-full border border-black/10 rounded-lg bg-white px-2 py-1.5 text-center focus:outline-none focus:border-black/20 focus:ring-1 focus:ring-black/10 transition disabled:opacity-50 disabled:bg-black/[0.02] disabled:cursor-not-allowed font-bold text-xs text-black h-9"
-                            />
+                            <div className="relative w-24 mx-auto">
+                              <input
+                                type="number"
+                                min="0"
+                                step="5"
+                                disabled={
+                                  submitting || (!row.startTime && !row.endTime)
+                                }
+                                value={row.unpaidBreak}
+                                onChange={(e) =>
+                                  handleBreakChange(idx, e.target.value)
+                                }
+                                className="w-full border border-neutral-200 rounded-xl bg-white pl-3 pr-8 py-2 text-center focus:outline-none focus:border-neutral-900 focus:ring-4 focus:ring-neutral-900/5 transition disabled:opacity-50 disabled:bg-neutral-50 disabled:cursor-not-allowed font-medium text-[13px] text-neutral-900 h-10 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                              />
+                              <div className="absolute right-1 top-1/2 -translate-y-1/2 flex flex-col gap-0.5 pr-1.5">
+                                <button
+                                  type="button"
+                                  disabled={
+                                    submitting ||
+                                    (!row.startTime && !row.endTime)
+                                  }
+                                  onClick={() => {
+                                    const currentVal =
+                                      parseInt(row.unpaidBreak, 10) || 0;
+                                    handleBreakChange(
+                                      idx,
+                                      (currentVal + 5).toString(),
+                                    );
+                                  }}
+                                  className="text-neutral-400 hover:text-neutral-800 disabled:opacity-40 cursor-pointer"
+                                >
+                                  <ChevronDown className="w-3.5 h-3.5 rotate-180" />
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={
+                                    submitting ||
+                                    (!row.startTime && !row.endTime)
+                                  }
+                                  onClick={() => {
+                                    const currentVal =
+                                      parseInt(row.unpaidBreak, 10) || 0;
+                                    handleBreakChange(
+                                      idx,
+                                      Math.max(0, currentVal - 5).toString(),
+                                    );
+                                  }}
+                                  className="text-neutral-400 hover:text-neutral-800 disabled:opacity-40 cursor-pointer"
+                                >
+                                  <ChevronDown className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </div>
                           )}
                         </td>
 
                         {/* Total Hours */}
                         <td className="py-4 px-3 text-center">
-                          <span className="text-xs font-extrabold text-black">
-                            {hours > 0 ? hours.toFixed(2) : "0.00"}
+                          <span className="text-[14px] font-semibold text-neutral-900">
+                            {hours > 0 ? hours.toFixed(1) : "0.0"}
                           </span>
                         </td>
 
                         <td
-                          className="py-4 px-3 text-center"
+                          className="py-4 px-3 text-left"
                           id={`projectcell-${idx}`}
                         >
                           <div className="relative">
                             {row.isFuture || isApproved ? (
-                              <div className="w-full border border-black/10 rounded-lg bg-black/3 px-2.5 py-1.5 font-bold text-xs text-black/50 h-9 flex items-center justify-center truncate">
+                              <div className="w-full font-semibold text-[13px] text-emerald-700/60 py-2 truncate">
                                 {row.project || "—"}
                               </div>
                             ) : (
@@ -910,15 +953,22 @@ export default function TimesheetEntryPage() {
                                       (!row.startTime && !row.endTime)
                                     }
                                   >
-                                    <SelectTrigger className="flex items-center justify-between gap-1.5 w-full border border-black/10 rounded-lg bg-white px-2.5 py-1.5 text-left focus:outline-none focus:border-black/20 focus:ring-1 focus:ring-black/10 transition hover:bg-black/5 disabled:opacity-50 disabled:cursor-not-allowed font-bold text-xs text-black h-9 cursor-pointer">
+                                    <SelectTrigger
+                                      className={cn(
+                                        "flex items-center justify-between w-full border border-neutral-200 rounded-xl bg-white px-3 py-2 text-left focus:outline-none focus:border-neutral-900 focus:ring-4 focus:ring-neutral-900/5 transition hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed font-semibold text-[13px] h-10 cursor-pointer",
+                                        row.project
+                                          ? "text-emerald-700"
+                                          : "text-neutral-400 font-medium",
+                                      )}
+                                    >
                                       <SelectValue placeholder="Select Project" />
                                     </SelectTrigger>
-                                    <SelectContent className="rounded-xl border border-black/10 bg-white p-1 max-h-56 z-50">
+                                    <SelectContent className="rounded-xl border border-neutral-200 bg-white p-1 max-h-56 z-50">
                                       {PROJECT_OPTIONS.map((opt) => (
                                         <SelectItem
                                           value={opt}
                                           key={opt}
-                                          className="rounded-lg px-3 py-2 text-xs font-bold hover:bg-black hover:text-white text-black cursor-pointer"
+                                          className="rounded-lg px-3 py-2 text-[13px] font-semibold text-emerald-700 focus:bg-emerald-50 focus:text-emerald-800 hover:bg-emerald-50 hover:text-emerald-800 cursor-pointer"
                                         >
                                           {opt}
                                         </SelectItem>
@@ -942,7 +992,7 @@ export default function TimesheetEntryPage() {
                                         );
                                       }}
                                       placeholder="Project Name..."
-                                      className="w-full border border-black/10 rounded-lg bg-white pl-2.5 pr-7 py-1.5 text-xs font-bold text-black focus:outline-none focus:border-black/20 focus:ring-1 focus:ring-black/10 transition h-9"
+                                      className="w-full border border-neutral-200 rounded-xl bg-white pl-3 pr-8 py-2 text-[13px] font-semibold text-emerald-700 focus:outline-none focus:border-neutral-900 focus:ring-4 focus:ring-neutral-900/5 transition h-10 placeholder-neutral-400"
                                     />
                                     <button
                                       type="button"
@@ -955,9 +1005,9 @@ export default function TimesheetEntryPage() {
                                           ),
                                         );
                                       }}
-                                      className="absolute right-2.5 text-black hover:opacity-70 cursor-pointer"
+                                      className="absolute right-2.5 text-neutral-400 hover:text-neutral-600 cursor-pointer animate-fade-in"
                                     >
-                                      <X className="w-3.5 h-3.5" />
+                                      <X className="w-4 h-4" />
                                     </button>
                                   </div>
                                 )}
@@ -967,9 +1017,9 @@ export default function TimesheetEntryPage() {
                         </td>
 
                         {/* Notes */}
-                        <td className="py-4 px-4 text-center">
+                        <td className="py-4 px-3 text-left">
                           {row.isFuture || isApproved ? (
-                            <div className="w-full border border-black/10 rounded-lg bg-black/[0.03] px-2.5 py-1.5 text-left font-bold text-xs text-black/50 h-9 flex items-center truncate">
+                            <div className="w-full border border-neutral-200/60 rounded-xl bg-neutral-100 px-3 py-2 text-left font-medium text-[13px] text-neutral-400 h-10 flex items-center truncate">
                               {row.notes || "—"}
                             </div>
                           ) : (
@@ -983,7 +1033,7 @@ export default function TimesheetEntryPage() {
                                 handleNotesChange(idx, e.target.value)
                               }
                               placeholder="Add Notes..."
-                              className="w-full border border-black/10 rounded-lg bg-white px-2.5 py-1.5 text-xs font-bold text-black placeholder-black/40 focus:outline-none focus:border-black/20 focus:ring-1 focus:ring-black/10 transition disabled:opacity-50 disabled:cursor-not-allowed h-9"
+                              className="w-full border border-neutral-200 rounded-xl bg-white px-3 py-2 text-[13px] font-medium text-neutral-900 placeholder-neutral-400 focus:outline-none focus:border-neutral-900 focus:ring-4 focus:ring-neutral-900/5 transition disabled:opacity-50 disabled:bg-neutral-50 disabled:cursor-not-allowed h-10"
                             />
                           )}
                         </td>
@@ -995,33 +1045,28 @@ export default function TimesheetEntryPage() {
             </div>
           </div>
 
-          {/* Action buttons at the bottom */}
-          <div className="flex items-center justify-between pt-2 pb-4 bg-white">
+          <div className="flex items-center justify-between bg-white">
             <button
               type="button"
               onClick={handleClearAll}
               disabled={submitting}
-              className="inline-flex items-center gap-1.5 bg-white text-black px-5 py-2.5 rounded-full text-xs font-bold border border-black/10 hover:bg-black hover:text-white transition-colors cursor-pointer disabled:opacity-50 shadow-xs"
+              className="inline-flex items-center bg-white text-neutral-700 px-5 py-2 rounded-full text-[14px] font-semibold border border-neutral-200 hover:border-neutral-300 transition-colors duration-200 cursor-pointer disabled:opacity-50 shadow-xs animate-fade-in"
             >
-              <X className="h-4 w-4" />
               Clear All
             </button>
 
             <button
               type="submit"
               disabled={submitting}
-              className="inline-flex items-center gap-1.5 bg-black text-white px-6 py-2.5 rounded-full text-xs font-bold tracking-wide hover:bg-white hover:text-black border border-black/10 transition-all hover:gap-2.5 cursor-pointer disabled:opacity-50 shadow-sm"
+              className="inline-flex items-center bg-[#0A2924] hover:bg-[#0A2924]/90 border border-[#0A2924] text-white px-5 py-2 rounded-full text-[14px] font-semibold transition-colors duration-200 cursor-pointer disabled:opacity-50 shadow-sm animate-fade-in"
             >
               {submitting ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Submitting...
-                </>
+                <div className="flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin text-white" />
+                  <span>Submitting...</span>
+                </div>
               ) : (
-                <>
-                  Submit Timesheet
-                  <Send className="h-4 w-4" />
-                </>
+                <span>Submit Timesheet</span>
               )}
             </button>
           </div>
