@@ -789,7 +789,7 @@ export default function StaffDirectoryPage() {
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                   <thead>
-                    <tr className="border-b border-zinc-200 text-[10px] uppercase font-extrabold tracking-wider text-[#64748B] bg-zinc-50/50">
+                    <tr className="border-b border-zinc-200 text-[10px] uppercase font-extrabold tracking-wider text-[#64748B] bg-zinc-50/50 text-center">
                       <th
                         onClick={() => handleSort("name")}
                         className="py-4 px-6 font-extrabold cursor-pointer hover:bg-zinc-100 transition duration-150 select-none"
@@ -813,13 +813,13 @@ export default function StaffDirectoryPage() {
                       </th>
                       <th
                         onClick={() => handleSort("assigned_locations")}
-                        className="py-4 px-6 font-extrabold cursor-pointer hover:bg-zinc-100 transition duration-150 select-none"
+                        className="py-4 px-4 text-center font-extrabold cursor-pointer hover:bg-zinc-100 transition duration-150 select-none"
                       >
                         Locations
                       </th>
                       <th
                         onClick={() => handleSort("status")}
-                        className="py-4 px-6 font-extrabold cursor-pointer hover:bg-zinc-100 transition duration-150 select-none"
+                        className="py-4 px-4 mx-auto text-center font-extrabold cursor-pointer hover:bg-zinc-100 transition duration-150 select-none"
                       >
                         Status
                       </th>
@@ -875,33 +875,32 @@ export default function StaffDirectoryPage() {
                           )}
                         </td>
                         <td className="py-4 px-6 text-zinc-700">
-                          <div className="flex flex-wrap gap-1 items-center">
-                            {s.locations && s.locations.length > 0 ? (
-                              s.locations.map((loc) => (
+                          {s.locations && s.locations.length > 0 ? (
+                            <div className="w-40 mx-auto flex flex-col items-start gap-1">
+                              {s.locations.map((loc) => (
                                 <span
                                   key={loc.id}
-                                  className="inline-flex items-center gap-1 text-[11px] font-semibold text-zinc-700 bg-zinc-100 border border-zinc-200/50 rounded-md px-2 py-0.5"
+                                  className="inline-flex items-center gap-1 text-[12px] text-zinc-700 border border-zinc-200/50 rounded-md px-2 py-0.5"
                                 >
-                                  <MapPin className="h-3 w-3 text-zinc-400" />
                                   {loc.name}
                                 </span>
-                              ))
-                            ) : (
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="text-center">
                               <span className="text-zinc-400 font-medium italic">
                                 No location assignments
                               </span>
-                            )}
-                          </div>
+                            </div>
+                          )}
                         </td>
                         <td className="py-4 px-6">
                           {s.status === "Active" ? (
-                            <span className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-[10px] font-extrabold bg-[#DEF7EC] text-[#03543F] w-fit leading-none shadow-3xs">
-                              <span className="h-1.5 w-1.5 rounded-full bg-[#0E9F6E] shrink-0" />
+                            <span className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-[12px] text-[#0C830C] w-fit leading-none shadow-3xs">
                               ACTIVE
                             </span>
                           ) : (
-                            <span className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-[10px] font-extrabold bg-[#FDE8E8] text-[#9B1C1C] w-fit leading-none shadow-3xs">
-                              <span className="h-1.5 w-1.5 rounded-full bg-[#F05252] shrink-0" />
+                            <span className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-[12px] text-[#9B1C1C] w-fit leading-none shadow-3xs">
                               INACTIVE
                             </span>
                           )}
