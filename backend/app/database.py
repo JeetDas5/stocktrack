@@ -27,7 +27,7 @@ engine = create_engine(
 )
 
 
-from sqlalchemy import text
+from sqlalchemy import text, inspect
 
 def init_db():
     SQLModel.metadata.create_all(engine)
@@ -35,6 +35,49 @@ def init_db():
         with Session(engine) as session:
             session.execute(text("ALTER TABLE timesheets ADD COLUMN IF NOT EXISTS project VARCHAR"))
             session.commit()
+            
+            # Check and add new profile columns dynamically to the users table
+            inspector = inspect(engine)
+            columns = [col['name'] for col in inspector.get_columns('users')]
+            
+            new_columns = {
+                "first_name": "VARCHAR",
+                "last_name": "VARCHAR",
+                "gender": "VARCHAR",
+                "date_of_birth": "VARCHAR",
+                "address_line1": "VARCHAR",
+                "country": "VARCHAR",
+                "suburb": "VARCHAR",
+                "state": "VARCHAR",
+                "post_code": "VARCHAR",
+                "driving_license_number": "VARCHAR",
+                "license_expiry_date": "VARCHAR",
+                "emergency_contact_name": "VARCHAR",
+                "emergency_contact_relationship": "VARCHAR",
+                "emergency_contact_phone": "VARCHAR",
+                "emergency_contact_email": "VARCHAR",
+                "tax_file_number": "VARCHAR",
+                "super_fund_name": "VARCHAR",
+                "super_fund_member_no": "VARCHAR",
+                "bank_account_name": "VARCHAR",
+                "bank_bsb": "VARCHAR",
+                "bank_account_number": "VARCHAR",
+                "weekly_work_hours": "FLOAT",
+                "residency_status": "VARCHAR",
+                "visa_expiry_date": "VARCHAR",
+                "employee_id": "VARCHAR",
+                "position": "VARCHAR",
+                "reports_to": "VARCHAR",
+                "employment_type": "VARCHAR"
+            }
+            
+            mutated = False
+            for col_name, col_type in new_columns.items():
+                if col_name not in columns:
+                    session.execute(text(f"ALTER TABLE users ADD COLUMN {col_name} {col_type}"))
+                    mutated = True
+            if mutated:
+                session.commit()
     except Exception as e:
         print(f"Database migration note: {e}")
 

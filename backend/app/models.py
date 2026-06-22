@@ -25,6 +25,39 @@ class User(SQLModel, table=True):
     start_date: datetime = Field(default_factory=datetime.utcnow)
     is_internal: bool = Field(default=False)
 
+    # Profile Page Fields
+    first_name: Optional[str] = Field(default=None)
+    last_name: Optional[str] = Field(default=None)
+    gender: Optional[str] = Field(default=None)
+    date_of_birth: Optional[str] = Field(default=None)
+    address_line1: Optional[str] = Field(default=None)
+    country: Optional[str] = Field(default=None)
+    suburb: Optional[str] = Field(default=None)
+    state: Optional[str] = Field(default=None)
+    post_code: Optional[str] = Field(default=None)
+    driving_license_number: Optional[str] = Field(default=None)
+    license_expiry_date: Optional[str] = Field(default=None)
+
+    emergency_contact_name: Optional[str] = Field(default=None)
+    emergency_contact_relationship: Optional[str] = Field(default=None)
+    emergency_contact_phone: Optional[str] = Field(default=None)
+    emergency_contact_email: Optional[str] = Field(default=None)
+
+    tax_file_number: Optional[str] = Field(default=None)
+    super_fund_name: Optional[str] = Field(default=None)
+    super_fund_member_no: Optional[str] = Field(default=None)
+    bank_account_name: Optional[str] = Field(default=None)
+    bank_bsb: Optional[str] = Field(default=None)
+    bank_account_number: Optional[str] = Field(default=None)
+    weekly_work_hours: Optional[float] = Field(default=None)
+    residency_status: Optional[str] = Field(default=None)
+    visa_expiry_date: Optional[str] = Field(default=None)
+
+    employee_id: Optional[str] = Field(default=None)
+    position: Optional[str] = Field(default=None)
+    reports_to: Optional[str] = Field(default=None)
+    employment_type: Optional[str] = Field(default=None)
+
     businesses: List["Business"] = Relationship(back_populates="created_by")
 
 

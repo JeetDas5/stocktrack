@@ -39,6 +39,69 @@ class UserMeOut(SQLModel):
     created_at: datetime
     updated_at: datetime
     start_date: datetime
+    image: Optional[str] = None
+    
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    gender: Optional[str] = None
+    date_of_birth: Optional[str] = None
+    address_line1: Optional[str] = None
+    country: Optional[str] = None
+    suburb: Optional[str] = None
+    state: Optional[str] = None
+    post_code: Optional[str] = None
+    driving_license_number: Optional[str] = None
+    license_expiry_date: Optional[str] = None
+    emergency_contact_name: Optional[str] = None
+    emergency_contact_relationship: Optional[str] = None
+    emergency_contact_phone: Optional[str] = None
+    emergency_contact_email: Optional[str] = None
+    tax_file_number: Optional[str] = None
+    super_fund_name: Optional[str] = None
+    super_fund_member_no: Optional[str] = None
+    bank_account_name: Optional[str] = None
+    bank_bsb: Optional[str] = None
+    bank_account_number: Optional[str] = None
+    weekly_work_hours: Optional[float] = None
+    residency_status: Optional[str] = None
+    visa_expiry_date: Optional[str] = None
+    employee_id: Optional[str] = None
+    position: Optional[str] = None
+    reports_to: Optional[str] = None
+    employment_type: Optional[str] = None
+
+
+class UserUpdate(SQLModel):
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    phone: Optional[str] = None
+    gender: Optional[str] = None
+    date_of_birth: Optional[str] = None
+    address_line1: Optional[str] = None
+    country: Optional[str] = None
+    suburb: Optional[str] = None
+    state: Optional[str] = None
+    post_code: Optional[str] = None
+    driving_license_number: Optional[str] = None
+    license_expiry_date: Optional[str] = None
+    emergency_contact_name: Optional[str] = None
+    emergency_contact_relationship: Optional[str] = None
+    emergency_contact_phone: Optional[str] = None
+    emergency_contact_email: Optional[str] = None
+    tax_file_number: Optional[str] = None
+    super_fund_name: Optional[str] = None
+    super_fund_member_no: Optional[str] = None
+    bank_account_name: Optional[str] = None
+    bank_bsb: Optional[str] = None
+    bank_account_number: Optional[str] = None
+    weekly_work_hours: Optional[float] = None
+    residency_status: Optional[str] = None
+    visa_expiry_date: Optional[str] = None
+    # Read-only fields that are updateable only by admins
+    employee_id: Optional[str] = None
+    position: Optional[str] = None
+    reports_to: Optional[str] = None
+    employment_type: Optional[str] = None
 
 
 @router.get("/api/users/me", response_model=UserMeOut)
@@ -67,7 +130,121 @@ def get_me(
         is_internal=current_user.is_internal,
         created_at=current_user.created_at,
         updated_at=current_user.updated_at,
-        start_date=current_user.start_date or current_user.created_at
+        start_date=current_user.start_date or current_user.created_at,
+        image=current_user.image,
+        first_name=current_user.first_name,
+        last_name=current_user.last_name,
+        gender=current_user.gender,
+        date_of_birth=current_user.date_of_birth,
+        address_line1=current_user.address_line1,
+        country=current_user.country,
+        suburb=current_user.suburb,
+        state=current_user.state,
+        post_code=current_user.post_code,
+        driving_license_number=current_user.driving_license_number,
+        license_expiry_date=current_user.license_expiry_date,
+        emergency_contact_name=current_user.emergency_contact_name,
+        emergency_contact_relationship=current_user.emergency_contact_relationship,
+        emergency_contact_phone=current_user.emergency_contact_phone,
+        emergency_contact_email=current_user.emergency_contact_email,
+        tax_file_number=current_user.tax_file_number,
+        super_fund_name=current_user.super_fund_name,
+        super_fund_member_no=current_user.super_fund_member_no,
+        bank_account_name=current_user.bank_account_name,
+        bank_bsb=current_user.bank_bsb,
+        bank_account_number=current_user.bank_account_number,
+        weekly_work_hours=current_user.weekly_work_hours,
+        residency_status=current_user.residency_status,
+        visa_expiry_date=current_user.visa_expiry_date,
+        employee_id=current_user.employee_id,
+        position=current_user.position,
+        reports_to=current_user.reports_to,
+        employment_type=current_user.employment_type
+    )
+
+
+@router.put("/api/users/me", response_model=UserMeOut)
+def update_me(
+    data: UserUpdate,
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session)
+):
+    update_data = data.dict(exclude_unset=True)
+    
+    # Restrict administrative fields updates for non-admin users
+    admin_fields = {"employee_id", "position", "reports_to", "employment_type"}
+    is_admin = current_user.role in ("super_admin", "admin")
+    
+    for field, value in update_data.items():
+        if not is_admin and field in admin_fields:
+            continue
+        setattr(current_user, field, value)
+        
+    # Keep the user.name and user.phone fields in sync with profile edits
+    if "first_name" in update_data or "last_name" in update_data:
+        fname = current_user.first_name or ""
+        lname = current_user.last_name or ""
+        current_user.name = f"{fname} {lname}".strip() or current_user.name
+    if "phone" in update_data:
+        current_user.phone = update_data["phone"]
+        
+    current_user.updated_at = datetime.utcnow()
+    
+    session.add(current_user)
+    session.commit()
+    session.refresh(current_user)
+    
+    if current_user.role in ("super_admin", "admin"):
+        is_approved = True
+    else:
+        active_assignment = session.exec(
+            select(UserAssignment).where(
+                UserAssignment.user_id == current_user.id,
+                UserAssignment.is_active == True
+            )
+        ).first()
+        is_approved = active_assignment is not None
+        
+    return UserMeOut(
+        id=current_user.id,
+        email=current_user.email,
+        name=current_user.name,
+        phone=current_user.phone,
+        role=current_user.role,
+        is_approved=is_approved,
+        is_internal=current_user.is_internal,
+        created_at=current_user.created_at,
+        updated_at=current_user.updated_at,
+        start_date=current_user.start_date or current_user.created_at,
+        image=current_user.image,
+        first_name=current_user.first_name,
+        last_name=current_user.last_name,
+        gender=current_user.gender,
+        date_of_birth=current_user.date_of_birth,
+        address_line1=current_user.address_line1,
+        country=current_user.country,
+        suburb=current_user.suburb,
+        state=current_user.state,
+        post_code=current_user.post_code,
+        driving_license_number=current_user.driving_license_number,
+        license_expiry_date=current_user.license_expiry_date,
+        emergency_contact_name=current_user.emergency_contact_name,
+        emergency_contact_relationship=current_user.emergency_contact_relationship,
+        emergency_contact_phone=current_user.emergency_contact_phone,
+        emergency_contact_email=current_user.emergency_contact_email,
+        tax_file_number=current_user.tax_file_number,
+        super_fund_name=current_user.super_fund_name,
+        super_fund_member_no=current_user.super_fund_member_no,
+        bank_account_name=current_user.bank_account_name,
+        bank_bsb=current_user.bank_bsb,
+        bank_account_number=current_user.bank_account_number,
+        weekly_work_hours=current_user.weekly_work_hours,
+        residency_status=current_user.residency_status,
+        visa_expiry_date=current_user.visa_expiry_date,
+        employee_id=current_user.employee_id,
+        position=current_user.position,
+        reports_to=current_user.reports_to,
+        employment_type=current_user.employment_type
     )
 
 
