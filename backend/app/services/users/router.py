@@ -1,7 +1,7 @@
 from datetime import datetime
 import os
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlmodel import Session, select, SQLModel
 
 from app.database import get_session
@@ -517,6 +517,7 @@ class SuperAdminInvitationCreate(SQLModel):
 @router.post("/api/super-admin/invitations")
 def create_owner_invitation(
     data: SuperAdminInvitationCreate,
+    request: Request,
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
@@ -553,7 +554,16 @@ def create_owner_invitation(
     
     # Send email via Resend
     api_key = os.environ.get("RESEND_API_KEY")
-    app_url = os.environ.get("BETTER_AUTH_URL", "http://localhost:3000")
+    
+    # Determine the client app URL dynamically from the request headers
+    origin = request.headers.get("origin")
+    if not origin:
+        referer = request.headers.get("referer")
+        if referer:
+            from urllib.parse import urlparse
+            parsed = urlparse(referer)
+            origin = f"{parsed.scheme}://{parsed.netloc}"
+    app_url = origin or os.environ.get("BETTER_AUTH_URL", "http://localhost:3000")
     signup_link = f"{app_url}/signup?token={invite.id}"
     
     if api_key:
@@ -588,6 +598,7 @@ def create_owner_invitation(
 
 @router.get("/api/super-admin/invitations")
 def list_super_admin_invitations(
+    request: Request,
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
@@ -600,7 +611,15 @@ def list_super_admin_invitations(
         .order_by(StaffInvitation.created_at.desc())
     ).all()
     
-    app_url = os.environ.get("BETTER_AUTH_URL", "http://localhost:3000")
+    # Determine the client app URL dynamically from the request headers
+    origin = request.headers.get("origin")
+    if not origin:
+        referer = request.headers.get("referer")
+        if referer:
+            from urllib.parse import urlparse
+            parsed = urlparse(referer)
+            origin = f"{parsed.scheme}://{parsed.netloc}"
+    app_url = origin or os.environ.get("BETTER_AUTH_URL", "http://localhost:3000")
     
     return [
         {
