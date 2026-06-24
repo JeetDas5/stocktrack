@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 
 export default function Footer() {
@@ -6,16 +7,13 @@ export default function Footer() {
       <div className="max-w-7xl mx-auto px-6 lg:px-10 py-16">
         <div className="grid grid-cols-1 md:grid-cols-12 gap-10">
           <div className="md:col-span-5">
-            <Link href="/" className="flex items-center gap-2">
-              <span className="relative inline-flex items-center justify-center w-7 h-7">
-                <span className="absolute inset-0 rounded-md bg-neutral-900" />
-                <span className="relative text-white font-bold text-[13px] tracking-tight">
-                  N
-                </span>
-              </span>
-              <span className="font-semibold tracking-tight text-[15px]">
-                NexBrix
-              </span>
+            <Link href="/">
+              <Image
+                src="/logos/logo.png"
+                alt="logo"
+                width={150}
+                height={150}
+              />
             </Link>
             <p className="mt-5 text-[15px] leading-relaxed text-neutral-600 max-w-sm">
               The Business Operating System for small businesses. Workforce,
