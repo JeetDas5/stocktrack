@@ -9,11 +9,11 @@ import { HugeiconsIcon, IconSvgElement } from "@hugeicons/react";
 import { Business } from "@/types/business";
 import { useAuth } from "@/providers/auth-provider";
 
+import api from "@/lib/services/api";
 import { useLocationStore } from "@/stores/location-store";
 import { useBusinessStore } from "@/stores/business-store";
 import sidebarPermissions from "@/config/sidebar-permissions.json";
 import { getUserBusinesses } from "@/lib/repositories/business.repository";
-import api from "@/lib/services/api";
 import {
   DashboardSquare02Icon,
   Layers01Icon,
@@ -54,6 +54,7 @@ import {
   Location03Icon,
   BankIcon,
 } from "@hugeicons/core-free-icons";
+import Image from "next/image";
 
 interface SidebarSubLink {
   name: string;
@@ -153,7 +154,10 @@ export default function DashboardLayout({
   const handleReadOnlyToggle = (val: boolean) => {
     setIsReadOnly(val);
     if (typeof window !== "undefined") {
-      localStorage.setItem("stocktrack_super_admin_readonly", val ? "true" : "false");
+      localStorage.setItem(
+        "stocktrack_super_admin_readonly",
+        val ? "true" : "false",
+      );
     }
   };
 
@@ -163,7 +167,8 @@ export default function DashboardLayout({
       (typeof window !== "undefined" &&
         !!localStorage.getItem("stocktrack_impersonated_user_id"));
     if (isSuperAdmin) {
-      api.get("/api/super-admin/users")
+      api
+        .get("/api/super-admin/users")
         .then((res) => {
           setAllUsers(res.data);
         })
@@ -804,7 +809,9 @@ export default function DashboardLayout({
         <div
           className={`accordion-grid ${collapsed ? "" : "accordion-grid-open"}`}
         >
-          <div className="accordion-grid-inner pl-4 space-y-0.5">
+          <div
+            className={`accordion-grid-inner ${isSidebarCollapsed ? "pl-0" : "pl-4"} space-y-0.5`}
+          >
             {links.map((link) => {
               const itemKey = link.href || link.name;
               return options?.hasGrip && !isSidebarCollapsed ? (
@@ -860,12 +867,12 @@ export default function DashboardLayout({
         <div
           className={`flex items-center ${sidebarCollapsed ? "justify-center" : "justify-between"} mb-5`}
         >
-          <Link href="/" className="flex items-center gap-2">
+          <Link href="/" className="flex items-center gap-2 md:ml-2">
             <div className="h-8 w-8 rounded-xl bg-white text-black flex items-center justify-center shadow-sm">
-              N
+              <Image src="/logos/icon.svg" alt="logo" width={50} height={50} />
             </div>
             {!sidebarCollapsed && (
-              <span className="font-bold text-base tracking-tight text-black">
+              <span className="font-bold text-base tracking-tight text-primary">
                 NexBrix
               </span>
             )}
@@ -928,20 +935,28 @@ export default function DashboardLayout({
                     router.push("/dashboard");
                     setMobileSidebarOpen(false);
                   }}
-                  className={`flex items-center justify-between px-3 py-2.5 rounded-lg text-[12px] font-bold uppercase tracking-normal cursor-pointer transition-all ${
-                    isActive("/dashboard")
-                      ? "bg-gray-soft/60 text-black"
-                      : "text-gray-dark hover:text-black hover:bg-gray-soft/20"
+                  className={`flex items-center ${
+                    sidebarCollapsed ? "justify-center" : "justify-between"
+                  } px-3 py-2 rounded-lg text-[12px] font-bold uppercase tracking-normal cursor-pointer transition-all duration-400 ${
+                    sidebarCollapsed
+                      ? isActive("/dashboard")
+                        ? "bg-primary-50 text-black"
+                        : "text-black hover:bg-gray-soft"
+                      : isActive("/dashboard")
+                        ? "bg-gray-soft/60 text-black"
+                        : "text-gray-dark hover:text-black hover:bg-gray-soft/20"
                   }`}
                 >
-                  <div className="flex items-center gap-2.5">
+                  <div className="flex items-center gap-2">
                     <HugeiconsIcon
                       icon={DashboardSquare02Icon}
                       size={18}
                       className={
-                        isActive("/dashboard")
+                        sidebarCollapsed
                           ? "text-black"
-                          : "text-gray-muted"
+                          : isActive("/dashboard")
+                            ? "text-black"
+                            : "text-gray-muted"
                       }
                     />
                     {!sidebarCollapsed && <span>Dashboard</span>}
@@ -1016,20 +1031,28 @@ export default function DashboardLayout({
                     router.push("/dashboard/settings");
                     setMobileSidebarOpen(false);
                   }}
-                  className={`flex items-center justify-between px-3 py-2 rounded-lg text-[12px] font-bold uppercase tracking-widest cursor-pointer transition-all ${
-                    isActive("/dashboard/settings")
-                      ? "bg-gray-soft/60 text-black"
-                      : "text-gray-dark hover:text-black hover:bg-gray-soft/20"
+                  className={`flex items-center ${
+                    sidebarCollapsed ? "justify-center" : "justify-between"
+                  } px-3 py-2 rounded-lg text-[12px] font-bold uppercase tracking-widest cursor-pointer transition-all duration-400 ${
+                    sidebarCollapsed
+                      ? isActive("/dashboard/settings")
+                        ? "bg-primary-50 text-black"
+                        : "text-black hover:bg-gray-soft"
+                      : isActive("/dashboard/settings")
+                        ? "bg-gray-soft/60 text-black"
+                        : "text-gray-dark hover:text-black hover:bg-gray-soft/20"
                   }`}
                 >
-                  <div className="flex items-center gap-2.5">
+                  <div className="flex items-center gap-2">
                     <HugeiconsIcon
                       icon={Settings01Icon}
                       size={18}
                       className={
-                        isActive("/dashboard/settings")
+                        sidebarCollapsed
                           ? "text-black"
-                          : "text-gray-muted"
+                          : isActive("/dashboard/settings")
+                            ? "text-black"
+                            : "text-gray-muted"
                       }
                     />
                     {!sidebarCollapsed && <span>Settings</span>}
@@ -1176,7 +1199,9 @@ export default function DashboardLayout({
 
       <div className="flex-1 h-full flex flex-col relative bg-white min-w-0">
         {/* Super Admin Impersonation Bar */}
-        {(profile?.role === "super_admin" || (typeof window !== "undefined" && !!localStorage.getItem("stocktrack_impersonated_user_id"))) && (
+        {(profile?.role === "super_admin" ||
+          (typeof window !== "undefined" &&
+            !!localStorage.getItem("stocktrack_impersonated_user_id"))) && (
           <div className="bg-neutral-950 text-white px-6 py-2.5 flex flex-wrap items-center justify-between gap-4 border-b border-white/10 z-20 select-none">
             <div className="flex items-center gap-3">
               <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-[10px] tracking-wide text-amber-500 font-semibold uppercase animate-pulse">
@@ -1186,23 +1211,24 @@ export default function DashboardLayout({
               <span className="text-[12px] text-neutral-400 font-medium">
                 Impersonating:{" "}
                 <strong className="text-white">
-                  {typeof window !== "undefined" && localStorage.getItem("stocktrack_impersonated_user_id")
+                  {typeof window !== "undefined" &&
+                  localStorage.getItem("stocktrack_impersonated_user_id")
                     ? `${profile?.fullName || ""} (${profile?.email || ""})`
                     : "None (Self)"}
                 </strong>
               </span>
-              {typeof window !== "undefined" && localStorage.getItem("stocktrack_impersonated_user_id") && (
-                <button
-                  onClick={handleStopImpersonating}
-                  className="ml-2 text-[10px] bg-white/10 hover:bg-white/20 text-white px-2.5 py-1 rounded-md font-bold uppercase transition duration-200 cursor-pointer"
-                >
-                  Reset View
-                </button>
-              )}
+              {typeof window !== "undefined" &&
+                localStorage.getItem("stocktrack_impersonated_user_id") && (
+                  <button
+                    onClick={handleStopImpersonating}
+                    className="ml-2 text-[10px] bg-white/10 hover:bg-white/20 text-white px-2.5 py-1 rounded-md font-bold uppercase transition duration-200 cursor-pointer"
+                  >
+                    Reset View
+                  </button>
+                )}
             </div>
 
             <div className="flex items-center gap-6">
-              {/* Read Only Toggle */}
               <label className="relative flex items-center gap-2.5 cursor-pointer text-xs font-semibold select-none">
                 <input
                   type="checkbox"
@@ -1211,7 +1237,13 @@ export default function DashboardLayout({
                   className="sr-only peer"
                 />
                 <div className="w-9 h-5 bg-neutral-800 rounded-full peer peer-focus:ring-2 peer-focus:ring-neutral-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-neutral-400 after:border-neutral-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-600 peer-checked:after:bg-white"></div>
-                <span className={isReadOnly ? "text-amber-500 animate-pulse" : "text-neutral-400"}>
+                <span
+                  className={
+                    isReadOnly
+                      ? "text-amber-500 animate-pulse"
+                      : "text-neutral-400"
+                  }
+                >
                   {isReadOnly ? "Read-Only Mode Active" : "Read-Only Mode Off"}
                 </span>
               </label>
@@ -1219,11 +1251,17 @@ export default function DashboardLayout({
               {/* Searchable User Impersonator Dropdown */}
               <div className="relative" ref={superAdminDropdownRef}>
                 <button
-                  onClick={() => setShowSuperAdminDropdown(!showSuperAdminDropdown)}
+                  onClick={() =>
+                    setShowSuperAdminDropdown(!showSuperAdminDropdown)
+                  }
                   className="flex items-center gap-2 px-3 py-1.5 bg-neutral-900 hover:bg-neutral-800 border border-white/10 rounded-full text-xs font-medium text-white transition-all cursor-pointer shadow-sm hover:border-white/20"
                 >
                   <span>Select Customer User...</span>
-                  <HugeiconsIcon icon={ChevronDownIcon} size={14} className="text-neutral-400" />
+                  <HugeiconsIcon
+                    icon={ChevronDownIcon}
+                    size={14}
+                    className="text-neutral-400"
+                  />
                 </button>
 
                 {showSuperAdminDropdown && (
@@ -1238,18 +1276,24 @@ export default function DashboardLayout({
                         className="w-full px-3 py-2 bg-neutral-950 border border-white/10 rounded-xl text-xs text-white focus:outline-none focus:border-white/20 focus:ring-1 focus:ring-white/20 transition-all placeholder-neutral-500"
                       />
                     </div>
-                    {/* List */}
+
                     <div className="max-h-56 overflow-y-auto space-y-0.5">
                       {allUsers
                         .filter(
                           (u) =>
-                            (u.name || "").toLowerCase().includes(userSearch.toLowerCase()) ||
-                            (u.email || "").toLowerCase().includes(userSearch.toLowerCase())
+                            (u.name || "")
+                              .toLowerCase()
+                              .includes(userSearch.toLowerCase()) ||
+                            (u.email || "")
+                              .toLowerCase()
+                              .includes(userSearch.toLowerCase()),
                         )
                         .map((u) => {
                           const isSelected =
                             typeof window !== "undefined" &&
-                            localStorage.getItem("stocktrack_impersonated_user_id") === u.id;
+                            localStorage.getItem(
+                              "stocktrack_impersonated_user_id",
+                            ) === u.id;
                           return (
                             <button
                               key={u.id}
@@ -1274,8 +1318,12 @@ export default function DashboardLayout({
                         })}
                       {allUsers.filter(
                         (u) =>
-                          (u.name || "").toLowerCase().includes(userSearch.toLowerCase()) ||
-                          (u.email || "").toLowerCase().includes(userSearch.toLowerCase())
+                          (u.name || "")
+                            .toLowerCase()
+                            .includes(userSearch.toLowerCase()) ||
+                          (u.email || "")
+                            .toLowerCase()
+                            .includes(userSearch.toLowerCase()),
                       ).length === 0 && (
                         <div className="px-3 py-2 text-xs text-neutral-500 text-center">
                           No users found

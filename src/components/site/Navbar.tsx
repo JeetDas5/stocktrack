@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 
 import { useAuth } from "@/providers/auth-provider";
+import Image from "next/image";
 
 const LINKS = [
   { href: "/", label: "Home" },
@@ -33,15 +34,7 @@ export default function Navbar() {
     >
       <nav className="max-w-7xl mx-auto px-6 lg:px-10 h-16 flex items-center justify-between">
         <Link href="/" className="flex items-center gap-2 group">
-          <span className="relative inline-flex items-center justify-center w-7 h-7">
-            <span className="absolute inset-0 rounded-md bg-neutral-900" />
-            <span className="relative text-white font-bold text-[13px] tracking-tight">
-              N
-            </span>
-          </span>
-          <span className="font-semibold tracking-tight text-[15px]">
-            NexBrix
-          </span>
+          <Image src="/logos/logo.png" alt="logo" width={100} height={100} />
         </Link>
 
         <div className="hidden md:flex items-center gap-1">
