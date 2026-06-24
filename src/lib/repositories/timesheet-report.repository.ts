@@ -14,6 +14,7 @@ interface BackendTimesheetReport {
   end_time: string;
   unpaid_break: number;
   notes?: string;
+  project?: string;
   total_hours: number;
   status: string;
   created_at: string;
@@ -32,6 +33,7 @@ const mapFromBackend = (t: BackendTimesheetReport): TimesheetReport => ({
   endTime: t.end_time,
   unpaidBreak: t.unpaid_break,
   notes: t.notes,
+  project: t.project,
   totalHours: t.total_hours,
   status: t.status,
   createdAt: t.created_at,

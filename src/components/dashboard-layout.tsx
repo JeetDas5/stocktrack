@@ -501,6 +501,11 @@ export default function DashboardLayout({
           href: "/dashboard/timesheet-reports",
           icon: ClipboardClockIcon,
         },
+        {
+          name: "Timesheet Settings",
+          href: "/dashboard/timesheet-settings",
+          icon: Settings01Icon,
+        },
       ],
     },
   ];
@@ -699,9 +704,9 @@ export default function DashboardLayout({
           </button>
 
           <div
-            className={`pl-3.5 space-y-0.5 border-l border-gray-soft ml-5 overflow-hidden transition-all duration-300 ${
+            className={`pl-3.5 space-y-0 border-l border-gray-soft ml-5 overflow-hidden transition-all duration-300 ${
               isOpen
-                ? "max-h-48 opacity-100 mt-0.5"
+                ? "max-h-64 opacity-100 mt-0.5"
                 : "max-h-0 opacity-0 pointer-events-none"
             }`}
           >
@@ -716,7 +721,7 @@ export default function DashboardLayout({
                     router.push(sub.href);
                     setMobileSidebarOpen(false);
                   }}
-                  className={`flex items-center justify-between px-3 py-1.5 rounded-lg text-black text-[13px] transition-all duration-400 cursor-pointer ${
+                  className={`flex items-center justify-between px-3 py-0.5 rounded-lg text-black text-[13px] transition-all duration-400 cursor-pointer ${
                     active ? "bg-primary-50 font-bold" : "hover:bg-gray-soft"
                   }`}
                 >

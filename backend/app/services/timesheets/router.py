@@ -1,10 +1,10 @@
-from datetime import datetime
+from datetime import datetime, date
 from typing import List, Optional
 from sqlmodel import Session, select, SQLModel, or_
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.database import get_session
-from app.models import User, Location, UserAssignment, Timesheet, Business
+from app.models import User, Location, UserAssignment, Timesheet, Business, TimesheetSettings
 from app.services.auth.dependencies import get_current_user, verify_user_permission
 
 router = APIRouter(tags=["Timesheets"])
@@ -105,6 +105,27 @@ def check_is_staff(user: User, business_id: str, session: Session) -> bool:
     return False
 
 
+def enforce_auto_approve(business_id: str, session: Session, settings: Optional[TimesheetSettings]):
+    if not settings or settings.auto_approve_after_days is None:
+        return
+    stmt_pending = select(Timesheet).where(
+        Timesheet.business_id == business_id,
+        Timesheet.status.in_(["submitted", "edited"])
+    )
+    pending_ts = session.exec(stmt_pending).all()
+    now = datetime.utcnow()
+    modified = False
+    for pts in pending_ts:
+        delta = now - pts.created_at
+        if delta.days >= settings.auto_approve_after_days:
+            pts.status = "approved"
+            pts.updated_at = now
+            session.add(pts)
+            modified = True
+    if modified:
+        session.commit()
+
+
 @router.post(
     "/api/businesses/{business_id}/timesheets",
     response_model=TimesheetOut,
@@ -132,12 +153,62 @@ def create_timesheet(
         session=session,
     )
 
-    if check_is_staff(current_user, business_id, session):
+    # Retrieve settings
+    stmt_settings = select(TimesheetSettings).where(TimesheetSettings.business_id == business_id)
+    settings = session.exec(stmt_settings).first()
+
+    require_approval = True
+    allow_past_entry = True
+    max_past_days = 1
+    lock_timesheets_before_date = False
+    lock_payroll_period_date = None
+
+    if settings:
+        require_approval = settings.require_approval
+        allow_past_entry = settings.allow_past_entry
+        max_past_days = settings.max_past_days
+        lock_timesheets_before_date = settings.lock_timesheets_before_date
+        lock_payroll_period_date = settings.lock_payroll_period_date
+
+    # 1. Payroll period lock check (all users)
+    if lock_timesheets_before_date and lock_payroll_period_date:
+        try:
+            lock_dt = datetime.strptime(lock_payroll_period_date, "%Y-%m-%d").date()
+            work_dt = datetime.strptime(data.work_date, "%Y-%m-%d").date()
+            if work_dt <= lock_dt:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="This date falls within a locked payroll period."
+                )
+        except ValueError:
+            pass
+
+    is_staff_user = check_is_staff(current_user, business_id, session)
+    if is_staff_user:
         if data.staff_id != current_user.id:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Staff members can only submit timesheets for themselves",
             )
+        # 2. Past entry restrictions for staff
+        try:
+            work_dt = datetime.strptime(data.work_date, "%Y-%m-%d").date()
+            today_dt = datetime.utcnow().date()
+            if work_dt < today_dt:
+                if not allow_past_entry:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="Past timesheet entries are disabled for staff."
+                    )
+                else:
+                    delta_days = (today_dt - work_dt).days
+                    if delta_days > max_past_days:
+                        raise HTTPException(
+                            status_code=status.HTTP_400_BAD_REQUEST,
+                            detail=f"Cannot submit timesheets older than {max_past_days} days."
+                        )
+        except ValueError:
+            pass
 
     loc = session.get(Location, data.location_id)
     if not loc or loc.business_id != business_id:
@@ -148,6 +219,10 @@ def create_timesheet(
     total_h = calculate_timesheet_hours(
         data.start_time, data.end_time, data.unpaid_break
     )
+
+    status_val = data.status or "submitted"
+    if not require_approval:
+        status_val = "approved"
 
     ts = Timesheet(
         business_id=business_id,
@@ -160,7 +235,7 @@ def create_timesheet(
         notes=data.notes,
         project=data.project,
         total_hours=total_h,
-        status=data.status or "submitted",
+        status=status_val,
     )
 
     session.add(ts)
@@ -206,6 +281,10 @@ def get_timesheets(
     verify_user_permission(
         current_user, business_id, "timesheets.read", session=session
     )
+
+    stmt_settings = select(TimesheetSettings).where(TimesheetSettings.business_id == business_id)
+    settings = session.exec(stmt_settings).first()
+    enforce_auto_approve(business_id, session, settings)
 
     stmt = select(Timesheet).where(Timesheet.business_id == business_id)
     if check_is_staff(current_user, business_id, session):
@@ -270,11 +349,87 @@ def update_timesheet(
             status_code=status.HTTP_404_NOT_FOUND, detail="Timesheet not found"
         )
 
-    if check_is_staff(current_user, business_id, session):
+    # Retrieve settings
+    stmt_settings = select(TimesheetSettings).where(TimesheetSettings.business_id == business_id)
+    settings = session.exec(stmt_settings).first()
+
+    require_approval = True
+    allow_past_entry = True
+    max_past_days = 1
+    lock_submitted = True
+    allow_staff_edit_pending = True
+    allow_managers_edit_approved = True
+    lock_timesheets_before_date = False
+    lock_payroll_period_date = None
+
+    if settings:
+        require_approval = settings.require_approval
+        allow_past_entry = settings.allow_past_entry
+        max_past_days = settings.max_past_days
+        lock_submitted = settings.lock_submitted
+        allow_staff_edit_pending = settings.allow_staff_edit_pending
+        allow_managers_edit_approved = settings.allow_managers_edit_approved
+        lock_timesheets_before_date = settings.lock_timesheets_before_date
+        lock_payroll_period_date = settings.lock_payroll_period_date
+
+    # 1. Payroll period lock check (all users - updates existing date as well as target new date)
+    if lock_timesheets_before_date and lock_payroll_period_date:
+        try:
+            lock_dt = datetime.strptime(lock_payroll_period_date, "%Y-%m-%d").date()
+            existing_dt = datetime.strptime(ts.work_date, "%Y-%m-%d").date()
+            new_dt = datetime.strptime(data.work_date, "%Y-%m-%d").date()
+            if existing_dt <= lock_dt or new_dt <= lock_dt:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Cannot edit timesheets in a locked payroll period."
+                )
+        except ValueError:
+            pass
+
+    is_staff_user = check_is_staff(current_user, business_id, session)
+    if is_staff_user:
         if ts.staff_id != current_user.id or data.staff_id != current_user.id:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Staff members can only edit their own timesheets",
+            )
+        # 2. Check pending/approval edit lock for staff
+        if ts.status in ("submitted", "edited"):
+            if lock_submitted or not allow_staff_edit_pending:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Pending timesheets are locked and cannot be edited by staff."
+                )
+        elif ts.status == "approved":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Approved timesheets cannot be edited by staff."
+            )
+        # 3. Check past entry restrictions for staff
+        try:
+            work_dt = datetime.strptime(data.work_date, "%Y-%m-%d").date()
+            today_dt = datetime.utcnow().date()
+            if work_dt < today_dt:
+                if not allow_past_entry:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="Past timesheet entries are disabled for staff."
+                    )
+                else:
+                    delta_days = (today_dt - work_dt).days
+                    if delta_days > max_past_days:
+                        raise HTTPException(
+                            status_code=status.HTTP_400_BAD_REQUEST,
+                            detail=f"Cannot edit timesheets older than {max_past_days} days."
+                        )
+        except ValueError:
+            pass
+    else:
+        # Manager/Admin check: editing approved timesheets
+        if ts.status == "approved" and not allow_managers_edit_approved:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Managers are not allowed to edit approved timesheets."
             )
 
     loc = session.get(Location, data.location_id)
@@ -296,7 +451,11 @@ def update_timesheet(
     ts.notes = data.notes
     ts.project = data.project
     ts.total_hours = total_h
-    ts.status = data.status or "edited"
+
+    status_val = data.status or "edited"
+    if not require_approval:
+        status_val = "approved"
+    ts.status = status_val
     ts.updated_at = datetime.utcnow()
 
     session.add(ts)
@@ -349,11 +508,51 @@ def delete_timesheet(
             status_code=status.HTTP_404_NOT_FOUND, detail="Timesheet not found"
         )
 
+    # Retrieve settings
+    stmt_settings = select(TimesheetSettings).where(TimesheetSettings.business_id == business_id)
+    settings = session.exec(stmt_settings).first()
+
+    lock_submitted = True
+    allow_staff_edit_pending = True
+    lock_timesheets_before_date = False
+    lock_payroll_period_date = None
+
+    if settings:
+        lock_submitted = settings.lock_submitted
+        allow_staff_edit_pending = settings.allow_staff_edit_pending
+        lock_timesheets_before_date = settings.lock_timesheets_before_date
+        lock_payroll_period_date = settings.lock_payroll_period_date
+
+    # 1. Payroll period lock check (all users)
+    if lock_timesheets_before_date and lock_payroll_period_date:
+        try:
+            lock_dt = datetime.strptime(lock_payroll_period_date, "%Y-%m-%d").date()
+            work_dt = datetime.strptime(ts.work_date, "%Y-%m-%d").date()
+            if work_dt <= lock_dt:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Cannot delete timesheets in a locked payroll period."
+                )
+        except ValueError:
+            pass
+
     if check_is_staff(current_user, business_id, session):
         if ts.staff_id != current_user.id:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Staff members can only delete their own timesheets",
+            )
+        # 2. Check pending/approval delete lock for staff
+        if ts.status in ("submitted", "edited"):
+            if lock_submitted or not allow_staff_edit_pending:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Pending timesheets are locked and cannot be deleted by staff."
+                )
+        elif ts.status == "approved":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Approved timesheets cannot be deleted by staff."
             )
 
     session.delete(ts)
@@ -400,6 +599,21 @@ def update_timesheet_status(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Timesheet not found"
         )
+
+    # Validate payroll lock
+    stmt_settings = select(TimesheetSettings).where(TimesheetSettings.business_id == business_id)
+    settings = session.exec(stmt_settings).first()
+    if settings and settings.lock_timesheets_before_date and settings.lock_payroll_period_date:
+        try:
+            lock_dt = datetime.strptime(settings.lock_payroll_period_date, "%Y-%m-%d").date()
+            work_dt = datetime.strptime(ts.work_date, "%Y-%m-%d").date()
+            if work_dt <= lock_dt:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Cannot change status of a timesheet in a locked payroll period."
+                )
+        except ValueError:
+            pass
 
     if data.status not in ("submitted", "approved", "rejected", "edited"):
         raise HTTPException(
