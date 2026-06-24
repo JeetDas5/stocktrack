@@ -692,6 +692,49 @@ class RosterSettings(SQLModel, table=True):
     positions: List[str] = Field(default=[], sa_column=Column(JSON))
 
 
+class TimesheetSettings(SQLModel, table=True):
+    __tablename__ = "timesheet_settings"
+
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
+    business_id: str = Field(
+        foreign_key="businesses.id", ondelete="CASCADE", unique=True
+    )
+    
+    # 1. Approval Workflow
+    require_approval: bool = Field(default=True)
+    approval_roles: List[str] = Field(default=["Admin", "Manager"], sa_column=Column(JSON))
+    auto_approve_after_days: Optional[int] = Field(default=None) # None = Disabled
+
+    # 2. Timesheet Entry Rules
+    allow_past_entry: bool = Field(default=True)
+    max_past_days: int = Field(default=1)
+    lock_submitted: bool = Field(default=True)
+    allow_staff_edit_pending: bool = Field(default=True)
+    allow_managers_edit_approved: bool = Field(default=True)
+
+    # 3. Break Rules
+    require_break_entry: bool = Field(default=True)
+    default_break_minutes: int = Field(default=30)
+    require_reason_no_break: bool = Field(default=True)
+
+    # 4. Overtime Rules
+    show_overtime_warnings: bool = Field(default=True)
+    weekly_hours_warning: int = Field(default=38)
+    daily_hours_warning: int = Field(default=10)
+
+    # 5. Notifications
+    notify_manager_on_submission: bool = Field(default=True)
+    notify_staff_on_approval: bool = Field(default=True)
+    notify_staff_on_rejection: bool = Field(default=True)
+
+    # 6. Payroll Settings
+    week_starts_on: str = Field(default="Monday")
+    payroll_export_format: str = Field(default="CSV")
+    lock_payroll_period_date: Optional[str] = Field(default=None)
+    lock_timesheets_before_date: bool = Field(default=True)
+
+
+
 class RosterShift(SQLModel, table=True):
     __tablename__ = "roster_shifts"
 

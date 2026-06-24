@@ -156,6 +156,10 @@ body {
   overflow: hidden;
 }
 
+.accordion-grid-open .accordion-grid-inner {
+  overflow: visible;
+}
+
 @layer utilities {
   .text-balance {
     text-wrap: balance;
