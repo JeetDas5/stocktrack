@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 
 import { useAuth } from "@/providers/auth-provider";
 import Loading from "@/app/loading";
@@ -14,6 +14,7 @@ export default function ProtectedRoute({
   const { user, profile, loading } = useAuth();
 
   const router = useRouter();
+  const pathname = usePathname();
 
   useEffect(() => {
     if (!loading) {
@@ -28,10 +29,43 @@ export default function ProtectedRoute({
           !profile.isActive
         ) {
           router.push("/invite");
+        } else if (
+          profile.role === "super_admin" &&
+          (pathname === "/dashboard" || pathname === "/dashboard/business" || pathname === "/dashboard/")
+        ) {
+          router.push("/dashboard/super-admin");
+        } else if (
+          profile.role !== "super_admin" &&
+          pathname.startsWith("/dashboard")
+        ) {
+          const COMMON_ROUTES = [
+            "/dashboard",
+            "/dashboard/business",
+            "/dashboard/locations",
+            "/dashboard/profile",
+          ];
+          const MODULE_ROUTES: Record<string, string[]> = {
+            timesheet: [
+              "/dashboard/team-members",
+              "/dashboard/timesheet-entry",
+              "/dashboard/timesheet-review",
+              "/dashboard/timesheet-reports",
+              "/dashboard/timesheet-settings",
+            ],
+          };
+          const modules = profile.modules || [];
+          const isAllowed =
+            COMMON_ROUTES.includes(pathname) ||
+            modules.some((mod) =>
+              (MODULE_ROUTES[mod] || []).includes(pathname)
+            );
+          if (!isAllowed) {
+            router.push("/dashboard/business");
+          }
         }
       }
     }
-  }, [user, profile, loading, router]);
+  }, [user, profile, loading, router, pathname]);
 
   if (loading) {
     return <Loading />;
@@ -51,6 +85,41 @@ export default function ProtectedRoute({
       !profile.isActive
     ) {
       return null;
+    }
+    if (
+      profile.role === "super_admin" &&
+      (pathname === "/dashboard" || pathname === "/dashboard/business" || pathname === "/dashboard/")
+    ) {
+      return null;
+    }
+    if (
+      profile.role !== "super_admin" &&
+      pathname.startsWith("/dashboard")
+    ) {
+      const COMMON_ROUTES = [
+        "/dashboard",
+        "/dashboard/business",
+        "/dashboard/locations",
+        "/dashboard/profile",
+      ];
+      const MODULE_ROUTES: Record<string, string[]> = {
+        timesheet: [
+          "/dashboard/team-members",
+          "/dashboard/timesheet-entry",
+          "/dashboard/timesheet-review",
+          "/dashboard/timesheet-reports",
+          "/dashboard/timesheet-settings",
+        ],
+      };
+      const modules = profile.modules || [];
+      const isAllowed =
+        COMMON_ROUTES.includes(pathname) ||
+        modules.some((mod) =>
+          (MODULE_ROUTES[mod] || []).includes(pathname)
+        );
+      if (!isAllowed) {
+        return null;
+      }
     }
   }
 

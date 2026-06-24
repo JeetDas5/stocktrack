@@ -95,13 +95,76 @@ def get_current_user(
         is_public_backend_route = (
             path == "/api/users/me" or 
             (path == "/api/users" and request.method == "POST") or
-            path.startswith("/api/auth/")
+            path.startswith("/api/auth/") or
+            (path.startswith("/api/staff/invitations/") and path.endswith("/register"))
         )
         if not is_public_backend_route:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Access restricted to internal users only"
             )
+
+    # Enforce module-based route access controls
+    if user.role != "super_admin":
+        path = request.url.path
+        
+        # If it's a super-admin route, block non-super-admins immediately
+        if path.startswith("/api/super-admin/"):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Access restricted to super admin only"
+            )
+            
+        is_common_route = (
+            path == "/api/users/me" or
+            path == "/api/users" or
+            path.startswith("/api/users/") or
+            path.startswith("/api/auth/") or
+            (path.startswith("/api/staff/invitations/") and path.endswith("/register"))
+        )
+        
+        if not is_common_route:
+            parts = [p for p in path.split("/") if p]
+            is_module_allowed = False
+            
+            user_modules = user.modules or []
+            
+            if len(parts) >= 2 and parts[0] == "api":
+                resource = parts[1]
+                
+                # Check top-level resource access
+                if resource == "businesses":
+                    if len(parts) in (2, 3):
+                        is_module_allowed = True
+                    elif len(parts) >= 4:
+                        sub_resource = parts[3]
+                        if sub_resource in ("locations", "users"):
+                            is_module_allowed = True
+                        else:
+                            # Check module-specific business sub-resources
+                            allowed_sub = []
+                            for mod in user_modules:
+                                if mod == "timesheet":
+                                    allowed_sub.extend(["staff", "pending-staff"])
+                            if sub_resource in allowed_sub:
+                                is_module_allowed = True
+                                
+                elif resource == "locations":
+                    is_module_allowed = True
+                    
+                elif resource in ("timesheets", "timesheet-settings"):
+                    is_module_allowed = "timesheet" in user_modules
+                    
+                elif resource == "staff":  # /api/staff/invitations
+                    is_module_allowed = "timesheet" in user_modules
+            else:
+                is_module_allowed = True
+                
+            if not is_module_allowed:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Access restricted. This feature requires module subscription."
+                )
 
     return user
 

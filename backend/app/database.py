@@ -68,7 +68,8 @@ def init_db():
                 "employee_id": "VARCHAR",
                 "position": "VARCHAR",
                 "reports_to": "VARCHAR",
-                "employment_type": "VARCHAR"
+                "employment_type": "VARCHAR",
+                "modules": "JSON"
             }
             
             mutated = False
@@ -77,6 +78,20 @@ def init_db():
                     session.execute(text(f"ALTER TABLE users ADD COLUMN {col_name} {col_type}"))
                     mutated = True
             if mutated:
+                session.commit()
+
+            # Check and add new columns dynamically to the staff_invitations table
+            inv_columns = [col['name'] for col in inspector.get_columns('staff_invitations')]
+            new_inv_columns = {
+                "email": "VARCHAR",
+                "modules": "JSON"
+            }
+            inv_mutated = False
+            for col_name, col_type in new_inv_columns.items():
+                if col_name not in inv_columns:
+                    session.execute(text(f"ALTER TABLE staff_invitations ADD COLUMN {col_name} {col_type}"))
+                    inv_mutated = True
+            if inv_mutated:
                 session.commit()
     except Exception as e:
         print(f"Database migration note: {e}")

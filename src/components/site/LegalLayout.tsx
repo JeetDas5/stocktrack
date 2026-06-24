@@ -53,8 +53,6 @@ export default function LegalLayout({
           </Reveal>
         </div>
       </section>
-
-      <Footer />
     </main>
   );
 }

@@ -1,10 +1,11 @@
 from datetime import datetime
+import os
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select, SQLModel
 
 from app.database import get_session
-from app.models import User, UserAssignment, Business, Location
+from app.models import User, UserAssignment, Business, Location, StaffInvitation
 from app.services.auth.dependencies import get_current_user
 
 router = APIRouter(tags=["Users"])
@@ -69,6 +70,7 @@ class UserMeOut(SQLModel):
     position: Optional[str] = None
     reports_to: Optional[str] = None
     employment_type: Optional[str] = None
+    modules: List[str] = []
 
 
 class UserUpdate(SQLModel):
@@ -159,7 +161,8 @@ def get_me(
         employee_id=current_user.employee_id,
         position=current_user.position,
         reports_to=current_user.reports_to,
-        employment_type=current_user.employment_type
+        employment_type=current_user.employment_type,
+        modules=current_user.modules or []
     )
 
 
@@ -244,7 +247,8 @@ def update_me(
         employee_id=current_user.employee_id,
         position=current_user.position,
         reports_to=current_user.reports_to,
-        employment_type=current_user.employment_type
+        employment_type=current_user.employment_type,
+        modules=current_user.modules or []
     )
 
 
@@ -499,7 +503,133 @@ def list_all_users_for_super_admin(
             is_internal=u.is_internal,
             created_at=u.created_at,
             updated_at=u.updated_at,
-            start_date=u.start_date or u.created_at
+            start_date=u.start_date or u.created_at,
+            modules=u.modules or []
         ))
     return out
+
+
+class SuperAdminInvitationCreate(SQLModel):
+    email: str
+    modules: List[str]
+
+
+@router.post("/api/super-admin/invitations")
+def create_owner_invitation(
+    data: SuperAdminInvitationCreate,
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session)
+):
+    if current_user.role != "super_admin":
+        raise HTTPException(status_code=403, detail="Only super admin can access this resource")
+        
+    import resend
+    import uuid
+    from datetime import datetime, timedelta
+    
+    # Check if a user with this email already exists
+    existing_user = session.exec(select(User).where(User.email == data.email.lower().strip())).first()
+    if existing_user:
+        raise HTTPException(
+            status_code=400,
+            detail="A user with this email address already exists"
+        )
+        
+    expires_at = datetime.utcnow() + timedelta(days=7)
+    invite = StaffInvitation(
+        id=str(uuid.uuid4()),
+        created_by_id=current_user.id,
+        business_id=None,
+        role="admin",  # Owner
+        assignments_json=[],
+        expires_at=expires_at,
+        status="pending",
+        email=data.email.lower().strip(),
+        modules=data.modules
+    )
+    session.add(invite)
+    session.commit()
+    session.refresh(invite)
+    
+    # Send email via Resend
+    api_key = os.environ.get("RESEND_API_KEY")
+    app_url = os.environ.get("BETTER_AUTH_URL", "http://localhost:3000")
+    signup_link = f"{app_url}/signup?token={invite.id}"
+    
+    if api_key:
+        resend.api_key = api_key
+        try:
+            resend.Emails.send(
+                {
+                    "from": "NexBrix <info@nexbrix.com.au>",
+                    "to": [data.email],
+                    "subject": "Invitation to join NexBrix | NexBrix",
+                    "html": f"""
+                    <p>You have been invited to join NexBrix as an Owner.</p>
+                    <p>Please use the following link to register your account and configure your business:</p>
+                    <p><a href="{signup_link}" style="display:inline-block;padding:10px 20px;background-color:#111827;color:#ffffff;text-decoration:none;border-radius:5px;">Accept Invitation</a></p>
+                    <p>Or copy and paste this link in your browser:</p>
+                    <p>{signup_link}</p>
+                    <p>This invitation link will expire in 7 days.</p>
+                    """,
+                }
+            )
+        except Exception as e:
+            print(f"Failed to send owner invitation email: {e}")
+            
+    return {
+        "id": invite.id,
+        "email": invite.email,
+        "modules": invite.modules,
+        "expires_at": invite.expires_at,
+        "signup_link": signup_link
+    }
+
+
+@router.get("/api/super-admin/invitations")
+def list_super_admin_invitations(
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session)
+):
+    if current_user.role != "super_admin":
+        raise HTTPException(status_code=403, detail="Only super admin can access this resource")
+        
+    invites = session.exec(
+        select(StaffInvitation)
+        .where(StaffInvitation.role == "admin")
+        .order_by(StaffInvitation.created_at.desc())
+    ).all()
+    
+    app_url = os.environ.get("BETTER_AUTH_URL", "http://localhost:3000")
+    
+    return [
+        {
+            "id": i.id,
+            "email": i.email,
+            "modules": i.modules,
+            "expires_at": i.expires_at,
+            "created_at": i.created_at,
+            "status": "expired" if i.status == "pending" and i.expires_at < datetime.utcnow() else i.status,
+            "signup_link": f"{app_url}/signup?token={i.id}"
+        }
+        for i in invites
+    ]
+
+
+@router.delete("/api/super-admin/invitations/{invitation_id}")
+def delete_super_admin_invitation(
+    invitation_id: str,
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session)
+):
+    if current_user.role != "super_admin":
+        raise HTTPException(status_code=403, detail="Only super admin can access this resource")
+        
+    invite = session.get(StaffInvitation, invitation_id)
+    if not invite:
+        raise HTTPException(status_code=404, detail="Invitation not found")
+        
+    session.delete(invite)
+    session.commit()
+    return {"message": "Invitation deleted successfully"}
 

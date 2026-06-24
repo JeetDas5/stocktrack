@@ -53,6 +53,7 @@ import {
   Location06Icon,
   Location03Icon,
   BankIcon,
+  ShieldIcon,
 } from "@hugeicons/core-free-icons";
 import Image from "next/image";
 
@@ -206,6 +207,11 @@ export default function DashboardLayout({
 
     if (!user) {
       router.push("/login");
+      return;
+    }
+
+    if (profile?.role === "super_admin") {
+      setLoading(false);
       return;
     }
 
@@ -510,6 +516,14 @@ export default function DashboardLayout({
     },
   ];
 
+  const superAdminLinks: SidebarLink[] = [
+    {
+      name: "Super Admin",
+      href: "/dashboard/super-admin",
+      icon: ShieldIcon,
+    },
+  ];
+
   const accountLinks: SidebarLink[] = [
     { name: "Profile", href: "/dashboard/profile", icon: UserIcon },
   ];
@@ -518,12 +532,34 @@ export default function DashboardLayout({
   const allowedHrefs =
     sidebarPermissions[userRole as keyof typeof sidebarPermissions] || [];
 
+  const COMMON_ROUTES = [
+    "/dashboard",
+    "/dashboard/business",
+    "/dashboard/locations",
+    "/dashboard/profile",
+  ];
+
+  const MODULE_ROUTES: Record<string, string[]> = {
+    timesheet: [
+      "/dashboard/team-members",
+      "/dashboard/timesheet-entry",
+      "/dashboard/timesheet-review",
+      "/dashboard/timesheet-reports",
+      "/dashboard/timesheet-settings",
+    ],
+  };
+
   const isLinkAllowed = (href: string) => {
-    if (allowedHrefs.includes("*")) return true;
-    if (href === "/login" || href === "/dashboard/profile") {
-      return true;
-    }
-    return allowedHrefs.includes(href);
+    if (profile?.role === "super_admin") return true;
+    if (href === "/dashboard/super-admin") return false;
+
+    // Enforce modules list for all non-super-admins
+    if (COMMON_ROUTES.includes(href)) return true;
+
+    const modules = profile?.modules || [];
+    return modules.some((mod) =>
+      (MODULE_ROUTES[mod] || []).includes(href)
+    );
   };
 
   const filterSidebarLinks = (links: SidebarLink[]) => {
@@ -1005,6 +1041,42 @@ export default function DashboardLayout({
                 undefined,
                 sidebarCollapsed,
               )}
+              {profile?.role === "super_admin" && (
+                <Link
+                  href="/dashboard/super-admin"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    router.push("/dashboard/super-admin");
+                    setMobileSidebarOpen(false);
+                  }}
+                  className={`flex items-center ${
+                    sidebarCollapsed ? "justify-center" : "justify-between"
+                  } px-3 py-2 rounded-lg text-[12px] font-bold uppercase tracking-normal cursor-pointer transition-all duration-400 ${
+                    sidebarCollapsed
+                      ? isActive("/dashboard/super-admin")
+                        ? "bg-primary-50 text-black"
+                        : "text-black hover:bg-gray-soft"
+                      : isActive("/dashboard/super-admin")
+                        ? "bg-gray-soft/60 text-black"
+                        : "text-gray-dark hover:text-black hover:bg-gray-soft/20"
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <HugeiconsIcon
+                      icon={ShieldIcon}
+                      size={18}
+                      className={
+                        sidebarCollapsed
+                          ? "text-black"
+                          : isActive("/dashboard/super-admin")
+                            ? "text-black"
+                            : "text-gray-muted"
+                      }
+                    />
+                    {!sidebarCollapsed && <span>Super Admin</span>}
+                  </div>
+                </Link>
+              )}
               {renderGroup(
                 "Account",
                 filteredAccountLinks,
@@ -1151,6 +1223,34 @@ export default function DashboardLayout({
                   {renderGroup("Business Setup", filteredBusinessSetupLinks)}
                   {renderGroup("Inventory Setup", filteredInventorySetupLinks)}
                   {renderGroup("Staff", filteredStaffLinks)}
+                  {profile?.role === "super_admin" && (
+                    <Link
+                      href="/dashboard/super-admin"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        router.push("/dashboard/super-admin");
+                        setMobileSidebarOpen(false);
+                      }}
+                      className={`flex items-center justify-between px-3 py-2.5 rounded-lg text-[12px] font-bold uppercase tracking-widest cursor-pointer transition-all ${
+                        isActive("/dashboard/super-admin")
+                          ? "bg-gray-soft/60 text-black"
+                          : "text-gray-dark hover:text-black hover:bg-gray-soft/20"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <HugeiconsIcon
+                          icon={ShieldIcon}
+                          size={18}
+                          className={
+                            isActive("/dashboard/super-admin")
+                              ? "text-black"
+                              : "text-gray-muted"
+                          }
+                        />
+                        <span>Super Admin</span>
+                      </div>
+                    </Link>
+                  )}
                   {renderGroup("Account", filteredAccountLinks, {
                     extraContent: (
                       <button
@@ -1350,115 +1450,33 @@ export default function DashboardLayout({
               >
                 <HugeiconsIcon icon={Menu01Icon} size={18} />
               </button>
-              <div className="flex items-center gap-2">
-                <div className="flex flex-col">
-                  <span className="text-[10px] font-bold text-gray-muted uppercase tracking-wider">
-                    Business
-                  </span>
-                  <div className="relative" ref={businessDropdownRef}>
-                    <button
-                      onClick={() =>
-                        setShowHeaderBusinessDropdown(
-                          !showHeaderBusinessDropdown,
-                        )
-                      }
-                      className="flex items-center gap-2 px-3 py-1.5 bg-white hover:bg-gray-soft/20 border border-gray-soft rounded-md text-xs font-bold text-black transition duration-200 cursor-pointer shadow-2xs mt-1"
-                    >
-                      <HugeiconsIcon
-                        icon={Briefcase01Icon}
-                        size={16}
-                        className="text-gray-dark"
-                      />
-                      <span>
-                        {activeBusiness?.name
-                          ? activeBusiness.name.length > 20
-                            ? activeBusiness.name.substring(0, 20) + "..."
-                            : activeBusiness.name
-                          : "Select Business"}
-                      </span>
-                      <HugeiconsIcon
-                        icon={ChevronDownIcon}
-                        size={14}
-                        className="text-gray-muted"
-                      />
-                    </button>
-
-                    {showHeaderBusinessDropdown && (
-                      <div className="absolute left-0 mt-1.5 w-52 bg-white border border-gray-soft rounded-xl shadow-xl overflow-hidden z-30 animate-fade-in">
-                        <div className="max-h-56 overflow-y-auto py-1">
-                          {businesses.map((b) => {
-                            const isSelected = b.id === activeBusinessId;
-                            return (
-                              <button
-                                key={b.id}
-                                onClick={() => {
-                                  handleBusinessChange(b.id);
-                                  setShowHeaderBusinessDropdown(false);
-                                }}
-                                className={`w-full flex items-center justify-between px-4 py-2.5 text-xs font-bold transition-colors truncate cursor-pointer ${
-                                  isSelected
-                                    ? "bg-gray-soft/60 text-black"
-                                    : "text-gray-dark hover:bg-gray-soft/30 hover:text-black"
-                                }`}
-                              >
-                                <span>{b.name}</span>
-                                {isSelected && (
-                                  <HugeiconsIcon
-                                    icon={CheckIcon}
-                                    size={14}
-                                    className="text-black"
-                                  />
-                                )}
-                              </button>
-                            );
-                          })}
-                        </div>
-                        <div className="border-t border-gray-soft p-1.5 bg-white">
-                          <a
-                            href="/dashboard/business"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              router.push("/dashboard/business");
-                              setShowHeaderBusinessDropdown(false);
-                            }}
-                            className="w-full text-center py-2 text-[10px] uppercase font-bold tracking-wider text-black hover:text-black block hover:bg-gray-soft/30 rounded-lg transition-colors cursor-pointer"
-                          >
-                            Manage Business
-                          </a>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {activeBusinessId && (
+              {profile?.role !== "super_admin" && (
                 <>
                   <div className="flex items-center gap-2">
                     <div className="flex flex-col">
                       <span className="text-[10px] font-bold text-gray-muted uppercase tracking-wider">
-                        Location
+                        Business
                       </span>
-                      <div className="relative" ref={locationDropdownRef}>
+                      <div className="relative" ref={businessDropdownRef}>
                         <button
                           onClick={() =>
-                            setShowHeaderLocationDropdown(
-                              !showHeaderLocationDropdown,
+                            setShowHeaderBusinessDropdown(
+                              !showHeaderBusinessDropdown,
                             )
                           }
                           className="flex items-center gap-2 px-3 py-1.5 bg-white hover:bg-gray-soft/20 border border-gray-soft rounded-md text-xs font-bold text-black transition duration-200 cursor-pointer shadow-2xs mt-1"
                         >
                           <HugeiconsIcon
-                            icon={Location03Icon}
+                            icon={Briefcase01Icon}
                             size={16}
                             className="text-gray-dark"
                           />
                           <span>
-                            {activeLocation?.name
-                              ? activeLocation.name.length > 20
-                                ? activeLocation.name.substring(0, 20) + "..."
-                                : activeLocation.name
-                              : "Select Location"}
+                            {activeBusiness?.name
+                              ? activeBusiness.name.length > 20
+                                ? activeBusiness.name.substring(0, 20) + "..."
+                                : activeBusiness.name
+                              : "Select Business"}
                           </span>
                           <HugeiconsIcon
                             icon={ChevronDownIcon}
@@ -1467,17 +1485,17 @@ export default function DashboardLayout({
                           />
                         </button>
 
-                        {showHeaderLocationDropdown && (
+                        {showHeaderBusinessDropdown && (
                           <div className="absolute left-0 mt-1.5 w-52 bg-white border border-gray-soft rounded-xl shadow-xl overflow-hidden z-30 animate-fade-in">
                             <div className="max-h-56 overflow-y-auto py-1">
-                              {locations.map((loc) => {
-                                const isSelected = loc.id === activeLocationId;
+                              {businesses.map((b) => {
+                                const isSelected = b.id === activeBusinessId;
                                 return (
                                   <button
-                                    key={loc.id}
+                                    key={b.id}
                                     onClick={() => {
-                                      setActiveLocation(loc.id);
-                                      setShowHeaderLocationDropdown(false);
+                                      handleBusinessChange(b.id);
+                                      setShowHeaderBusinessDropdown(false);
                                     }}
                                     className={`w-full flex items-center justify-between px-4 py-2.5 text-xs font-bold transition-colors truncate cursor-pointer ${
                                       isSelected
@@ -1485,7 +1503,7 @@ export default function DashboardLayout({
                                         : "text-gray-dark hover:bg-gray-soft/30 hover:text-black"
                                     }`}
                                   >
-                                    <span>{loc.name}</span>
+                                    <span>{b.name}</span>
                                     {isSelected && (
                                       <HugeiconsIcon
                                         icon={CheckIcon}
@@ -1499,15 +1517,15 @@ export default function DashboardLayout({
                             </div>
                             <div className="border-t border-gray-soft p-1.5 bg-white">
                               <a
-                                href="/dashboard/locations"
+                                href="/dashboard/business"
                                 onClick={(e) => {
                                   e.preventDefault();
-                                  router.push("/dashboard/locations");
-                                  setShowHeaderLocationDropdown(false);
+                                  router.push("/dashboard/business");
+                                  setShowHeaderBusinessDropdown(false);
                                 }}
                                 className="w-full text-center py-2 text-[10px] uppercase font-bold tracking-wider text-black hover:text-black block hover:bg-gray-soft/30 rounded-lg transition-colors cursor-pointer"
                               >
-                                Manage Locations
+                                Manage Business
                               </a>
                             </div>
                           </div>
@@ -1515,17 +1533,96 @@ export default function DashboardLayout({
                       </div>
                     </div>
                   </div>
+
+                  {activeBusinessId && (
+                    <div className="flex items-center gap-2">
+                      <div className="flex flex-col">
+                        <span className="text-[10px] font-bold text-gray-muted uppercase tracking-wider">
+                          Location
+                        </span>
+                        <div className="relative" ref={locationDropdownRef}>
+                          <button
+                            onClick={() =>
+                              setShowHeaderLocationDropdown(
+                                !showHeaderLocationDropdown,
+                              )
+                            }
+                            className="flex items-center gap-2 px-3 py-1.5 bg-white hover:bg-gray-soft/20 border border-gray-soft rounded-md text-xs font-bold text-black transition duration-200 cursor-pointer shadow-2xs mt-1"
+                          >
+                            <HugeiconsIcon
+                              icon={Location03Icon}
+                              size={16}
+                              className="text-gray-dark"
+                            />
+                            <span>
+                              {activeLocation?.name
+                                ? activeLocation.name.length > 20
+                                  ? activeLocation.name.substring(0, 20) + "..."
+                                  : activeLocation.name
+                                : "Select Location"}
+                            </span>
+                            <HugeiconsIcon
+                              icon={ChevronDownIcon}
+                              size={14}
+                              className="text-gray-muted"
+                            />
+                          </button>
+
+                          {showHeaderLocationDropdown && (
+                            <div className="absolute left-0 mt-1.5 w-52 bg-white border border-gray-soft rounded-xl shadow-xl overflow-hidden z-30 animate-fade-in">
+                              <div className="max-h-56 overflow-y-auto py-1">
+                                {locations.map((loc) => {
+                                  const isSelected = loc.id === activeLocationId;
+                                  return (
+                                    <button
+                                      key={loc.id}
+                                      onClick={() => {
+                                        setActiveLocation(loc.id);
+                                        setShowHeaderLocationDropdown(false);
+                                      }}
+                                      className={`w-full flex items-center justify-between px-4 py-2.5 text-xs font-bold transition-colors truncate cursor-pointer ${
+                                        isSelected
+                                          ? "bg-gray-soft/60 text-black"
+                                          : "text-gray-dark hover:bg-gray-soft/30 hover:text-black"
+                                      }`}
+                                    >
+                                      <span>{loc.name}</span>
+                                      {isSelected && (
+                                        <HugeiconsIcon
+                                          icon={CheckIcon}
+                                          size={14}
+                                          className="text-black"
+                                        />
+                                      )}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                              <div className="border-t border-gray-soft p-1.5 bg-white">
+                                <a
+                                  href="/dashboard/locations"
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    router.push("/dashboard/locations");
+                                    setShowHeaderLocationDropdown(false);
+                                  }}
+                                  className="w-full text-center py-2 text-[10px] uppercase font-bold tracking-wider text-black hover:text-black block hover:bg-gray-soft/30 rounded-lg transition-colors cursor-pointer"
+                                >
+                                  Manage Locations
+                                </a>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </>
               )}
             </div>
 
             <div className="flex items-center gap-5">
-              <button className="relative p-1.5 rounded-full hover:bg-gray-soft/30 text-gray-dark hover:text-black transition-colors cursor-pointer animate-fade-in">
-                <HugeiconsIcon icon={BellIcon} size={20} />
-                <span className="absolute top-0 right-0 h-4 w-4 bg-black text-white text-[9px] font-extrabold flex items-center justify-center rounded-full ring-2 ring-white">
-                  5
-                </span>
-              </button>
+
               <div className="h-5 w-px bg-gray-soft" />
               <div
                 className="flex items-center gap-3 relative"
