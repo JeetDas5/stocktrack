@@ -2,20 +2,18 @@
 
 import Link from "next/link";
 import { toast } from "sonner";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
   Mail,
-  Lock,
   Loader2,
   ArrowRight,
   Sparkles,
-  Eye,
-  EyeOff,
+  KeyRound,
 } from "lucide-react";
 
 import { useAuth } from "@/providers/auth-provider";
-import { loginAdmin } from "@/lib/services/auth.service";
+import { sendOtp, verifyOtp } from "@/lib/services/auth.service";
 import { signInWithGoogle } from "@/lib/services/sign-in";
 import { Reveal, RevealText } from "@/components/site/Reveal";
 
@@ -24,35 +22,85 @@ export default function LoginPage() {
   const { refreshProfile, fetchSession } = useAuth();
 
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
+  const [otp, setOtp] = useState("");
+  const [otpSent, setOtpSent] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [timer, setTimer] = useState(0);
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!email || !password) {
-      toast.error("Please enter both email and password.");
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (timer > 0) {
+      interval = setInterval(() => {
+        setTimer((prev) => prev - 1);
+      }, 1000);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [timer]);
+
+  const handleSendOtp = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+
+    const trimmedEmail = email.trim();
+
+    if (!trimmedEmail) {
+      toast.error("Please enter your email address.");
       return;
     }
 
-    if (password.length < 3 || password.length > 50) {
-      toast.error("Password must be between 3 and 50 characters long.");
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+      toast.error("Please enter a valid email address.");
       return;
     }
 
     try {
       setLoading(true);
-      await loginAdmin(email, password);
-      toast.success("Logged in successfully!");
-      await fetchSession();
-      await refreshProfile();
-      router.push("/dashboard/business");
+      await sendOtp(trimmedEmail);
+      setOtpSent(true);
+      setTimer(60);
+      toast.success("Verification code sent to your email!");
     } catch (err) {
       console.error(err);
       if (err instanceof Error) {
         toast.error(err.message);
       } else {
-        toast.error("Invalid email or password. Please try again.");
+        toast.error("Failed to send verification code. Please try again.");
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVerifyOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmedEmail = email.trim();
+    const trimmedOtp = otp.trim();
+
+    if (!trimmedOtp || trimmedOtp.length !== 6) {
+      toast.error("Please enter a valid 6-digit verification code.");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      await verifyOtp(trimmedEmail, trimmedOtp);
+      toast.success("Logged in successfully!");
+      await fetchSession();
+      const userProfile = await refreshProfile();
+      if (userProfile?.role === "super_admin") {
+        router.push("/dashboard/super-admin");
+      } else {
+        router.push("/dashboard/business");
+      }
+    } catch (err) {
+      console.error(err);
+      if (err instanceof Error) {
+        toast.error(err.message);
+      } else {
+        toast.error(
+          "Verification failed. Please check the code and try again.",
+        );
       }
     } finally {
       setLoading(false);
@@ -96,8 +144,8 @@ export default function LoginPage() {
             </h1>
             <Reveal delay={0.4}>
               <p className="mt-8 max-w-md text-[17px] leading-relaxed text-neutral-600">
-                Sign in to your NexBrix workspace. Early Access members can use
-                the credentials shared by our team.
+                Sign in to your NexBrix workspace. Enter your email to receive
+                a secure verification code or continue using Google.
               </p>
             </Reveal>
             <Reveal delay={0.5}>
@@ -116,115 +164,160 @@ export default function LoginPage() {
 
           <Reveal delay={0.15} className="lg:col-span-6">
             <div className="rounded-3xl border border-neutral-200 bg-white p-8 lg:p-10 shadow-[0_20px_60px_-30px_rgba(0,0,0,0.15)]">
-              <form onSubmit={handleLogin} className="space-y-5">
-                <div>
-                  <label className="text-[12px] font-medium tracking-wide text-neutral-700">
-                    Email Address
-                  </label>
-                  <div className="mt-2 relative">
-                    <Mail className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400" />
-                    <input
-                      type="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      required
-                      placeholder="you@business.com"
-                      disabled={loading}
-                      className="w-full pl-11 pr-4 py-3.5 rounded-xl border border-neutral-200 bg-white text-[15px] focus:outline-none focus:border-neutral-900 focus:ring-4 focus:ring-neutral-900/5 transition"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <div className="flex items-center justify-between">
+              {!otpSent ? (
+                <form onSubmit={handleSendOtp} className="space-y-5">
+                  <div>
                     <label className="text-[12px] font-medium tracking-wide text-neutral-700">
-                      Password
+                      Email Address
                     </label>
-                    <Link
-                      href="/forgot-password"
-                      className="text-[12px] text-neutral-500 hover:text-neutral-900"
-                    >
-                      Forgot?
-                    </Link>
+                    <div className="mt-2 relative">
+                      <Mail className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400" />
+                      <input
+                        type="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        required
+                        placeholder="you@business.com"
+                        disabled={loading}
+                        className="w-full pl-11 pr-4 py-3.5 rounded-xl border border-neutral-200 bg-white text-[15px] focus:outline-none focus:border-neutral-900 focus:ring-4 focus:ring-neutral-900/5 transition"
+                      />
+                    </div>
                   </div>
-                  <div className="mt-2 relative">
-                    <Lock className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400" />
-                    <input
-                      type={showPassword ? "text" : "password"}
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      required
-                      placeholder="••••••••"
-                      disabled={loading}
-                      className="w-full pl-11 pr-11 py-3.5 rounded-xl border border-neutral-200 bg-white text-[15px] focus:outline-none focus:border-neutral-900 focus:ring-4 focus:ring-neutral-900/5 transition"
-                    />
+
+                  <button
+                    type="submit"
+                    disabled={loading || !email.trim()}
+                    className="w-full inline-flex items-center justify-center gap-2 bg-neutral-900 text-white px-6 py-3.5 rounded-full text-[15px] font-medium hover:bg-neutral-800 transition-all hover:gap-3 disabled:opacity-60"
+                  >
+                    {loading ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Sending Code...
+                      </>
+                    ) : (
+                      <>
+                        Send Verification Code{" "}
+                        <ArrowRight className="w-4 h-4" />
+                      </>
+                    )}
+                  </button>
+                </form>
+              ) : (
+                <form onSubmit={handleVerifyOtp} className="space-y-5">
+                  <div className="text-center pb-2">
+                    <p className="text-[14px] text-neutral-600">
+                      We sent a 6-digit verification code to
+                    </p>
+                    <p className="text-[14px] font-semibold text-neutral-900 mt-1">
+                      {email}
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="text-[12px] font-medium tracking-wide text-neutral-700">
+                      Verification Code
+                    </label>
+                    <div className="mt-2 relative">
+                      <KeyRound className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400" />
+                      <input
+                        type="text"
+                        value={otp}
+                        onChange={(e) =>
+                          setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))
+                        }
+                        required
+                        placeholder="123456"
+                        disabled={loading}
+                        className="w-full pl-11 pr-4 py-3.5 rounded-xl border border-neutral-200 bg-white text-[15px] tracking-[0.25em] font-semibold focus:outline-none focus:border-neutral-900 focus:ring-4 focus:ring-neutral-900/5 transition text-center"
+                      />
+                    </div>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={loading || otp.trim().length !== 6}
+                    className="w-full inline-flex items-center justify-center gap-2 bg-neutral-900 text-white px-6 py-3.5 rounded-full text-[15px] font-medium hover:bg-neutral-800 transition-all hover:gap-3 disabled:opacity-60"
+                  >
+                    {loading ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Verifying...
+                      </>
+                    ) : (
+                      <>
+                        Verify &amp; Sign In <ArrowRight className="w-4 h-4" />
+                      </>
+                    )}
+                  </button>
+
+                  <div className="flex items-center justify-between text-[13px] pt-2">
+                    {timer > 0 ? (
+                      <span className="text-neutral-400 font-medium select-none">
+                        Resend in {timer}s
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => handleSendOtp()}
+                        disabled={loading}
+                        className="text-neutral-500 hover:text-neutral-900 font-medium transition-colors"
+                      >
+                        Resend Code
+                      </button>
+                    )}
                     <button
                       type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600 transition-colors"
+                      onClick={() => {
+                        setOtpSent(false);
+                        setOtp("");
+                      }}
                       disabled={loading}
+                      className="text-neutral-500 hover:text-neutral-900 font-medium transition-colors"
                     >
-                      {showPassword ? (
-                        <EyeOff className="w-4 h-4" />
-                      ) : (
-                        <Eye className="w-4 h-4" />
-                      )}
+                      Change Email
                     </button>
                   </div>
-                </div>
+                </form>
+              )}
 
-                <button
-                  type="submit"
-                  disabled={loading || !email.trim() || !password}
-                  className="w-full inline-flex items-center justify-center gap-2 bg-neutral-900 text-white px-6 py-3.5 rounded-full text-[15px] font-medium hover:bg-neutral-800 transition-all hover:gap-3 disabled:opacity-60"
-                >
-                  {loading ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Authenticating...
-                    </>
-                  ) : (
-                    <>
-                      Sign in <ArrowRight className="w-4 h-4" />
-                    </>
-                  )}
-                </button>
-              </form>
+              {!otpSent && (
+                <>
+                  <div className="my-6 flex items-center gap-3">
+                    <div className="h-px flex-1 bg-neutral-200" />
+                    <span className="text-[11px] tracking-[0.18em] uppercase text-neutral-400">
+                      or
+                    </span>
+                    <div className="h-px flex-1 bg-neutral-200" />
+                  </div>
 
-              <div className="my-6 flex items-center gap-3">
-                <div className="h-px flex-1 bg-neutral-200" />
-                <span className="text-[11px] tracking-[0.18em] uppercase text-neutral-400">
-                  or
-                </span>
-                <div className="h-px flex-1 bg-neutral-200" />
-              </div>
-
-              <button
-                type="button"
-                onClick={handleGoogleLogin}
-                disabled={loading}
-                className="w-full inline-flex items-center justify-center gap-3 bg-white text-neutral-900 px-6 py-3.5 rounded-xl text-[15px] font-medium border border-neutral-200 hover:border-neutral-300 hover:bg-neutral-50 transition-colors disabled:opacity-60"
-              >
-                <svg className="w-5 h-5" viewBox="0 0 24 24" aria-hidden="true">
-                  <path
-                    fill="#4285F4"
-                    d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.75h3.57c2.08-1.92 3.28-4.74 3.28-8.07z"
-                  />
-                  <path
-                    fill="#34A853"
-                    d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.75c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84A10.99 10.99 0 0 0 12 23z"
-                  />
-                  <path
-                    fill="#FBBC05"
-                    d="M5.84 14.12c-.22-.66-.35-1.36-.35-2.12s.13-1.46.35-2.12V7.04H2.18A10.99 10.99 0 0 0 1 12c0 1.78.43 3.46 1.18 4.96l3.66-2.84z"
-                  />
-                  <path
-                    fill="#EA4335"
-                    d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.04l3.66 2.84C6.71 7.31 9.14 5.38 12 5.38z"
-                  />
-                </svg>
-                Continue with Google
-              </button>
+                  <button
+                    type="button"
+                    onClick={handleGoogleLogin}
+                    disabled={loading}
+                    className="w-full inline-flex items-center justify-center gap-3 bg-white text-neutral-900 px-6 py-3.5 rounded-xl text-[15px] font-medium border border-neutral-200 hover:border-neutral-300 hover:bg-neutral-50 transition-colors disabled:opacity-60"
+                  >
+                    <svg className="w-5 h-5" viewBox="0 0 24 24" aria-hidden="true">
+                      <path
+                        fill="#4285F4"
+                        d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.75h3.57c2.08-1.92 3.28-4.74 3.28-8.07z"
+                      />
+                      <path
+                        fill="#34A853"
+                        d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.75c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84A10.99 10.99 0 0 0 12 23z"
+                      />
+                      <path
+                        fill="#FBBC05"
+                        d="M5.84 14.12c-.22-.66-.35-1.36-.35-2.12s.13-1.46.35-2.12V7.04H2.18A10.99 10.99 0 0 0 1 12c0 1.78.43 3.46 1.18 4.96l3.66-2.84z"
+                      />
+                      <path
+                        fill="#EA4335"
+                        d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.04l3.66 2.84C6.71 7.31 9.14 5.38 12 5.38z"
+                      />
+                    </svg>
+                    Continue with Google
+                  </button>
+                </>
+              )}
 
               <div className="mt-8 pt-6 border-t border-neutral-100 text-center">
                 <p className="text-[12px] text-neutral-500">

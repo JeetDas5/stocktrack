@@ -2,48 +2,117 @@
 
 import Link from "next/link";
 import { toast } from "sonner";
-import { useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
+import {
+  Mail,
+  User,
+  Loader2,
+  ArrowRight,
+  Sparkles,
+  KeyRound,
+} from "lucide-react";
+
 import { useAuth } from "@/providers/auth-provider";
-import { signInWithGoogle } from "@/lib/services/sign-in";
-import { registerAdmin } from "@/lib/services/auth.service";
-import { KeyRound, Mail, Eye, EyeOff, Loader2, User } from "lucide-react";
+import { sendOtp, verifyOtp } from "@/lib/services/auth.service";
+import { updateMeProfile } from "@/lib/repositories/user.repository";
+import { authClient } from "@/lib/auth/auth-client";
+import { getStaffInvitation, registerStaffInvitation } from "@/lib/repositories/staff.repository";
+import { Reveal, RevealText } from "@/components/site/Reveal";
 
 export default function SignupPage() {
   const router = useRouter();
-  const { refreshProfile, fetchSession } = useAuth();
+  const { refreshProfile, fetchSession, loading: authLoading, user, profile } = useAuth();
 
   const [email, setEmail] = useState("");
   const [fullName, setFullName] = useState("");
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
   const [agree, setAgree] = useState(false);
+  const [otp, setOtp] = useState("");
 
+  const [otpSent, setOtpSent] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  const handleGoogleLogin = async () => {
-    try {
-      setLoading(true);
-      await signInWithGoogle();
-    } catch (err) {
-      console.error(err);
-      if (err instanceof Error) {
-        toast.error(err.message);
-      } else {
-        toast.error("Failed to sign up. Please try again.");
-      }
-    } finally {
-      setLoading(false);
+  const [token, setToken] = useState<string | null>(null);
+  const [inviteError, setInviteError] = useState<string | null>(null);
+  const [validatingToken, setValidatingToken] = useState(true);
+  const [isEmailLocked, setIsEmailLocked] = useState(false);
+  const [timer, setTimer] = useState(0);
+  const registrationStarted = useRef(false);
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (timer > 0) {
+      interval = setInterval(() => {
+        setTimer((prev) => prev - 1);
+      }, 1000);
     }
-  };
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [timer]);
 
-  const handleSignup = async (e: React.FormEvent) => {
-    e.preventDefault();
+  // Validate token query parameter immediately on load
+  useEffect(() => {
+    async function validateToken() {
+      const searchParams = new URLSearchParams(window.location.search);
+      const tokenVal = searchParams.get("token");
+      if (!tokenVal) {
+        router.replace("/login");
+        return;
+      }
+      setToken(tokenVal);
+      try {
+        setValidatingToken(true);
+        const invite = await getStaffInvitation(tokenVal);
+        if (invite.status === "expired" || invite.status === "completed") {
+          setInviteError("This invitation link has expired or has already been used.");
+        } else if (invite.email) {
+          setEmail(invite.email);
+          setIsEmailLocked(true);
+        }
+      } catch (err) {
+        setInviteError("The invitation token is invalid or does not exist.");
+      } finally {
+        setValidatingToken(false);
+      }
+    }
+    validateToken();
+  }, [router]);
 
-    const trimmedFullName = fullName.trim();
-    if (!trimmedFullName || !email || !password || !confirmPassword) {
+  // Once authenticated (from OTP or Google), complete invitation registration automatically!
+  useEffect(() => {
+    const currentToken = token;
+    if (!authLoading && user && profile && currentToken && !registrationStarted.current) {
+      registrationStarted.current = true;
+      async function autoRegister() {
+        try {
+          setLoading(true);
+          await registerStaffInvitation(currentToken as string, {
+            name: fullName.trim() || profile?.fullName || (user?.displayName ?? "") || "Owner",
+            phone: profile?.phone || "",
+          });
+          toast.success("Account registration completed successfully!");
+          await fetchSession();
+          await refreshProfile();
+          router.replace("/dashboard/profile");
+        } catch (err) {
+          console.error("Failed to complete automatic registration:", err);
+          setInviteError("Failed to link your account to the invitation. Please try again.");
+        } finally {
+          setLoading(false);
+        }
+      }
+      autoRegister();
+    }
+  }, [authLoading, user, profile, token, router]);
+
+  const handleSendOtp = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+
+    const trimmedEmail = email.trim();
+    const trimmedName = fullName.trim();
+
+    if (!trimmedName || !trimmedEmail) {
       toast.error("Please fill in all fields.");
       return;
     }
@@ -53,275 +122,393 @@ export default function SignupPage() {
       return;
     }
 
-    const trimmedEmail = email.trim();
-
-    if (trimmedEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
-      toast.error("Please enter a valid email address.");
-      return;
-    }
-
-    if (trimmedFullName.length < 3 || trimmedFullName.length > 50) {
+    if (trimmedName.length < 3 || trimmedName.length > 50) {
       toast.error("Full name must be between 3 and 50 characters long.");
       return;
     }
 
-    if (password.length < 8 || password.length > 50) {
-      toast.error("Password must be between 8 and 50 characters long.");
-      return;
-    }
-
-    if (confirmPassword.length < 8 || confirmPassword.length > 50) {
-      toast.error("Confirm password must be between 8 and 50 characters long.");
-      return;
-    }
-
-    if (password !== confirmPassword) {
-      toast.error("Passwords do not match.");
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+      toast.error("Please enter a valid email address.");
       return;
     }
 
     try {
       setLoading(true);
-      await registerAdmin(email, password, trimmedFullName);
-      await fetchSession();
-      await refreshProfile();
-      router.push("/dashboard/business");
+      await sendOtp(trimmedEmail);
+      setOtpSent(true);
+      setTimer(60);
+      toast.success("Verification code sent to your email!");
     } catch (err) {
       console.error(err);
       if (err instanceof Error) {
         toast.error(err.message);
       } else {
-        toast.error("Failed to create account. Please try again.");
+        toast.error("Failed to send verification code. Please try again.");
       }
     } finally {
       setLoading(false);
     }
   };
 
-  return (
-    <div className="relative min-h-screen flex items-center justify-center bg-[#F1F5F9] font-sans">
-      <div className="relative w-full max-w-md mx-4 z-10">
-        <div className="bg-white border border-zinc-200 rounded-2xl p-8 shadow-xl shadow-zinc-200/50">
-          <div className="flex flex-col items-center mb-6 text-center">
-            <div className="h-12 w-12 rounded-xl bg-[#DCFCE7] border border-[#16A34A]/20 flex items-center justify-center mb-4">
-              <span className="text-[#16A34A] font-extrabold text-2xl tracking-tighter">
-                S
-              </span>
-            </div>
-            <h1 className="text-3xl font-extrabold text-[#0F172A] tracking-tight">
-              Stock Track
-            </h1>
-            <p className="text-[#64748B] text-sm mt-1">
-              Get started with hospitality inventory intelligence
-            </p>
+  const handleVerifyOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmedEmail = email.trim();
+    const trimmedOtp = otp.trim();
+
+    if (!trimmedOtp || trimmedOtp.length !== 6) {
+      toast.error("Please enter a valid 6-digit verification code.");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      await verifyOtp(trimmedEmail, trimmedOtp);
+      toast.success("Email verified successfully!");
+
+      await fetchSession();
+      await refreshProfile();
+      if (!token) {
+        router.push("/dashboard/profile");
+      }
+    } catch (err) {
+      console.error(err);
+      if (err instanceof Error) {
+        toast.error(err.message);
+      } else {
+        toast.error(
+          "Verification failed. Please check the code and try again.",
+        );
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    try {
+      setLoading(true);
+      const callbackUrl = token
+        ? `${window.location.origin}/signup?token=${token}`
+        : `${window.location.origin}/dashboard/business`;
+      await authClient.signIn.social({
+        provider: "google",
+        callbackURL: callbackUrl,
+        errorCallbackURL: "/login",
+        newUserCallbackURL: callbackUrl,
+      });
+    } catch (err) {
+      console.error(err);
+      if (err instanceof Error) {
+        toast.error(err.message);
+      } else {
+        toast.error("Failed to authenticate with Google. Please try again.");
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (validatingToken) {
+    return (
+      <main className="min-h-screen bg-white flex flex-col items-center justify-center">
+        <Loader2 className="h-8 w-8 text-neutral-900 animate-spin mb-4" />
+        <p className="text-neutral-500 text-sm font-semibold uppercase tracking-wider animate-pulse">
+          Validating invitation...
+        </p>
+      </main>
+    );
+  }
+
+  if (inviteError) {
+    return (
+      <main className="min-h-screen bg-white flex items-center justify-center p-6">
+        <div className="max-w-md w-full rounded-3xl border border-neutral-200 bg-white p-8 lg:p-10 shadow-[0_20px_60px_-30px_rgba(0,0,0,0.15)] text-center animate-scale-in animate-duration-300">
+          <div className="h-12 w-12 rounded-2xl bg-red-50 text-red-600 flex items-center justify-center mx-auto mb-6">
+            <Sparkles className="w-6 h-6 rotate-45" />
           </div>
-
-          <form onSubmit={handleSignup} className="space-y-4">
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-[#0F172A] uppercase tracking-wider block">
-                Full Name
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-zinc-400">
-                  <User className="h-4 w-4" />
-                </div>
-                <input
-                  type="text"
-                  placeholder="Enter your name"
-                  className="w-full bg-white border border-zinc-300 focus:border-[#16A34A] rounded-xl py-2.5 pl-10 pr-4 text-sm text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#16A34A] transition-all"
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  disabled={loading}
-                />
-              </div>
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-[#0F172A] uppercase tracking-wider block">
-                Email Address
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-zinc-400">
-                  <Mail className="h-4 w-4" />
-                </div>
-                <input
-                  type="email"
-                  placeholder="Enter your email"
-                  className="w-full bg-white border border-zinc-300 focus:border-[#16A34A] rounded-xl py-2.5 pl-10 pr-4 text-sm text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#16A34A] transition-all"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  disabled={loading}
-                />
-              </div>
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-[#0F172A] uppercase tracking-wider block">
-                Password
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-zinc-400">
-                  <KeyRound className="h-4 w-4" />
-                </div>
-                <input
-                  type={showPassword ? "text" : "password"}
-                  placeholder="Enter your password"
-                  className="w-full bg-white border border-zinc-300 focus:border-[#16A34A] rounded-xl py-2.5 pl-10 pr-10 text-sm text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#16A34A] transition-all"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  disabled={loading}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-zinc-400 hover:text-zinc-600 transition-colors"
-                >
-                  {showPassword ? (
-                    <EyeOff className="h-4 w-4" />
-                  ) : (
-                    <Eye className="h-4 w-4" />
-                  )}
-                </button>
-              </div>
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-[#0F172A] uppercase tracking-wider block">
-                Confirm Password
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-zinc-400">
-                  <KeyRound className="h-4 w-4" />
-                </div>
-                <input
-                  type={showConfirmPassword ? "text" : "password"}
-                  placeholder="Reenter your password"
-                  className="w-full bg-white border border-zinc-300 focus:border-[#16A34A] rounded-xl py-2.5 pl-10 pr-10 text-sm text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#16A34A] transition-all"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  disabled={loading}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-zinc-400 hover:text-zinc-600 transition-colors"
-                >
-                  {showConfirmPassword ? (
-                    <EyeOff className="h-4 w-4" />
-                  ) : (
-                    <Eye className="h-4 w-4" />
-                  )}
-                </button>
-              </div>
-            </div>
-
-            <div className="space-y-3">
-              <label className="flex items-start gap-2.5 cursor-pointer">
-                <input
-                  type="checkbox"
-                  className="h-4 w-4 rounded border-zinc-300 text-[#16A34A] focus:ring-[#16A34A] cursor-pointer"
-                  checked={agree}
-                  onChange={(e) => setAgree(e.target.checked)}
-                  disabled={loading}
-                />
-                <span className="text-xs font-semibold text-zinc-700 leading-tight select-none">
-                  I agree to the{" "}
-                  <Link href="/terms" className="text-[#16A34A] hover:underline" target="_blank">
-                    Terms &amp; Conditions
-                  </Link>{" "}
-                  and{" "}
-                  <Link href="/privacy-policy" className="text-[#16A34A] hover:underline" target="_blank">
-                    Privacy Policy
-                  </Link>
-                </span>
-              </label>
-              
-              <p className="text-[11px] text-zinc-500 leading-normal">
-                By creating an account, you acknowledge that StockTrack is business assistance software and that you have read and accepted our{" "}
-                <Link href="/terms" className="text-[#16A34A] hover:underline" target="_blank">
-                  Terms &amp; Conditions
-                </Link>
-                .
-              </p>
-            </div>
-
-            <button
-              type="submit"
-              disabled={
-                loading ||
-                !fullName.trim() ||
-                !email.trim() ||
-                !password ||
-                !confirmPassword ||
-                !agree
-              }
-              className={`w-full mt-2 bg-primary-green hover:bg-green-700 active:bg-green-800 text-white rounded-xl py-3 text-sm font-semibold tracking-wide shadow-md shadow-zinc-200 transition-all duration-200 flex items-center justify-center gap-2  disabled:opacity-50 ${loading || !fullName.trim() || !email.trim() || !password || !confirmPassword || !agree ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Creating Account...
-                </>
-              ) : (
-                "Create Account"
-              )}
-            </button>
-          </form>
-
-          <div className="relative my-5 flex items-center justify-center">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-zinc-200"></div>
-            </div>
-            <div className="relative bg-white px-4 text-xs font-semibold text-zinc-400 uppercase tracking-wider">
-              Or continue with
-            </div>
-          </div>
-
+          <h2 className="text-2xl font-semibold tracking-tight text-neutral-900">
+            Invalid Invitation
+          </h2>
+          <p className="mt-4 text-[#64748B] text-[13px] font-medium leading-relaxed">
+            {inviteError}
+          </p>
           <button
-            type="button"
-            onClick={handleGoogleLogin}
-            disabled={loading}
-            className="w-full bg-white hover:bg-zinc-50 border border-zinc-300 active:bg-zinc-100 text-zinc-700 rounded-xl py-3 text-sm font-semibold tracking-wide shadow-sm transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+            onClick={() => router.replace("/login")}
+            className="mt-8 w-full inline-flex items-center justify-center bg-neutral-900 text-white px-6 py-3.5 rounded-full text-[15px] font-medium hover:bg-neutral-800 transition-colors cursor-pointer"
           >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              x="0px"
-              y="0px"
-              width="28"
-              height="22"
-              viewBox="0 0 48 48"
-            >
-              <path
-                fill="#FFC107"
-                d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12c0-6.627,5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C12.955,4,4,12.955,4,24c0,11.045,8.955,20,20,20c11.045,0,20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z"
-              ></path>
-              <path
-                fill="#FF3D00"
-                d="M6.306,14.691l6.571,4.819C14.655,15.108,18.961,12,24,12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C16.318,4,9.656,8.337,6.306,14.691z"
-              ></path>
-              <path
-                fill="#4CAF50"
-                d="M24,44c5.166,0,9.86-1.977,13.409-5.192l-6.19-5.238C29.211,35.091,26.715,36,24,36c-5.202,0-9.619-3.317-11.283-7.946l-6.522,5.025C9.505,39.556,16.227,44,24,44z"
-              ></path>
-              <path
-                fill="#1976D2"
-                d="M43.611,20.083H42V20H24v8h11.303c-0.792,2.237-2.231,4.166-4.087,5.571c0.001-0.001,0.002-0.001,0.003-0.002l6.19,5.238C36.971,39.205,44,34,44,24C44,22.659,43.862,21.35,43.611,20.083z"
-              ></path>
-            </svg>
-            Google
+            Go to Login
           </button>
-
-          <div className="mt-6 text-center text-xs font-semibold text-zinc-500">
-            Already have an account?{" "}
-            <Link
-              href="/login"
-              className="text-[#16A34A] hover:underline font-extrabold"
-            >
-              Sign In
-            </Link>
-          </div>
         </div>
-      </div>
-    </div>
+      </main>
+    );
+  }
+
+  return (
+    <main className="min-h-screen bg-white">
+      <section className="pt-36 lg:pt-24 pb-28 lg:pb-40">
+        <div className="max-w-7xl mx-auto px-6 lg:px-10 grid lg:grid-cols-12 gap-16 items-center">
+          <div className="lg:col-span-6">
+            <Reveal>
+              <div className="text-[12px] tracking-[0.2em] uppercase text-neutral-500">
+                Get started
+              </div>
+            </Reveal>
+            <h1 className="mt-6 text-[44px] sm:text-[60px] md:text-[80px] font-semibold tracking-tightest leading-none text-neutral-900 text-balance">
+              <RevealText text="Create" />
+              <br />
+              <RevealText
+                text="account."
+                delay={0.15}
+                className="text-neutral-400"
+              />
+            </h1>
+            <Reveal delay={0.4}>
+              <p className="mt-8 max-w-md text-[17px] leading-relaxed text-neutral-600">
+                Sign up for your StockTrack workspace. Enter your name and email
+                to receive a secure verification code.
+              </p>
+            </Reveal>
+            <Reveal delay={0.5}>
+              <div className="mt-10 inline-flex items-center gap-2 text-[13px] text-neutral-600 rounded-full border border-neutral-200 bg-neutral-50 px-3.5 py-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                Already have an account?
+                <Link
+                  href="/login"
+                  className="text-neutral-900 font-medium underline-offset-4 hover:underline"
+                >
+                  Sign in
+                </Link>
+              </div>
+            </Reveal>
+          </div>
+
+          <Reveal delay={0.15} className="lg:col-span-6">
+            <div className="rounded-3xl border border-neutral-200 bg-white p-8 lg:p-10 shadow-[0_20px_60px_-30px_rgba(0,0,0,0.15)]">
+              {!otpSent ? (
+                <form onSubmit={handleSendOtp} className="space-y-5">
+                  <div>
+                    <label className="text-[12px] font-medium tracking-wide text-neutral-700">
+                      Full Name
+                    </label>
+                    <div className="mt-2 relative">
+                      <User className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400" />
+                      <input
+                        type="text"
+                        value={fullName}
+                        onChange={(e) => setFullName(e.target.value)}
+                        required
+                        placeholder="John Doe"
+                        disabled={loading}
+                        className="w-full pl-11 pr-4 py-3.5 rounded-xl border border-neutral-200 bg-white text-[15px] focus:outline-none focus:border-neutral-900 focus:ring-4 focus:ring-neutral-900/5 transition"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-[12px] font-medium tracking-wide text-neutral-700">
+                      Email Address
+                    </label>
+                    <div className="mt-2 relative">
+                      <Mail className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400" />
+                      <input
+                        type="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        required
+                        placeholder="you@business.com"
+                        disabled={loading || isEmailLocked}
+                        className="w-full pl-11 pr-4 py-3.5 rounded-xl border border-neutral-200 bg-white text-[15px] focus:outline-none focus:border-neutral-900 focus:ring-4 focus:ring-neutral-900/5 transition disabled:opacity-75 disabled:bg-neutral-50"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-3 pt-1">
+                    <label className="flex items-start gap-2.5 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        className="mt-0.5 h-4 w-4 rounded border-neutral-200 text-neutral-900 focus:ring-neutral-900 cursor-pointer"
+                        checked={agree}
+                        onChange={(e) => setAgree(e.target.checked)}
+                        disabled={loading}
+                      />
+                      <span className="text-[12px] text-neutral-600 leading-tight select-none">
+                        I agree to the{" "}
+                        <Link
+                          href="/terms"
+                          className="text-neutral-900 font-medium underline-offset-4 hover:underline"
+                          target="_blank"
+                        >
+                          Terms &amp; Conditions
+                        </Link>{" "}
+                        and{" "}
+                        <Link
+                          href="/privacy-policy"
+                          className="text-neutral-900 font-medium underline-offset-4 hover:underline"
+                          target="_blank"
+                        >
+                          Privacy Policy
+                        </Link>
+                      </span>
+                    </label>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={
+                      loading || !fullName.trim() || !email.trim() || !agree
+                    }
+                    className="w-full inline-flex items-center justify-center gap-2 bg-neutral-900 text-white px-6 py-3.5 rounded-full text-[15px] font-medium hover:bg-neutral-800 transition-all hover:gap-3 disabled:opacity-60"
+                  >
+                    {loading ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Sending Code...
+                      </>
+                    ) : (
+                      <>
+                        Send Verification Code{" "}
+                        <ArrowRight className="w-4 h-4" />
+                      </>
+                    )}
+                  </button>
+                </form>
+              ) : (
+                <form onSubmit={handleVerifyOtp} className="space-y-5">
+                  <div className="text-center pb-2">
+                    <p className="text-[14px] text-neutral-600">
+                      We sent a 6-digit verification code to
+                    </p>
+                    <p className="text-[14px] font-semibold text-neutral-900 mt-1">
+                      {email}
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="text-[12px] font-medium tracking-wide text-neutral-700">
+                      Verification Code
+                    </label>
+                    <div className="mt-2 relative">
+                      <KeyRound className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400" />
+                      <input
+                        type="text"
+                        value={otp}
+                        onChange={(e) =>
+                          setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))
+                        }
+                        required
+                        placeholder="123456"
+                        disabled={loading}
+                        className="w-full pl-11 pr-4 py-3.5 rounded-xl border border-neutral-200 bg-white text-[15px] tracking-[0.25em] font-semibold focus:outline-none focus:border-neutral-900 focus:ring-4 focus:ring-neutral-900/5 transition text-center"
+                      />
+                    </div>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={loading || otp.trim().length !== 6}
+                    className="w-full inline-flex items-center justify-center gap-2 bg-neutral-900 text-white px-6 py-3.5 rounded-full text-[15px] font-medium hover:bg-neutral-800 transition-all hover:gap-3 disabled:opacity-60"
+                  >
+                    {loading ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Verifying...
+                      </>
+                    ) : (
+                      <>
+                        Verify &amp; Create Account{" "}
+                        <ArrowRight className="w-4 h-4" />
+                      </>
+                    )}
+                  </button>
+
+                  <div className="flex items-center justify-between text-[13px] pt-2">
+                    {timer > 0 ? (
+                      <span className="text-neutral-400 font-medium select-none">
+                        Resend in {timer}s
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => handleSendOtp()}
+                        disabled={loading}
+                        className="text-neutral-500 hover:text-neutral-900 font-medium transition-colors"
+                      >
+                        Resend Code
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setOtpSent(false);
+                        setOtp("");
+                      }}
+                      disabled={loading}
+                      className="text-neutral-500 hover:text-neutral-900 font-medium transition-colors"
+                    >
+                      Change Email
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              {!otpSent && (
+                <>
+                  <div className="my-6 flex items-center gap-3">
+                    <div className="h-px flex-1 bg-neutral-200" />
+                    <span className="text-[11px] tracking-[0.18em] uppercase text-neutral-400">
+                      or
+                    </span>
+                    <div className="h-px flex-1 bg-neutral-200" />
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleGoogleLogin}
+                    disabled={loading}
+                    className="w-full inline-flex items-center justify-center gap-3 bg-white text-neutral-900 px-6 py-3.5 rounded-xl text-[15px] font-medium border border-neutral-200 hover:border-neutral-300 hover:bg-neutral-50 transition-colors disabled:opacity-60"
+                  >
+                    <svg
+                      className="w-5 h-5"
+                      viewBox="0 0 24 24"
+                      aria-hidden="true"
+                    >
+                      <path
+                        fill="#4285F4"
+                        d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.75h3.57c2.08-1.92 3.28-4.74 3.28-8.07z"
+                      />
+                      <path
+                        fill="#34A853"
+                        d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.75c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84A10.99 10.99 0 0 0 12 23z"
+                      />
+                      <path
+                        fill="#FBBC05"
+                        d="M5.84 14.12c-.22-.66-.35-1.36-.35-2.12s.13-1.46.35-2.12V7.04H2.18A10.99 10.99 0 0 0 1 12c0 1.78.43 3.46 1.18 4.96l3.66-2.84z"
+                      />
+                      <path
+                        fill="#EA4335"
+                        d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.04l3.66 2.84C6.71 7.31 9.14 5.38 12 5.38z"
+                      />
+                    </svg>
+                    Continue with Google
+                  </button>
+                </>
+              )}
+
+              <div className="mt-8 pt-6 border-t border-neutral-100 text-center">
+                <p className="text-[12px] text-neutral-500">
+                  Already have an account?{" "}
+                  <Link
+                    href="/login"
+                    className="text-neutral-900 font-medium underline-offset-4 hover:underline"
+                  >
+                    Sign in
+                  </Link>
+                </p>
+              </div>
+            </div>
+          </Reveal>
+        </div>
+      </section>
+    </main>
   );
 }

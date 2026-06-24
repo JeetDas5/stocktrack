@@ -403,6 +403,8 @@ class StaffInvitationPublicOut(SQLModel):
     status: str
     businesses: List[dict]  # list of {"id": "...", "name": "...", "locations": [{"id": "...", "name": "..."}]}
     invited_by: str
+    email: Optional[str] = None
+    modules: List[str] = []
 
 
 class StaffInvitationRegister(SQLModel):
@@ -453,7 +455,8 @@ def create_staff_invitation(
         role=data.role or "staff",
         assignments_json=assignments,
         expires_at=expires_at,
-        status="pending"
+        status="pending",
+        modules=current_user.modules or []
     )
     session.add(invite)
     session.commit()
@@ -513,7 +516,9 @@ def get_staff_invitation(
         expires_at=invite.expires_at,
         status=invite.status,
         businesses=businesses_out,
-        invited_by=invited_by_name
+        invited_by=invited_by_name,
+        email=invite.email,
+        modules=invite.modules or []
     )
 
 
@@ -540,6 +545,21 @@ def register_staff_invitation(
     current_user.name = data.name.strip()
     current_user.phone = data.phone.strip()
     current_user.role = invite.role
+    current_user.is_internal = True
+    current_user.modules = invite.modules or []
+    
+    # Set first_name and last_name on backend to prevent race condition with client-side profile update
+    if data.name.strip():
+        name_parts = data.name.strip().split(None, 1)
+        current_user.first_name = name_parts[0]
+        if len(name_parts) > 1:
+            current_user.last_name = name_parts[1]
+            
+    if invite.role == "admin":
+        invite.status = "completed"
+        invite.registered_user_id = current_user.id
+        session.add(invite)
+        
     session.add(current_user)
 
     assignments = invite.assignments_json

@@ -18,7 +18,7 @@ interface AuthContextType {
   profile: AppUser | null;
   loading: boolean;
   logout: () => Promise<void>;
-  refreshProfile: () => Promise<void>;
+  refreshProfile: () => Promise<AppUser | null>;
   fetchSession: () => Promise<void>;
 }
 
@@ -27,7 +27,7 @@ const AuthContext = createContext<AuthContextType>({
   profile: null,
   loading: true,
   logout: async () => {},
-  refreshProfile: async () => {},
+  refreshProfile: async () => null,
   fetchSession: async () => {},
 });
 
@@ -137,18 +137,20 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, [session, sessionLoading]);
 
   const refreshProfile = async () => {
-    if (!session?.user) return;
+    if (!session?.user) return null;
     try {
       setProfileLoading(true);
       const userProfile = await getMeProfile();
       if (userProfile) {
         setProfile(userProfile);
+        return userProfile;
       }
     } catch (error) {
       console.error("Error refreshing profile:", error);
     } finally {
       setProfileLoading(false);
     }
+    return null;
   };
 
   useEffect(() => {

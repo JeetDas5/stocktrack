@@ -48,4 +48,5 @@ export interface AppUser {
   position?: string;
   reports_to?: string;
   employment_type?: string;
+  modules?: string[];
 }
