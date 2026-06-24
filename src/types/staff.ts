@@ -49,6 +49,8 @@ export interface StaffInvitationPublic {
   expires_at: string;
   status: string;
   invited_by?: string;
+  email?: string;
+  modules?: string[];
   businesses: {
     id: string;
     name: string;

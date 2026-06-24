@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { toast } from "sonner";
-import { useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import {
   Mail,
@@ -16,12 +16,13 @@ import {
 import { useAuth } from "@/providers/auth-provider";
 import { sendOtp, verifyOtp } from "@/lib/services/auth.service";
 import { updateMeProfile } from "@/lib/repositories/user.repository";
-import { signInWithGoogle } from "@/lib/services/sign-in";
+import { authClient } from "@/lib/auth/auth-client";
+import { getStaffInvitation, registerStaffInvitation } from "@/lib/repositories/staff.repository";
 import { Reveal, RevealText } from "@/components/site/Reveal";
 
 export default function SignupPage() {
   const router = useRouter();
-  const { refreshProfile, fetchSession } = useAuth();
+  const { refreshProfile, fetchSession, loading: authLoading, user, profile } = useAuth();
 
   const [email, setEmail] = useState("");
   const [fullName, setFullName] = useState("");
@@ -30,6 +31,80 @@ export default function SignupPage() {
 
   const [otpSent, setOtpSent] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  const [token, setToken] = useState<string | null>(null);
+  const [inviteError, setInviteError] = useState<string | null>(null);
+  const [validatingToken, setValidatingToken] = useState(true);
+  const [isEmailLocked, setIsEmailLocked] = useState(false);
+  const [timer, setTimer] = useState(0);
+  const registrationStarted = useRef(false);
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (timer > 0) {
+      interval = setInterval(() => {
+        setTimer((prev) => prev - 1);
+      }, 1000);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [timer]);
+
+  // Validate token query parameter immediately on load
+  useEffect(() => {
+    async function validateToken() {
+      const searchParams = new URLSearchParams(window.location.search);
+      const tokenVal = searchParams.get("token");
+      if (!tokenVal) {
+        router.replace("/login");
+        return;
+      }
+      setToken(tokenVal);
+      try {
+        setValidatingToken(true);
+        const invite = await getStaffInvitation(tokenVal);
+        if (invite.status === "expired" || invite.status === "completed") {
+          setInviteError("This invitation link has expired or has already been used.");
+        } else if (invite.email) {
+          setEmail(invite.email);
+          setIsEmailLocked(true);
+        }
+      } catch (err) {
+        setInviteError("The invitation token is invalid or does not exist.");
+      } finally {
+        setValidatingToken(false);
+      }
+    }
+    validateToken();
+  }, [router]);
+
+  // Once authenticated (from OTP or Google), complete invitation registration automatically!
+  useEffect(() => {
+    const currentToken = token;
+    if (!authLoading && user && profile && currentToken && !registrationStarted.current) {
+      registrationStarted.current = true;
+      async function autoRegister() {
+        try {
+          setLoading(true);
+          await registerStaffInvitation(currentToken as string, {
+            name: fullName.trim() || profile?.fullName || (user?.displayName ?? "") || "Owner",
+            phone: profile?.phone || "",
+          });
+          toast.success("Account registration completed successfully!");
+          await fetchSession();
+          await refreshProfile();
+          router.replace("/dashboard/profile");
+        } catch (err) {
+          console.error("Failed to complete automatic registration:", err);
+          setInviteError("Failed to link your account to the invitation. Please try again.");
+        } finally {
+          setLoading(false);
+        }
+      }
+      autoRegister();
+    }
+  }, [authLoading, user, profile, token, router]);
 
   const handleSendOtp = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -61,6 +136,7 @@ export default function SignupPage() {
       setLoading(true);
       await sendOtp(trimmedEmail);
       setOtpSent(true);
+      setTimer(60);
       toast.success("Verification code sent to your email!");
     } catch (err) {
       console.error(err);
@@ -89,24 +165,11 @@ export default function SignupPage() {
       await verifyOtp(trimmedEmail, trimmedOtp);
       toast.success("Email verified successfully!");
 
-      // Update full name in profile if provided
-      if (fullName.trim()) {
-        const nameParts = fullName.trim().split(/\s+/);
-        const firstName = nameParts[0] || "";
-        const lastName = nameParts.slice(1).join(" ") || "";
-        try {
-          await updateMeProfile({
-            first_name: firstName,
-            last_name: lastName,
-          });
-        } catch (err) {
-          console.error("Failed to update profile name:", err);
-        }
-      }
-
       await fetchSession();
       await refreshProfile();
-      router.push("/dashboard/business");
+      if (!token) {
+        router.push("/dashboard/profile");
+      }
     } catch (err) {
       console.error(err);
       if (err instanceof Error) {
@@ -124,7 +187,15 @@ export default function SignupPage() {
   const handleGoogleLogin = async () => {
     try {
       setLoading(true);
-      await signInWithGoogle();
+      const callbackUrl = token
+        ? `${window.location.origin}/signup?token=${token}`
+        : `${window.location.origin}/dashboard/business`;
+      await authClient.signIn.social({
+        provider: "google",
+        callbackURL: callbackUrl,
+        errorCallbackURL: "/login",
+        newUserCallbackURL: callbackUrl,
+      });
     } catch (err) {
       console.error(err);
       if (err instanceof Error) {
@@ -136,6 +207,41 @@ export default function SignupPage() {
       setLoading(false);
     }
   };
+
+  if (validatingToken) {
+    return (
+      <main className="min-h-screen bg-white flex flex-col items-center justify-center">
+        <Loader2 className="h-8 w-8 text-neutral-900 animate-spin mb-4" />
+        <p className="text-neutral-500 text-sm font-semibold uppercase tracking-wider animate-pulse">
+          Validating invitation...
+        </p>
+      </main>
+    );
+  }
+
+  if (inviteError) {
+    return (
+      <main className="min-h-screen bg-white flex items-center justify-center p-6">
+        <div className="max-w-md w-full rounded-3xl border border-neutral-200 bg-white p-8 lg:p-10 shadow-[0_20px_60px_-30px_rgba(0,0,0,0.15)] text-center animate-scale-in animate-duration-300">
+          <div className="h-12 w-12 rounded-2xl bg-red-50 text-red-600 flex items-center justify-center mx-auto mb-6">
+            <Sparkles className="w-6 h-6 rotate-45" />
+          </div>
+          <h2 className="text-2xl font-semibold tracking-tight text-neutral-900">
+            Invalid Invitation
+          </h2>
+          <p className="mt-4 text-[#64748B] text-[13px] font-medium leading-relaxed">
+            {inviteError}
+          </p>
+          <button
+            onClick={() => router.replace("/login")}
+            className="mt-8 w-full inline-flex items-center justify-center bg-neutral-900 text-white px-6 py-3.5 rounded-full text-[15px] font-medium hover:bg-neutral-800 transition-colors cursor-pointer"
+          >
+            Go to Login
+          </button>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="min-h-screen bg-white">
@@ -210,8 +316,8 @@ export default function SignupPage() {
                         onChange={(e) => setEmail(e.target.value)}
                         required
                         placeholder="you@business.com"
-                        disabled={loading}
-                        className="w-full pl-11 pr-4 py-3.5 rounded-xl border border-neutral-200 bg-white text-[15px] focus:outline-none focus:border-neutral-900 focus:ring-4 focus:ring-neutral-900/5 transition"
+                        disabled={loading || isEmailLocked}
+                        className="w-full pl-11 pr-4 py-3.5 rounded-xl border border-neutral-200 bg-white text-[15px] focus:outline-none focus:border-neutral-900 focus:ring-4 focus:ring-neutral-900/5 transition disabled:opacity-75 disabled:bg-neutral-50"
                       />
                     </div>
                   </div>
@@ -316,14 +422,20 @@ export default function SignupPage() {
                   </button>
 
                   <div className="flex items-center justify-between text-[13px] pt-2">
-                    <button
-                      type="button"
-                      onClick={() => handleSendOtp()}
-                      disabled={loading}
-                      className="text-neutral-500 hover:text-neutral-900 font-medium transition-colors"
-                    >
-                      Resend Code
-                    </button>
+                    {timer > 0 ? (
+                      <span className="text-neutral-400 font-medium select-none">
+                        Resend in {timer}s
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => handleSendOtp()}
+                        disabled={loading}
+                        className="text-neutral-500 hover:text-neutral-900 font-medium transition-colors"
+                      >
+                        Resend Code
+                      </button>
+                    )}
                     <button
                       type="button"
                       onClick={() => {

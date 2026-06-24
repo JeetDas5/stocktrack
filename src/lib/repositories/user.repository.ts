@@ -61,6 +61,7 @@ export const getUserProfile = async (uid: string) => {
       position: data.position || "",
       reports_to: data.reports_to || "",
       employment_type: data.employment_type || "",
+      modules: data.modules || [],
     } as unknown as AppUser;
   } catch (error: any) {
     if (error.response && error.response.status === 404) {
@@ -119,6 +120,7 @@ export const getMeProfile = async () => {
       position: data.position || "",
       reports_to: data.reports_to || "",
       employment_type: data.employment_type || "",
+      modules: data.modules || [],
     } as unknown as AppUser;
   } catch (error: any) {
     if (error.response && (error.response.status === 401 || error.response.status === 404)) {
@@ -176,6 +178,7 @@ export const updateMeProfile = async (payload: Partial<AppUser>) => {
     position: data.position || "",
     reports_to: data.reports_to || "",
     employment_type: data.employment_type || "",
+    modules: data.modules || [],
   } as unknown as AppUser;
 };
 export const getUserAssignments = async (businessId: string) => {
@@ -195,5 +198,23 @@ export const deleteUserAssignment = async (businessId: string, assignmentId: str
 
 export const getRolesPermissions = async () => {
   const response = await api.get("/api/auth/roles-permissions");
+  return response.data;
+};
+
+export const createOwnerInvitation = async (data: {
+  email: string;
+  modules: string[];
+}): Promise<any> => {
+  const response = await api.post("/api/super-admin/invitations", data);
+  return response.data;
+};
+
+export const listOwnerInvitations = async (): Promise<any[]> => {
+  const response = await api.get("/api/super-admin/invitations");
+  return response.data;
+};
+
+export const deleteOwnerInvitation = async (invitationId: string): Promise<any> => {
+  const response = await api.delete(`/api/super-admin/invitations/${invitationId}`);
   return response.data;
 };

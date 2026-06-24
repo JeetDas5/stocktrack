@@ -140,6 +140,7 @@ def send_otp(data: OTPSendRequest, session: Session = Depends(get_session)):
             )
 
     otp = str(random.randint(100000, 999999))
+    print("otp: ",otp)
     hashed_otp = hash_password(otp)
     expires_at = datetime.utcnow() + timedelta(minutes=10)
 
@@ -225,7 +226,7 @@ def verify_otp(data: OTPVerifyRequest, session: Session = Depends(get_session)):
         id=session_id,
         token=session_token,
         user_id=user.id,
-        expires_at=datetime.utcnow() + timedelta(days=7),
+        expires_at=datetime.utcnow() + timedelta(days=30),
     )
     session.add(db_session)
     session.commit()

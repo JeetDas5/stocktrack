@@ -24,6 +24,7 @@ class User(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=datetime.utcnow)
     start_date: datetime = Field(default_factory=datetime.utcnow)
     is_internal: bool = Field(default=False)
+    modules: List[str] = Field(default=[], sa_column=Column(JSON))
 
     # Profile Page Fields
     first_name: Optional[str] = Field(default=None)
@@ -95,6 +96,8 @@ class StaffInvitation(SQLModel, table=True):
     )
     role: str = Field(default="staff")  # Default role for assignments
     assignments_json: List[dict] = Field(default=[], sa_column=Column(JSON))
+    email: Optional[str] = Field(default=None)
+    modules: List[str] = Field(default=[], sa_column=Column(JSON))
     expires_at: datetime
     created_at: datetime = Field(default_factory=datetime.utcnow)
     status: str = Field(
