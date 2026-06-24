@@ -1520,12 +1520,7 @@ export default function DashboardLayout({
             </div>
 
             <div className="flex items-center gap-5">
-              <button className="relative p-1.5 rounded-full hover:bg-gray-soft/30 text-gray-dark hover:text-black transition-colors cursor-pointer animate-fade-in">
-                <HugeiconsIcon icon={BellIcon} size={20} />
-                <span className="absolute top-0 right-0 h-4 w-4 bg-black text-white text-[9px] font-extrabold flex items-center justify-center rounded-full ring-2 ring-white">
-                  5
-                </span>
-              </button>
+
               <div className="h-5 w-px bg-gray-soft" />
               <div
                 className="flex items-center gap-3 relative"
