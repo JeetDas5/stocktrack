@@ -1,4 +1,4 @@
-# StockTrack
+# NexBrix
 
 ## Project Overview
 
