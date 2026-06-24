@@ -23,6 +23,10 @@ import { useLocationStore } from "@/stores/location-store";
 import DateRangePicker from "@/components/ui/date-range-picker";
 import { useTimesheetReportStore } from "@/stores/timesheet-report-store";
 import { getStaffMembers } from "@/lib/repositories/staff.repository";
+import {
+  getTimesheetSettings,
+  TimesheetSettings,
+} from "@/lib/repositories/timesheet-settings.repository";
 
 
 export default function TimesheetReportsPage() {
@@ -32,6 +36,7 @@ export default function TimesheetReportsPage() {
     useTimesheetReportStore();
 
   const [staffList, setStaffList] = useState<Staff[]>([]);
+  const [settings, setSettings] = useState<TimesheetSettings | null>(null);
   const [initLoading, setInitLoading] = useState(true);
 
   const [currentPage, setCurrentPage] = useState(1);
@@ -70,7 +75,15 @@ export default function TimesheetReportsPage() {
     const init = async () => {
       setInitLoading(true);
       if (activeBusinessId) {
-        await fetchReports(activeBusinessId);
+        try {
+          const [_, settingsData] = await Promise.all([
+            fetchReports(activeBusinessId),
+            getTimesheetSettings(activeBusinessId).catch(() => null),
+          ]);
+          setSettings(settingsData);
+        } catch (err) {
+          console.error("Failed to load settings in reports:", err);
+        }
       }
       setInitLoading(false);
     };
@@ -368,6 +381,114 @@ export default function TimesheetReportsPage() {
     toast.success("Excel report exported successfully.");
   };
 
+  const exportXeroCSV = () => {
+    const headers = [
+      "EmployeeName",
+      "Email",
+      "Date",
+      "TrackingCategory1",
+      "TrackingCategory2",
+      "NumberOfHours",
+    ];
+
+    const rows = sortedReports.map((r) => [
+      r.staffName,
+      "",
+      r.workDate,
+      r.locationName || "",
+      "",
+      r.totalHours.toFixed(2),
+    ]);
+
+    const csvContent =
+      "data:text/csv;charset=utf-8," +
+      [
+        headers.join(","),
+        ...rows.map((e) =>
+          e.map((val) => `"${String(val).replace(/"/g, '""')}"`).join(","),
+        ),
+      ].join("\n");
+
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute(
+      "download",
+      `timesheet_xero_${new Date().toISOString().slice(0, 10)}.csv`,
+    );
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast.success("Xero payroll CSV exported successfully.");
+  };
+
+  const exportMYOBCSV = () => {
+    const headers = [
+      "Co/Last Name",
+      "First Name",
+      "Date",
+      "Activity",
+      "Hours",
+      "Notes",
+    ];
+
+    const rows = sortedReports.map((r) => {
+      const nameParts = r.staffName.trim().split(/\s+/);
+      const firstName = nameParts[0] || "";
+      const lastName = nameParts.slice(1).join(" ") || firstName;
+      const finalFirstName = nameParts.length > 1 ? firstName : "";
+
+      return [
+        lastName,
+        finalFirstName,
+        r.workDate,
+        r.locationName || "Regular Hours",
+        r.totalHours.toFixed(2),
+        r.notes || "",
+      ];
+    });
+
+    const csvContent =
+      "data:text/csv;charset=utf-8," +
+      [
+        headers.join(","),
+        ...rows.map((e) =>
+          e.map((val) => `"${String(val).replace(/"/g, '""')}"`).join(","),
+        ),
+      ].join("\n");
+
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute(
+      "download",
+      `timesheet_myob_${new Date().toISOString().slice(0, 10)}.csv`,
+    );
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast.success("MYOB payroll CSV exported successfully.");
+  };
+
+  const handleExportPayroll = () => {
+    const format = settings?.payroll_export_format || "CSV";
+    switch (format) {
+      case "Xero":
+        exportXeroCSV();
+        break;
+      case "MYOB":
+        exportMYOBCSV();
+        break;
+      case "Excel":
+        exportExcel();
+        break;
+      case "CSV":
+      default:
+        exportCSV();
+        break;
+    }
+  };
+
   if (initLoading) {
     return (
       <div className="h-[75vh] flex flex-col items-center justify-center bg-white text-[#0F172A]">
@@ -392,21 +513,49 @@ export default function TimesheetReportsPage() {
             </p>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
             <button
-              onClick={exportCSV}
-              className="bg-white hover:bg-zinc-50 border border-zinc-200 text-zinc-700 rounded-xl px-5 py-2.5 text-xs font-bold uppercase tracking-wider shadow-xs flex items-center gap-2 cursor-pointer transition-all duration-200"
-            >
-              <Download className="h-4 w-4 text-zinc-400" />
-              Export CSV
-            </button>
-            <button
-              onClick={exportExcel}
+              onClick={handleExportPayroll}
               className="bg-[#16A34A] hover:bg-[#15803D] text-white rounded-xl px-5 py-2.5 text-xs font-bold uppercase tracking-wider shadow-sm flex items-center gap-2 cursor-pointer transition-all duration-200"
             >
               <Download className="h-4 w-4" />
-              Export Excel
+              Export Payroll ({settings?.payroll_export_format || "CSV"})
             </button>
+            
+            <div className="flex gap-2">
+              {settings?.payroll_export_format !== "CSV" && (
+                <button
+                  onClick={exportCSV}
+                  className="bg-white hover:bg-zinc-50 border border-zinc-200 text-zinc-700 rounded-xl px-4 py-2.5 text-xs font-semibold shadow-2xs cursor-pointer transition-all duration-200"
+                >
+                  CSV
+                </button>
+              )}
+              {settings?.payroll_export_format !== "Excel" && (
+                <button
+                  onClick={exportExcel}
+                  className="bg-white hover:bg-zinc-50 border border-zinc-200 text-zinc-700 rounded-xl px-4 py-2.5 text-xs font-semibold shadow-2xs cursor-pointer transition-all duration-200"
+                >
+                  Excel
+                </button>
+              )}
+              {settings?.payroll_export_format !== "Xero" && (
+                <button
+                  onClick={exportXeroCSV}
+                  className="bg-white hover:bg-zinc-50 border border-zinc-200 text-zinc-700 rounded-xl px-4 py-2.5 text-xs font-semibold shadow-2xs cursor-pointer transition-all duration-200"
+                >
+                  Xero
+                </button>
+              )}
+              {settings?.payroll_export_format !== "MYOB" && (
+                <button
+                  onClick={exportMYOBCSV}
+                  className="bg-white hover:bg-zinc-50 border border-zinc-200 text-zinc-700 rounded-xl px-4 py-2.5 text-xs font-semibold shadow-2xs cursor-pointer transition-all duration-200"
+                >
+                  MYOB
+                </button>
+              )}
+            </div>
           </div>
         </div>
 

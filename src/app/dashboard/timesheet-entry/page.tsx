@@ -35,9 +35,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { cn } from "@/lib/utils";
 import { getUserBusinesses } from "@/lib/repositories/business.repository";
 import { Business } from "@/types/business";
+import {
+  getTimesheetSettings,
+  TimesheetSettings,
+} from "@/lib/repositories/timesheet-settings.repository";
+import { cn } from "@/lib/utils";
 
 const PROJECT_OPTIONS = [
   "Inventory Check",
@@ -85,6 +89,8 @@ export default function TimesheetEntryPage() {
   const [loadingContext, setLoadingContext] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
+  const [settings, setSettings] = useState<TimesheetSettings | null>(null);
+
   const [currentWeekStart, setCurrentWeekStart] = useState<Date>(() => {
     const today = new Date();
     const day = today.getDay();
@@ -102,23 +108,29 @@ export default function TimesheetEntryPage() {
     type: "start" | "end";
   } | null>(null);
 
-  const getMonday = (d: Date) => {
+  const getWeekStart = useCallback((d: Date, startDay: string = "Monday") => {
     const date = new Date(d);
-    const day = date.getDay();
-    const diff = date.getDate() - day + (day === 0 ? -6 : 1);
-    const monday = new Date(date.setDate(diff));
-    monday.setHours(0, 0, 0, 0);
-    return monday;
-  };
+    date.setHours(0, 0, 0, 0);
+    const DAYS_ORDER = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+    const targetIndex = DAYS_ORDER.indexOf(startDay);
+    const currentDay = date.getDay();
+    let diff = currentDay - targetIndex;
+    if (diff < 0) {
+      diff += 7;
+    }
+    date.setDate(date.getDate() - diff);
+    return date;
+  }, []);
 
-  const isCurrentWeek = (monday: Date) => {
+  const getMonday = useCallback((d: Date) => {
+    return getWeekStart(d, settings?.week_starts_on || "Monday");
+  }, [settings, getWeekStart]);
+
+  const isCurrentWeek = useCallback((monday: Date) => {
     const today = new Date();
-    const day = today.getDay();
-    const diff = today.getDate() - day + (day === 0 ? -6 : 1);
-    const currentMonday = new Date(today.setDate(diff));
-    currentMonday.setHours(0, 0, 0, 0);
+    const currentMonday = getWeekStart(today, settings?.week_starts_on || "Monday");
     return monday.getTime() === currentMonday.getTime();
-  };
+  }, [settings, getWeekStart]);
 
   const formatWeekRangeShort = (monday: Date) => {
     const sunday = new Date(monday);
@@ -138,13 +150,22 @@ export default function TimesheetEntryPage() {
     return date.getTime() > today.getTime();
   };
 
-  const getWeekDays = (mondayDate: Date) => {
+  const getWeekDays = useCallback((weekStartDate: Date) => {
     const days = [];
-    const daysOfWeek = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+    const DAYS_ORDER = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+    const startDay = settings?.week_starts_on || "Monday";
+    const targetIndex = DAYS_ORDER.indexOf(startDay);
+
+    const daysOfWeekShort = [];
     for (let i = 0; i < 7; i++) {
-      const d = new Date(mondayDate);
-      d.setDate(mondayDate.getDate() + i);
-      const dayName = daysOfWeek[i];
+      const idx = (targetIndex + i) % 7;
+      daysOfWeekShort.push(DAYS_ORDER[idx].substring(0, 3));
+    }
+
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(weekStartDate);
+      d.setDate(weekStartDate.getDate() + i);
+      const dayName = daysOfWeekShort[i];
       const year = d.getFullYear();
       const month = (d.getMonth() + 1).toString().padStart(2, "0");
       const date = d.getDate().toString().padStart(2, "0");
@@ -156,7 +177,26 @@ export default function TimesheetEntryPage() {
       });
     }
     return days;
-  };
+  }, [settings]);
+
+  useEffect(() => {
+    async function loadSettings() {
+      if (!activeBusinessId) return;
+      try {
+        const data = await getTimesheetSettings(activeBusinessId);
+        setSettings(data);
+      } catch (err) {
+        console.error("Failed to load timesheet settings:", err);
+      }
+    }
+    loadSettings();
+  }, [activeBusinessId]);
+
+  useEffect(() => {
+    if (settings) {
+      setCurrentWeekStart((prev) => getWeekStart(prev, settings.week_starts_on));
+    }
+  }, [settings, getWeekStart]);
 
   useEffect(() => {
     if (profile) {
@@ -248,6 +288,48 @@ export default function TimesheetEntryPage() {
     return timesheets.filter((ts) => ts.staffId === staffId);
   }, [timesheets, staffId]);
 
+  const checkIsDateEditable = useCallback((dateStr: string, status: string) => {
+    if (isFutureDate(dateStr)) return false;
+    if (status === "approved") return false;
+
+    // 1. Payroll lock (all users)
+    if (settings?.lock_timesheets_before_date && settings?.lock_payroll_period_date) {
+      if (dateStr <= settings.lock_payroll_period_date) {
+        return false;
+      }
+    }
+
+    // 2. Staff restrictions
+    if (isStaff) {
+      // Pending locks
+      if (status === "submitted" || status === "edited") {
+        if (settings?.lock_submitted || !settings?.allow_staff_edit_pending) {
+          return false;
+        }
+      }
+
+      // Past entry restrictions
+      const today = new Date();
+      const todayStr = `${today.getFullYear()}-${(today.getMonth() + 1).toString().padStart(2, "0")}-${today.getDate().toString().padStart(2, "0")}`;
+      if (dateStr < todayStr) {
+        if (settings?.allow_past_entry === false) {
+          return false;
+        }
+        if (settings?.allow_past_entry === true && settings?.max_past_days !== undefined) {
+          const rowDate = new Date(dateStr + "T00:00:00");
+          const todayDate = new Date(todayStr + "T00:00:00");
+          const diffTime = todayDate.getTime() - rowDate.getTime();
+          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+          if (diffDays > settings.max_past_days) {
+            return false;
+          }
+        }
+      }
+    }
+
+    return true;
+  }, [isStaff, settings]);
+
   useEffect(() => {
     if (!currentWeekStart || !staffId) return;
 
@@ -258,6 +340,7 @@ export default function TimesheetEntryPage() {
       );
       const isFuture = isFutureDate(day.dateStr);
       const isDayOff = existing ? (existing.startTime === "00:00" && existing.endTime === "00:00") : false;
+      const defaultBreak = settings?.default_break_minutes !== undefined ? settings.default_break_minutes.toString() : "30";
 
       return {
         dayName: day.dayName,
@@ -265,7 +348,7 @@ export default function TimesheetEntryPage() {
         displayDate: day.displayDate,
         startTime: existing?.startTime || "",
         endTime: existing?.endTime || "",
-        unpaidBreak: existing ? existing.unpaidBreak.toString() : "30",
+        unpaidBreak: existing ? existing.unpaidBreak.toString() : defaultBreak,
         project: existing?.project || "",
         notes: existing?.notes || "",
         dbTimesheetId: existing?.id || null,
@@ -276,7 +359,7 @@ export default function TimesheetEntryPage() {
     });
 
     setWeekRows(rows);
-  }, [currentWeekStart, staffId, timesheets]);
+  }, [currentWeekStart, staffId, timesheets, settings, getWeekDays]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -552,7 +635,8 @@ export default function TimesheetEntryPage() {
 
     try {
       const promises = weekRows.map((row) => {
-        if (row.isFuture || row.status === "approved") {
+        const isEditable = checkIsDateEditable(row.dateStr, row.status);
+        if (!isEditable) {
           return Promise.resolve();
         }
 
@@ -570,6 +654,23 @@ export default function TimesheetEntryPage() {
                 `On ${row.dayName} (${row.displayDate}), Start and End times cannot be identical.`,
               );
             }
+
+            // Break rules verification
+            const breakMins = parseInt(row.unpaidBreak, 10) || 0;
+            if (settings?.require_break_entry && (isNaN(breakMins) || breakMins < 0)) {
+              throw new Error(
+                `On ${row.dayName} (${row.displayDate}), a valid unpaid break is required.`
+              );
+            }
+
+            if (settings?.require_break_entry && settings?.require_reason_no_break && breakMins === 0) {
+              const shiftDuration = calculateRowHours(row.startTime, row.endTime, "0");
+              if (shiftDuration > 5 && !row.notes.trim()) {
+                throw new Error(
+                  `On ${row.dayName} (${row.displayDate}), please provide a reason in the notes for not taking a break on this longer shift.`
+                );
+              }
+            }
           }
 
           const payload = {
@@ -581,7 +682,7 @@ export default function TimesheetEntryPage() {
             unpaidBreak: parseInt(row.unpaidBreak, 10) || 0,
             project: row.project.trim() || undefined,
             notes: row.notes.trim() || undefined,
-            status: "submitted",
+            status: (settings?.require_approval === false) ? "approved" : "submitted",
           };
 
           if (row.dbTimesheetId) {
@@ -654,7 +755,7 @@ export default function TimesheetEntryPage() {
 
   return (
     <div className="select-none bg-white min-h-0 flex flex-col w-full">
-      {/* Desktop View */}
+    
       <div className="hidden md:flex flex-col bg-white h-[calc(100vh-120px)] md:h-[85vh] min-h-0 relative pb-4">
         <div className="flex-1 min-h-0 flex flex-col space-y-4 pr-0 lg:pr-4">
           <div className="bg-white border border-neutral-200 rounded-3xl py-4 px-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 shadow-sm">
@@ -826,7 +927,7 @@ export default function TimesheetEntryPage() {
                   </thead>
                   <tbody className="divide-y divide-neutral-200 text-xs text-neutral-800 bg-white">
                     {filteredWeekRows.map(({ row, index: idx }) => {
-                      const isApproved = row.status === "approved";
+                      const isEditable = checkIsDateEditable(row.dateStr, row.status);
                       const hours = calculateRowHours(
                         row.startTime,
                         row.endTime,
@@ -838,7 +939,7 @@ export default function TimesheetEntryPage() {
                           key={row.dateStr}
                           className={cn(
                             "hover:bg-neutral-50/50 transition-colors text-center",
-                            row.isFuture &&
+                            (!isEditable || row.isFuture) &&
                               "opacity-45 select-none bg-neutral-50/20",
                           )}
                         >
@@ -852,8 +953,8 @@ export default function TimesheetEntryPage() {
 
                           <td className="py-4 px-3 text-center">
                             <input
-                              type="checkbox"
-                              disabled={row.isFuture || isApproved || submitting}
+                               type="checkbox"
+                              disabled={!isEditable || submitting}
                               checked={row.isDayOff || false}
                               onChange={(e) => handleDayOffChange(idx, e.target.checked)}
                               className="h-4 w-4 rounded border-neutral-300 text-[#0A2924] focus:ring-[#0A2924] cursor-pointer disabled:opacity-50"
@@ -865,7 +966,7 @@ export default function TimesheetEntryPage() {
                             id={`timecell-${idx}-start`}
                           >
                             <div className="relative">
-                              {row.isFuture || isApproved || row.isDayOff ? (
+                              {!isEditable || row.isDayOff ? (
                                 <div className="flex items-center justify-center w-full border border-neutral-200/60 rounded-xl bg-neutral-100 px-3 py-2 font-medium text-[13px] text-neutral-400 h-10">
                                   {row.startTime
                                     ? formatTimeToAMPM(row.startTime)
@@ -915,7 +1016,7 @@ export default function TimesheetEntryPage() {
                             id={`timecell-${idx}-end`}
                           >
                             <div className="relative">
-                              {row.isFuture || isApproved || row.isDayOff ? (
+                              {!isEditable || row.isDayOff ? (
                                 <div className="flex items-center justify-center w-full border border-neutral-200/60 rounded-xl bg-neutral-100 px-3 py-2 font-medium text-[13px] text-neutral-400 h-10">
                                   {row.endTime
                                     ? formatTimeToAMPM(row.endTime)
@@ -962,7 +1063,7 @@ export default function TimesheetEntryPage() {
 
                           {/* Unpaid Break with spinner */}
                           <td className="py-4 px-3 text-center">
-                            {row.isFuture || isApproved || row.isDayOff ? (
+                            {!isEditable || row.isDayOff ? (
                               <div className="w-20 mx-auto border border-neutral-200/60 rounded-xl bg-neutral-100 px-2 py-2 text-center font-medium text-[13px] text-neutral-400 h-10 flex items-center justify-center">
                                 {row.unpaidBreak}
                               </div>
@@ -973,7 +1074,7 @@ export default function TimesheetEntryPage() {
                                   min="0"
                                   step="5"
                                   disabled={
-                                    submitting || (!row.startTime && !row.endTime)
+                                    !isEditable || submitting || (!row.startTime && !row.endTime) || settings?.require_break_entry === false
                                   }
                                   value={row.unpaidBreak}
                                   onChange={(e) =>
@@ -985,8 +1086,9 @@ export default function TimesheetEntryPage() {
                                   <button
                                     type="button"
                                     disabled={
-                                      submitting ||
-                                      (!row.startTime && !row.endTime)
+                                      !isEditable || submitting ||
+                                      (!row.startTime && !row.endTime) ||
+                                      settings?.require_break_entry === false
                                     }
                                     onClick={() => {
                                       const currentVal =
@@ -1003,8 +1105,9 @@ export default function TimesheetEntryPage() {
                                   <button
                                     type="button"
                                     disabled={
-                                      submitting ||
-                                      (!row.startTime && !row.endTime)
+                                      !isEditable || submitting ||
+                                      (!row.startTime && !row.endTime) ||
+                                      settings?.require_break_entry === false
                                     }
                                     onClick={() => {
                                       const currentVal =
@@ -1035,7 +1138,7 @@ export default function TimesheetEntryPage() {
                             id={`projectcell-${idx}`}
                           >
                             <div className="relative">
-                              {row.isFuture || isApproved || row.isDayOff ? (
+                              {!isEditable || row.isDayOff ? (
                                 <div className="w-full font-semibold text-[13px] text-emerald-700/60 py-2 truncate">
                                   {row.project || "—"}
                                 </div>
@@ -1048,7 +1151,7 @@ export default function TimesheetEntryPage() {
                                         handleProjectSelect(idx, val)
                                       }
                                       disabled={
-                                        submitting ||
+                                        !isEditable || submitting ||
                                         (!row.startTime && !row.endTime)
                                       }
                                     >
@@ -1078,7 +1181,7 @@ export default function TimesheetEntryPage() {
                                     <div className="relative flex items-center">
                                       <input
                                         type="text"
-                                        disabled={submitting}
+                                        disabled={!isEditable || submitting}
                                         value={row.project}
                                         onChange={(e) => {
                                           const val = e.target.value;
@@ -1117,7 +1220,7 @@ export default function TimesheetEntryPage() {
 
                           {/* Notes */}
                           <td className="py-4 px-3 text-left">
-                            {row.isFuture || isApproved || row.isDayOff ? (
+                            {!isEditable || row.isDayOff ? (
                               <div className="w-full border border-neutral-200/60 rounded-xl bg-neutral-100 px-3 py-2 text-left font-medium text-[13px] text-neutral-400 h-10 flex items-center truncate">
                                 {row.notes || "—"}
                               </div>
@@ -1125,7 +1228,7 @@ export default function TimesheetEntryPage() {
                               <input
                                 type="text"
                                 disabled={
-                                  submitting || (!row.startTime && !row.endTime)
+                                  !isEditable || submitting || (!row.startTime && !row.endTime)
                                 }
                                 value={row.notes}
                                 onChange={(e) =>
@@ -1311,7 +1414,7 @@ export default function TimesheetEntryPage() {
         <form onSubmit={handleSubmit} className="flex flex-col space-y-4 mt-4">
           <div className="flex flex-col space-y-3">
             {filteredWeekRows.map(({ row, index: idx }) => {
-              const isApproved = row.status === "approved";
+              const isEditable = checkIsDateEditable(row.dateStr, row.status);
               const hours = calculateRowHours(
                 row.startTime,
                 row.endTime,
@@ -1324,7 +1427,7 @@ export default function TimesheetEntryPage() {
                   key={row.dateStr}
                   className={cn(
                     "bg-white border border-neutral-200 rounded-[24px] shadow-sm transition-all overflow-hidden",
-                    row.isFuture && "opacity-60 bg-neutral-50/20",
+                    (!isEditable || row.isFuture) && "opacity-60 bg-neutral-50/20",
                   )}
                 >
                   {/* Card Header */}
@@ -1373,12 +1476,12 @@ export default function TimesheetEntryPage() {
                       </span>
                       <button
                         type="button"
-                        disabled={row.isFuture || isApproved || submitting}
+                        disabled={!isEditable || submitting}
                         onClick={() => handleDayOffChange(idx, !row.isDayOff)}
                         className={cn(
                           "w-11 h-6 rounded-full transition-colors relative cursor-pointer focus:outline-none",
                           row.isDayOff ? "bg-[#0A2924]" : "bg-neutral-200",
-                          (row.isFuture || isApproved || submitting) &&
+                          (!isEditable || submitting) &&
                             "opacity-50 cursor-not-allowed",
                         )}
                       >
@@ -1421,7 +1524,7 @@ export default function TimesheetEntryPage() {
                           className="relative"
                           id={`timecell-mobile-${idx}-start`}
                         >
-                          {row.isFuture || isApproved || row.isDayOff ? (
+                          {!isEditable || row.isDayOff ? (
                             <div className="flex items-center justify-center w-full border border-neutral-200/60 rounded-xl bg-neutral-50 px-3 py-2 font-medium text-[13px] text-neutral-400 h-10">
                               {row.startTime ? formatTimeToAMPM(row.startTime) : "—"}
                             </div>
@@ -1471,7 +1574,7 @@ export default function TimesheetEntryPage() {
                           className="relative"
                           id={`timecell-mobile-${idx}-end`}
                         >
-                          {row.isFuture || isApproved || row.isDayOff ? (
+                          {!isEditable || row.isDayOff ? (
                             <div className="flex items-center justify-center w-full border border-neutral-200/60 rounded-xl bg-neutral-50 px-3 py-2 font-medium text-[13px] text-neutral-400 h-10">
                               {row.endTime ? formatTimeToAMPM(row.endTime) : "—"}
                             </div>
@@ -1517,7 +1620,7 @@ export default function TimesheetEntryPage() {
                         <label className="text-neutral-400 font-bold text-[9px] uppercase tracking-wider pl-0.5">
                           Unpaid Break (Mins)
                         </label>
-                        {row.isFuture || isApproved || row.isDayOff ? (
+                        {!isEditable || row.isDayOff ? (
                           <div className="w-full bg-neutral-50 border border-neutral-100 rounded-xl px-3 py-2 text-xs font-semibold text-neutral-400 h-10 flex items-center justify-center">
                             {row.unpaidBreak}
                           </div>
@@ -1525,7 +1628,7 @@ export default function TimesheetEntryPage() {
                           <Select
                             value={row.unpaidBreak}
                             onValueChange={(val) => handleBreakChange(idx, val)}
-                            disabled={submitting || (!row.startTime && !row.endTime)}
+                            disabled={submitting || (!row.startTime && !row.endTime) || settings?.require_break_entry === false}
                           >
                             <SelectTrigger className="w-full h-10 rounded-xl border border-neutral-200 bg-white px-3.5 py-2 text-left focus:outline-none focus:border-neutral-900 transition cursor-pointer font-semibold text-xs text-neutral-900 hover:bg-neutral-50 flex items-center justify-between">
                               <SelectValue placeholder="Select Break" />
@@ -1535,7 +1638,7 @@ export default function TimesheetEntryPage() {
                                 <SelectItem
                                   value={opt}
                                   key={opt}
-                                  className="rounded-lg px-3 py-2 text-xs font-semibold text-neutral-950 cursor-pointer flex items-center"
+                                  className="rounded-lg px-3 py-2 text-xs font-semibold text-neutral-955 cursor-pointer flex items-center"
                                 >
                                   {opt}
                                 </SelectItem>
@@ -1551,7 +1654,7 @@ export default function TimesheetEntryPage() {
                           Project
                         </label>
                         <div className="relative">
-                          {row.isFuture || isApproved || row.isDayOff ? (
+                          {!isEditable || row.isDayOff ? (
                             <div className="w-full font-semibold text-xs text-emerald-700/60 py-2 truncate bg-neutral-50 px-3 border border-neutral-100 rounded-xl h-10 flex items-center">
                               {row.project || "—"}
                             </div>
@@ -1624,7 +1727,7 @@ export default function TimesheetEntryPage() {
                       <label className="text-neutral-400 font-bold text-[9px] uppercase tracking-wider pl-0.5">
                         Notes
                       </label>
-                      {row.isFuture || isApproved || row.isDayOff ? (
+                      {!isEditable || row.isDayOff ? (
                         <div className="w-full border border-neutral-200/60 rounded-xl bg-neutral-50 px-3 py-2 text-left font-medium text-xs text-neutral-400 min-h-[80px]">
                           {row.notes || "—"}
                         </div>

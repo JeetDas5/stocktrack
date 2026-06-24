@@ -4,7 +4,7 @@ from typing import List, Optional
 
 from app.database import get_session
 from app.models import User, TimesheetSettings, Business, UserAssignment
-from app.services.auth.dependencies import get_current_user
+from app.services.auth.dependencies import get_current_user, verify_user_permission
 
 router = APIRouter(tags=["Timesheet Settings"])
 
@@ -81,7 +81,9 @@ def get_timesheet_settings(
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ):
-    verify_timesheet_admin(current_user, business_id, session)
+    verify_user_permission(
+        current_user, business_id, "timesheets.read", session=session
+    )
 
     stmt = select(TimesheetSettings).where(TimesheetSettings.business_id == business_id)
     settings = session.exec(stmt).first()
