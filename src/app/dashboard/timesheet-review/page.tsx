@@ -16,6 +16,7 @@ import {
   Loader2,
   Eye,
   Search,
+  AlertTriangle,
 } from "lucide-react";
 
 import { Staff } from "@/types/staff";
@@ -31,6 +32,10 @@ import {
   updateTimesheet,
   updateTimesheetStatus,
 } from "@/lib/repositories/timesheet.repository";
+import {
+  getTimesheetSettings,
+  TimesheetSettings,
+} from "@/lib/repositories/timesheet-settings.repository";
 import DateRangePicker from "@/components/ui/date-range-picker";
 import {
   Select,
@@ -123,18 +128,22 @@ export default function TimesheetReviewPage() {
     };
   }, []);
 
+  const [settings, setSettings] = useState<TimesheetSettings | null>(null);
+
   const loadData = useCallback(async () => {
     if (!activeBusinessId || isStaff) return;
     try {
       setLoading(true);
-      const [bizList, tsList, sList] = await Promise.all([
+      const [bizList, tsList, sList, settingsData] = await Promise.all([
         getUserBusinesses(),
         getTimesheets(activeBusinessId),
         getStaffMembers(activeBusinessId),
+        getTimesheetSettings(activeBusinessId).catch(() => null),
       ]);
       setBusinesses(bizList);
       setTimesheets(tsList);
       setStaffList(sList);
+      setSettings(settingsData);
       await fetchLocations(activeBusinessId);
     } catch {
       toast.error("Failed to load timesheet review data.");
@@ -444,6 +453,57 @@ export default function TimesheetReviewPage() {
     toast.success("Timesheets exported successfully.");
   };
 
+  const getWeekStartStr = useCallback((dateStr: string) => {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return "";
+    d.setHours(0, 0, 0, 0);
+    const DAYS_ORDER = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+    const startDay = settings?.week_starts_on || "Monday";
+    const targetIndex = DAYS_ORDER.indexOf(startDay);
+    const currentDay = d.getDay();
+    let diff = currentDay - targetIndex;
+    if (diff < 0) {
+      diff += 7;
+    }
+    d.setDate(d.getDate() - diff);
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  }, [settings?.week_starts_on]);
+
+  const weeklyHoursMap = useMemo(() => {
+    const map: Record<string, number> = {};
+    timesheets.forEach((ts) => {
+      const weekStartStr = getWeekStartStr(ts.workDate);
+      if (!weekStartStr) return;
+      const key = `${ts.staffId}_${weekStartStr}`;
+      map[key] = (map[key] || 0) + ts.totalHours;
+    });
+    return map;
+  }, [timesheets, getWeekStartStr]);
+
+  const isModalEditable = useMemo(() => {
+    if (!editingTimesheet) return false;
+    
+    // 1. Payroll period lock check
+    if (
+      settings?.lock_timesheets_before_date &&
+      settings?.lock_payroll_period_date &&
+      editingTimesheet.workDate <= settings.lock_payroll_period_date
+    ) {
+      return false;
+    }
+
+    // 2. Approved lock check
+    if (
+      editingTimesheet.status === "approved" &&
+      settings?.allow_managers_edit_approved === false
+    ) {
+      return false;
+    }
+
+    return true;
+  }, [editingTimesheet, settings]);
+
   const editTotalHoursCalculated = useMemo(() => {
     if (!editStartTime || !editEndTime) return { text: "0h 00m" };
     const [startH, startM] = editStartTime.split(":").map(Number);
@@ -461,6 +521,19 @@ export default function TimesheetReviewPage() {
     };
   }, [editStartTime, editEndTime, editUnpaidBreak]);
 
+  const selectableIds = useMemo(() => {
+    return paginatedTimesheets
+      .filter((ts) => {
+        const isLocked = !!(
+          settings?.lock_timesheets_before_date &&
+          settings?.lock_payroll_period_date &&
+          ts.workDate <= settings.lock_payroll_period_date
+        );
+        return !isLocked;
+      })
+      .map((t) => t.id);
+  }, [paginatedTimesheets, settings]);
+
   if (authLoading || loading) {
     return (
       <div className="h-[75vh] flex flex-col items-center justify-center bg-white text-[#0F172A]">
@@ -476,10 +549,9 @@ export default function TimesheetReviewPage() {
     return null;
   }
 
-  const paginatedIds = paginatedTimesheets.map((t) => t.id);
   const isAllSelected =
-    paginatedIds.length > 0 &&
-    paginatedIds.every((id) => selectedIds.includes(id));
+    selectableIds.length > 0 &&
+    selectableIds.every((id) => selectedIds.includes(id));
 
   return (
     <div className="flex flex-col bg-white h-[calc(100vh-120px)] md:h-[85vh] min-h-0 relative select-none pb-4">
@@ -584,7 +656,7 @@ export default function TimesheetReviewPage() {
             type="checkbox"
             className="h-4 w-4 rounded-md border-neutral-300 text-neutral-900 focus:ring-neutral-900/5 cursor-pointer"
             checked={isAllSelected}
-            onChange={() => handleToggleSelectAll(paginatedIds)}
+            onChange={() => handleToggleSelectAll(selectableIds)}
           />
           <span>{selectedIds.length} Selected</span>
           <span className="text-neutral-300">|</span>
@@ -642,6 +714,28 @@ export default function TimesheetReviewPage() {
                   const isApproved = ts.status === "approved";
                   const isRejected = ts.status === "rejected";
 
+                  const isLocked = !!(
+                    settings?.lock_timesheets_before_date &&
+                    settings?.lock_payroll_period_date &&
+                    ts.workDate <= settings.lock_payroll_period_date
+                  );
+                  
+                  const weekStartStr = getWeekStartStr(ts.workDate);
+                  const totalWeeklyHours = weeklyHoursMap[`${ts.staffId}_${weekStartStr}`] || 0;
+                  
+                  const hasDailyWarning = !!(
+                    settings?.show_overtime_warnings &&
+                    settings?.daily_hours_warning &&
+                    settings.daily_hours_warning > 0 &&
+                    ts.totalHours > settings.daily_hours_warning
+                  );
+                  const hasWeeklyWarning = !!(
+                    settings?.show_overtime_warnings &&
+                    settings?.weekly_hours_warning &&
+                    settings.weekly_hours_warning > 0 &&
+                    totalWeeklyHours > settings.weekly_hours_warning
+                  );
+
                   return (
                     <tr
                       key={ts.id}
@@ -653,9 +747,10 @@ export default function TimesheetReviewPage() {
                       <td className="py-4 px-6">
                         <input
                           type="checkbox"
-                          className="h-4 w-4 rounded-sm border-neutral-300 text-neutral-900 focus:ring-neutral-900/5 cursor-pointer"
+                          className="h-4 w-4 rounded-sm border-neutral-300 text-neutral-900 focus:ring-neutral-900/5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                           checked={isRowSelected}
                           onChange={() => handleToggleSelect(ts.id)}
+                          disabled={isLocked}
                         />
                       </td>
 
@@ -689,7 +784,24 @@ export default function TimesheetReviewPage() {
                       </td>
 
                       <td className="py-4 px-6 font-bold text-neutral-900">
-                        {Number(ts.totalHours.toFixed(2))}
+                        <div className="flex items-center gap-1.5">
+                          <span>{Number(ts.totalHours.toFixed(2))}</span>
+                          {settings?.show_overtime_warnings && (hasDailyWarning || hasWeeklyWarning) && (
+                            <div className="relative group flex items-center">
+                              <AlertTriangle className="h-4 w-4 text-amber-500 animate-pulse cursor-help shrink-0" />
+                              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-56 hidden group-hover:block bg-neutral-900 border border-neutral-800 text-white text-[10px] rounded-lg p-2.5 shadow-xl z-50 leading-relaxed font-medium transition-all duration-200">
+                                <div className="font-bold text-amber-400 mb-1 uppercase tracking-wider text-[9px]">Overtime Warning</div>
+                                {hasDailyWarning && (
+                                  <div>• Daily hours exceed warning limit ({settings.daily_hours_warning} hrs)</div>
+                                )}
+                                {hasWeeklyWarning && (
+                                  <div>• Weekly hours exceed warning limit ({settings.weekly_hours_warning} hrs)</div>
+                                )}
+                                <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-neutral-900" />
+                              </div>
+                            </div>
+                          )}
+                        </div>
                       </td>
 
                       <td className="py-4 px-6">
@@ -719,6 +831,17 @@ export default function TimesheetReviewPage() {
                         <div className="flex items-center justify-end">
                           {actionLoadingId === ts.id ? (
                             <Loader2 className="h-4 w-4 animate-spin text-neutral-900" />
+                          ) : isLocked ? (
+                            <div className="flex items-center gap-3.5">
+                              <button
+                                onClick={() => handleOpenEditModal(ts)}
+                                className="text-neutral-450 hover:text-neutral-900 transition-colors cursor-pointer flex items-center gap-1 font-semibold text-[11px]"
+                                title="View Details (Locked)"
+                              >
+                                <Eye className="h-4.5 w-4.5" />
+                                <span>Locked</span>
+                              </button>
+                            </div>
                           ) : isPending ? (
                             <div className="flex items-center gap-3.5">
                               <button
@@ -737,7 +860,7 @@ export default function TimesheetReviewPage() {
                               </button>
                               <button
                                 onClick={() => handleOpenEditModal(ts)}
-                                className="text-neutral-400 hover:text-neutral-700 transition-colors cursor-pointer"
+                                className="text-neutral-450 hover:text-neutral-750 transition-colors cursor-pointer"
                                 title="View/Edit"
                               >
                                 <Eye className="h-4.5 w-4.5" />
@@ -747,7 +870,7 @@ export default function TimesheetReviewPage() {
                             <div className="flex items-center gap-3.5">
                               <button
                                 onClick={() => handleOpenEditModal(ts)}
-                                className="text-neutral-450 hover:text-neutral-900 transition-colors cursor-pointer"
+                                className="text-neutral-455 hover:text-neutral-900 transition-colors cursor-pointer"
                                 title="View/Edit"
                               >
                                 <Eye className="h-4.5 w-4.5" />
@@ -881,7 +1004,7 @@ export default function TimesheetReviewPage() {
               <div className="flex items-center gap-2">
                 <Edit2 className="h-4.5 w-4.5 text-neutral-900" />
                 <h3 className="text-base font-bold text-neutral-900">
-                  Edit Timesheet
+                  {isModalEditable ? "Edit Timesheet" : "View Timesheet"}
                 </h3>
               </div>
               <button
@@ -890,9 +1013,7 @@ export default function TimesheetReviewPage() {
               >
                 <X className="h-4.5 w-4.5" />
               </button>
-            </div>
-
-            <form onSubmit={handleSaveEdit} className="p-6 space-y-4">
+            </div>            <form onSubmit={handleSaveEdit} className="p-6 space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="flex flex-col space-y-1.5">
                   <label className="text-xs font-bold text-neutral-600 uppercase tracking-wider">
@@ -901,8 +1022,9 @@ export default function TimesheetReviewPage() {
                   <select
                     value={editStaffId}
                     onChange={(e) => setEditStaffId(e.target.value)}
-                    className="w-full bg-white border border-neutral-200 rounded-xl py-2 px-3 text-xs text-neutral-800 font-semibold focus:outline-none focus:border-neutral-900 focus:ring-4 focus:ring-neutral-900/5 transition cursor-pointer animate-fade-in"
+                    className="w-full bg-white border border-neutral-200 rounded-xl py-2 px-3 text-xs text-neutral-800 font-semibold focus:outline-none focus:border-neutral-900 focus:ring-4 focus:ring-neutral-900/5 transition cursor-pointer animate-fade-in disabled:opacity-60 disabled:cursor-not-allowed"
                     required
+                    disabled={!isModalEditable}
                   >
                     {staffList.map((s) => (
                       <option key={s.id} value={s.id}>
@@ -919,8 +1041,9 @@ export default function TimesheetReviewPage() {
                   <select
                     value={editLocationId}
                     onChange={(e) => setEditLocationId(e.target.value)}
-                    className="w-full bg-white border border-neutral-200 rounded-xl py-2 px-3 text-xs text-neutral-800 font-semibold focus:outline-none focus:border-neutral-900 focus:ring-4 focus:ring-neutral-900/5 transition cursor-pointer animate-fade-in"
+                    className="w-full bg-white border border-neutral-200 rounded-xl py-2 px-3 text-xs text-neutral-800 font-semibold focus:outline-none focus:border-neutral-900 focus:ring-4 focus:ring-neutral-900/5 transition cursor-pointer animate-fade-in disabled:opacity-60 disabled:cursor-not-allowed"
                     required
+                    disabled={!isModalEditable}
                   >
                     {locations.map((l) => (
                       <option key={l.id} value={l.id}>
@@ -936,7 +1059,7 @@ export default function TimesheetReviewPage() {
                   <label className="text-xs font-bold text-neutral-600 uppercase tracking-wider flex items-center">
                     Work Date
                   </label>
-                  <div className="relative flex items-center border border-neutral-200 rounded-xl bg-white px-3 py-2 focus-within:ring-4 focus-within:ring-neutral-900/5 focus-within:border-neutral-900 transition-all h-10">
+                  <div className="relative flex items-center border border-neutral-200 rounded-xl bg-white px-3 py-2 focus-within:ring-4 focus-within:ring-neutral-900/5 focus-within:border-neutral-900 transition-all h-10 disabled:bg-neutral-50">
                     <Calendar className="h-4 w-4 text-neutral-400 mr-2" />
                     <span className="text-xs font-semibold text-neutral-800">
                       {formatDateToDisplay(editWorkDate) || "Select Work Date"}
@@ -945,8 +1068,9 @@ export default function TimesheetReviewPage() {
                       type="date"
                       value={editWorkDate}
                       onChange={(e) => setEditWorkDate(e.target.value)}
-                      className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                      className="absolute inset-0 opacity-0 cursor-pointer w-full h-full disabled:cursor-not-allowed"
                       required
+                      disabled={!isModalEditable}
                     />
                   </div>
                 </div>
@@ -960,8 +1084,9 @@ export default function TimesheetReviewPage() {
                     min="0"
                     value={editUnpaidBreak}
                     onChange={(e) => setEditUnpaidBreak(e.target.value)}
-                    className="w-full bg-white border border-neutral-200 rounded-xl py-2 px-3 text-xs text-neutral-800 font-semibold focus:outline-none focus:border-neutral-900 focus:ring-4 focus:ring-neutral-900/5 transition h-10"
+                    className="w-full bg-white border border-neutral-200 rounded-xl py-2 px-3 text-xs text-neutral-800 font-semibold focus:outline-none focus:border-neutral-900 focus:ring-4 focus:ring-neutral-900/5 transition h-10 disabled:bg-neutral-50 disabled:text-neutral-500 disabled:cursor-not-allowed"
                     required
+                    disabled={!isModalEditable}
                   />
                 </div>
               </div>
@@ -980,8 +1105,9 @@ export default function TimesheetReviewPage() {
                       type="time"
                       value={editStartTime}
                       onChange={(e) => setEditStartTime(e.target.value)}
-                      className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                      className="absolute inset-0 opacity-0 cursor-pointer w-full h-full disabled:cursor-not-allowed"
                       required
+                      disabled={!isModalEditable}
                     />
                   </div>
                 </div>
@@ -999,8 +1125,9 @@ export default function TimesheetReviewPage() {
                       type="time"
                       value={editEndTime}
                       onChange={(e) => setEditEndTime(e.target.value)}
-                      className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                      className="absolute inset-0 opacity-0 cursor-pointer w-full h-full disabled:cursor-not-allowed"
                       required
+                      disabled={!isModalEditable}
                     />
                   </div>
                 </div>
@@ -1025,7 +1152,8 @@ export default function TimesheetReviewPage() {
                   rows={2}
                   value={editNotes}
                   onChange={(e) => setEditNotes(e.target.value)}
-                  className="w-full bg-white border border-neutral-200 rounded-xl py-2 px-3 text-xs text-neutral-800 font-semibold focus:outline-none focus:border-neutral-900 focus:ring-4 focus:ring-neutral-900/5 transition resize-none"
+                  className="w-full bg-white border border-neutral-200 rounded-xl py-2 px-3 text-xs text-neutral-800 font-semibold focus:outline-none focus:border-neutral-900 focus:ring-4 focus:ring-neutral-900/5 transition resize-none disabled:bg-neutral-50 disabled:text-neutral-500 disabled:cursor-not-allowed"
+                  disabled={!isModalEditable}
                 />
               </div>
 
@@ -1036,22 +1164,24 @@ export default function TimesheetReviewPage() {
                   disabled={editSubmitting}
                   className="bg-white hover:bg-neutral-50 border border-neutral-200 text-neutral-700 rounded-full px-5 py-2.5 text-xs font-semibold shadow-xs cursor-pointer transition-colors"
                 >
-                  Cancel
+                  {isModalEditable ? "Cancel" : "Close"}
                 </button>
-                <button
-                  type="submit"
-                  disabled={editSubmitting}
-                  className="bg-neutral-900 hover:bg-neutral-850 text-white rounded-full px-5 py-2.5 text-xs font-semibold shadow-sm flex items-center gap-2 cursor-pointer transition-colors disabled:opacity-50"
-                >
-                  {editSubmitting ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin text-white" />
-                      Saving...
-                    </>
-                  ) : (
-                    "Save Changes"
-                  )}
-                </button>
+                {isModalEditable && (
+                  <button
+                    type="submit"
+                    disabled={editSubmitting}
+                    className="bg-neutral-900 hover:bg-neutral-850 text-white rounded-full px-5 py-2.5 text-xs font-semibold shadow-sm flex items-center gap-2 cursor-pointer transition-colors disabled:opacity-50"
+                  >
+                    {editSubmitting ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin text-white" />
+                        Saving...
+                      </>
+                    ) : (
+                      "Save Changes"
+                    )}
+                  </button>
+                )}
               </div>
             </form>
           </div>

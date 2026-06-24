@@ -26,6 +26,7 @@ from app.services.availability.router import router as availability_router
 from app.services.roster_settings.router import router as roster_settings_router
 from app.services.roster.router import router as roster_router
 from app.services.contact.router import router as contact_router
+from app.services.timesheet_settings.router import router as timesheet_settings_router
 
 app = FastAPI(
     title="NexBrix API",
@@ -82,4 +83,6 @@ app.include_router(availability_router)
 app.include_router(roster_settings_router)
 app.include_router(roster_router)
 app.include_router(contact_router)
+app.include_router(timesheet_settings_router)
+
 

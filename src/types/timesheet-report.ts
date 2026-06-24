@@ -11,6 +11,7 @@ export interface TimesheetReport {
   endTime: string;
   unpaidBreak: number;
   notes?: string;
+  project?: string;
   totalHours: number;
   status: string;
   createdAt?: string;
