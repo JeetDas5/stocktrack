@@ -145,7 +145,15 @@ def get_current_user(
                             allowed_sub = []
                             for mod in user_modules:
                                 if mod == "timesheet":
-                                    allowed_sub.extend(["staff", "pending-staff"])
+                                    allowed_sub.extend([
+                                        "staff",
+                                        "pending-staff",
+                                        "timesheets",
+                                        "timesheet-settings",
+                                        "rosters",
+                                        "roster-settings",
+                                        "availability"
+                                    ])
                             if sub_resource in allowed_sub:
                                 is_module_allowed = True
                                 

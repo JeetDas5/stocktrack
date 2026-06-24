@@ -1,18 +1,16 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useAuth } from "@/providers/auth-provider";
 import { useRouter } from "next/navigation";
+import { useAuth } from "@/providers/auth-provider";
 import {
   Mail,
-  Shield,
   Copy,
   Check,
   Trash2,
   Loader2,
   Plus,
   Clock,
-  Sparkles,
   CheckCircle2,
   AlertTriangle,
   Building,
@@ -167,7 +165,6 @@ export default function SuperAdminPage() {
         <div className="lg:col-span-5 space-y-6">
           <div className="bg-white border border-neutral-200 rounded-3xl p-6 shadow-sm">
             <div className="flex items-center gap-2 mb-4">
-              <Sparkles className="h-4.5 w-4.5 text-amber-500 fill-amber-500" />
               <h2 className="text-base font-bold text-neutral-900">
                 Invite New Organization Owner
               </h2>
