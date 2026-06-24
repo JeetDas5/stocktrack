@@ -47,6 +47,10 @@ export default function ProtectedRoute({
           const MODULE_ROUTES: Record<string, string[]> = {
             timesheet: [
               "/dashboard/team-members",
+              "/dashboard/roaster-builder",
+              "/dashboard/roaster-settings",
+              "/dashboard/availablity-entry",
+              "/dashboard/availability-overview",
               "/dashboard/timesheet-entry",
               "/dashboard/timesheet-review",
               "/dashboard/timesheet-reports",
@@ -105,6 +109,10 @@ export default function ProtectedRoute({
       const MODULE_ROUTES: Record<string, string[]> = {
         timesheet: [
           "/dashboard/team-members",
+          "/dashboard/roaster-builder",
+          "/dashboard/roaster-settings",
+          "/dashboard/availablity-entry",
+          "/dashboard/availability-overview",
           "/dashboard/timesheet-entry",
           "/dashboard/timesheet-review",
           "/dashboard/timesheet-reports",
