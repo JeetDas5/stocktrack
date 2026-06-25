@@ -25,6 +25,7 @@ export interface StaffCreateInput {
   priority?: number;
   position?: string | null;
   maxWorkingHours?: number | null;
+  assignments?: { business_id: string; location_ids: string[] }[];
 }
 
 export interface StaffInvitationCreateInput {

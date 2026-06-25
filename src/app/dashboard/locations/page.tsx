@@ -40,7 +40,6 @@ export default function LocationsPage() {
     deleteLocation,
   } = useLocationStore();
 
-  const [businesses, setBusinesses] = useState<Business[]>([]);
   const [activeBusiness, setActiveBusiness] = useState<Business | null>(null);
   const [loadingContext, setLoadingContext] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -54,7 +53,6 @@ export default function LocationsPage() {
   const [formActive, setFormActive] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [showUnsavedDialog, setShowUnsavedDialog] = useState(false);
 
@@ -68,7 +66,6 @@ export default function LocationsPage() {
         await fetchLocations(businessId);
 
         const list = await getUserBusinesses([]);
-        setBusinesses(list);
         const activeDoc = list.find((b) => b.id === businessId) || null;
         setActiveBusiness(activeDoc);
       } catch (err) {
@@ -101,7 +98,6 @@ export default function LocationsPage() {
     setFormActive(loc.isActive !== false);
     setShowDrawer(true);
     setShowUnsavedDialog(false);
-    setActiveMenuId(null);
   };
 
   const getFormSnapshot = () => ({
@@ -208,16 +204,19 @@ export default function LocationsPage() {
       }
 
       closeDrawer();
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
-      toast.error(err.message || "Failed to save location. Please try again.");
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : "Failed to save location. Please try again.",
+      );
     } finally {
       setSaving(false);
     }
   };
 
   const handleDelete = (locId: string) => {
-    setActiveMenuId(null);
     setDeleteTarget(locId);
   };
 
@@ -347,7 +346,8 @@ export default function LocationsPage() {
                     <th className="py-4 px-6 font-extrabold">Location Type</th>
                     <th className="py-4 px-6 font-extrabold">Address</th>
                     <th className="py-4 px-6 font-extrabold">Status</th>
-                    {profile?.role !== "staff" && (
+                    {(profile?.role === "admin" ||
+                      profile?.role === "super_admin") && (
                       <th className="py-4 px-6 font-extrabold text-right">
                         Actions
                       </th>
@@ -355,83 +355,100 @@ export default function LocationsPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-200 text-xs text-[#0F172A]">
-                  {filteredLocations.map((loc) => (
-                    <tr
-                      key={loc.id}
-                      className="hover:bg-zinc-50/40 transition-colors"
-                    >
-                      <td className="py-4 px-6">
-                        <div className="flex items-center gap-3.5">
-                          <div className="h-10 w-10 rounded-full bg-[#DCFCE7] text-[#16A34A] flex items-center justify-center shrink-0 border border-[#16A34A]/10 shadow-sm">
-                            {getLocIcon(loc.type)}
-                          </div>
-                          <div>
-                            <p className="font-extrabold text-[#0F172A]">
-                              {loc.name.length > 30
-                                ? loc.name.substring(0, 30) + "..."
-                                : loc.name}
-                            </p>
-                            <p className="text-[10px] text-[#64748B] font-bold mt-0.5">
-                              {loc.description
-                                ? loc.description.length > 50
-                                  ? loc.description.substring(0, 50) + "..."
-                                  : loc.description
-                                : "No description provided"}
-                            </p>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="py-4 px-6 font-bold text-[#64748B]">
-                        {activeBusiness?.name || "Active"}
-                      </td>
-                      <td className="py-4 px-6">
-                        <span className="bg-zinc-100 text-[#0F172A] px-2.5 py-1 rounded-md font-bold text-[10px] uppercase tracking-wider">
-                          {getLocTypeLabel(loc.type)}
-                        </span>
-                      </td>
-                      <td className="py-4 px-6 text-[#64748B] font-bold max-w-xs truncate">
-                        {loc.address}
-                      </td>
-                      <td className="py-4 px-6">
-                        <span
-                          className={`text-[10px] uppercase font-extrabold px-3 py-1 rounded-full flex items-center gap-1.5 border shadow-2xs leading-none w-fit ${
-                            loc.isActive !== false
-                              ? "bg-[#DCFCE7] text-[#16A34A] border-[#16A34A]/10"
-                              : "bg-zinc-100 text-[#64748B] border-zinc-200"
-                          }`}
-                        >
-                          <span
-                            className={`h-1.5 w-1.5 rounded-full shrink-0 ${
-                              loc.isActive !== false
-                                ? "bg-[#16A34A]"
-                                : "bg-[#64748B]"
-                            }`}
-                          />
-                          {loc.isActive !== false ? "Active" : "Inactive"}
-                        </span>
-                      </td>
-                      {profile?.role !== "staff" && (
-                        <td className="py-4 px-6 text-right">
-                          <div className="flex items-center justify-end gap-2">
-                            <button
-                              onClick={() => openEditDrawer(loc)}
-                              className="p-1.5 rounded-lg hover:bg-zinc-100 text-zinc-500 hover:text-[#16A34A] transition-colors cursor-pointer inline-flex items-center justify-center"
-                              title="Edit Details"
-                            >
-                              <Edit2 className="h-4 w-4" />
-                            </button>
-                            <button
-                              onClick={() => handleDelete(loc.id)}
-                              className="p-1.5 rounded-lg hover:bg-rose-50 text-zinc-500 hover:text-[#EF4444] transition-colors cursor-pointer inline-flex items-center justify-center"
-                              title="Delete Location"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
+                  {filteredLocations.map((loc) => {
+                    const canEdit =
+                      profile?.role === "admin" ||
+                      profile?.role === "super_admin";
+                    return (
+                      <tr
+                        key={loc.id}
+                        onClick={() => canEdit && openEditDrawer(loc)}
+                        className={`hover:bg-zinc-50/40 transition-colors ${
+                          canEdit ? "cursor-pointer" : ""
+                        }`}
+                      >
+                        <td className="py-4 px-6">
+                          <div className="flex items-center gap-3.5">
+                            <div className="h-10 w-10 rounded-full bg-[#DCFCE7] text-[#16A34A] flex items-center justify-center shrink-0 border border-[#16A34A]/10 shadow-sm">
+                              {getLocIcon(loc.type)}
+                            </div>
+                            <div>
+                              <p className="font-extrabold text-[#0F172A]">
+                                {loc.name.length > 30
+                                  ? loc.name.substring(0, 30) + "..."
+                                  : loc.name}
+                              </p>
+                              <p className="text-[10px] text-[#64748B] font-bold mt-0.5">
+                                {loc.description
+                                  ? loc.description.length > 50
+                                    ? loc.description.substring(0, 50) + "..."
+                                    : loc.description
+                                  : "No description provided"}
+                              </p>
+                            </div>
                           </div>
                         </td>
-                      )}
-                    </tr>
-                  ))}
+                        <td className="py-4 px-6 font-bold text-[#64748B]">
+                          {activeBusiness?.name || "Active"}
+                        </td>
+                        <td className="py-4 px-6">
+                          <span className="bg-zinc-100 text-[#0F172A] px-2.5 py-1 rounded-md font-bold text-[10px] uppercase tracking-wider">
+                            {getLocTypeLabel(loc.type)}
+                          </span>
+                        </td>
+                        <td className="py-4 px-6 text-[#64748B] font-bold max-w-xs truncate">
+                          {loc.address}
+                        </td>
+                        <td className="py-4 px-6">
+                          <span
+                            className={`text-[10px] uppercase font-extrabold px-3 py-1 rounded-full flex items-center gap-1.5 border shadow-2xs leading-none w-fit ${
+                              loc.isActive !== false
+                                ? "bg-[#DCFCE7] text-[#16A34A] border-[#16A34A]/10"
+                                : "bg-zinc-100 text-[#64748B] border-zinc-200"
+                            }`}
+                          >
+                            <span
+                              className={`h-1.5 w-1.5 rounded-full shrink-0 ${
+                                loc.isActive !== false
+                                  ? "bg-[#16A34A]"
+                                  : "bg-[#64748B]"
+                              }`}
+                            />
+                            {loc.isActive !== false ? "Active" : "Inactive"}
+                          </span>
+                        </td>
+                        {canEdit && (
+                          <td
+                            className="py-4 px-6 text-right"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <div className="flex items-center justify-end gap-2">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  openEditDrawer(loc);
+                                }}
+                                className="p-1.5 rounded-lg hover:bg-zinc-100 text-zinc-500 hover:text-[#16A34A] transition-colors cursor-pointer inline-flex items-center justify-center"
+                                title="Edit Details"
+                              >
+                                <Edit2 className="h-4 w-4" />
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDelete(loc.id);
+                                }}
+                                className="p-1.5 rounded-lg hover:bg-rose-50 text-zinc-500 hover:text-[#EF4444] transition-colors cursor-pointer inline-flex items-center justify-center"
+                                title="Delete Location"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            </div>
+                          </td>
+                        )}
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

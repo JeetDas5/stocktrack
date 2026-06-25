@@ -5,6 +5,7 @@ import { useRouter, usePathname } from "next/navigation";
 
 import { useAuth } from "@/providers/auth-provider";
 import Loading from "@/app/loading";
+import sidebarPermissions from "@/config/sidebar-permissions.json";
 
 export default function ProtectedRoute({
   children,
@@ -47,22 +48,31 @@ export default function ProtectedRoute({
           const MODULE_ROUTES: Record<string, string[]> = {
             timesheet: [
               "/dashboard/team-members",
-              "/dashboard/roaster-builder",
-              "/dashboard/roaster-settings",
-              "/dashboard/availablity-entry",
-              "/dashboard/availability-overview",
               "/dashboard/timesheet-entry",
               "/dashboard/timesheet-review",
               "/dashboard/timesheet-reports",
               "/dashboard/timesheet-settings",
             ],
+            roster: [
+              "/dashboard/roaster-builder",
+              "/dashboard/roaster-settings",
+              "/dashboard/availablity-entry",
+              "/dashboard/availability-overview",
+            ],
           };
+          const userRole = profile.role || "staff";
+          const allowedHrefs =
+            sidebarPermissions[userRole as keyof typeof sidebarPermissions] || [];
+          const hasRolePermission =
+            allowedHrefs.includes("*") || allowedHrefs.includes(pathname);
+
           const modules = profile.modules || [];
           const isAllowed =
-            COMMON_ROUTES.includes(pathname) ||
-            modules.some((mod) =>
-              (MODULE_ROUTES[mod] || []).includes(pathname)
-            );
+            hasRolePermission &&
+            (COMMON_ROUTES.includes(pathname) ||
+              modules.some((mod) =>
+                (MODULE_ROUTES[mod] || []).includes(pathname)
+              ));
           if (!isAllowed) {
             router.push("/dashboard/business");
           }
@@ -109,22 +119,31 @@ export default function ProtectedRoute({
       const MODULE_ROUTES: Record<string, string[]> = {
         timesheet: [
           "/dashboard/team-members",
-          "/dashboard/roaster-builder",
-          "/dashboard/roaster-settings",
-          "/dashboard/availablity-entry",
-          "/dashboard/availability-overview",
           "/dashboard/timesheet-entry",
           "/dashboard/timesheet-review",
           "/dashboard/timesheet-reports",
           "/dashboard/timesheet-settings",
         ],
+        roster: [
+          "/dashboard/roaster-builder",
+          "/dashboard/roaster-settings",
+          "/dashboard/availablity-entry",
+          "/dashboard/availability-overview",
+        ],
       };
+      const userRole = profile.role || "staff";
+      const allowedHrefs =
+        sidebarPermissions[userRole as keyof typeof sidebarPermissions] || [];
+      const hasRolePermission =
+        allowedHrefs.includes("*") || allowedHrefs.includes(pathname);
+
       const modules = profile.modules || [];
       const isAllowed =
-        COMMON_ROUTES.includes(pathname) ||
-        modules.some((mod) =>
-          (MODULE_ROUTES[mod] || []).includes(pathname)
-        );
+        hasRolePermission &&
+        (COMMON_ROUTES.includes(pathname) ||
+          modules.some((mod) =>
+            (MODULE_ROUTES[mod] || []).includes(pathname)
+          ));
       if (!isAllowed) {
         return null;
       }

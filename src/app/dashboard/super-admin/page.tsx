@@ -211,8 +211,23 @@ export default function SuperAdminPage() {
                         Timesheet & Directory Module
                       </span>
                       <span className="text-[10px] text-neutral-400 font-bold block mt-1 leading-snug">
-                        Includes Roster Entries, Team Directory, Staff
-                        Onboarding, and Settings.
+                        Includes Team Directory, Timesheet Entries, Timesheet Review, and Settings.
+                      </span>
+                    </div>
+                  </label>
+                  <label className="flex items-start gap-3 p-3.5 border border-neutral-200 rounded-2xl bg-neutral-50/50 hover:bg-neutral-50 transition cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={selectedModules.includes("roster")}
+                      onChange={() => handleToggleModule("roster")}
+                      className="mt-0.5 h-4 w-4 rounded border-neutral-300 text-black focus:ring-black accent-black cursor-pointer"
+                    />
+                    <div>
+                      <span className="text-xs font-extrabold text-neutral-900 block leading-tight">
+                        Roster Module
+                      </span>
+                      <span className="text-[10px] text-neutral-400 font-bold block mt-1 leading-snug">
+                        Includes Roster Builder, Roster Settings, and Availability management.
                       </span>
                     </div>
                   </label>

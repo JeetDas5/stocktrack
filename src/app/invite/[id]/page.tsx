@@ -287,10 +287,10 @@ export default function InvitePage({
 
               <div className="border-t border-zinc-200 pt-6">
                 <button
-                  onClick={() => router.push("/dashboard")}
+                  onClick={() => router.push("/dashboard/profile")}
                   className="w-full bg-zinc-950 hover:bg-zinc-900 text-white rounded-xl py-3 text-xs font-bold uppercase tracking-wider shadow-md transition duration-200 flex items-center justify-center gap-2 cursor-pointer"
                 >
-                  Go to Dashboard
+                  Go to Profile
                   <ArrowRight className="h-4 w-4" />
                 </button>
               </div>

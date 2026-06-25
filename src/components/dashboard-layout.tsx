@@ -32,7 +32,6 @@ import {
   ListViewIcon,
   UserGroupIcon,
   Loading01Icon,
-  BellIcon,
   MenuTwoLineIcon,
   Settings01Icon,
   ChevronsLeftIcon,
@@ -54,6 +53,7 @@ import {
   Location03Icon,
   BankIcon,
   ShieldIcon,
+  Analytics03Icon,
 } from "@hugeicons/core-free-icons";
 import Image from "next/image";
 
@@ -433,11 +433,6 @@ export default function DashboardLayout({
       href: "/dashboard/reconciliation",
       icon: BalanceScaleIcon,
     },
-    {
-      name: "Reports",
-      href: "/dashboard/timesheet-reports",
-      icon: Analytics01Icon,
-    },
   ];
 
   const businessSetupLinks: SidebarLink[] = [
@@ -493,7 +488,7 @@ export default function DashboardLayout({
       icon: ClipboardClockIcon,
       subLinks: [
         {
-          name: "Timesheet Entry",
+          name: "Timesheet Entries",
           href: "/dashboard/timesheet-entry",
           icon: ClockPlusIcon,
         },
@@ -505,7 +500,7 @@ export default function DashboardLayout({
         {
           name: "Timesheet Reports",
           href: "/dashboard/timesheet-reports",
-          icon: ClipboardClockIcon,
+          icon: Analytics03Icon,
         },
         {
           name: "Timesheet Settings",
@@ -516,13 +511,6 @@ export default function DashboardLayout({
     },
   ];
 
-  const superAdminLinks: SidebarLink[] = [
-    {
-      name: "Super Admin",
-      href: "/dashboard/super-admin",
-      icon: ShieldIcon,
-    },
-  ];
 
   const accountLinks: SidebarLink[] = [
     { name: "Profile", href: "/dashboard/profile", icon: UserIcon },
@@ -542,14 +530,16 @@ export default function DashboardLayout({
   const MODULE_ROUTES: Record<string, string[]> = {
     timesheet: [
       "/dashboard/team-members",
-      "/dashboard/roaster-builder",
-      "/dashboard/roaster-settings",
-      "/dashboard/availablity-entry",
-      "/dashboard/availability-overview",
       "/dashboard/timesheet-entry",
       "/dashboard/timesheet-review",
       "/dashboard/timesheet-reports",
       "/dashboard/timesheet-settings",
+    ],
+    roster: [
+      "/dashboard/roaster-builder",
+      "/dashboard/roaster-settings",
+      "/dashboard/availablity-entry",
+      "/dashboard/availability-overview",
     ],
   };
 
@@ -557,13 +547,16 @@ export default function DashboardLayout({
     if (profile?.role === "super_admin") return true;
     if (href === "/dashboard/super-admin") return false;
 
+    // Enforce role-based permission
+    const hasRolePermission =
+      allowedHrefs.includes("*") || allowedHrefs.includes(href);
+    if (!hasRolePermission) return false;
+
     // Enforce modules list for all non-super-admins
     if (COMMON_ROUTES.includes(href)) return true;
 
     const modules = profile?.modules || [];
-    return modules.some((mod) =>
-      (MODULE_ROUTES[mod] || []).includes(href)
-    );
+    return modules.some((mod) => (MODULE_ROUTES[mod] || []).includes(href));
   };
 
   const filterSidebarLinks = (links: SidebarLink[]) => {
@@ -1576,7 +1569,8 @@ export default function DashboardLayout({
                             <div className="absolute left-0 mt-1.5 w-52 bg-white border border-gray-soft rounded-xl shadow-xl overflow-hidden z-30 animate-fade-in">
                               <div className="max-h-56 overflow-y-auto py-1">
                                 {locations.map((loc) => {
-                                  const isSelected = loc.id === activeLocationId;
+                                  const isSelected =
+                                    loc.id === activeLocationId;
                                   return (
                                     <button
                                       key={loc.id}
@@ -1626,7 +1620,6 @@ export default function DashboardLayout({
             </div>
 
             <div className="flex items-center gap-5">
-
               <div className="h-5 w-px bg-gray-soft" />
               <div
                 className="flex items-center gap-3 relative"
