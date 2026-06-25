@@ -7,6 +7,8 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { useStaffStore } from "@/stores/staff-store";
 import { useBusinessStore } from "@/stores/business-store";
 import { useLocationStore } from "@/stores/location-store";
+import { useAuth } from "@/providers/auth-provider";
+import api from "@/lib/services/api";
 import { getUserBusinesses } from "@/lib/repositories/business.repository";
 import { getLocations } from "@/lib/repositories/location.repository";
 import {
@@ -44,6 +46,7 @@ import {
 import { Dropdown } from "@/components/ui/dropdown";
 
 export default function StaffDirectoryPage() {
+  const { profile } = useAuth();
   const { activeBusinessId } = useBusinessStore();
   const { locations } = useLocationStore();
   const {
@@ -55,6 +58,64 @@ export default function StaffDirectoryPage() {
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [activeBusiness, setActiveBusiness] = useState<Business | null>(null);
   const [loadingContext, setLoadingContext] = useState(true);
+
+  const [editBusinesses, setEditBusinesses] = useState<string[]>([]);
+  const [editBusinessLocations, setEditBusinessLocations] = useState<
+    Record<string, string[]>
+  >({});
+
+  const handleToggleEditBusiness = async (bizId: string) => {
+    if (editBusinesses.includes(bizId)) {
+      setEditBusinesses(editBusinesses.filter((id) => id !== bizId));
+      setEditBusinessLocations((prev) => {
+        const next = { ...prev };
+        delete next[bizId];
+        return next;
+      });
+    } else {
+      setEditBusinesses([...editBusinesses, bizId]);
+      if (!businessLocations[bizId]) {
+        try {
+          const locs = await getLocations(bizId);
+          setBusinessLocations((prev) => ({ ...prev, [bizId]: locs }));
+        } catch (err) {
+          console.error("Failed to load locations:", err);
+        }
+      }
+    }
+  };
+
+  const handleToggleEditLocationForBusiness = (bizId: string, locId: string) => {
+    const currentLocs = editBusinessLocations[bizId] || [];
+    if (currentLocs.includes(locId)) {
+      setEditBusinessLocations((prev) => ({
+        ...prev,
+        [bizId]: currentLocs.filter((id) => id !== locId),
+      }));
+    } else {
+      setEditBusinessLocations((prev) => ({
+        ...prev,
+        [bizId]: [...currentLocs, locId],
+      }));
+    }
+  };
+
+  const handleToggleEditAllLocations = (bizId: string) => {
+    const allLocs = businessLocations[bizId] || [];
+    const currentLocs = editBusinessLocations[bizId] || [];
+
+    if (currentLocs.length === allLocs.length) {
+      setEditBusinessLocations((prev) => ({
+        ...prev,
+        [bizId]: [],
+      }));
+    } else {
+      setEditBusinessLocations((prev) => ({
+        ...prev,
+        [bizId]: allLocs.map((l) => l.id),
+      }));
+    }
+  };
 
   const [activeTab, setActiveTab] = useState<"directory" | "pending">(
     "directory",
@@ -116,6 +177,11 @@ export default function StaffDirectoryPage() {
   const [editPriority, setEditPriority] = useState(5);
   const [editMaxHours, setEditMaxHours] = useState<number | "">("");
   const [submittingEdit, setSubmittingEdit] = useState(false);
+  const isRestrictedAdmin = !!(
+    profile?.role === "admin" &&
+    staffToEdit &&
+    profile?.email !== staffToEdit.email
+  );
 
   const loadData = useCallback(async () => {
     if (!activeBusinessId) return;
@@ -546,6 +612,28 @@ export default function StaffDirectoryPage() {
         console.error("Failed to load active business locations:", err);
       }
     }
+
+    const isAdminOrSuper = profile?.role === "super_admin" || profile?.role === "admin";
+    if (isAdminOrSuper) {
+      try {
+        const res = await api.get(`/api/businesses/${activeBusinessId}/staff/${staff.id}/assignments`);
+        const assignments = res.data;
+        const bizIds = assignments.map((a: any) => a.business_id);
+        const bizLocs: Record<string, string[]> = {};
+        for (const a of assignments) {
+          bizLocs[a.business_id] = a.location_ids;
+          if (!businessLocations[a.business_id]) {
+            getLocations(a.business_id).then((locs) => {
+              setBusinessLocations((prev) => ({ ...prev, [a.business_id]: locs }));
+            });
+          }
+        }
+        setEditBusinesses(bizIds);
+        setEditBusinessLocations(bizLocs);
+      } catch (err) {
+        console.error("Failed to load staff assignments:", err);
+      }
+    }
   };
 
   const handleToggleEditLocation = (locId: string) => {
@@ -569,17 +657,27 @@ export default function StaffDirectoryPage() {
       const { updateStaff } =
         await import("@/lib/repositories/staff.repository");
 
-      await updateStaff(activeBusinessId, staffToEdit.id, {
-        name: editName.trim(),
-        phone: editPhone.trim(),
-        email: editEmail.trim(),
+      const payload: any = {
+        name: isRestrictedAdmin ? staffToEdit.name : editName.trim(),
+        phone: isRestrictedAdmin ? (staffToEdit.phone || "") : editPhone.trim(),
+        email: isRestrictedAdmin ? staffToEdit.email : editEmail.trim(),
         role: editRole,
         status: editStatus,
         locationIds: editLocations,
         priority: editPriority,
         position: editPosition || null,
         maxWorkingHours: editMaxHours === "" ? null : Number(editMaxHours),
-      });
+      };
+
+      const isAdminOrSuper = profile?.role === "super_admin" || profile?.role === "admin";
+      if (isAdminOrSuper) {
+        payload.assignments = editBusinesses.map((bizId) => ({
+          business_id: bizId,
+          location_ids: editBusinessLocations[bizId] || [],
+        }));
+      }
+
+      await updateStaff(activeBusinessId, staffToEdit.id, payload);
 
       toast.success("Staff profile updated successfully.");
       setIsEditModalOpen(false);
@@ -874,9 +972,9 @@ export default function StaffDirectoryPage() {
                             </span>
                           )}
                         </td>
-                        <td className="py-4 px-6 text-zinc-700">
+                        <td className="py-4 px-6 text-zinc-700 text-center">
                           {s.locations && s.locations.length > 0 ? (
-                            <div className="w-40 mx-auto flex flex-col items-start gap-1">
+                            <div className="flex flex-col items-center gap-1">
                               {s.locations.map((loc) => (
                                 <span
                                   key={loc.id}
@@ -1482,7 +1580,8 @@ export default function StaffDirectoryPage() {
                     type="text"
                     value={editName}
                     onChange={(e) => setEditName(e.target.value)}
-                    className="w-full bg-white border border-zinc-200 focus:border-black rounded-xl py-2 px-3 text-xs font-semibold text-zinc-950 focus:outline-none focus:ring-1 focus:ring-black"
+                    disabled={isRestrictedAdmin}
+                    className="w-full bg-white border border-zinc-200 focus:border-black rounded-xl py-2 px-3 text-xs font-semibold text-zinc-950 focus:outline-none focus:ring-1 focus:ring-black disabled:bg-zinc-100 disabled:text-zinc-500 disabled:cursor-not-allowed"
                   />
                 </div>
                 <div>
@@ -1493,7 +1592,8 @@ export default function StaffDirectoryPage() {
                     type="email"
                     value={editEmail}
                     onChange={(e) => setEditEmail(e.target.value)}
-                    className="w-full bg-white border border-zinc-200 focus:border-black rounded-xl py-2 px-3 text-xs font-semibold text-zinc-950 focus:outline-none focus:ring-1 focus:ring-black"
+                    disabled={isRestrictedAdmin}
+                    className="w-full bg-white border border-zinc-200 focus:border-black rounded-xl py-2 px-3 text-xs font-semibold text-zinc-950 focus:outline-none focus:ring-1 focus:ring-black disabled:bg-zinc-100 disabled:text-zinc-500 disabled:cursor-not-allowed"
                   />
                 </div>
                 <div>
@@ -1504,7 +1604,8 @@ export default function StaffDirectoryPage() {
                     type="text"
                     value={editPhone}
                     onChange={(e) => setEditPhone(e.target.value)}
-                    className="w-full bg-white border border-zinc-200 focus:border-black rounded-xl py-2 px-3 text-xs font-semibold text-zinc-950 focus:outline-none focus:ring-1 focus:ring-black"
+                    disabled={isRestrictedAdmin}
+                    className="w-full bg-white border border-zinc-200 focus:border-black rounded-xl py-2 px-3 text-xs font-semibold text-zinc-950 focus:outline-none focus:ring-1 focus:ring-black disabled:bg-zinc-100 disabled:text-zinc-500 disabled:cursor-not-allowed"
                   />
                 </div>
                 <div>
@@ -1600,32 +1701,129 @@ export default function StaffDirectoryPage() {
                 </div>
               </div>
 
-              <div>
-                <label className="text-[10px] font-extrabold text-[#0F172A] uppercase tracking-wider block mb-1.5">
-                  Assign Locations
-                </label>
-                <div className="border border-zinc-200 rounded-2xl p-4 max-h-[20vh] overflow-y-auto grid grid-cols-2 gap-2 bg-zinc-50/30">
-                  {locations.map((loc) => (
-                    <label
-                      key={loc.id}
-                      className="flex items-center gap-2 cursor-pointer select-none text-[11px] font-semibold text-zinc-700"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={editLocations.includes(loc.id)}
-                        onChange={() => handleToggleEditLocation(loc.id)}
-                        className="h-3.5 w-3.5 rounded border-zinc-300 text-black focus:ring-black accent-black cursor-pointer"
-                      />
-                      <span className="truncate">{loc.name}</span>
-                    </label>
-                  ))}
-                  {locations.length === 0 && (
-                    <span className="text-zinc-400 italic text-xs col-span-2">
-                      No locations available.
-                    </span>
-                  )}
+              {profile?.role === "super_admin" || profile?.role === "admin" ? (
+                <div className="space-y-2">
+                  <label className="text-[10px] font-extrabold text-[#0F172A] uppercase tracking-wider block mb-1.5">
+                    Assign Businesses & Locations
+                  </label>
+                  <div className="border border-zinc-200 rounded-2xl p-4 max-h-[20vh] overflow-y-auto space-y-3 bg-zinc-50/30">
+                    {businesses.length === 0 ? (
+                      <span className="text-xs text-zinc-400 font-semibold italic">
+                        No businesses available.
+                      </span>
+                    ) : (
+                      businesses.map((b) => {
+                        const isBizChecked = editBusinesses.includes(b.id);
+                        const allLocs = businessLocations[b.id] || [];
+                        const currentCheckedLocs = editBusinessLocations[b.id] || [];
+                        const hasLocations = allLocs.length > 0;
+                        const allLocsChecked =
+                          hasLocations &&
+                          currentCheckedLocs.length === allLocs.length;
+
+                        return (
+                          <div
+                            key={b.id}
+                            className="border border-zinc-200/80 rounded-xl bg-white p-3 space-y-2.5"
+                          >
+                            <label className="flex items-center gap-2.5 cursor-pointer select-none">
+                              <input
+                                type="checkbox"
+                                checked={isBizChecked}
+                                onChange={() => handleToggleEditBusiness(b.id)}
+                                className="h-4 w-4 rounded border-zinc-300 text-black focus:ring-black accent-black cursor-pointer"
+                              />
+                              <span className="text-xs font-extrabold text-zinc-950 flex items-center gap-1.5">
+                                <Building2 className="h-3.5 w-3.5 text-zinc-400" />
+                                {b.name}
+                              </span>
+                            </label>
+
+                            {isBizChecked && (
+                              <div className="pl-6 border-l-2 border-zinc-100 space-y-2 py-0.5">
+                                {hasLocations ? (
+                                  <>
+                                    <label className="flex items-center gap-2 cursor-pointer select-none text-[11px] font-bold text-zinc-500">
+                                      <input
+                                        type="checkbox"
+                                        checked={allLocsChecked}
+                                        onChange={() =>
+                                          handleToggleEditAllLocations(b.id)
+                                        }
+                                        className="h-3.5 w-3.5 rounded border-zinc-300 text-black focus:ring-black accent-black cursor-pointer"
+                                      />
+                                      <span>
+                                        Select All Locations ({allLocs.length})
+                                      </span>
+                                    </label>
+
+                                    <div className="grid grid-cols-2 gap-2 mt-1.5">
+                                      {allLocs.map((loc) => (
+                                        <label
+                                          key={loc.id}
+                                          className="flex items-center gap-2 cursor-pointer select-none text-[11px] font-semibold text-zinc-700"
+                                        >
+                                          <input
+                                            type="checkbox"
+                                            checked={currentCheckedLocs.includes(
+                                              loc.id,
+                                            )}
+                                            onChange={() =>
+                                              handleToggleEditLocationForBusiness(
+                                                b.id,
+                                                loc.id,
+                                              )
+                                            }
+                                            className="h-3.5 w-3.5 rounded border-zinc-300 text-black focus:ring-black accent-black cursor-pointer"
+                                          />
+                                          <span className="truncate">
+                                            {loc.name}
+                                          </span>
+                                        </label>
+                                      ))}
+                                    </div>
+                                  </>
+                                ) : (
+                                  <span className="text-[10px] text-zinc-400 font-semibold italic">
+                                    Loading locations...
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <div>
+                  <label className="text-[10px] font-extrabold text-[#0F172A] uppercase tracking-wider block mb-1.5">
+                    Assign Locations
+                  </label>
+                  <div className="border border-zinc-200 rounded-2xl p-4 max-h-[20vh] overflow-y-auto grid grid-cols-2 gap-2 bg-zinc-50/30">
+                    {locations.map((loc) => (
+                      <label
+                        key={loc.id}
+                        className="flex items-center gap-2 cursor-pointer select-none text-[11px] font-semibold text-zinc-700"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={editLocations.includes(loc.id)}
+                          onChange={() => handleToggleEditLocation(loc.id)}
+                          className="h-3.5 w-3.5 rounded border-zinc-300 text-black focus:ring-black accent-black cursor-pointer"
+                        />
+                        <span className="truncate">{loc.name}</span>
+                      </label>
+                    ))}
+                    {locations.length === 0 && (
+                      <span className="text-zinc-400 italic text-xs col-span-2">
+                        No locations available.
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-3 mt-6">
                 <button

@@ -20,6 +20,7 @@ class StaffCreate(SQLModel):
     priority: int = 5
     position: Optional[str] = None
     max_working_hours: Optional[float] = None
+    assignments: Optional[List[dict]] = None
 
 
 class LocationOut(SQLModel):
@@ -245,6 +246,29 @@ def get_staff_members(
     return out
 
 
+@router.get("/api/businesses/{business_id}/staff/{staff_id}/assignments", response_model=List[dict])
+def get_staff_assignments(
+    business_id: str,
+    staff_id: str,
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session)
+):
+    verify_user_permission(current_user, business_id, "staff.read", session=session)
+    assignments = session.exec(
+        select(UserAssignment).where(UserAssignment.user_id == staff_id)
+    ).all()
+    
+    by_biz = {}
+    for ass in assignments:
+        biz_id = ass.business_id
+        if biz_id not in by_biz:
+            by_biz[biz_id] = []
+        if ass.location_id:
+            by_biz[biz_id].append(ass.location_id)
+            
+    return [{"business_id": b, "location_ids": locs} for b, locs in by_biz.items()]
+
+
 @router.put("/api/businesses/{business_id}/staff/{staff_id}", response_model=StaffOut)
 def update_staff(
     business_id: str,
@@ -259,6 +283,24 @@ def update_staff(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
+    # Admin cannot edit name, phone, email of other users
+    if current_user.role != "super_admin" and current_user.id != staff_id:
+        business = session.get(Business, business_id)
+        is_owner = business and business.created_by_id == current_user.id
+        if not is_owner:
+            stmt = select(UserAssignment).where(
+                UserAssignment.user_id == current_user.id,
+                UserAssignment.business_id == business_id,
+                UserAssignment.is_active == True
+            )
+            assignment = session.exec(stmt).first()
+            user_role = assignment.role if assignment else current_user.role
+            
+            if user_role == "admin" or current_user.role == "admin":
+                data.name = user.name if user.name is not None else ""
+                data.phone = user.phone if user.phone is not None else ""
+                data.email = user.email if user.email is not None else ""
+
     user.name = data.name.strip()
     user.phone = data.phone.strip()
     user.email = data.email.strip()
@@ -266,24 +308,82 @@ def update_staff(
     session.commit()
     session.refresh(user)
 
-    existing_assignments = session.exec(
-        select(UserAssignment).where(
-            UserAssignment.user_id == staff_id,
-            UserAssignment.business_id == business_id
-        )
-    ).all()
-    for ass in existing_assignments:
-        session.delete(ass)
-    session.commit()
+    if data.assignments is not None:
+        existing_assignments = session.exec(
+            select(UserAssignment).where(UserAssignment.user_id == staff_id)
+        ).all()
+        for ass in existing_assignments:
+            session.delete(ass)
+        session.commit()
 
-    is_active = (data.status == "Active")
+        is_active = (data.status == "Active")
+        role = data.role.strip().lower()
 
-    if data.location_ids:
-        for loc_id in data.location_ids:
+        for ass in data.assignments:
+            biz_id = ass.get("business_id")
+            if not biz_id:
+                raise HTTPException(status_code=400, detail="Missing business_id in assignment")
+            verify_user_permission(current_user, biz_id, "staff.write", session=session)
+
+            loc_ids = ass.get("location_ids", [])
+            if loc_ids:
+                for loc_id in loc_ids:
+                    new_ass = UserAssignment(
+                        user_id=staff_id,
+                        business_id=biz_id,
+                        location_id=loc_id,
+                        role=role,
+                        is_active=is_active,
+                        status="active",
+                        priority=data.priority,
+                        position=data.position,
+                        max_working_hours=data.max_working_hours
+                    )
+                    session.add(new_ass)
+            else:
+                new_ass = UserAssignment(
+                    user_id=staff_id,
+                    business_id=biz_id,
+                    location_id=None,
+                    role=role,
+                    is_active=is_active,
+                    status="active",
+                    priority=data.priority,
+                    position=data.position,
+                    max_working_hours=data.max_working_hours
+                )
+                session.add(new_ass)
+    else:
+        existing_assignments = session.exec(
+            select(UserAssignment).where(
+                UserAssignment.user_id == staff_id,
+                UserAssignment.business_id == business_id
+            )
+        ).all()
+        for ass in existing_assignments:
+            session.delete(ass)
+        session.commit()
+
+        is_active = (data.status == "Active")
+
+        if data.location_ids:
+            for loc_id in data.location_ids:
+                ass = UserAssignment(
+                    user_id=staff_id,
+                    business_id=business_id,
+                    location_id=loc_id,
+                    role=data.role,
+                    is_active=is_active,
+                    priority=data.priority,
+                    position=data.position,
+                    max_working_hours=data.max_working_hours
+                )
+                session.add(ass)
+        else:
             ass = UserAssignment(
                 user_id=staff_id,
                 business_id=business_id,
-                location_id=loc_id,
+                location_id=None,
                 role=data.role,
                 is_active=is_active,
                 priority=data.priority,
@@ -291,18 +391,6 @@ def update_staff(
                 max_working_hours=data.max_working_hours
             )
             session.add(ass)
-    else:
-        ass = UserAssignment(
-            user_id=staff_id,
-            business_id=business_id,
-            location_id=None,
-            role=data.role,
-            is_active=is_active,
-            priority=data.priority,
-            position=data.position,
-            max_working_hours=data.max_working_hours
-        )
-        session.add(ass)
 
     session.commit()
 

@@ -150,6 +150,10 @@ def get_current_user(
                                         "pending-staff",
                                         "timesheets",
                                         "timesheet-settings",
+                                        "roster-settings"
+                                    ])
+                                elif mod == "roster":
+                                    allowed_sub.extend([
                                         "rosters",
                                         "roster-settings",
                                         "availability"
@@ -162,6 +166,12 @@ def get_current_user(
                     
                 elif resource in ("timesheets", "timesheet-settings"):
                     is_module_allowed = "timesheet" in user_modules
+                    
+                elif resource == "roster-settings":
+                    is_module_allowed = "roster" in user_modules or "timesheet" in user_modules
+                    
+                elif resource in ("rosters", "availability"):
+                    is_module_allowed = "roster" in user_modules
                     
                 elif resource == "staff":  # /api/staff/invitations
                     is_module_allowed = "timesheet" in user_modules

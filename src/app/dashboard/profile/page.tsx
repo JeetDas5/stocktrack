@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useEffect, useState, useMemo } from "react";
+import Image from "next/image";
 import { toast } from "sonner";
+import React, { useEffect, useState, useMemo, useRef } from "react";
 import {
   ChevronDown,
   Eye,
@@ -14,12 +15,16 @@ import {
   Briefcase,
   User,
   HeartHandshake,
+  Calendar as CalendarIcon,
 } from "lucide-react";
 
+import Calendar from "@/components/ui/calendar";
 import { useAuth } from "@/providers/auth-provider";
 import { updateMeProfile } from "@/lib/repositories/user.repository";
 import { Dropdown } from "@/components/ui/dropdown";
-import Image from "next/image";
+import { useBusinessStore } from "@/stores/business-store";
+import { useStaffStore } from "@/stores/staff-store";
+import { useLocationStore } from "@/stores/location-store";
 
 const GENDER_OPTIONS = [
   { value: "Male", label: "Male" },
@@ -32,6 +37,37 @@ export default function ProfilePage() {
   const { profile, loading: authLoading, refreshProfile } = useAuth();
   const [saving, setSaving] = useState(false);
 
+  const { activeBusinessId } = useBusinessStore();
+  const { staffMembers, fetchStaffMembers } = useStaffStore();
+  const { locations, fetchLocations } = useLocationStore();
+
+  useEffect(() => {
+    if (activeBusinessId) {
+      fetchLocations(activeBusinessId);
+      fetchStaffMembers(activeBusinessId).catch((err) => {
+        console.error("Failed to fetch staff members:", err);
+      });
+    }
+  }, [activeBusinessId, fetchLocations, fetchStaffMembers]);
+
+  const assignedLocations = useMemo(() => {
+    if (!profile) return [];
+
+    if (profile.role === "admin" || profile.role === "super_admin") {
+      return locations;
+    }
+
+    const matchingStaff = staffMembers.find(
+      (s) => s.email.toLowerCase() === profile.email?.toLowerCase(),
+    );
+
+    if (matchingStaff && matchingStaff.locations) {
+      return matchingStaff.locations;
+    }
+
+    return [];
+  }, [profile, locations, staffMembers]);
+
   const [openSections, setOpenSections] = useState({
     personal: true,
     emergency: true,
@@ -41,6 +77,41 @@ export default function ProfilePage() {
 
   const [showTFN, setShowTFN] = useState(false);
   const [showAccountNumber, setShowAccountNumber] = useState(false);
+
+  const [showDOBCalendar, setShowDOBCalendar] = useState(false);
+  const [showLicenseCalendar, setShowLicenseCalendar] = useState(false);
+  const [showVisaCalendar, setShowVisaCalendar] = useState(false);
+
+  const dobCalendarRef = useRef<HTMLDivElement>(null);
+  const licenseCalendarRef = useRef<HTMLDivElement>(null);
+  const visaCalendarRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        dobCalendarRef.current &&
+        !dobCalendarRef.current.contains(event.target as Node)
+      ) {
+        setShowDOBCalendar(false);
+      }
+      if (
+        licenseCalendarRef.current &&
+        !licenseCalendarRef.current.contains(event.target as Node)
+      ) {
+        setShowLicenseCalendar(false);
+      }
+      if (
+        visaCalendarRef.current &&
+        !visaCalendarRef.current.contains(event.target as Node)
+      ) {
+        setShowVisaCalendar(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
 
   const [formData, setFormData] = useState({
     first_name: "",
@@ -313,7 +384,7 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="bg-white min-h-[85vh] select-none pb-12">
+    <div className="bg-white min-h-[85vh] select-none pb-10">
       <form
         onSubmit={handleSave}
         className="max-w-6xl mx-auto space-y-6 px-4 md:px-6"
@@ -397,7 +468,6 @@ export default function ProfilePage() {
                   </span>
                 </div>
 
-                {/* Form fields Grid */}
                 <div className="flex-1 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
                   <div className="space-y-1.5">
                     <label className="text-xs font-extrabold text-zinc-700 uppercase tracking-wide">
@@ -476,13 +546,38 @@ export default function ProfilePage() {
                     <label className="text-xs font-extrabold text-zinc-700 uppercase tracking-wide">
                       Date of Birth
                     </label>
-                    <input
-                      type="date"
-                      name="date_of_birth"
-                      value={formData.date_of_birth}
-                      onChange={handleChange}
-                      className="w-full bg-white border border-zinc-200 focus:border-[#0a2924] rounded-xl py-2.5 px-3.5 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#0a2924] transition-all shadow-xs font-bold"
-                    />
+                    <div ref={dobCalendarRef} className="relative">
+                      <button
+                        type="button"
+                        onClick={() => setShowDOBCalendar(!showDOBCalendar)}
+                        className="w-full flex justify-between items-center bg-white border border-zinc-200 text-xs hover:bg-zinc-50/50 transition-colors focus:outline-none focus:ring-1 focus:ring-[#0a2924] focus:border-[#0a2924] cursor-pointer rounded-xl py-2.5 px-3.5 shadow-xs font-bold"
+                      >
+                        <span
+                          className={
+                            formData.date_of_birth
+                              ? "text-zinc-950"
+                              : "text-zinc-400"
+                          }
+                        >
+                          {formData.date_of_birth || "Select date"}
+                        </span>
+                        <CalendarIcon className="h-4 w-4 text-zinc-400" />
+                      </button>
+
+                      {showDOBCalendar && (
+                        <Calendar
+                          selectedDate={formData.date_of_birth}
+                          onChange={(dateStr) => {
+                            setFormData((prev) => ({
+                              ...prev,
+                              date_of_birth: dateStr,
+                            }));
+                            setShowDOBCalendar(false);
+                          }}
+                          className="right-0 top-full mt-1.5"
+                        />
+                      )}
+                    </div>
                   </div>
 
                   <div className="space-y-1.5 md:col-span-2 lg:col-span-3">
@@ -573,13 +668,38 @@ export default function ProfilePage() {
                     <label className="text-xs font-extrabold text-zinc-700 uppercase tracking-wide">
                       License Expiry Date
                     </label>
-                    <input
-                      type="date"
-                      name="license_expiry_date"
-                      value={formData.license_expiry_date}
-                      onChange={handleChange}
-                      className="w-full bg-white border border-zinc-200 focus:border-[#0a2924] rounded-xl py-2.5 px-3.5 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#0a2924] transition-all shadow-xs font-bold"
-                    />
+                    <div ref={licenseCalendarRef} className="relative">
+                      <button
+                        type="button"
+                        onClick={() => setShowLicenseCalendar(!showLicenseCalendar)}
+                        className="w-full flex justify-between items-center bg-white border border-zinc-200 text-xs hover:bg-zinc-50/50 transition-colors focus:outline-none focus:ring-1 focus:ring-[#0a2924] focus:border-[#0a2924] cursor-pointer rounded-xl py-2.5 px-3.5 shadow-xs font-bold"
+                      >
+                        <span
+                          className={
+                            formData.license_expiry_date
+                              ? "text-zinc-950"
+                              : "text-zinc-400"
+                          }
+                        >
+                          {formData.license_expiry_date || "Select date"}
+                        </span>
+                        <CalendarIcon className="h-4 w-4 text-zinc-400" />
+                      </button>
+
+                      {showLicenseCalendar && (
+                        <Calendar
+                          selectedDate={formData.license_expiry_date}
+                          onChange={(dateStr) => {
+                            setFormData((prev) => ({
+                              ...prev,
+                              license_expiry_date: dateStr,
+                            }));
+                            setShowLicenseCalendar(false);
+                          }}
+                          className="right-0 top-full mt-1.5"
+                        />
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -845,13 +965,38 @@ export default function ProfilePage() {
                   <label className="text-xs font-extrabold text-zinc-700 uppercase tracking-wide">
                     Visa Expiry Date
                   </label>
-                  <input
-                    type="date"
-                    name="visa_expiry_date"
-                    value={formData.visa_expiry_date}
-                    onChange={handleChange}
-                    className="w-full bg-white border border-zinc-200 focus:border-[#0a2924] rounded-xl py-2.5 px-3.5 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#0a2924] transition-all shadow-xs font-bold"
-                  />
+                  <div ref={visaCalendarRef} className="relative">
+                    <button
+                      type="button"
+                      onClick={() => setShowVisaCalendar(!showVisaCalendar)}
+                      className="w-full flex justify-between items-center bg-white border border-zinc-200 text-xs hover:bg-zinc-50/50 transition-colors focus:outline-none focus:ring-1 focus:ring-[#0a2924] focus:border-[#0a2924] cursor-pointer rounded-xl py-2.5 px-3.5 shadow-xs font-bold"
+                    >
+                      <span
+                        className={
+                          formData.visa_expiry_date
+                            ? "text-zinc-950"
+                            : "text-zinc-400"
+                        }
+                      >
+                        {formData.visa_expiry_date || "Select date"}
+                      </span>
+                      <CalendarIcon className="h-4 w-4 text-zinc-400" />
+                    </button>
+
+                    {showVisaCalendar && (
+                      <Calendar
+                        selectedDate={formData.visa_expiry_date}
+                        onChange={(dateStr) => {
+                          setFormData((prev) => ({
+                            ...prev,
+                            visa_expiry_date: dateStr,
+                          }));
+                          setShowVisaCalendar(false);
+                        }}
+                        className="right-0 top-full mt-1.5"
+                      />
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -965,24 +1110,26 @@ export default function ProfilePage() {
                     />
                   </div>
 
-                  {/* Locations List (badges) */}
                   <div className="space-y-2 md:col-span-2 lg:col-span-4">
                     <label className="text-xs font-extrabold text-zinc-400 uppercase tracking-wide block">
                       Assigned Locations
                     </label>
                     <div className="flex flex-wrap gap-2">
-                      <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-extrabold bg-zinc-100 text-zinc-700 border border-zinc-200 select-none cursor-not-allowed">
-                        <MapPin className="h-3.5 w-3.5 text-zinc-400" />
-                        Downtown Cafe
-                      </span>
-                      <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-extrabold bg-zinc-100 text-zinc-700 border border-zinc-200 select-none cursor-not-allowed">
-                        <MapPin className="h-3.5 w-3.5 text-zinc-400" />
-                        Bistro Grill
-                      </span>
-                      <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-extrabold bg-zinc-100 text-zinc-700 border border-zinc-200 select-none cursor-not-allowed">
-                        <MapPin className="h-3.5 w-3.5 text-zinc-400" />
-                        Airport Runway
-                      </span>
+                      {assignedLocations.length > 0 ? (
+                        assignedLocations.map((loc) => (
+                          <span
+                            key={loc.id}
+                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-extrabold bg-zinc-100 text-zinc-700 border border-zinc-200 select-none cursor-not-allowed"
+                          >
+                            <MapPin className="h-3.5 w-3.5 text-zinc-400" />
+                            {loc.name}
+                          </span>
+                        ))
+                      ) : (
+                        <span className="text-xs text-zinc-450 font-bold italic">
+                          No locations assigned
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>

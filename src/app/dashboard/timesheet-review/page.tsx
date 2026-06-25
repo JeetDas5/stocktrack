@@ -109,7 +109,7 @@ export default function TimesheetReviewPage() {
 
   useEffect(() => {
     if (!authLoading && profile && isStaff) {
-      router.push("/dashboard");
+      router.push("/dashboard/profile");
     }
   }, [profile, authLoading, isStaff, router]);
 

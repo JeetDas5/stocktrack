@@ -90,6 +90,7 @@ export const updateStaff = async (
       priority: data.priority,
       position: data.position,
       max_working_hours: data.maxWorkingHours,
+      assignments: data.assignments,
     },
   );
   const s = response.data;

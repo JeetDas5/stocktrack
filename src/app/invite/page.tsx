@@ -20,7 +20,7 @@ export default function InvitePendingPage() {
             profile.role === "super_admin" ||
             profile.isActive)
         ) {
-          router.push("/dashboard");
+          router.push("/dashboard/profile");
         }
       }
     }
