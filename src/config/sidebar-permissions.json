@@ -2,7 +2,7 @@
   "super_admin": ["*"],
   "admin": ["*"],
   "manager": [
-    "/dashboard",
+    "/dashboard/profile",
     "/dashboard/business",
     "/dashboard/locations",
     "/dashboard/suppliers",
@@ -22,7 +22,7 @@
     "/dashboard/availability-overview"
   ],
   "staff": [
-    "/dashboard",
+    "/dashboard/profile",
     "/dashboard/business",
     "/dashboard/locations",
     "/dashboard/counts",

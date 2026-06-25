@@ -10,11 +10,11 @@ const inter = Inter({
   subsets: ["latin"],
 });
 export const metadata: Metadata = {
-  title: "NexBrix — Business Operating System for Small Businesses",
+  title: "NexBrix | Business Operating System",
   description:
-    "NexBrix is the Business Operating System for small businesses. Manage workforce, inventory and operations from a single platform.",
+    "NexBrix is the Business Operating System. Manage workforce, inventory and operations from a single platform.",
   openGraph: {
-    title: "NexBrix — Business Operating System for Small Businesses",
+    title: "NexBrix — Business Operating System",
     description:
       "One platform to manage workforce, inventory, and business operations.",
     type: "website",

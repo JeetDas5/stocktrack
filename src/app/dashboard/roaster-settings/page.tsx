@@ -64,7 +64,7 @@ export default function RosterSettingsPage() {
   useEffect(() => {
     if (!authLoading && profile) {
       if (profile.role !== "admin" && profile.role !== "super_admin") {
-        router.push("/dashboard");
+        router.push("/dashboard/profile");
       }
     }
   }, [profile, authLoading, router]);
