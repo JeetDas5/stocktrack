@@ -12,7 +12,8 @@ export default function Footer() {
                 src="/logos/logo.png"
                 alt="logo"
                 width={150}
-                height={150}
+                height={38}
+                style={{ width: "150px", height: "auto" }}
                 loading="eager"
               />
             </Link>
