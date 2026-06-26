@@ -439,7 +439,7 @@ export default function StaffDirectoryPage() {
 
   const handleShareEmail = () => {
     if (!generatedLink) return;
-    const subject = encodeURIComponent("Invitation to join StockTrack staff");
+    const subject = encodeURIComponent("Invitation to join NexBrix staff");
     const body = encodeURIComponent(
       `Please register via this unique link to set up your staff account: ${generatedLink}`,
     );

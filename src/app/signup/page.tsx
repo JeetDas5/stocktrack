@@ -264,7 +264,7 @@ export default function SignupPage() {
             </h1>
             <Reveal delay={0.4}>
               <p className="mt-8 max-w-md text-[17px] leading-relaxed text-neutral-600">
-                Sign up for your StockTrack workspace. Enter your name and email
+                Sign up for your NexBrix workspace. Enter your name and email
                 to receive a secure verification code.
               </p>
             </Reveal>

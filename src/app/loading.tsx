@@ -1,20 +1,20 @@
 export default function Loading() {
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-[#F1F5F9] font-sans">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-white font-sans">
       <div className="relative mb-6 animate-fade-in">
-        <div className="h-16 w-16 rounded-full border-[3px] border-[#DCFCE7] border-t-[#16A34A] animate-spin" />
+        <div className="h-16 w-16 rounded-full border-[3px] border-zinc-200 border-t-zinc-900 animate-spin" />
 
         <div className="absolute inset-0 flex items-center justify-center">
-          <span className="text-[#16A34A] font-extrabold text-lg tracking-tighter">
+          <span className="text-zinc-900 font-extrabold text-lg tracking-tighter">
             N
           </span>
         </div>
       </div>
 
       <div className="flex flex-col items-center gap-2 animate-fade-in">
-        <div className="h-2 w-40 bg-[#DCFCE7] rounded-full overflow-hidden">
+        <div className="h-2 w-40 bg-zinc-100 rounded-full overflow-hidden">
           <div
-            className="h-full w-1/2 bg-[#16A34A]/40 rounded-full"
+            className="h-full w-1/2 bg-zinc-400 rounded-full"
             style={{
               animation: "shimmer 1.4s ease-in-out infinite",
             }}

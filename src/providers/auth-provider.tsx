@@ -45,7 +45,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setSessionLoading(true);
       const token =
         typeof window !== "undefined"
-          ? localStorage.getItem("stocktrack_token")
+          ? localStorage.getItem("nexbrix_token")
           : null;
       const res = await authClient.getSession({
         fetchOptions: {
@@ -55,7 +55,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       if (res?.data) {
         setSession(res.data);
         if (res.data.session?.token) {
-          localStorage.setItem("stocktrack_token", res.data.session.token);
+          localStorage.setItem("nexbrix_token", res.data.session.token);
         }
       } else if (token) {
         // Fallback: If Better Auth session is null but we have a custom token, fetch user profile from FastAPI backend
@@ -73,22 +73,22 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             });
           } else {
             setSession(null);
-            localStorage.removeItem("stocktrack_token");
+            localStorage.removeItem("nexbrix_token");
           }
         } catch (profileErr) {
           console.error("Error fetching fallback profile:", profileErr);
           setSession(null);
-          localStorage.removeItem("stocktrack_token");
+          localStorage.removeItem("nexbrix_token");
         }
       } else {
         setSession(null);
-        localStorage.removeItem("stocktrack_token");
+        localStorage.removeItem("nexbrix_token");
       }
     } catch (err) {
       console.error("Error fetching Better Auth session:", err);
       const token =
         typeof window !== "undefined"
-          ? localStorage.getItem("stocktrack_token")
+          ? localStorage.getItem("nexbrix_token")
           : null;
       if (token) {
         try {
@@ -108,7 +108,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         } catch {}
       }
       setSession(null);
-      localStorage.removeItem("stocktrack_token");
+      localStorage.removeItem("nexbrix_token");
     } finally {
       setSessionLoading(false);
     }
@@ -128,10 +128,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   useEffect(() => {
     if (session?.session?.token) {
-      localStorage.setItem("stocktrack_token", session.session.token);
+      localStorage.setItem("nexbrix_token", session.session.token);
     } else if (session === null && !sessionLoading) {
-      localStorage.removeItem("stocktrack_token");
-      localStorage.removeItem("stocktrack_active_business_id");
+      localStorage.removeItem("nexbrix_token");
+      localStorage.removeItem("nexbrix_active_business_id");
       setProfile(null);
     }
   }, [session, sessionLoading]);
@@ -164,11 +164,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const logout = async () => {
     await authClient.signOut();
-    localStorage.removeItem("stocktrack_token");
-    localStorage.removeItem("stocktrack_active_business_id");
-    localStorage.removeItem("stocktrack_active_location_id");
-    localStorage.removeItem("stocktrack_impersonated_user_id");
-    localStorage.removeItem("stocktrack_super_admin_readonly");
+    localStorage.removeItem("nexbrix_token");
+    localStorage.removeItem("nexbrix_active_business_id");
+    localStorage.removeItem("nexbrix_active_location_id");
+    localStorage.removeItem("nexbrix_impersonated_user_id");
+    localStorage.removeItem("nexbrix_super_admin_readonly");
     setSession(null);
     setProfile(null);
   };

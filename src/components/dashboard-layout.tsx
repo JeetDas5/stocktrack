@@ -2,6 +2,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter, usePathname } from "next/navigation";
 import React, { useEffect, useState, useRef } from "react";
 import { HugeiconsIcon, IconSvgElement } from "@hugeicons/react";
@@ -31,7 +32,6 @@ import {
   Cancel01Icon,
   ListViewIcon,
   UserGroupIcon,
-  Loading01Icon,
   MenuTwoLineIcon,
   Settings01Icon,
   ChevronsLeftIcon,
@@ -55,7 +55,6 @@ import {
   ShieldIcon,
   Analytics03Icon,
 } from "@hugeicons/core-free-icons";
-import Image from "next/image";
 
 interface SidebarSubLink {
   name: string;
@@ -147,7 +146,7 @@ export default function DashboardLayout({
   useEffect(() => {
     if (typeof window !== "undefined") {
       setIsReadOnly(
-        localStorage.getItem("stocktrack_super_admin_readonly") === "true",
+        localStorage.getItem("nexbrix_super_admin_readonly") === "true",
       );
     }
   }, []);
@@ -156,7 +155,7 @@ export default function DashboardLayout({
     setIsReadOnly(val);
     if (typeof window !== "undefined") {
       localStorage.setItem(
-        "stocktrack_super_admin_readonly",
+        "nexbrix_super_admin_readonly",
         val ? "true" : "false",
       );
     }
@@ -166,7 +165,7 @@ export default function DashboardLayout({
     const isSuperAdmin =
       profile?.role === "super_admin" ||
       (typeof window !== "undefined" &&
-        !!localStorage.getItem("stocktrack_impersonated_user_id"));
+        !!localStorage.getItem("nexbrix_impersonated_user_id"));
     if (isSuperAdmin) {
       api
         .get("/api/super-admin/users")
@@ -181,18 +180,18 @@ export default function DashboardLayout({
 
   const handleUserImpersonate = (userId: string) => {
     if (typeof window !== "undefined") {
-      localStorage.setItem("stocktrack_impersonated_user_id", userId);
-      localStorage.removeItem("stocktrack_active_business_id");
-      localStorage.removeItem("stocktrack_active_location_id");
+      localStorage.setItem("nexbrix_impersonated_user_id", userId);
+      localStorage.removeItem("nexbrix_active_business_id");
+      localStorage.removeItem("nexbrix_active_location_id");
       window.location.reload();
     }
   };
 
   const handleStopImpersonating = () => {
     if (typeof window !== "undefined") {
-      localStorage.removeItem("stocktrack_impersonated_user_id");
-      localStorage.removeItem("stocktrack_active_business_id");
-      localStorage.removeItem("stocktrack_active_location_id");
+      localStorage.removeItem("nexbrix_impersonated_user_id");
+      localStorage.removeItem("nexbrix_active_business_id");
+      localStorage.removeItem("nexbrix_active_location_id");
       window.location.reload();
     }
   };
@@ -237,7 +236,7 @@ export default function DashboardLayout({
         if (!activeDoc) {
           // Stale/invalid business ID in store/localStorage. Clear it and redirect.
           setActiveBusiness("");
-          localStorage.removeItem("stocktrack_active_business_id");
+          localStorage.removeItem("nexbrix_active_business_id");
           router.push("/dashboard/business");
           return;
         }
@@ -280,7 +279,7 @@ export default function DashboardLayout({
     if (locations.length > 0) {
       let currentLocId = activeLocationId;
       if (!currentLocId && typeof window !== "undefined") {
-        const persisted = localStorage.getItem("stocktrack_active_location_id");
+        const persisted = localStorage.getItem("nexbrix_active_location_id");
         if (persisted && locations.some((loc) => loc.id === persisted)) {
           setActiveLocation(persisted);
           currentLocId = persisted;
@@ -317,7 +316,7 @@ export default function DashboardLayout({
 
   const handleBusinessChange = (id: string) => {
     setActiveBusiness(id);
-    localStorage.setItem("stocktrack_active_business_id", id);
+    localStorage.setItem("nexbrix_active_business_id", id);
     setShowBusinessDropdown(false);
     setShowHeaderBusinessDropdown(false);
   };
@@ -510,7 +509,6 @@ export default function DashboardLayout({
       ],
     },
   ];
-
 
   const accountLinks: SidebarLink[] = [
     { name: "Profile", href: "/dashboard/profile", icon: UserIcon },
@@ -885,14 +883,30 @@ export default function DashboardLayout({
 
   if (authLoading || loading) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-white text-black">
-        <HugeiconsIcon
-          icon={Loading01Icon}
-          className="h-8 w-8 text-black animate-spin mb-4"
-        />
-        <p className="text-gray-dark text-sm font-semibold uppercase tracking-wider">
-          Syncing dashboard workspace...
-        </p>
+      <div className="min-h-screen flex flex-col items-center justify-center bg-white font-sans">
+        <div className="relative mb-6">
+          <div className="h-16 w-16 rounded-full border-[3px] border-zinc-200 border-t-zinc-900 animate-spin" />
+          <div className="absolute inset-0 flex items-center justify-center">
+            <span className="text-zinc-900 font-extrabold text-lg tracking-tighter">N</span>
+          </div>
+        </div>
+        <div className="flex flex-col items-center gap-2">
+          <div className="h-2 w-40 bg-zinc-100 rounded-full overflow-hidden">
+            <div
+              className="h-full w-1/2 bg-zinc-400 rounded-full"
+              style={{ animation: "shimmer 1.4s ease-in-out infinite" }}
+            />
+          </div>
+          <span className="text-zinc-400 text-xs font-semibold uppercase tracking-wider mt-2">
+            Syncing dashboard workspace...
+          </span>
+        </div>
+        <style>{`
+          @keyframes shimmer {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(300%); }
+          }
+        `}</style>
       </div>
     );
   }
@@ -1303,7 +1317,7 @@ export default function DashboardLayout({
         {/* Super Admin Impersonation Bar */}
         {(profile?.role === "super_admin" ||
           (typeof window !== "undefined" &&
-            !!localStorage.getItem("stocktrack_impersonated_user_id"))) && (
+            !!localStorage.getItem("nexbrix_impersonated_user_id"))) && (
           <div className="bg-neutral-950 text-white px-6 py-2.5 flex flex-wrap items-center justify-between gap-4 border-b border-white/10 z-20 select-none">
             <div className="flex items-center gap-3">
               <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-[10px] tracking-wide text-amber-500 font-semibold uppercase animate-pulse">
@@ -1314,13 +1328,13 @@ export default function DashboardLayout({
                 Impersonating:{" "}
                 <strong className="text-white">
                   {typeof window !== "undefined" &&
-                  localStorage.getItem("stocktrack_impersonated_user_id")
+                  localStorage.getItem("nexbrix_impersonated_user_id")
                     ? `${profile?.fullName || ""} (${profile?.email || ""})`
                     : "None (Self)"}
                 </strong>
               </span>
               {typeof window !== "undefined" &&
-                localStorage.getItem("stocktrack_impersonated_user_id") && (
+                localStorage.getItem("nexbrix_impersonated_user_id") && (
                   <button
                     onClick={handleStopImpersonating}
                     className="ml-2 text-[10px] bg-white/10 hover:bg-white/20 text-white px-2.5 py-1 rounded-md font-bold uppercase transition duration-200 cursor-pointer"
@@ -1394,7 +1408,7 @@ export default function DashboardLayout({
                           const isSelected =
                             typeof window !== "undefined" &&
                             localStorage.getItem(
-                              "stocktrack_impersonated_user_id",
+                              "nexbrix_impersonated_user_id",
                             ) === u.id;
                           return (
                             <button

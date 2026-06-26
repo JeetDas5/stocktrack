@@ -7,7 +7,7 @@ interface BusinessStore {
 
 const getInitialBusinessId = (): string | null => {
   if (typeof window === "undefined") return null;
-  return localStorage.getItem("stocktrack_active_business_id");
+  return localStorage.getItem("nexbrix_active_business_id");
 };
 
 export const useBusinessStore = create<BusinessStore>((set) => ({
