@@ -887,7 +887,9 @@ export default function DashboardLayout({
         <div className="relative mb-6">
           <div className="h-16 w-16 rounded-full border-[3px] border-zinc-200 border-t-zinc-900 animate-spin" />
           <div className="absolute inset-0 flex items-center justify-center">
-            <span className="text-zinc-900 font-extrabold text-lg tracking-tighter">N</span>
+            <span className="text-zinc-900 font-extrabold text-lg tracking-tighter">
+              N
+            </span>
           </div>
         </div>
         <div className="flex flex-col items-center gap-2">
@@ -920,13 +922,25 @@ export default function DashboardLayout({
           className={`flex items-center ${sidebarCollapsed ? "justify-center" : "justify-between"} mb-5`}
         >
           <Link href="/" className="flex items-center gap-2 md:ml-2">
-            <div className="h-8 w-8 rounded-xl bg-white text-black flex items-center justify-center shadow-sm">
-              <Image src="/logos/icon.svg" alt="logo" width={50} height={50} />
-            </div>
+            {sidebarCollapsed && (
+              <div className="h-8 w-8 rounded-xl bg-white text-black flex items-center justify-center shadow-sm">
+                <Image
+                  src="/logos/icon.svg"
+                  alt="logo"
+                  width={50}
+                  height={50}
+                />
+              </div>
+            )}
             {!sidebarCollapsed && (
-              <span className="font-bold text-base tracking-tight text-primary">
-                NexBrix
-              </span>
+              <Image
+                src="/logos/logo.png"
+                alt="logo"
+                width={100}
+                height={25}
+                style={{ width: "100px", height: "auto" }}
+                loading="eager"
+              />
             )}
           </Link>
           <button

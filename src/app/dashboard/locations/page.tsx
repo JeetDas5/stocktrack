@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import AlertDialog from "@/components/ui/alert-dialog";
+import { Dropdown } from "@/components/ui/dropdown";
 
 export default function LocationsPage() {
   const { activeBusinessId } = useBusinessStore();
@@ -43,6 +44,7 @@ export default function LocationsPage() {
   const [activeBusiness, setActiveBusiness] = useState<Business | null>(null);
   const [loadingContext, setLoadingContext] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("active");
 
   const [showDrawer, setShowDrawer] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
@@ -52,6 +54,9 @@ export default function LocationsPage() {
   const [formAddress, setFormAddress] = useState("");
   const [formActive, setFormActive] = useState(true);
   const [saving, setSaving] = useState(false);
+
+  const [customTypeName, setCustomTypeName] = useState("");
+  const [isCreatingCustomType, setIsCreatingCustomType] = useState(false);
 
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [showUnsavedDialog, setShowUnsavedDialog] = useState(false);
@@ -85,6 +90,8 @@ export default function LocationsPage() {
     setFormType("store");
     setFormAddress("");
     setFormActive(true);
+    setCustomTypeName("");
+    setIsCreatingCustomType(false);
     setShowDrawer(true);
     setShowUnsavedDialog(false);
   };
@@ -93,9 +100,18 @@ export default function LocationsPage() {
     setEditId(loc.id);
     setFormName(loc.name);
     setFormDescription(loc.description || "");
+    const defaultTypes = ["store", "warehouse", "kitchen", "cold_storage"];
+    const typeIsDefault = defaultTypes.includes(loc.type);
     setFormType(loc.type);
     setFormAddress(loc.address || "");
     setFormActive(loc.isActive !== false);
+    if (typeIsDefault) {
+      setIsCreatingCustomType(false);
+      setCustomTypeName("");
+    } else {
+      setIsCreatingCustomType(true);
+      setCustomTypeName(loc.type);
+    }
     setShowDrawer(true);
     setShowUnsavedDialog(false);
   };
@@ -110,6 +126,7 @@ export default function LocationsPage() {
 
   const isFormDirty = () => {
     const current = getFormSnapshot();
+    const typeToCompare = isCreatingCustomType ? customTypeName.trim().toLowerCase() : formType;
 
     if (editId) {
       const currentLocation = locations.find((loc) => loc.id === editId);
@@ -118,7 +135,7 @@ export default function LocationsPage() {
       return (
         current.name !== currentLocation.name ||
         current.description !== (currentLocation.description || "") ||
-        current.type !== currentLocation.type ||
+        typeToCompare !== currentLocation.type ||
         current.address !== (currentLocation.address || "") ||
         current.isActive !== (currentLocation.isActive !== false)
       );
@@ -127,7 +144,7 @@ export default function LocationsPage() {
     return (
       current.name !== "" ||
       current.description !== "" ||
-      current.type !== "store" ||
+      typeToCompare !== "store" ||
       current.address !== "" ||
       current.isActive !== true
     );
@@ -158,6 +175,12 @@ export default function LocationsPage() {
       return;
     }
 
+    const typeToSave = isCreatingCustomType ? customTypeName.trim().toLowerCase() : formType;
+    if (isCreatingCustomType && !typeToSave) {
+      toast.error("Please enter a custom location type name.");
+      return;
+    }
+
     if (trimmedName.length > 100) {
       toast.error("Location name must be 100 characters or less.");
       return;
@@ -185,7 +208,7 @@ export default function LocationsPage() {
         businessId: activeBusinessId,
         name: trimmedName,
         description: formDescription.trim(),
-        type: formType,
+        type: typeToSave,
         address: trimmedAddress,
         isActive: formActive,
       };
@@ -259,20 +282,28 @@ export default function LocationsPage() {
       case "cold_storage":
         return "Cold Storage";
       default:
-        return "Other";
+        return type ? type.charAt(0).toUpperCase() + type.slice(1) : "Other";
     }
   };
 
-  const filteredLocations = locations.filter(
-    (loc) =>
+  const filteredLocations = locations.filter((loc) => {
+    const matchesSearch =
       loc.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      loc.address?.toLowerCase().includes(searchQuery.toLowerCase()),
-  );
+      loc.address?.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    const isActive = loc.isActive !== false;
+    const matchesStatus =
+      statusFilter === "all" ||
+      (statusFilter === "active" && isActive) ||
+      (statusFilter === "inactive" && !isActive);
+
+    return matchesSearch && matchesStatus;
+  });
 
   if (locationsLoading || loadingContext) {
     return (
       <div className="h-[75vh] flex flex-col items-center justify-center bg-white text-[#0F172A]">
-        <Loader2 className="h-7 w-7 text-[#16A34A] animate-spin mb-3" />
+        <Loader2 className="h-7 w-7 text-black animate-spin mb-3" />
         <span className="text-[#64748B] text-xs font-bold uppercase tracking-wider">
           Loading locations catalog...
         </span>
@@ -280,12 +311,33 @@ export default function LocationsPage() {
     );
   }
 
+  const defaultTypes = [
+    { value: "store", label: "Store" },
+    { value: "warehouse", label: "Warehouse" },
+    { value: "kitchen", label: "Kitchen" },
+    { value: "cold_storage", label: "Cold Storage" },
+  ];
+
+  const uniqueCustomTypes = Array.from(
+    new Set(
+      locations
+        .map((loc) => loc.type)
+        .filter((t) => t && !["store", "warehouse", "kitchen", "cold_storage"].includes(t))
+    )
+  );
+
+  const selectOptions = [
+    ...defaultTypes,
+    ...uniqueCustomTypes.map((t) => ({ value: t, label: t.charAt(0).toUpperCase() + t.slice(1) })),
+    { value: "CREATE_NEW_CUSTOM", label: "+ Create custom type..." },
+  ];
+
   return (
-    <div className="flex bg-white min-h-[80vh] relative select-none">
-      <div className="flex-1 space-y-6 pr-0 lg:pr-4">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-zinc-200 pb-5">
+    <div className="px-4 py-3 bg-white min-h-[80vh] scroll-y-auto relative select-none">
+      <div className="space-y-6">
+        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 border-b py-3 px-3 md:py-3 md:px-4 border border-[#E2E8F0] rounded-2xl shadow-sm mb-6">
           <div>
-            <h1 className="text-3xl font-extrabold text-[#0F172A] tracking-tight">
+            <h1 className="text-xl md:text-2xl font-bold md:font-extrabold tracking-tight">
               Locations
             </h1>
             <p className="text-[#64748B] text-xs font-bold mt-1.5">
@@ -296,7 +348,7 @@ export default function LocationsPage() {
           {(profile?.role === "admin" || profile?.role === "super_admin") && (
             <button
               onClick={openAddDrawer}
-              className="bg-[#16A34A] hover:bg-[#15803D] text-white rounded-xl px-5 py-2.5 text-xs font-bold uppercase tracking-wider shadow-sm flex items-center gap-2 cursor-pointer transition-all duration-200"
+              className="bg-black hover:bg-neutral-800 text-white rounded-full px-5 py-2.5 text-xs font-bold uppercase tracking-wider shadow-sm flex items-center gap-2 cursor-pointer transition-all duration-200"
             >
               <Plus className="h-4 w-4 stroke-[3px]" />
               Add Location
@@ -304,23 +356,39 @@ export default function LocationsPage() {
           )}
         </div>
 
-        <div className="flex flex-col sm:flex-row gap-4 justify-between items-center">
-          <div className="relative w-full sm:max-w-md">
+        <div className="mt-6 flex flex-wrap justify-between gap-3 items-center mb-6">
+          <div className="relative flex-1 w-full max-w-[50svw] md:max-w-[30svw]">
             <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-zinc-400">
               <Search className="h-4 w-4" />
             </span>
             <input
               type="text"
               placeholder="Search locations..."
-              className="w-full bg-white border border-zinc-200 focus:border-[#16A34A] rounded-xl py-2.5 pl-10 pr-4 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#16A34A] transition-all shadow-xs"
+              className="w-full bg-white border border-zinc-200 focus:border-black rounded-xl py-2.5 pl-10 pr-4 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-black transition-all shadow-xs"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
 
-          <div className="flex items-center gap-2 self-end sm:self-auto shrink-0 bg-white border border-zinc-200 rounded-xl px-3.5 py-2.5 text-xs font-bold text-zinc-700 shadow-xs cursor-pointer hover:bg-zinc-50">
-            <Building2 className="h-4 w-4 text-zinc-400" />
-            <span>{activeBusiness?.name || "Venue"}</span>
+          <div className="flex items-center gap-3">
+            <Dropdown
+              value={statusFilter}
+              onChange={(val) => setStatusFilter(val)}
+              options={
+                [
+                  { value: "all", label: "All Statuses" },
+                  { value: "active", label: "Active" },
+                  { value: "inactive", label: "Inactive" },
+                ] as const
+              }
+              className="min-w-[130px]"
+              triggerClassName="rounded-xl py-2.5 px-3 font-bold text-zinc-950 focus:ring-black focus:border-black"
+            />
+
+            <div className="flex items-center gap-2 shrink-0 bg-white border border-zinc-200 rounded-xl px-3.5 py-2.5 text-xs font-bold text-zinc-700 shadow-xs cursor-pointer hover:bg-zinc-50">
+              <Building2 className="h-4 w-4 text-zinc-400" />
+              <span>{activeBusiness?.name || "Venue"}</span>
+            </div>
           </div>
         </div>
 
@@ -359,6 +427,7 @@ export default function LocationsPage() {
                     const canEdit =
                       profile?.role === "admin" ||
                       profile?.role === "super_admin";
+                    const isLocActive = loc.isActive !== false;
                     return (
                       <tr
                         key={loc.id}
@@ -369,7 +438,11 @@ export default function LocationsPage() {
                       >
                         <td className="py-4 px-6">
                           <div className="flex items-center gap-3.5">
-                            <div className="h-10 w-10 rounded-full bg-[#DCFCE7] text-[#16A34A] flex items-center justify-center shrink-0 border border-[#16A34A]/10 shadow-sm">
+                            <div className={`h-10 w-10 rounded-full flex items-center justify-center shrink-0 border shadow-xs ${
+                              isLocActive
+                                ? "bg-zinc-100 text-black border-zinc-200/60"
+                                : "bg-zinc-200/50 text-zinc-400 border-zinc-200"
+                            }`}>
                               {getLocIcon(loc.type)}
                             </div>
                             <div>
@@ -400,22 +473,17 @@ export default function LocationsPage() {
                           {loc.address}
                         </td>
                         <td className="py-4 px-6">
-                          <span
-                            className={`text-[10px] uppercase font-extrabold px-3 py-1 rounded-full flex items-center gap-1.5 border shadow-2xs leading-none w-fit ${
-                              loc.isActive !== false
-                                ? "bg-[#DCFCE7] text-[#16A34A] border-[#16A34A]/10"
-                                : "bg-zinc-100 text-[#64748B] border-zinc-200"
-                            }`}
-                          >
-                            <span
-                              className={`h-1.5 w-1.5 rounded-full shrink-0 ${
-                                loc.isActive !== false
-                                  ? "bg-[#16A34A]"
-                                  : "bg-[#64748B]"
-                              }`}
-                            />
-                            {loc.isActive !== false ? "Active" : "Inactive"}
-                          </span>
+                          {isLocActive ? (
+                            <span className="text-[11px] uppercase font-bold px-3 py-1 flex items-center gap-1.5 leading-none text-[#16A34A]">
+                              <span className="h-1.5 w-1.5 rounded-full bg-[#16A34A]" />
+                              Active
+                            </span>
+                          ) : (
+                            <span className="text-[11px] uppercase font-bold px-3 py-1 rounded-full flex items-center gap-1.5 border shadow-2xs leading-none bg-zinc-100 text-[#64748B] border-zinc-200">
+                              <span className="h-1.5 w-1.5 rounded-full bg-[#64748B]" />
+                              Inactive
+                            </span>
+                          )}
                         </td>
                         {canEdit && (
                           <td
@@ -428,7 +496,7 @@ export default function LocationsPage() {
                                   e.stopPropagation();
                                   openEditDrawer(loc);
                                 }}
-                                className="p-1.5 rounded-lg hover:bg-zinc-100 text-zinc-500 hover:text-[#16A34A] transition-colors cursor-pointer inline-flex items-center justify-center"
+                                className="p-1.5 rounded-lg hover:bg-zinc-100 text-zinc-500 hover:text-black transition-colors cursor-pointer inline-flex items-center justify-center border border-zinc-200 bg-white"
                                 title="Edit Details"
                               >
                                 <Edit2 className="h-4 w-4" />
@@ -438,7 +506,7 @@ export default function LocationsPage() {
                                   e.stopPropagation();
                                   handleDelete(loc.id);
                                 }}
-                                className="p-1.5 rounded-lg hover:bg-rose-50 text-zinc-500 hover:text-[#EF4444] transition-colors cursor-pointer inline-flex items-center justify-center"
+                                className="p-1.5 rounded-lg hover:bg-rose-50 text-zinc-500 hover:text-[#EF4444] transition-colors cursor-pointer inline-flex items-center justify-center border border-zinc-200 bg-white"
                                 title="Delete Location"
                               >
                                 <Trash2 className="h-4 w-4" />
@@ -465,7 +533,7 @@ export default function LocationsPage() {
                 >
                   <ChevronLeft className="h-4 w-4" />
                 </button>
-                <span className="h-8 w-8 bg-[#16A34A] text-white flex items-center justify-center rounded-lg font-bold">
+                <span className="h-8 w-8 bg-black text-white flex items-center justify-center rounded-lg font-bold">
                   1
                 </span>
                 <button
@@ -533,7 +601,7 @@ export default function LocationsPage() {
                     required
                     maxLength={100}
                     placeholder="Enter location name"
-                    className="w-full bg-white border border-zinc-300 focus:border-[#16A34A] rounded-xl py-2.5 px-3.5 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#16A34A] transition-all"
+                    className="w-full bg-white border border-zinc-300 focus:border-black rounded-xl py-2.5 px-3.5 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-black transition-all"
                     value={formName}
                     onChange={(e) => setFormName(e.target.value)}
                   />
@@ -546,7 +614,7 @@ export default function LocationsPage() {
                   <input
                     type="text"
                     placeholder="e.g. Retail outlet, main storage"
-                    className="w-full bg-white border border-zinc-300 focus:border-[#16A34A] rounded-xl py-2.5 px-3.5 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#16A34A] transition-all"
+                    className="w-full bg-white border border-zinc-300 focus:border-black rounded-xl py-2.5 px-3.5 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-black transition-all"
                     value={formDescription}
                     onChange={(e) => setFormDescription(e.target.value)}
                   />
@@ -556,21 +624,37 @@ export default function LocationsPage() {
                   <label className="text-xs font-bold text-[#0F172A] uppercase tracking-wider block">
                     Location Type *
                   </label>
-                  <div className="relative">
-                    <select
-                      className="w-full bg-white border border-zinc-300 focus:border-[#16A34A] rounded-xl py-2.5 px-3.5 text-xs text-zinc-950 focus:outline-none focus:ring-1 focus:ring-[#16A34A] appearance-none cursor-pointer font-bold"
-                      value={formType}
-                      onChange={(e) =>
-                        setFormType(e.target.value as LocationType)
+                  <Dropdown
+                    value={formType}
+                    onChange={(val) => {
+                      if (val === "CREATE_NEW_CUSTOM") {
+                        setIsCreatingCustomType(true);
+                        setFormType("CREATE_NEW_CUSTOM");
+                      } else {
+                        setIsCreatingCustomType(false);
+                        setFormType(val);
                       }
-                    >
-                      <option value="store">Store</option>
-                      <option value="warehouse">Warehouse</option>
-                      <option value="kitchen">Kitchen</option>
-                      <option value="cold_storage">Cold Storage</option>
-                    </select>
-                    <ChevronDown className="absolute right-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
-                  </div>
+                    }}
+                    options={selectOptions}
+                    className="w-full"
+                    triggerClassName="rounded-xl py-2.5 px-3.5 font-bold text-zinc-950 focus:ring-black focus:border-black"
+                  />
+                  {isCreatingCustomType && (
+                    <div className="space-y-1.5 mt-3 animate-fade-in">
+                      <label className="text-xs font-bold text-[#0F172A] uppercase tracking-wider block">
+                        Custom Type Name *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        maxLength={50}
+                        placeholder="e.g. Office, Server Room"
+                        className="w-full bg-white border border-zinc-300 focus:border-black rounded-xl py-2.5 px-3.5 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-black transition-all"
+                        value={customTypeName}
+                        onChange={(e) => setCustomTypeName(e.target.value)}
+                      />
+                    </div>
+                  )}
                 </div>
 
                 <div className="space-y-1.5">
@@ -587,7 +671,7 @@ export default function LocationsPage() {
                     maxLength={250}
                     placeholder="Enter full address"
                     rows={4}
-                    className="w-full bg-white border border-zinc-300 focus:border-[#16A34A] rounded-xl py-2.5 px-3.5 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#16A34A] transition-all resize-none"
+                    className="w-full bg-white border border-zinc-300 focus:border-black rounded-xl py-2.5 px-3.5 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-black transition-all resize-none"
                     value={formAddress}
                     onChange={(e) => setFormAddress(e.target.value)}
                   />
@@ -598,7 +682,7 @@ export default function LocationsPage() {
                     <input
                       type="checkbox"
                       id="formActive"
-                      className="h-4 w-4 text-[#16A34A] focus:ring-[#16A34A] border-zinc-300 rounded cursor-pointer"
+                      className="h-4 w-4 text-black focus:ring-black border-zinc-300 rounded cursor-pointer"
                       checked={formActive}
                       onChange={(e) => setFormActive(e.target.checked)}
                     />
@@ -631,11 +715,11 @@ export default function LocationsPage() {
                   !formAddress.trim() ||
                   !isFormDirty()
                 }
-                className={`bg-[#16A34A] hover:bg-[#15803D] text-white rounded-xl px-4 py-2.5 text-xs font-bold uppercase tracking-wider shadow-sm flex items-center gap-2  transition-colors disabled:opacity-50 ${!isFormDirty() ? "cursor-not-allowed" : "cursor-pointer"}`}
+                className={`bg-black hover:bg-neutral-800 text-white rounded-xl px-4 py-2.5 text-xs font-bold uppercase tracking-wider shadow-sm flex items-center gap-2 transition-colors disabled:opacity-50 ${!isFormDirty() ? "cursor-not-allowed" : "cursor-pointer"}`}
               >
                 {saving ? (
                   <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <Loader2 className="h-4 w-4 animate-spin text-white" />
                     Saving...
                   </>
                 ) : (

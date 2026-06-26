@@ -10,12 +10,7 @@ export interface Category {
   itemsCount?: number;
 }
 
-export type LocationType =
-  | "warehouse"
-  | "store"
-  | "kitchen"
-  | "cold_storage"
-  | "other";
+export type LocationType = string;
 
 export interface Location {
   id: string;
