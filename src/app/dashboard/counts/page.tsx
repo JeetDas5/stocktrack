@@ -162,7 +162,7 @@ export default function StockCountsPage() {
           };
         });
 
-        const draftKey = `stocktrack_stock_count_draft_${activeBusinessId}_${activeLocationId}`;
+        const draftKey = `nexbrix_stock_count_draft_${activeBusinessId}_${activeLocationId}`;
         const savedDraft = localStorage.getItem(draftKey);
         if (savedDraft) {
           try {
@@ -224,7 +224,7 @@ export default function StockCountsPage() {
 
     if (!hasData) return;
 
-    const draftKey = `stocktrack_stock_count_draft_${activeBusinessId}_${activeLocationId}`;
+    const draftKey = `nexbrix_stock_count_draft_${activeBusinessId}_${activeLocationId}`;
     const draftData = {
       itemCounts,
       countDate,
@@ -289,7 +289,7 @@ export default function StockCountsPage() {
     setItemCounts(cleared);
     setNotes("");
 
-    const draftKey = `stocktrack_stock_count_draft_${activeBusinessId}_${activeLocationId}`;
+    const draftKey = `nexbrix_stock_count_draft_${activeBusinessId}_${activeLocationId}`;
     localStorage.removeItem(draftKey);
     setLastAutoSave("");
 
@@ -376,7 +376,7 @@ export default function StockCountsPage() {
           "Stock Count submitted successfully! Inventory stock levels updated.",
         );
 
-        const draftKey = `stocktrack_stock_count_draft_${activeBusinessId}_${activeLocationId}`;
+        const draftKey = `nexbrix_stock_count_draft_${activeBusinessId}_${activeLocationId}`;
         localStorage.removeItem(draftKey);
         setLastAutoSave("");
 

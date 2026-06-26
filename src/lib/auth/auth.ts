@@ -38,7 +38,7 @@ export const auth = betterAuth({
           body: JSON.stringify({
             from: "NexBrix <info@nexbrix.com.au>",
             to: [user.email],
-            subject: "Reset your StockTrack Password",
+            subject: "Reset your NexBrix Password",
             html: getResetPasswordTemplate(user.name || "there", url),
           }),
         });

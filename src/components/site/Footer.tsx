@@ -13,6 +13,7 @@ export default function Footer() {
                 alt="logo"
                 width={150}
                 height={150}
+                loading="eager"
               />
             </Link>
             <p className="mt-5 text-[15px] leading-relaxed text-neutral-600 max-w-sm">

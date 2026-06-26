@@ -469,7 +469,7 @@ export default function SalesImportsPage() {
               <div className="flex gap-2.5">
                 <CheckCircle className="h-4.5 w-4.5 text-[#16A34A] shrink-0 mt-0.5" />
                 <p className="text-xs text-[#64748B] leading-relaxed">
-                  Unmapped items (not in stocktrack recipes) were excluded
+                  Unmapped items (not in nexbrix recipes) were excluded
                   safely from inventory calculation.
                 </p>
               </div>
@@ -794,7 +794,7 @@ export default function SalesImportsPage() {
                 </button>
               </div>
               <p className="text-[10px] font-semibold text-[#64748B]">
-                Map your file columns to StockTrack fields.
+                Map your file columns to NexBrix fields.
               </p>
 
               <div className="space-y-3.5">
