@@ -21,6 +21,9 @@ class StaffCreate(SQLModel):
     position: Optional[str] = None
     max_working_hours: Optional[float] = None
     assignments: Optional[List[dict]] = None
+    hourly_rate: Optional[float] = None
+    reporting_to: Optional[str] = None
+    start_date: Optional[str] = None
 
 
 class LocationOut(SQLModel):
@@ -42,6 +45,9 @@ class StaffOut(SQLModel):
     priority: int = 5
     position: Optional[str] = None
     max_working_hours: Optional[float] = None
+    hourly_rate: Optional[float] = None
+    reporting_to: Optional[str] = None
+    start_date: Optional[str] = None
 
 
 @router.post("/api/businesses/{business_id}/staff", response_model=StaffOut, status_code=status.HTTP_201_CREATED)
@@ -93,7 +99,10 @@ def create_staff(
                 is_active=is_active,
                 priority=data.priority,
                 position=data.position,
-                max_working_hours=data.max_working_hours
+                max_working_hours=data.max_working_hours,
+                hourly_rate=data.hourly_rate,
+                reporting_to=data.reporting_to,
+                start_date=data.start_date
             )
             session.add(ass)
     else:
@@ -105,7 +114,10 @@ def create_staff(
             is_active=is_active,
             priority=data.priority,
             position=data.position,
-            max_working_hours=data.max_working_hours
+            max_working_hours=data.max_working_hours,
+            hourly_rate=data.hourly_rate,
+            reporting_to=data.reporting_to,
+            start_date=data.start_date
         )
         session.add(ass)
 
@@ -135,10 +147,16 @@ def create_staff(
     priority = 5
     position = None
     max_working_hours = None
+    hourly_rate = None
+    reporting_to = None
+    start_date = None
     if assignments:
         priority = assignments[0].priority
         position = assignments[0].position
         max_working_hours = assignments[0].max_working_hours
+        hourly_rate = assignments[0].hourly_rate
+        reporting_to = assignments[0].reporting_to
+        start_date = assignments[0].start_date
 
     return StaffOut(
         id=user.id,
@@ -153,7 +171,10 @@ def create_staff(
         locations=locs,
         priority=priority,
         position=position,
-        max_working_hours=max_working_hours
+        max_working_hours=max_working_hours,
+        hourly_rate=hourly_rate,
+        reporting_to=reporting_to,
+        start_date=start_date
     )
 
 
@@ -202,6 +223,9 @@ def get_staff_members(
         priority = 5
         position = None
         max_working_hours = None
+        hourly_rate = None
+        reporting_to = None
+        start_date = None
 
         for ass in user_assignments:
             if ass.role:
@@ -219,6 +243,12 @@ def get_staff_members(
                 position = ass.position
             if ass.max_working_hours is not None:
                 max_working_hours = ass.max_working_hours
+            if ass.hourly_rate is not None:
+                hourly_rate = ass.hourly_rate
+            if ass.reporting_to:
+                reporting_to = ass.reporting_to
+            if ass.start_date:
+                start_date = ass.start_date
 
         if is_all_locations:
             if all_biz_locs is None:
@@ -240,7 +270,10 @@ def get_staff_members(
             locations=locs,
             priority=priority,
             position=position,
-            max_working_hours=max_working_hours
+            max_working_hours=max_working_hours,
+            hourly_rate=hourly_rate,
+            reporting_to=reporting_to,
+            start_date=start_date
         ))
 
     return out
@@ -337,7 +370,10 @@ def update_staff(
                         status="active",
                         priority=data.priority,
                         position=data.position,
-                        max_working_hours=data.max_working_hours
+                        max_working_hours=data.max_working_hours,
+                        hourly_rate=data.hourly_rate,
+                        reporting_to=data.reporting_to,
+                        start_date=data.start_date
                     )
                     session.add(new_ass)
             else:
@@ -350,7 +386,10 @@ def update_staff(
                     status="active",
                     priority=data.priority,
                     position=data.position,
-                    max_working_hours=data.max_working_hours
+                    max_working_hours=data.max_working_hours,
+                    hourly_rate=data.hourly_rate,
+                    reporting_to=data.reporting_to,
+                    start_date=data.start_date
                 )
                 session.add(new_ass)
     else:
@@ -376,7 +415,10 @@ def update_staff(
                     is_active=is_active,
                     priority=data.priority,
                     position=data.position,
-                    max_working_hours=data.max_working_hours
+                    max_working_hours=data.max_working_hours,
+                    hourly_rate=data.hourly_rate,
+                    reporting_to=data.reporting_to,
+                    start_date=data.start_date
                 )
                 session.add(ass)
         else:
@@ -388,7 +430,10 @@ def update_staff(
                 is_active=is_active,
                 priority=data.priority,
                 position=data.position,
-                max_working_hours=data.max_working_hours
+                max_working_hours=data.max_working_hours,
+                hourly_rate=data.hourly_rate,
+                reporting_to=data.reporting_to,
+                start_date=data.start_date
             )
             session.add(ass)
 
@@ -418,10 +463,16 @@ def update_staff(
     priority = 5
     position = None
     max_working_hours = None
+    hourly_rate = None
+    reporting_to = None
+    start_date = None
     if assignments:
         priority = assignments[0].priority
         position = assignments[0].position
         max_working_hours = assignments[0].max_working_hours
+        hourly_rate = assignments[0].hourly_rate
+        reporting_to = assignments[0].reporting_to
+        start_date = assignments[0].start_date
 
     return StaffOut(
         id=user.id,
@@ -436,7 +487,10 @@ def update_staff(
         locations=locs,
         priority=priority,
         position=position,
-        max_working_hours=max_working_hours
+        max_working_hours=max_working_hours,
+        hourly_rate=hourly_rate,
+        reporting_to=reporting_to,
+        start_date=start_date
     )
 
 
@@ -743,6 +797,9 @@ class StaffApprovalDetails(SQLModel):
     priority: int = 5
     position: Optional[str] = None
     max_working_hours: Optional[float] = None
+    hourly_rate: Optional[float] = None
+    reporting_to: Optional[str] = None
+    start_date: Optional[str] = None
 
 
 @router.post("/api/businesses/{business_id}/pending-staff/{assignment_id}/approve")
@@ -801,7 +858,10 @@ def approve_pending_staff(
                     status="active",
                     priority=data.priority,
                     position=data.position,
-                    max_working_hours=data.max_working_hours
+                    max_working_hours=data.max_working_hours,
+                    hourly_rate=data.hourly_rate,
+                    reporting_to=data.reporting_to,
+                    start_date=data.start_date
                 )
                 session.add(new_ass)
         else:
@@ -814,7 +874,10 @@ def approve_pending_staff(
                 status="active",
                 priority=data.priority,
                 position=data.position,
-                max_working_hours=data.max_working_hours
+                max_working_hours=data.max_working_hours,
+                hourly_rate=data.hourly_rate,
+                reporting_to=data.reporting_to,
+                start_date=data.start_date
             )
             session.add(new_ass)
 

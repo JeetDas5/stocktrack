@@ -13,6 +13,9 @@ export interface Staff {
   priority: number;
   position: string | null;
   maxWorkingHours: number | null;
+  hourlyRate?: number | null;
+  reportingTo?: string | null;
+  startDate?: string | null;
 }
 
 export interface StaffCreateInput {
@@ -26,6 +29,9 @@ export interface StaffCreateInput {
   position?: string | null;
   maxWorkingHours?: number | null;
   assignments?: { business_id: string; location_ids: string[] }[];
+  hourlyRate?: number | null;
+  reportingTo?: string | null;
+  startDate?: string | null;
 }
 
 export interface StaffInvitationCreateInput {

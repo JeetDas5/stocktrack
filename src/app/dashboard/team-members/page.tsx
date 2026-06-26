@@ -1,8 +1,9 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable react-hooks/set-state-in-effect */
 "use client";
 
 import { toast } from "sonner";
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 
 import { useStaffStore } from "@/stores/staff-store";
 import { useBusinessStore } from "@/stores/business-store";
@@ -23,13 +24,9 @@ import { Location } from "@/types/inventory";
 import { Staff, PendingStaffAssignment } from "@/types/staff";
 import {
   Search,
-  ChevronDown,
   Loader2,
   Download,
-  ChevronLeft,
-  ChevronRight,
   Building2,
-  MapPin,
   Plus,
   Copy,
   Check,
@@ -42,8 +39,10 @@ import {
   Edit2,
   MoreVertical,
   UserX,
+  Calendar as CalendarIcon,
 } from "lucide-react";
 import { Dropdown } from "@/components/ui/dropdown";
+import Calendar from "@/components/ui/calendar";
 
 export default function StaffDirectoryPage() {
   const { profile } = useAuth();
@@ -85,7 +84,10 @@ export default function StaffDirectoryPage() {
     }
   };
 
-  const handleToggleEditLocationForBusiness = (bizId: string, locId: string) => {
+  const handleToggleEditLocationForBusiness = (
+    bizId: string,
+    locId: string,
+  ) => {
     const currentLocs = editBusinessLocations[bizId] || [];
     if (currentLocs.includes(locId)) {
       setEditBusinessLocations((prev) => ({
@@ -132,9 +134,6 @@ export default function StaffDirectoryPage() {
   >(null);
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
 
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(10);
-
   const [pendingStaff, setPendingStaff] = useState<PendingStaffAssignment[]>(
     [],
   );
@@ -151,6 +150,61 @@ export default function StaffDirectoryPage() {
   const [copied, setCopied] = useState(false);
 
   const [positions, setPositions] = useState<string[]>([]);
+
+  // Infinite scroll limit state
+  const [displayLimit, setDisplayLimit] = useState(30);
+
+  // Form field states for new configuration columns
+  const [approvalHourlyRate, setApprovalHourlyRate] = useState<number | "">("");
+  const [approvalReportingTo, setApprovalReportingTo] = useState("");
+  const [approvalStartDate, setApprovalStartDate] = useState("");
+  const [
+    isCreatingCustomPositionApproval,
+    setIsCreatingCustomPositionApproval,
+  ] = useState(false);
+  const [customPositionApproval, setCustomPositionApproval] = useState("");
+
+  const [editHourlyRate, setEditHourlyRate] = useState<number | "">("");
+  const [editReportingTo, setEditReportingTo] = useState("");
+  const [editStartDate, setEditStartDate] = useState("");
+  const [isCreatingCustomPositionEdit, setIsCreatingCustomPositionEdit] =
+    useState(false);
+  const [customPositionEdit, setCustomPositionEdit] = useState("");
+
+  const [isApprovalCalendarOpen, setIsApprovalCalendarOpen] = useState(false);
+  const [isEditCalendarOpen, setIsEditCalendarOpen] = useState(false);
+  const approvalCalendarRef = useRef<HTMLDivElement>(null);
+  const editCalendarRef = useRef<HTMLDivElement>(null);
+
+  const positionOptions = useMemo(() => {
+    const uniquePositions = new Set<string>();
+    positions.forEach((pos) => {
+      if (pos) uniquePositions.add(pos);
+    });
+    staffMembers.forEach((s) => {
+      if (s.position) uniquePositions.add(s.position);
+    });
+    const opts = Array.from(uniquePositions).map((pos) => ({
+      value: pos,
+      label: pos,
+    }));
+    return [
+      { value: "", label: "Choose Position" },
+      ...opts,
+      { value: "CREATE_NEW_CUSTOM", label: "Create custom position" },
+    ];
+  }, [positions, staffMembers]);
+
+  const supervisorOptions = useMemo(() => {
+    const managers = staffMembers.filter(
+      (s) => s.role?.toLowerCase() === "manager",
+    );
+    const opts = managers.map((s) => ({
+      value: s.id,
+      label: s.name,
+    }));
+    return [{ value: "", label: "Choose Manager" }, ...opts];
+  }, [staffMembers]);
 
   const [isApprovalModalOpen, setIsApprovalModalOpen] = useState(false);
   const [pendingStaffToApprove, setPendingStaffToApprove] =
@@ -215,6 +269,28 @@ export default function StaffDirectoryPage() {
     loadData();
   }, [loadData]);
 
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      const target = event.target as Node;
+      if (
+        approvalCalendarRef.current &&
+        !approvalCalendarRef.current.contains(target)
+      ) {
+        setIsApprovalCalendarOpen(false);
+      }
+      if (
+        editCalendarRef.current &&
+        !editCalendarRef.current.contains(target)
+      ) {
+        setIsEditCalendarOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+
   const loadPending = useCallback(async () => {
     if (!activeBusinessId) return;
     try {
@@ -244,7 +320,6 @@ export default function StaffDirectoryPage() {
     setLocationFilter("all");
     setRoleFilter("all");
     setStatusFilter("all");
-    setCurrentPage(1);
   };
 
   const handleExport = () => {
@@ -360,12 +435,13 @@ export default function StaffDirectoryPage() {
         : valB.localeCompare(valA);
     });
 
-  const paginatedStaff = (() => {
-    const start = (currentPage - 1) * itemsPerPage;
-    return filteredStaff.slice(start, start + itemsPerPage);
-  })();
+  const displayedStaff = useMemo(() => {
+    return filteredStaff.slice(0, displayLimit);
+  }, [filteredStaff, displayLimit]);
 
-  const totalPages = Math.ceil(filteredStaff.length / itemsPerPage) || 1;
+  useEffect(() => {
+    setDisplayLimit(30);
+  }, [searchQuery, roleFilter, businessFilter, locationFilter, statusFilter]);
 
   const getInitials = (name: string) => {
     return name
@@ -452,7 +528,12 @@ export default function StaffDirectoryPage() {
     setApprovalBusinesses([activeBusinessId || ""]);
     setApprovalLocations({});
 
-    setApprovalPosition(positions[0] || "");
+    setApprovalPosition("");
+    setIsCreatingCustomPositionApproval(false);
+    setCustomPositionApproval("");
+    setApprovalHourlyRate("");
+    setApprovalReportingTo("");
+    setApprovalStartDate("");
     setApprovalPriority(5);
     setApprovalMaxHours("");
 
@@ -540,6 +621,10 @@ export default function StaffDirectoryPage() {
         location_ids: approvalLocations[bizId] || [],
       }));
 
+      const finalPosition = isCreatingCustomPositionApproval
+        ? customPositionApproval.trim()
+        : approvalPosition;
+
       const res = await approvePendingStaff(
         activeBusinessId,
         pendingStaffToApprove.id,
@@ -547,9 +632,13 @@ export default function StaffDirectoryPage() {
           role: approvalRole,
           assignments,
           priority: approvalPriority,
-          position: approvalPosition || null,
+          position: finalPosition || null,
           max_working_hours:
             approvalMaxHours === "" ? null : Number(approvalMaxHours),
+          hourly_rate:
+            approvalHourlyRate === "" ? null : Number(approvalHourlyRate),
+          reporting_to: approvalReportingTo || null,
+          start_date: approvalStartDate || null,
         },
       );
 
@@ -595,6 +684,15 @@ export default function StaffDirectoryPage() {
     setEditStatus(staff.status);
     setEditLocations(staff.locations?.map((l) => l.id) || []);
     setEditPosition(staff.position || "");
+    setIsCreatingCustomPositionEdit(false);
+    setCustomPositionEdit("");
+    setEditHourlyRate(
+      staff.hourlyRate !== null && staff.hourlyRate !== undefined
+        ? staff.hourlyRate
+        : "",
+    );
+    setEditReportingTo(staff.reportingTo || "");
+    setEditStartDate(staff.startDate ? staff.startDate.split("T")[0] : "");
     setEditPriority(staff.priority || 5);
     setEditMaxHours(
       staff.maxWorkingHours !== null && staff.maxWorkingHours !== undefined
@@ -613,10 +711,13 @@ export default function StaffDirectoryPage() {
       }
     }
 
-    const isAdminOrSuper = profile?.role === "super_admin" || profile?.role === "admin";
+    const isAdminOrSuper =
+      profile?.role === "super_admin" || profile?.role === "admin";
     if (isAdminOrSuper) {
       try {
-        const res = await api.get(`/api/businesses/${activeBusinessId}/staff/${staff.id}/assignments`);
+        const res = await api.get(
+          `/api/businesses/${activeBusinessId}/staff/${staff.id}/assignments`,
+        );
         const assignments = res.data;
         const bizIds = assignments.map((a: any) => a.business_id);
         const bizLocs: Record<string, string[]> = {};
@@ -624,7 +725,10 @@ export default function StaffDirectoryPage() {
           bizLocs[a.business_id] = a.location_ids;
           if (!businessLocations[a.business_id]) {
             getLocations(a.business_id).then((locs) => {
-              setBusinessLocations((prev) => ({ ...prev, [a.business_id]: locs }));
+              setBusinessLocations((prev) => ({
+                ...prev,
+                [a.business_id]: locs,
+              }));
             });
           }
         }
@@ -657,19 +761,27 @@ export default function StaffDirectoryPage() {
       const { updateStaff } =
         await import("@/lib/repositories/staff.repository");
 
+      const finalPosition = isCreatingCustomPositionEdit
+        ? customPositionEdit.trim()
+        : editPosition;
+
       const payload: any = {
         name: isRestrictedAdmin ? staffToEdit.name : editName.trim(),
-        phone: isRestrictedAdmin ? (staffToEdit.phone || "") : editPhone.trim(),
+        phone: isRestrictedAdmin ? staffToEdit.phone || "" : editPhone.trim(),
         email: isRestrictedAdmin ? staffToEdit.email : editEmail.trim(),
         role: editRole,
         status: editStatus,
         locationIds: editLocations,
         priority: editPriority,
-        position: editPosition || null,
+        position: finalPosition || null,
         maxWorkingHours: editMaxHours === "" ? null : Number(editMaxHours),
+        hourlyRate: editHourlyRate === "" ? null : Number(editHourlyRate),
+        reportingTo: editReportingTo || null,
+        startDate: editStartDate || null,
       };
 
-      const isAdminOrSuper = profile?.role === "super_admin" || profile?.role === "admin";
+      const isAdminOrSuper =
+        profile?.role === "super_admin" || profile?.role === "admin";
       if (isAdminOrSuper) {
         payload.assignments = editBusinesses.map((bizId) => ({
           business_id: bizId,
@@ -711,6 +823,9 @@ export default function StaffDirectoryPage() {
         priority: staff.priority || 5,
         position: staff.position || null,
         maxWorkingHours: staff.maxWorkingHours || null,
+        hourlyRate: staff.hourlyRate || null,
+        reportingTo: staff.reportingTo || null,
+        startDate: staff.startDate || null,
       });
 
       toast.success(`Staff status updated to ${newStatus}.`);
@@ -741,7 +856,7 @@ export default function StaffDirectoryPage() {
   }
 
   return (
-    <div className="px-4 py-3 bg-white min-h-[80vh] scroll-y-auto">
+    <div className="select-none bg-white min-h-0 flex flex-col w-full h-[calc(100vh-120px)] md:h-[85vh] pb-4 px-4 py-3 overflow-hidden">
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 border-b py-3 px-3 md:py-3 md:px-4 border border-[#E2E8F0] rounded-2xl shadow-sm">
         <div>
           <h1 className="text-xl md:text-2xl font-bold md:font-extrabold tracking-tight">
@@ -827,7 +942,7 @@ export default function StaffDirectoryPage() {
 
       {activeTab === "directory" ? (
         <>
-          <div className="mt-6 flex flex-wrap justify-between gap-3 items-center">
+          <div className="mt-1 flex flex-wrap justify-between gap-1 items-center">
             <div className="relative flex-1 w-full max-w-[50svw] md:max-w-[30svw]">
               <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-zinc-400">
                 <Search className="h-4 w-4" />
@@ -835,41 +950,40 @@ export default function StaffDirectoryPage() {
               <input
                 type="text"
                 placeholder="Search by name, phone, email, role or position..."
-                className="w-full bg-white border border-zinc-200 focus:border-black rounded-xl py-2.5 pl-10 pr-4 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-black transition-all shadow-xs"
+                className="w-full bg-white border border-zinc-200 focus:border-black rounded-xl py-2 pl-10 pr-4 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-black transition-all shadow-xs"
                 value={searchQuery}
                 onChange={(e) => {
                   setSearchQuery(e.target.value);
-                  setCurrentPage(1);
                 }}
               />
             </div>
 
-            <Dropdown
-              value={roleFilter}
-              onChange={(val) => {
-                setRoleFilter(val);
-                setCurrentPage(1);
-              }}
-              options={
-                [
-                  { value: "all", label: "All Roles" },
-                  { value: "manager", label: "Manager" },
-                  { value: "supervisor", label: "Supervisor" },
-                  { value: "staff", label: "Staff" },
-                ] as const
-              }
-              className="min-w-[130px]"
-              triggerClassName="rounded-xl py-2.5 px-3 font-bold text-zinc-950 focus:ring-black focus:border-black"
-            />
+            <div className="flex items-center gap-3">
+              <Dropdown
+                value={roleFilter}
+                onChange={(val) => {
+                  setRoleFilter(val);
+                }}
+                options={
+                  [
+                    { value: "all", label: "All Roles" },
+                    { value: "manager", label: "Manager" },
+                    { value: "staff", label: "Staff" },
+                  ] as const
+                }
+                className="min-w-[130px]"
+                triggerClassName="rounded-xl py-2.5 px-3 font-bold text-zinc-950 focus:ring-black focus:border-black"
+              />
 
-            {(searchQuery || roleFilter !== "all") && (
-              <button
-                onClick={handleClearFilters}
-                className="border border-zinc-200 text-zinc-700 bg-white hover:bg-zinc-50 rounded-xl px-4 py-2.5 text-xs font-bold transition duration-200 cursor-pointer"
-              >
-                Clear
-              </button>
-            )}
+              {(searchQuery || roleFilter !== "all") && (
+                <button
+                  onClick={handleClearFilters}
+                  className="border border-zinc-200 text-zinc-700 bg-white hover:bg-zinc-50 rounded-xl px-4 py-2.5 text-xs font-bold transition duration-200 cursor-pointer"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
           </div>
 
           {filteredStaff.length === 0 ? (
@@ -883,11 +997,24 @@ export default function StaffDirectoryPage() {
               </p>
             </div>
           ) : (
-            <div className="mt-6 bg-white border border-zinc-200 rounded-2xl shadow-xs overflow-hidden">
-              <div className="overflow-x-auto">
+            <div className="mt-6 bg-white border border-zinc-200 rounded-2xl shadow-xs overflow-hidden flex-1 min-h-0 flex flex-col">
+              <div
+                className="overflow-auto flex-1 min-h-0"
+                onScroll={(e) => {
+                  const container = e.currentTarget;
+                  if (
+                    container.scrollHeight - container.scrollTop <=
+                    container.clientHeight + 100
+                  ) {
+                    setDisplayLimit((prev) =>
+                      Math.min(prev + 30, filteredStaff.length),
+                    );
+                  }
+                }}
+              >
                 <table className="w-full text-left border-collapse">
                   <thead>
-                    <tr className="border-b border-zinc-200 text-[10px] uppercase font-extrabold tracking-wider text-[#64748B] bg-zinc-50/50 text-center">
+                    <tr className="border-b border-zinc-200 text-[10px] uppercase font-extrabold tracking-wider text-[#64748B] bg-zinc-50 sticky top-0 z-10 text-center">
                       <th
                         onClick={() => handleSort("name")}
                         className="py-4 px-6 font-extrabold cursor-pointer hover:bg-zinc-100 transition duration-150 select-none"
@@ -927,7 +1054,7 @@ export default function StaffDirectoryPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-zinc-200 text-xs text-[#0F172A]">
-                    {paginatedStaff.map((s) => (
+                    {displayedStaff.map((s) => (
                       <tr
                         key={s.id}
                         onClick={() => handleOpenEditModal(s)}
@@ -1019,59 +1146,12 @@ export default function StaffDirectoryPage() {
                 </table>
               </div>
 
-              <div className="bg-zinc-50/50 border-t border-zinc-200 py-4 px-6 flex flex-col sm:flex-row justify-between items-center gap-4 text-xs text-[#64748B] font-semibold">
+              <div className="bg-zinc-50/50 border-t border-zinc-200 py-3.5 px-6 flex justify-between items-center text-xs text-[#64748B] font-semibold">
                 <span>
                   Showing{" "}
-                  {filteredStaff.length > 0
-                    ? (currentPage - 1) * itemsPerPage + 1
-                    : 0}{" "}
-                  to{" "}
-                  {Math.min(currentPage * itemsPerPage, filteredStaff.length)}{" "}
-                  of {filteredStaff.length} staff members
+                  {Math.min(displayedStaff.length, filteredStaff.length)} of{" "}
+                  {filteredStaff.length} staff members
                 </span>
-
-                <div className="flex items-center gap-4">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[11px] font-semibold">Show</span>
-                    <div className="relative">
-                      <select
-                        value={itemsPerPage}
-                        onChange={(e) => {
-                          setItemsPerPage(Number(e.target.value));
-                          setCurrentPage(1);
-                        }}
-                        className="bg-white border border-zinc-200 rounded-lg pl-2 pr-6 py-1 text-[11px] font-bold text-zinc-700 focus:outline-none focus:ring-1 focus:ring-[#16A34A] cursor-pointer appearance-none"
-                      >
-                        <option value={10}>10 / page</option>
-                        <option value={20}>20 / page</option>
-                        <option value={50}>50 / page</option>
-                      </select>
-                      <ChevronDown className="absolute right-1.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-400 pointer-events-none" />
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-1.5">
-                    <button
-                      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                      className="p-1.5 rounded-lg border border-zinc-200 bg-white hover:bg-zinc-50 text-zinc-400 disabled:opacity-40 transition-colors"
-                      disabled={currentPage === 1}
-                    >
-                      <ChevronLeft className="h-4 w-4" />
-                    </button>
-                    <span className="h-8 w-8 bg-black text-white flex items-center justify-center rounded-lg font-bold">
-                      {currentPage}
-                    </span>
-                    <button
-                      onClick={() =>
-                        setCurrentPage((p) => Math.min(totalPages, p + 1))
-                      }
-                      className="p-1.5 rounded-lg border border-zinc-200 bg-white hover:bg-zinc-50 text-zinc-400 disabled:opacity-40 transition-colors"
-                      disabled={currentPage === totalPages}
-                    >
-                      <ChevronRight className="h-4 w-4" />
-                    </button>
-                  </div>
-                </div>
               </div>
             </div>
           )}
@@ -1105,8 +1185,6 @@ export default function StaffDirectoryPage() {
                       <th className="py-4 px-6">Name</th>
                       <th className="py-4 px-6">Email</th>
                       <th className="py-4 px-6">Phone</th>
-                      <th className="py-4 px-6">Requested Role</th>
-                      <th className="py-4 px-6">Requested Locations</th>
                       <th className="py-4 px-6">Request Date</th>
                       <th className="py-4 px-6 text-right">Actions</th>
                     </tr>
@@ -1125,21 +1203,6 @@ export default function StaffDirectoryPage() {
                         </td>
                         <td className="py-4 px-6 text-[#64748B] font-medium">
                           {p.user_phone || "N/A"}
-                        </td>
-                        <td className="py-4 px-6">
-                          <span
-                            className={`px-2 py-0.5 rounded text-[10px] font-bold border ${getRoleBadgeClass(p.role)}`}
-                          >
-                            {p.role}
-                          </span>
-                        </td>
-                        <td className="py-4 px-6 text-zinc-700 font-semibold">
-                          <div className="flex flex-wrap gap-1">
-                            <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-zinc-700 bg-zinc-100 border border-zinc-200/50 rounded-md px-2 py-0.5">
-                              <MapPin className="h-3 w-3 text-zinc-400" />
-                              {p.location_name}
-                            </span>
-                          </div>
                         </td>
                         <td className="py-4 px-6 text-[#64748B] font-medium">
                           {new Date(p.created_at).toLocaleDateString()}
@@ -1315,66 +1378,136 @@ export default function StaffDirectoryPage() {
                 </div>
               </div>
 
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-extrabold text-[#0F172A] uppercase tracking-wider block">
-                  Access Role (Compulsory)
-                </label>
-                <div className="grid grid-cols-2 gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setApprovalRole("staff")}
-                    className={`p-4 border rounded-2xl flex flex-col items-start text-left cursor-pointer transition ${
-                      approvalRole === "staff"
-                        ? "border-black bg-zinc-50 text-[#0F172A]"
-                        : "border-zinc-200 bg-white hover:bg-zinc-50/50 text-zinc-500"
-                    }`}
-                  >
-                    <span className="text-sm font-extrabold block">Staff</span>
-                    <span className="text-[11px] text-zinc-400 font-semibold mt-1">
-                      General permissions for entering timesheets and sales
-                      records.
-                    </span>
-                  </button>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-extrabold text-[#0F172A] uppercase tracking-wider block">
+                    Access Role
+                  </label>
+                  <Dropdown
+                    value={approvalRole}
+                    onChange={(val) => setApprovalRole(val)}
+                    options={[
+                      { value: "staff", label: "Staff" },
+                      { value: "manager", label: "Manager" },
+                    ]}
+                    className="w-full"
+                    triggerClassName="rounded-xl py-2.5 px-3.5 font-bold text-zinc-950 focus:ring-black focus:border-black"
+                  />
+                </div>
 
-                  <button
-                    type="button"
-                    onClick={() => setApprovalRole("manager")}
-                    className={`p-4 border rounded-2xl flex flex-col items-start text-left cursor-pointer transition ${
-                      approvalRole === "manager"
-                        ? "border-black bg-zinc-50 text-[#0F172A]"
-                        : "border-zinc-200 bg-white hover:bg-zinc-50/50 text-zinc-500"
-                    }`}
-                  >
-                    <span className="text-sm font-extrabold block">
-                      Manager
-                    </span>
-                    <span className="text-[11px] text-zinc-400 font-semibold mt-1">
-                      Advanced access for reviewing data and creating reports.
-                    </span>
-                  </button>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-extrabold text-[#0F172A] uppercase tracking-wider block">
+                    Position
+                  </label>
+                  <Dropdown
+                    value={approvalPosition}
+                    onChange={(val) => {
+                      if (val === "CREATE_NEW_CUSTOM") {
+                        setIsCreatingCustomPositionApproval(true);
+                        setApprovalPosition("CREATE_NEW_CUSTOM");
+                      } else {
+                        setIsCreatingCustomPositionApproval(false);
+                        setApprovalPosition(val);
+                      }
+                    }}
+                    options={positionOptions}
+                    className="w-full"
+                    triggerClassName="rounded-xl py-2.5 px-3.5 font-bold text-zinc-950 focus:ring-black focus:border-black"
+                  />
+                  {isCreatingCustomPositionApproval && (
+                    <div className="space-y-1.5 mt-2 animate-fade-in">
+                      <label className="text-[10px] font-extrabold text-zinc-500 uppercase block">
+                        Custom Position Name
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="e.g. Head Roaster"
+                        className="w-full bg-white border border-zinc-200 focus:border-black rounded-xl py-2 px-3 text-xs font-semibold text-zinc-950 focus:outline-none focus:ring-1 focus:ring-black h-10"
+                        value={customPositionApproval}
+                        onChange={(e) =>
+                          setCustomPositionApproval(e.target.value)
+                        }
+                      />
+                    </div>
+                  )}
                 </div>
               </div>
 
               <div className="grid grid-cols-3 gap-3">
-                <div className="col-span-1">
-                  <label className="text-[10px] font-extrabold text-zinc-500 uppercase block mb-1">
-                    Position
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-extrabold text-zinc-500 uppercase block">
+                    Hourly Rate ($/hr)
                   </label>
-                  <select
-                    value={approvalPosition}
-                    onChange={(e) => setApprovalPosition(e.target.value)}
-                    className="w-full bg-white border border-zinc-200 focus:border-black rounded-xl py-2 px-3 text-xs font-bold text-zinc-950 focus:outline-none focus:ring-1 focus:ring-black cursor-pointer"
-                  >
-                    <option value="">-- Choose --</option>
-                    {positions.map((pos) => (
-                      <option key={pos} value={pos}>
-                        {pos}
-                      </option>
-                    ))}
-                  </select>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    placeholder="e.g. 25.50"
+                    value={approvalHourlyRate}
+                    onChange={(e) => {
+                      const val =
+                        e.target.value === ""
+                          ? ""
+                          : Math.max(0, Number(e.target.value));
+                      setApprovalHourlyRate(val);
+                    }}
+                    className="w-full bg-white border border-zinc-200 focus:border-black rounded-xl py-2 px-3 text-xs font-semibold text-zinc-950 focus:outline-none focus:ring-1 focus:ring-black h-10"
+                  />
                 </div>
-                <div className="col-span-1">
-                  <label className="text-[10px] font-extrabold text-zinc-500 uppercase block mb-1">
+
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-extrabold text-zinc-500 uppercase block">
+                    Reporting To
+                  </label>
+                  <Dropdown
+                    value={approvalReportingTo}
+                    onChange={(val) => setApprovalReportingTo(val)}
+                    options={supervisorOptions}
+                    className="w-full"
+                    triggerClassName="rounded-xl py-2.5 px-3.5 font-bold text-zinc-950 focus:ring-black focus:border-black h-10"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-extrabold text-zinc-500 uppercase block">
+                    Start Date
+                  </label>
+                  <div className="relative" ref={approvalCalendarRef}>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setIsApprovalCalendarOpen(!isApprovalCalendarOpen)
+                      }
+                      className="w-full flex items-center justify-between bg-white border border-zinc-200 focus:border-zinc-900 rounded-xl py-2 px-3 text-xs font-semibold text-zinc-950 focus:outline-none focus:ring-1 focus:ring-black h-10 text-left cursor-pointer"
+                    >
+                      <span
+                        className={
+                          approvalStartDate
+                            ? "text-zinc-950"
+                            : "text-zinc-400 font-normal"
+                        }
+                      >
+                        {approvalStartDate || "Choose Start Date"}
+                      </span>
+                      <CalendarIcon className="h-4 w-4 text-zinc-400 shrink-0 ml-2" />
+                    </button>
+                    {isApprovalCalendarOpen && (
+                      <Calendar
+                        selectedDate={approvalStartDate}
+                        onChange={(dateStr) => {
+                          setApprovalStartDate(dateStr);
+                          setIsApprovalCalendarOpen(false);
+                        }}
+                      />
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-extrabold text-zinc-500 uppercase block">
                     Priority (1-10)
                   </label>
                   <input
@@ -1389,11 +1522,11 @@ export default function StaffDirectoryPage() {
                       );
                       setApprovalPriority(val);
                     }}
-                    className="w-full bg-white border border-zinc-200 focus:border-black rounded-xl py-2 px-3 text-xs font-semibold text-zinc-950 focus:outline-none focus:ring-1 focus:ring-black"
+                    className="w-full bg-white border border-zinc-200 focus:border-black rounded-xl py-2 px-3 text-xs font-semibold text-zinc-950 focus:outline-none focus:ring-1 focus:ring-black h-10"
                   />
                 </div>
-                <div className="col-span-1">
-                  <label className="text-[10px] font-extrabold text-zinc-500 uppercase block mb-1">
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-extrabold text-zinc-500 uppercase block">
                     Max Hours/Wk
                   </label>
                   <input
@@ -1408,7 +1541,7 @@ export default function StaffDirectoryPage() {
                           : Math.max(0, Number(e.target.value));
                       setApprovalMaxHours(val);
                     }}
-                    className="w-full bg-white border border-zinc-200 focus:border-black rounded-xl py-2 px-3 text-xs font-semibold text-zinc-950 focus:outline-none focus:ring-1 focus:ring-black"
+                    className="w-full bg-white border border-zinc-200 focus:border-black rounded-xl py-2 px-3 text-xs font-semibold text-zinc-950 focus:outline-none focus:ring-1 focus:ring-black h-10"
                   />
                 </div>
               </div>
@@ -1612,16 +1745,18 @@ export default function StaffDirectoryPage() {
                   <label className="text-[10px] font-extrabold text-zinc-500 uppercase block mb-1">
                     Status
                   </label>
-                  <select
+                  <Dropdown
                     value={editStatus}
-                    onChange={(e) =>
-                      setEditStatus(e.target.value as "Active" | "Inactive")
+                    onChange={(val) =>
+                      setEditStatus(val as "Active" | "Inactive")
                     }
-                    className="w-full bg-white border border-zinc-200 focus:border-black rounded-xl py-2 px-3 text-xs font-bold text-zinc-950 focus:outline-none focus:ring-1 focus:ring-black cursor-pointer"
-                  >
-                    <option value="Active">Active</option>
-                    <option value="Inactive">Inactive</option>
-                  </select>
+                    options={[
+                      { value: "Active", label: "Active" },
+                      { value: "Inactive", label: "Inactive" },
+                    ]}
+                    className="w-full"
+                    triggerClassName="rounded-xl py-2.5 px-3.5 font-bold text-zinc-950 focus:ring-black focus:border-black"
+                  />
                 </div>
               </div>
 
@@ -1630,32 +1765,121 @@ export default function StaffDirectoryPage() {
                   <label className="text-[10px] font-extrabold text-zinc-500 uppercase block mb-1">
                     Access Role
                   </label>
-                  <select
+                  <Dropdown
                     value={editRole}
-                    onChange={(e) => setEditRole(e.target.value)}
-                    className="w-full bg-white border border-zinc-200 focus:border-black rounded-xl py-2.5 px-3 text-xs font-bold text-zinc-950 focus:outline-none focus:ring-1 focus:ring-black cursor-pointer"
-                  >
-                    <option value="staff">Staff</option>
-                    <option value="manager">Manager</option>
-                  </select>
+                    onChange={(val) => setEditRole(val)}
+                    options={[
+                      { value: "staff", label: "Staff" },
+                      { value: "manager", label: "Manager" },
+                    ]}
+                    className="w-full"
+                    triggerClassName="rounded-xl py-2.5 px-3.5 font-bold text-zinc-950 focus:ring-black focus:border-black"
+                  />
                 </div>
 
                 <div>
                   <label className="text-[10px] font-extrabold text-zinc-500 uppercase block mb-1">
                     Roster Position
                   </label>
-                  <select
+                  <Dropdown
                     value={editPosition}
-                    onChange={(e) => setEditPosition(e.target.value)}
-                    className="w-full bg-white border border-zinc-200 focus:border-black rounded-xl py-2.5 px-3 text-xs font-bold text-zinc-950 focus:outline-none focus:ring-1 focus:ring-black cursor-pointer"
-                  >
-                    <option value="">-- No Position --</option>
-                    {positions.map((p) => (
-                      <option key={p} value={p}>
-                        {p}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={(val) => {
+                      if (val === "CREATE_NEW_CUSTOM") {
+                        setIsCreatingCustomPositionEdit(true);
+                        setEditPosition("CREATE_NEW_CUSTOM");
+                      } else {
+                        setIsCreatingCustomPositionEdit(false);
+                        setEditPosition(val);
+                      }
+                    }}
+                    options={positionOptions}
+                    className="w-full"
+                    triggerClassName="rounded-xl py-2.5 px-3.5 font-bold text-zinc-950 focus:ring-black focus:border-black"
+                  />
+                  {isCreatingCustomPositionEdit && (
+                    <div className="space-y-1.5 mt-2 animate-fade-in">
+                      <label className="text-[10px] font-extrabold text-zinc-500 uppercase block">
+                        Custom Position Name
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="e.g. Head Roaster"
+                        className="w-full bg-white border border-zinc-200 focus:border-black rounded-xl py-2 px-3 text-xs font-semibold text-zinc-950 focus:outline-none focus:ring-1 focus:ring-black h-10"
+                        value={customPositionEdit}
+                        onChange={(e) => setCustomPositionEdit(e.target.value)}
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="text-[10px] font-extrabold text-zinc-500 uppercase block mb-1">
+                    Hourly Rate ($/hr)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    placeholder="e.g. 25.50"
+                    value={editHourlyRate}
+                    onChange={(e) => {
+                      const val =
+                        e.target.value === ""
+                          ? ""
+                          : Math.max(0, Number(e.target.value));
+                      setEditHourlyRate(val);
+                    }}
+                    className="w-full bg-white border border-zinc-200 focus:border-black rounded-xl py-2 px-3 text-xs font-semibold text-zinc-950 focus:outline-none focus:ring-1 focus:ring-black h-10"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-extrabold text-zinc-500 uppercase block mb-1">
+                    Reporting To
+                  </label>
+                  <Dropdown
+                    value={editReportingTo}
+                    onChange={(val) => setEditReportingTo(val)}
+                    options={supervisorOptions}
+                    className="w-full"
+                    triggerClassName="rounded-xl py-2.5 px-3.5 font-bold text-zinc-950 focus:ring-black focus:border-black h-10"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-extrabold text-zinc-500 uppercase block mb-1">
+                    Start Date
+                  </label>
+                  <div className="relative" ref={editCalendarRef}>
+                    <button
+                      type="button"
+                      onClick={() => setIsEditCalendarOpen(!isEditCalendarOpen)}
+                      className="w-full flex items-center justify-between bg-white border border-zinc-200 focus:border-zinc-900 rounded-xl py-2 px-3 text-xs font-semibold text-zinc-950 focus:outline-none focus:ring-1 focus:ring-black h-10 text-left cursor-pointer"
+                    >
+                      <span
+                        className={
+                          editStartDate
+                            ? "text-zinc-950"
+                            : "text-zinc-400 font-normal"
+                        }
+                      >
+                        {editStartDate || "Choose Start Date"}
+                      </span>
+                      <CalendarIcon className="h-4 w-4 text-zinc-400 shrink-0 ml-2" />
+                    </button>
+                    {isEditCalendarOpen && (
+                      <Calendar
+                        selectedDate={editStartDate}
+                        onChange={(dateStr) => {
+                          setEditStartDate(dateStr);
+                          setIsEditCalendarOpen(false);
+                        }}
+                      />
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -1687,7 +1911,7 @@ export default function StaffDirectoryPage() {
                   <input
                     type="number"
                     min="0"
-                    placeholder="e.g. 40 (leave empty for unlimited)"
+                    placeholder="e.g. 40"
                     value={editMaxHours}
                     onChange={(e) => {
                       const val =
@@ -1715,7 +1939,8 @@ export default function StaffDirectoryPage() {
                       businesses.map((b) => {
                         const isBizChecked = editBusinesses.includes(b.id);
                         const allLocs = businessLocations[b.id] || [];
-                        const currentCheckedLocs = editBusinessLocations[b.id] || [];
+                        const currentCheckedLocs =
+                          editBusinessLocations[b.id] || [];
                         const hasLocations = allLocs.length > 0;
                         const allLocsChecked =
                           hasLocations &&
