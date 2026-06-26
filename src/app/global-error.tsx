@@ -87,7 +87,7 @@ export default function GlobalError({
             </div>
 
             <p className="text-center text-xs font-semibold text-zinc-400 mt-4 uppercase tracking-wider">
-              StockTrack
+              NexBrix
             </p>
           </div>
         </div>

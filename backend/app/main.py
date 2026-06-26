@@ -59,7 +59,7 @@ def on_startup():
 
 @app.get("/")
 def health_check():
-    return {"status": "ok", "message": "Welcome to StockTrack"}
+    return {"status": "ok", "message": "Welcome to NexBrix"}
 
 
 app.include_router(auth_router)

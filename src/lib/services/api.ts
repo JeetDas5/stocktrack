@@ -9,7 +9,7 @@ api.interceptors.request.use(
     // Check if super admin has enabled read-only safety mode
     const isReadOnly =
       typeof window !== "undefined"
-        ? localStorage.getItem("stocktrack_super_admin_readonly") === "true"
+        ? localStorage.getItem("nexbrix_super_admin_readonly") === "true"
         : false;
 
     if (
@@ -19,12 +19,15 @@ api.interceptors.request.use(
     ) {
       return Promise.reject(
         new Error(
-          "Impersonation Read-Only Mode is active. Write operations are blocked."
-        )
+          "Impersonation Read-Only Mode is active. Write operations are blocked.",
+        ),
       );
     }
 
-    const token = typeof window !== "undefined" ? localStorage.getItem("stocktrack_token") : null;
+    const token =
+      typeof window !== "undefined"
+        ? localStorage.getItem("nexbrix_token")
+        : null;
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -32,7 +35,7 @@ api.interceptors.request.use(
     // Attach Impersonation Header if active and if not a super-admin route
     const impersonatedUserId =
       typeof window !== "undefined"
-        ? localStorage.getItem("stocktrack_impersonated_user_id")
+        ? localStorage.getItem("nexbrix_impersonated_user_id")
         : null;
     if (impersonatedUserId && !config.url?.includes("/api/super-admin/")) {
       config.headers["X-Impersonate-User"] = impersonatedUserId;
@@ -42,7 +45,7 @@ api.interceptors.request.use(
   },
   (error) => {
     return Promise.reject(error);
-  }
+  },
 );
 
 api.interceptors.response.use(
@@ -52,7 +55,7 @@ api.interceptors.response.use(
       return Promise.reject(new Error(error.response.data.detail));
     }
     return Promise.reject(error);
-  }
+  },
 );
 
 export default api;

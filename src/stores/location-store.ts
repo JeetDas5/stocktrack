@@ -36,9 +36,9 @@ export const useLocationStore = create<LocationState>((set) => ({
     set({ activeLocationId: id });
     if (typeof window !== "undefined") {
       if (id) {
-        localStorage.setItem("stocktrack_active_location_id", id);
+        localStorage.setItem("nexbrix_active_location_id", id);
       } else {
-        localStorage.removeItem("stocktrack_active_location_id");
+        localStorage.removeItem("nexbrix_active_location_id");
       }
     }
   },

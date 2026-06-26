@@ -2,11 +2,11 @@
 
 ## Project Overview
 
-StockTrack is a backend service built with FastAPI and SQLModel that provides inventory management capabilities such as user authentication, business management, stock items, recipes, stock counts, purchase orders, deliveries, and dashboard metrics. The API follows a modular service architecture where each functional area lives in its own router..
+Nexbrix helps businesses manage workforce, inventory, and operations from a single platform. It is a unified operating system for growing businesses.
 
 ## Tech Stack
 
-- **Frontend**: Next.js (React + TypeScript), Tailwind CSS
+- **Frontend**: Next.js, TypeScript, Tailwind CSS
 - **Backend Language**: Python 3.13
 - **Web Framework**: FastAPI
 - **ORM / Data Modeling**: SQLModel (SQLAlchemy based)
@@ -18,7 +18,7 @@ StockTrack is a backend service built with FastAPI and SQLModel that provides in
 ## Project Structure
 
 ```
-stocktrack/
+nexbrix/
 ├── backend/
 │   ├── app/
 │   │   ├── __init__.py

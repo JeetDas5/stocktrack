@@ -48,12 +48,12 @@ export default function DashboardBusinessPage() {
 
         const persistedActiveId =
           typeof window !== "undefined"
-            ? localStorage.getItem("stocktrack_active_business_id")
+            ? localStorage.getItem("nexbrix_active_business_id")
             : null;
         if (data.length === 1 && !persistedActiveId) {
           const singleBus = data[0];
           setActiveBusiness(singleBus.id);
-          localStorage.setItem("stocktrack_active_business_id", singleBus.id);
+          localStorage.setItem("nexbrix_active_business_id", singleBus.id);
         }
       } catch (err) {
         console.error("Failed to load businesses:", err);
@@ -67,7 +67,7 @@ export default function DashboardBusinessPage() {
 
   const handleSelect = (businessId: string) => {
     setActiveBusiness(businessId);
-    localStorage.setItem("stocktrack_active_business_id", businessId);
+    localStorage.setItem("nexbrix_active_business_id", businessId);
     router.push("/dashboard/locations");
   };
 
