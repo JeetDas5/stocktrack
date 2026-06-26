@@ -69,7 +69,9 @@ def init_db():
                 "position": "VARCHAR",
                 "reports_to": "VARCHAR",
                 "employment_type": "VARCHAR",
-                "modules": "JSON"
+                "modules": "JSON",
+                "start_date": "TIMESTAMP",
+                "is_internal": "BOOLEAN"
             }
             
             mutated = False
