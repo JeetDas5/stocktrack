@@ -21,6 +21,9 @@ interface BackendStaff {
   priority: number;
   position: string | null;
   max_working_hours: number | null;
+  hourly_rate?: number | null;
+  reporting_to?: string | null;
+  start_date?: string | null;
 }
 
 export const getStaffMembers = async (businessId: string): Promise<Staff[]> => {
@@ -38,6 +41,9 @@ export const getStaffMembers = async (businessId: string): Promise<Staff[]> => {
     priority: s.priority,
     position: s.position,
     maxWorkingHours: s.max_working_hours,
+    hourlyRate: s.hourly_rate,
+    reportingTo: s.reporting_to,
+    startDate: s.start_date,
   }));
 };
 
@@ -55,6 +61,9 @@ export const createStaff = async (
     priority: data.priority,
     position: data.position,
     max_working_hours: data.maxWorkingHours,
+    hourly_rate: data.hourlyRate,
+    reporting_to: data.reportingTo,
+    start_date: data.startDate,
   });
   const s = response.data;
   return {
@@ -70,6 +79,9 @@ export const createStaff = async (
     priority: s.priority,
     position: s.position,
     maxWorkingHours: s.max_working_hours,
+    hourlyRate: s.hourly_rate,
+    reportingTo: s.reporting_to,
+    startDate: s.start_date,
   };
 };
 
@@ -91,6 +103,9 @@ export const updateStaff = async (
       position: data.position,
       max_working_hours: data.maxWorkingHours,
       assignments: data.assignments,
+      hourly_rate: data.hourlyRate,
+      reporting_to: data.reportingTo,
+      start_date: data.startDate,
     },
   );
   const s = response.data;
@@ -107,6 +122,9 @@ export const updateStaff = async (
     priority: s.priority,
     position: s.position,
     maxWorkingHours: s.max_working_hours,
+    hourlyRate: s.hourly_rate,
+    reportingTo: s.reporting_to,
+    startDate: s.start_date,
   };
 };
 
@@ -163,6 +181,9 @@ export const approvePendingStaff = async (
     priority?: number;
     position?: string | null;
     max_working_hours?: number | null;
+    hourly_rate?: number | null;
+    reporting_to?: string | null;
+    start_date?: string | null;
   },
 ): Promise<{ message: string }> => {
   const response = await api.post(

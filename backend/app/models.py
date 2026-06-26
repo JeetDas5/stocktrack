@@ -79,6 +79,9 @@ class UserAssignment(SQLModel, table=True):
     priority: int = Field(default=5)
     position: Optional[str] = Field(default=None)
     max_working_hours: Optional[float] = Field(default=None)
+    hourly_rate: Optional[float] = Field(default=None)
+    reporting_to: Optional[str] = Field(default=None)
+    start_date: Optional[str] = Field(default=None)
 
     # Relationships
     user: Optional[User] = Relationship()

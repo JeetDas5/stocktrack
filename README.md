@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-Nexbrix helps businesses manage workforce, inventory, and operations from a single platform. It is a unified operating system for growing businesses.
+NexBrix helps businesses manage workforce, inventory, and operations from a single platform. It is a unified operating system for growing businesses.
 
 ## Tech Stack
 

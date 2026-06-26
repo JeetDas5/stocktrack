@@ -95,6 +95,21 @@ def init_db():
                     inv_mutated = True
             if inv_mutated:
                 session.commit()
+
+            # Check and add new columns dynamically to the user_assignments table
+            ass_columns = [col['name'] for col in inspector.get_columns('user_assignments')]
+            new_ass_columns = {
+                "hourly_rate": "FLOAT",
+                "reporting_to": "VARCHAR",
+                "start_date": "VARCHAR"
+            }
+            ass_mutated = False
+            for col_name, col_type in new_ass_columns.items():
+                if col_name not in ass_columns:
+                    session.execute(text(f"ALTER TABLE user_assignments ADD COLUMN {col_name} {col_type}"))
+                    ass_mutated = True
+            if ass_mutated:
+                session.commit()
     except Exception as e:
         print(f"Database migration note: {e}")
 

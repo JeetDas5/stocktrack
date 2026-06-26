@@ -34,7 +34,7 @@ export default function Navbar() {
     >
       <nav className="max-w-7xl mx-auto px-6 lg:px-10 h-16 flex items-center justify-between">
         <Link href="/" className="flex items-center gap-2 group">
-          <Image src="/logos/logo.png" alt="logo" width={100} height={100} loading="eager" />
+          <Image src="/logos/logo.png" alt="logo" width={100} height={25} style={{ width: "100px", height: "auto" }} loading="eager" />
         </Link>
 
         <div className="hidden md:flex items-center gap-1">

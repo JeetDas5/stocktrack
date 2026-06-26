@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { Business } from "@/types/business";
 import { toast } from "sonner";
+import { Dropdown } from "@/components/ui/dropdown";
 
 export default function DashboardBusinessPage() {
   const router = useRouter();
@@ -32,6 +33,9 @@ export default function DashboardBusinessPage() {
   const [newBusinessName, setNewBusinessName] = useState("");
   const [creating, setCreating] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<
+    "all" | "active" | "inactive"
+  >("active");
 
   useEffect(() => {
     async function loadBusinesses() {
@@ -119,14 +123,22 @@ export default function DashboardBusinessPage() {
     }
   };
 
-  const filteredBusinesses = businesses.filter((bus) =>
-    bus.name.toLowerCase().includes(searchQuery.toLowerCase()),
-  );
+  const filteredBusinesses = businesses.filter((bus) => {
+    const matchesSearch = bus.name
+      .toLowerCase()
+      .includes(searchQuery.toLowerCase());
+    const isActive = bus.isActive !== false;
+    const matchesStatus =
+      statusFilter === "all" ||
+      (statusFilter === "active" && isActive) ||
+      (statusFilter === "inactive" && !isActive);
+    return matchesSearch && matchesStatus;
+  });
 
   if (authLoading || (loading && businesses.length === 0)) {
     return (
       <div className="flex flex-col items-center justify-center py-20 text-[#0F172A]">
-        <Loader2 className="h-8 w-8 text-[#16A34A] animate-spin mb-4" />
+        <Loader2 className="h-8 w-8 text-black animate-spin mb-4" />
         <p className="text-[#64748B] text-sm font-bold tracking-wide">
           Syncing workspaces...
         </p>
@@ -135,11 +147,11 @@ export default function DashboardBusinessPage() {
   }
 
   return (
-    <div className="max-w-4xl w-full mx-auto px-4 py-8 flex flex-col justify-start">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-10">
+    <div className="px-4 py-3 bg-white min-h-[80vh] scroll-y-auto">
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 border-b py-3 px-3 md:py-3 md:px-4 border border-[#E2E8F0] rounded-2xl shadow-sm mb-6">
         <div>
-          <h1 className="text-3xl font-extrabold text-[#0F172A] tracking-tight">
-            Select business
+          <h1 className="text-xl md:text-2xl font-bold md:font-extrabold tracking-tight">
+            Business
           </h1>
           <p className="text-[#64748B] text-xs font-bold mt-1.5">
             Choose the business you want to manage.
@@ -151,7 +163,7 @@ export default function DashboardBusinessPage() {
             onClick={() => {
               setShowAddModal(true);
             }}
-            className="border-2 border-[#16A34A] text-[#16A34A] bg-white hover:bg-[#DCFCE7]/20 px-5 py-2.5 rounded-xl text-xs font-extrabold uppercase tracking-wider transition-all cursor-pointer flex items-center gap-2 shadow-xs"
+            className="bg-black hover:bg-neutral-800 text-white rounded-full px-5 py-2.5 text-xs font-bold uppercase tracking-wider shadow-sm flex items-center gap-2 cursor-pointer transition-all duration-200"
           >
             <Plus className="h-4 w-4 stroke-[3px]" />
             Add business
@@ -159,19 +171,33 @@ export default function DashboardBusinessPage() {
         )}
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-4 justify-between items-center mb-6">
-        <div className="relative w-full sm:max-w-md">
+      <div className="mt-6 flex flex-wrap justify-between gap-3 items-center mb-6">
+        <div className="relative flex-1 w-full max-w-[50svw] md:max-w-[30svw]">
           <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-zinc-400">
             <Search className="h-4 w-4" />
           </span>
           <input
             type="text"
             placeholder="Search businesses..."
-            className="w-full bg-white border border-zinc-200 focus:border-[#16A34A] rounded-xl py-2.5 pl-10 pr-4 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#16A34A] transition-all shadow-xs"
+            className="w-full bg-white border border-zinc-200 focus:border-black rounded-xl py-2.5 pl-10 pr-4 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-black transition-all shadow-xs"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
+
+        <Dropdown
+          value={statusFilter}
+          onChange={(val) => setStatusFilter(val)}
+          options={
+            [
+              { value: "all", label: "All Statuses" },
+              { value: "active", label: "Active" },
+              { value: "inactive", label: "Inactive" },
+            ] as const
+          }
+          className="min-w-[130px]"
+          triggerClassName="rounded-xl py-2.5 px-3 font-bold text-zinc-950 focus:ring-black focus:border-black"
+        />
       </div>
 
       {filteredBusinesses.length === 0 ? (
@@ -189,35 +215,48 @@ export default function DashboardBusinessPage() {
         <div className="space-y-4">
           {filteredBusinesses.map((bus) => {
             const isSelected = bus.id === activeBusinessId;
+            const isBusActive = bus.isActive !== false;
             return (
               <div
                 key={bus.id}
                 onClick={() => handleSelect(bus.id)}
-                className={`w-full bg-white border p-5 rounded-2xl flex items-center justify-between transition-all duration-250 cursor-pointer shadow-xs group ${
+                className={`w-full border p-5 rounded-2xl flex items-center justify-between transition-all duration-250 cursor-pointer shadow-xs group ${
                   isSelected
-                    ? "border-[#16A34A] ring-1 ring-[#16A34A] shadow-md shadow-zinc-200/40"
-                    : "border-zinc-200/80 hover:border-[#16A34A]/30 shadow-zinc-100 hover:shadow-md hover:shadow-zinc-200/40"
-                }`}
+                    ? "border-neutral ring-1 ring-black shadow-md shadow-zinc-200/40"
+                    : "border-zinc-200/80 hover:border-black/30 shadow-zinc-100 hover:shadow-md hover:shadow-zinc-200/40"
+                } ${isBusActive ? "bg-white" : "bg-zinc-50"}`}
               >
                 <div className="flex items-center gap-4 min-w-0">
-                  <div className="h-12 w-12 rounded-full bg-[#DCFCE7] text-[#16A34A] flex items-center justify-center shrink-0 border border-[#16A34A]/10 shadow-xs">
+                  <div
+                    className={`h-12 w-12 rounded-full flex items-center justify-center shrink-0 border shadow-xs ${
+                      isBusActive
+                        ? "bg-zinc-100 text-black border-zinc-200/60"
+                        : "bg-zinc-200/50 text-zinc-400 border-zinc-200"
+                    }`}
+                  >
                     <Building2 className="h-5 w-5 stroke-[2.5px]" />
                   </div>
 
                   <div className="text-left min-w-0">
-                    <h3 className="text-base font-bold text-[#0F172A] group-hover:text-[#16A34A] transition-colors truncate">
+                    <h3
+                      className={`text-base font-bold transition-colors truncate ${
+                        isBusActive
+                          ? "text-[#0F172A] group-hover:text-black"
+                          : "text-zinc-500"
+                      }`}
+                    >
                       {bus.name}
                     </h3>
                     <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-[#64748B] mt-1.5 font-bold">
                       <span className="flex items-center gap-1 shrink-0">
                         <MapPin className="h-3.5 w-3.5 text-zinc-400" />
-                        {bus.locationsCount}{" "}
+                        {bus.locationsCount || 0}{" "}
                         {bus.locationsCount === 1 ? "location" : "locations"}
                       </span>
                       <span className="text-zinc-300">•</span>
                       <span className="flex items-center gap-1 shrink-0">
                         <Package className="h-3.5 w-3.5 text-zinc-400" />
-                        {bus.itemsCount} stock{" "}
+                        {bus.itemsCount || 0} stock{" "}
                         {bus.itemsCount === 1 ? "item" : "items"}
                       </span>
                     </div>
@@ -225,21 +264,18 @@ export default function DashboardBusinessPage() {
                 </div>
 
                 <div className="flex items-center gap-4 shrink-0">
-                  <span
-                    className={`text-[10px] uppercase font-extrabold px-3 py-1 rounded-full flex items-center gap-1.5 border shadow-2xs leading-none ${
-                      bus.isActive !== false
-                        ? "bg-[#DCFCE7] text-[#16A34A] border-[#16A34A]/10"
-                        : "bg-zinc-100 text-[#64748B] border-zinc-200"
-                    }`}
-                  >
-                    <span
-                      className={`h-1.5 w-1.5 rounded-full shrink-0 ${
-                        bus.isActive !== false ? "bg-[#16A34A]" : "bg-[#64748B]"
-                      }`}
-                    />
-                    {bus.isActive !== false ? "Active" : "Inactive"}
-                  </span>
-                  <ChevronRight className="h-5 w-5 text-zinc-400 group-hover:text-[#16A34A] transition-colors" />
+                  {isBusActive ? (
+                    <span className="text-[11px] uppercase font-bold px-3 py-1 flex items-center gap-1.5 leading-none text-[#16A34A]">
+                      <span className="h-1.5 w-1.5 rounded-full bg-[#16A34A]" />
+                      Active
+                    </span>
+                  ) : (
+                    <span className="text-[10px] uppercase font-extrabold px-3 py-1 rounded-full flex items-center gap-1.5 border shadow-2xs leading-none bg-zinc-100 text-[#64748B] border-zinc-200">
+                      <span className="h-1.5 w-1.5 rounded-full bg-[#64748B]" />
+                      Inactive
+                    </span>
+                  )}
+                  <ChevronRight className="h-5 w-5 text-zinc-400 group-hover:text-black transition-colors" />
                 </div>
               </div>
             );
@@ -269,7 +305,7 @@ export default function DashboardBusinessPage() {
                 placeholder="e.g. Starbucks"
                 required
                 maxLength={100}
-                className="w-full bg-white border border-zinc-300 focus:border-[#16A34A] rounded-xl py-3 px-4 text-sm text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#16A34A] transition-all"
+                className="w-full bg-white border border-zinc-300 focus:border-black rounded-xl py-3 px-4 text-sm text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-black transition-all"
                 value={newBusinessName}
                 onChange={(e) => setNewBusinessName(e.target.value)}
                 disabled={creating}
@@ -289,11 +325,11 @@ export default function DashboardBusinessPage() {
                 <button
                   type="submit"
                   disabled={creating || !newBusinessName.trim()}
-                  className="bg-[#16A34A] hover:bg-[#15803D] text-white rounded-xl px-4 py-2.5 text-xs font-bold uppercase tracking-wider shadow-sm flex items-center gap-2 cursor-pointer transition-colors disabled:opacity-50"
+                  className="bg-black hover:bg-neutral-800 text-white rounded-xl px-4 py-2.5 text-xs font-bold uppercase tracking-wider shadow-sm flex items-center gap-2 cursor-pointer transition-colors disabled:opacity-50 animate-fade-in"
                 >
                   {creating ? (
                     <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <Loader2 className="h-4 w-4 animate-spin text-white" />
                       Creating...
                     </>
                   ) : (
