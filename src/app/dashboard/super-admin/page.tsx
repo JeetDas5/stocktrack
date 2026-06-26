@@ -70,6 +70,7 @@ export default function SuperAdminPage() {
 
   useEffect(() => {
     if (profile?.role === "super_admin") {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       loadInvitations();
     }
   }, [profile]);
@@ -110,10 +111,11 @@ export default function SuperAdminPage() {
       setEmail("");
       // Reload invitations list
       await loadInvitations();
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
-      const msg = err.response?.data?.detail || "Failed to create invitation.";
-      toast.error(msg);
+      toast.error(
+        err instanceof Error ? err.message : "Failed to create invitation.",
+      );
     } finally {
       setSubmitting(false);
     }
@@ -149,8 +151,8 @@ export default function SuperAdminPage() {
   }
 
   return (
-    <div className="px-2 py-2 bg-white min-h-[90vh] overflow-y-auto animate-fade-in">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b pb-6 border-neutral-100 mb-8">
+    <div className="px-2 bg-white min-h-[90vh] overflow-y-auto animate-fade-in">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b pb-6 border-neutral-100">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-neutral-900 flex items-center gap-2.5">
             Super Admin Console
@@ -164,15 +166,14 @@ export default function SuperAdminPage() {
       <div className="grid lg:grid-cols-12 gap-8">
         <div className="lg:col-span-5 space-y-6">
           <div className="bg-white border border-neutral-200 rounded-3xl p-6 shadow-sm">
-            <div className="flex items-center gap-2 mb-4">
+            <div className="flex items-center gap-2 mb-2">
               <h2 className="text-base font-bold text-neutral-900">
                 Invite New Organization Owner
               </h2>
             </div>
-            <p className="text-neutral-500 text-xs font-medium leading-relaxed mb-6">
+            <p className="text-neutral-500 text-xs font-medium leading-relaxed mb-2">
               Invite a new business/organization owner to NexBrix. Specifying
-              their modules controls their workspace features. The invited user
-              registers as an Owner (`isInternal: true`).
+              their modules controls their workspace features.
             </p>
 
             <form onSubmit={handleInviteSubmit} className="space-y-5">
@@ -211,7 +212,8 @@ export default function SuperAdminPage() {
                         Timesheet & Directory Module
                       </span>
                       <span className="text-[10px] text-neutral-400 font-bold block mt-1 leading-snug">
-                        Includes Team Directory, Timesheet Entries, Timesheet Review, and Settings.
+                        Includes Team Directory, Timesheet Entries, Timesheet
+                        Review, and Settings.
                       </span>
                     </div>
                   </label>
@@ -227,7 +229,8 @@ export default function SuperAdminPage() {
                         Roster Module
                       </span>
                       <span className="text-[10px] text-neutral-400 font-bold block mt-1 leading-snug">
-                        Includes Roster Builder, Roster Settings, and Availability management.
+                        Includes Roster Builder, Roster Settings, and
+                        Availability management.
                       </span>
                     </div>
                   </label>
