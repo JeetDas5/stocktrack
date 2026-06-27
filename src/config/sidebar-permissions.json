@@ -23,8 +23,6 @@
   ],
   "staff": [
     "/dashboard/profile",
-    "/dashboard/business",
-    "/dashboard/locations",
     "/dashboard/counts",
     "/dashboard/timesheet-entry",
     "/dashboard/availablity-entry"

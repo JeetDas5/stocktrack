@@ -9,6 +9,7 @@ import { HugeiconsIcon, IconSvgElement } from "@hugeicons/react";
 
 import { Business } from "@/types/business";
 import { useAuth } from "@/providers/auth-provider";
+import { toast } from "sonner";
 
 import api from "@/lib/services/api";
 import { useLocationStore } from "@/stores/location-store";
@@ -16,7 +17,6 @@ import { useBusinessStore } from "@/stores/business-store";
 import sidebarPermissions from "@/config/sidebar-permissions.json";
 import { getUserBusinesses } from "@/lib/repositories/business.repository";
 import {
-  DashboardSquare02Icon,
   Layers01Icon,
   PackageIcon,
   TruckDeliveryIcon,
@@ -214,11 +214,40 @@ export default function DashboardLayout({
       return;
     }
 
+    const isStaff = profile?.role === "staff";
+
     if (
       !activeBusinessId ||
       activeBusinessId === "null" ||
       activeBusinessId === "undefined"
     ) {
+      // Staff: auto-select first business instead of redirecting to /business page
+      if (isStaff) {
+        async function autoSelectBusiness() {
+          try {
+            const list = await getUserBusinesses();
+            setBusinesses(list);
+            if (list.length > 0) {
+              const firstId = list[0].id;
+              setActiveBusiness(firstId);
+              localStorage.setItem("nexbrix_active_business_id", firstId);
+              setActiveBusinessDoc(list[0]);
+            } else {
+              // No businesses assigned — go to profile with error
+              router.push("/dashboard/profile");
+              toast.error("No business assigned. Please contact your admin.");
+            }
+          } catch (err) {
+            console.error(err);
+          } finally {
+            setLoading(false);
+          }
+        }
+        autoSelectBusiness();
+        return;
+      }
+
+      // Non-staff: redirect to business selection page
       if (pathname !== "/dashboard/business") {
         router.push("/dashboard/business");
         return;
@@ -234,10 +263,22 @@ export default function DashboardLayout({
         setBusinesses(list);
         const activeDoc = list.find((b) => b.id === activeBusinessId) || null;
         if (!activeDoc) {
-          // Stale/invalid business ID in store/localStorage. Clear it and redirect.
+          // Stale/invalid business ID — clear and handle per role
           setActiveBusiness("");
           localStorage.removeItem("nexbrix_active_business_id");
-          router.push("/dashboard/business");
+          if (isStaff) {
+            if (list.length > 0) {
+              const firstId = list[0].id;
+              setActiveBusiness(firstId);
+              localStorage.setItem("nexbrix_active_business_id", firstId);
+              setActiveBusinessDoc(list[0]);
+            } else {
+              router.push("/dashboard/profile");
+              toast.error("No business assigned. Please contact your admin.");
+            }
+          } else {
+            router.push("/dashboard/business");
+          }
           return;
         }
         setActiveBusinessDoc(activeDoc);
@@ -296,12 +337,23 @@ export default function DashboardLayout({
   useEffect(() => {
     if (authLoading || loading || !locationsLoaded) return;
 
+    const isStaffRole = profile?.role === "staff";
+
     if (activeBusinessId && !activeLocationId) {
-      if (
-        pathname !== "/dashboard/locations" &&
-        pathname !== "/dashboard/business"
-      ) {
-        router.push("/dashboard/locations");
+      if (isStaffRole) {
+        // Staff: no locations assigned — redirect to profile with error
+        if (pathname !== "/dashboard/profile") {
+          router.push("/dashboard/profile");
+          toast.error("No location assigned. Please contact your admin.");
+        }
+      } else {
+        // Non-staff: redirect to locations setup page
+        if (
+          pathname !== "/dashboard/locations" &&
+          pathname !== "/dashboard/business"
+        ) {
+          router.push("/dashboard/locations");
+        }
       }
     }
   }, [
@@ -311,6 +363,7 @@ export default function DashboardLayout({
     authLoading,
     loading,
     locationsLoaded,
+    profile,
     router,
   ]);
 
@@ -525,7 +578,7 @@ export default function DashboardLayout({
     "/dashboard/profile",
   ];
 
-  const MODULE_ROUTES: Record<string, string[]> = {
+  const MODULE_ROUTES_SIDEBAR: Record<string, string[]> = {
     timesheet: [
       "/dashboard/team-members",
       "/dashboard/timesheet-entry",
@@ -550,11 +603,14 @@ export default function DashboardLayout({
       allowedHrefs.includes("*") || allowedHrefs.includes(href);
     if (!hasRolePermission) return false;
 
-    // Enforce modules list for all non-super-admins
+    // Common routes are always accessible (no module needed)
     if (COMMON_ROUTES.includes(href)) return true;
 
+    // Module routes require the corresponding module to be enabled
     const modules = profile?.modules || [];
-    return modules.some((mod) => (MODULE_ROUTES[mod] || []).includes(href));
+    return modules.some((mod) =>
+      (MODULE_ROUTES_SIDEBAR[mod] || []).includes(href),
+    );
   };
 
   const filterSidebarLinks = (links: SidebarLink[]) => {
@@ -584,13 +640,6 @@ export default function DashboardLayout({
   const filteredAccountLinks = filterSidebarLinks(accountLinks);
 
   const flatSidebarLinks: SidebarLink[] = [];
-  if (isLinkAllowed("/dashboard")) {
-    flatSidebarLinks.push({
-      name: "Dashboard",
-      href: "/dashboard",
-      icon: DashboardSquare02Icon,
-    });
-  }
   const otherLinks = [
     ...inventoryLinks,
     ...salesLinks,
@@ -993,43 +1042,6 @@ export default function DashboardLayout({
             </>
           ) : (
             <>
-              {isLinkAllowed("/dashboard") && (
-                <Link
-                  href="/dashboard"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    router.push("/dashboard");
-                    setMobileSidebarOpen(false);
-                  }}
-                  className={`flex items-center ${
-                    sidebarCollapsed ? "justify-center" : "justify-between"
-                  } px-3 py-2 rounded-lg text-[12px] font-bold uppercase tracking-normal cursor-pointer transition-all duration-400 ${
-                    sidebarCollapsed
-                      ? isActive("/dashboard")
-                        ? "bg-primary-50 text-black"
-                        : "text-black hover:bg-gray-soft"
-                      : isActive("/dashboard")
-                        ? "bg-gray-soft/60 text-black"
-                        : "text-gray-dark hover:text-black hover:bg-gray-soft/20"
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    <HugeiconsIcon
-                      icon={DashboardSquare02Icon}
-                      size={18}
-                      className={
-                        sidebarCollapsed
-                          ? "text-black"
-                          : isActive("/dashboard")
-                            ? "text-black"
-                            : "text-gray-muted"
-                      }
-                    />
-                    {!sidebarCollapsed && <span>Dashboard</span>}
-                  </div>
-                </Link>
-              )}
-
               {renderGroup(
                 "Inventory",
                 filteredInventoryLinks,
@@ -1214,34 +1226,6 @@ export default function DashboardLayout({
                 </>
               ) : (
                 <>
-                  {isLinkAllowed("/dashboard") && (
-                    <Link
-                      href="/dashboard"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        router.push("/dashboard");
-                        setMobileSidebarOpen(false);
-                      }}
-                      className={`flex items-center justify-between px-3 py-2.5 rounded-lg text-[12px] font-bold uppercase tracking-widest cursor-pointer transition-all ${
-                        isActive("/dashboard")
-                          ? "bg-gray-soft/60 text-black"
-                          : "text-gray-dark hover:text-black hover:bg-gray-soft/20"
-                      }`}
-                    >
-                      <div className="flex items-center gap-2.5">
-                        <HugeiconsIcon
-                          icon={DashboardSquare02Icon}
-                          size={18}
-                          className={
-                            isActive("/dashboard")
-                              ? "text-black"
-                              : "text-gray-muted"
-                          }
-                        />
-                        <span>Dashboard</span>
-                      </div>
-                    </Link>
-                  )}
                   {renderGroup("Inventory", filteredInventoryLinks)}
                   {renderGroup("Sales", filteredSalesLinks)}
                   {renderGroup("Reports", filteredReportsLinks)}
