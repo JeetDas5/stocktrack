@@ -16,6 +16,7 @@ import { useAuth } from "@/providers/auth-provider";
 import { sendOtp, verifyOtp } from "@/lib/services/auth.service";
 import { signInWithGoogle } from "@/lib/services/sign-in";
 import { Reveal, RevealText } from "@/components/site/Reveal";
+import { getPostLoginRedirect } from "@/lib/auth/get-post-login-redirect";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -88,8 +89,8 @@ export default function LoginPage() {
       toast.success("Logged in successfully!");
       await fetchSession();
       const userProfile = await refreshProfile();
-      if (userProfile?.role === "super_admin") {
-        router.push("/dashboard/super-admin");
+      if (userProfile) {
+        router.push(getPostLoginRedirect(userProfile));
       } else {
         router.push("/dashboard/business");
       }
