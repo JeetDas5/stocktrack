@@ -1,6 +1,8 @@
+import os
+import resend
 from typing import List, Optional
 from datetime import datetime, timedelta
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlmodel import Session, select, SQLModel, or_
 
 from app.database import get_session
@@ -24,6 +26,7 @@ class StaffCreate(SQLModel):
     hourly_rate: Optional[float] = None
     reporting_to: Optional[str] = None
     start_date: Optional[str] = None
+    employment_type: Optional[str] = None
 
 
 class LocationOut(SQLModel):
@@ -48,6 +51,7 @@ class StaffOut(SQLModel):
     hourly_rate: Optional[float] = None
     reporting_to: Optional[str] = None
     start_date: Optional[str] = None
+    employment_type: Optional[str] = None
 
 
 @router.post("/api/businesses/{business_id}/staff", response_model=StaffOut, status_code=status.HTTP_201_CREATED)
@@ -67,15 +71,31 @@ def create_staff(
             phone=data.phone.strip(),
             role="staff"
         )
-        session.add(user)
-        session.commit()
-        session.refresh(user)
     else:
         user.name = data.name.strip()
         user.phone = data.phone.strip()
-        session.add(user)
-        session.commit()
-        session.refresh(user)
+
+    user.position = data.position
+    user.reports_to = data.reporting_to
+    if not user.employee_id:
+        import random
+        user.employee_id = f"EMP-{random.randint(10000, 99999)}"
+    if data.employment_type:
+        user.employment_type = data.employment_type
+    elif not user.employment_type:
+        user.employment_type = "Casual"
+    if data.start_date:
+        try:
+            if "-" in data.start_date:
+                user.start_date = datetime.strptime(data.start_date, "%Y-%m-%d")
+            elif "/" in data.start_date:
+                user.start_date = datetime.strptime(data.start_date, "%d/%m/%Y")
+        except Exception:
+            pass
+
+    session.add(user)
+    session.commit()
+    session.refresh(user)
 
     existing_assignments = session.exec(
         select(UserAssignment).where(
@@ -174,7 +194,8 @@ def create_staff(
         max_working_hours=max_working_hours,
         hourly_rate=hourly_rate,
         reporting_to=reporting_to,
-        start_date=start_date
+        start_date=start_date,
+        employment_type=user.employment_type
     )
 
 
@@ -273,7 +294,8 @@ def get_staff_members(
             max_working_hours=max_working_hours,
             hourly_rate=hourly_rate,
             reporting_to=reporting_to,
-            start_date=start_date
+            start_date=start_date,
+            employment_type=user.employment_type
         ))
 
     return out
@@ -337,6 +359,25 @@ def update_staff(
     user.name = data.name.strip()
     user.phone = data.phone.strip()
     user.email = data.email.strip()
+
+    user.position = data.position
+    user.reports_to = data.reporting_to
+    if not user.employee_id:
+        import random
+        user.employee_id = f"EMP-{random.randint(10000, 99999)}"
+    if data.employment_type:
+        user.employment_type = data.employment_type
+    elif not user.employment_type:
+        user.employment_type = "Casual"
+    if data.start_date:
+        try:
+            if "-" in data.start_date:
+                user.start_date = datetime.strptime(data.start_date, "%Y-%m-%d")
+            elif "/" in data.start_date:
+                user.start_date = datetime.strptime(data.start_date, "%d/%m/%Y")
+        except Exception:
+            pass
+
     session.add(user)
     session.commit()
     session.refresh(user)
@@ -490,7 +531,8 @@ def update_staff(
         max_working_hours=max_working_hours,
         hourly_rate=hourly_rate,
         reporting_to=reporting_to,
-        start_date=start_date
+        start_date=start_date,
+        employment_type=user.employment_type
     )
 
 
@@ -800,6 +842,7 @@ class StaffApprovalDetails(SQLModel):
     hourly_rate: Optional[float] = None
     reporting_to: Optional[str] = None
     start_date: Optional[str] = None
+    employment_type: Optional[str] = None
 
 
 @router.post("/api/businesses/{business_id}/pending-staff/{assignment_id}/approve")
@@ -807,6 +850,7 @@ def approve_pending_staff(
     business_id: str,
     assignment_id: str,
     data: StaffApprovalDetails,
+    request: Request,
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
@@ -823,6 +867,18 @@ def approve_pending_staff(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
+    user_email = user.email
+    user_name = user.name or user.email
+    
+    # Determine the business name
+    business_name = "the business"
+    if assignment.business:
+        business_name = assignment.business.name
+    else:
+        biz = session.get(Business, business_id)
+        if biz:
+            business_name = biz.name
+
     role = data.role.strip().lower()
     if role not in ["staff", "manager"]:
         raise HTTPException(status_code=400, detail="Role must be either 'staff' or 'manager'")
@@ -831,6 +887,24 @@ def approve_pending_staff(
         raise HTTPException(status_code=400, detail="At least one business assignment is required")
 
     user.role = role
+    user.position = data.position
+    user.reports_to = data.reporting_to
+    if not user.employee_id:
+        import random
+        user.employee_id = f"EMP-{random.randint(10000, 99999)}"
+    if data.employment_type:
+        user.employment_type = data.employment_type
+    elif not user.employment_type:
+        user.employment_type = "Casual"
+    if data.start_date:
+        try:
+            if "-" in data.start_date:
+                user.start_date = datetime.strptime(data.start_date, "%Y-%m-%d")
+            elif "/" in data.start_date:
+                user.start_date = datetime.strptime(data.start_date, "%d/%m/%Y")
+        except Exception:
+            pass
+
     session.add(user)
 
     existing_assignments = session.exec(
@@ -892,6 +966,61 @@ def approve_pending_staff(
         session.add(invite)
 
     session.commit()
+
+    # Send email via Resend
+    api_key = os.environ.get("RESEND_API_KEY")
+    if api_key:
+        resend.api_key = api_key
+        
+        # Determine the client app URL dynamically from the request headers
+        origin = request.headers.get("origin")
+        if not origin:
+            referer = request.headers.get("referer")
+            if referer:
+                from urllib.parse import urlparse
+                parsed = urlparse(referer)
+                origin = f"{parsed.scheme}://{parsed.netloc}"
+        app_url = origin or os.environ.get("BETTER_AUTH_URL", "http://localhost:3000")
+        login_link = f"{app_url}/login"
+        
+        email_html = f"""
+        <div style="font-family: 'Outfit', 'Inter', sans-serif; max-width: 600px; margin: 0 auto; padding: 40px 20px; color: #111827; background-color: #f9fafb; border-radius: 8px; border: 1px solid #e5e7eb;">
+          <div style="text-align: center; margin-bottom: 30px;">
+            <h1 style="color: #111827; font-size: 24px; font-weight: 700; margin: 0;">Onboarding Approved</h1>
+            <p style="color: #6b7280; font-size: 14px; margin-top: 5px;">Welcome to the team!</p>
+          </div>
+          
+          <div style="background-color: #ffffff; padding: 30px; border-radius: 6px; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05); border: 1px solid #f3f4f6;">
+            <p style="font-size: 16px; line-height: 1.6; margin-top: 0;">Hi {user_name},</p>
+            <p style="font-size: 16px; line-height: 1.6;">We are pleased to inform you that your onboarding request for <strong>{business_name}</strong> has been approved by the administrator.</p>
+            <p style="font-size: 16px; line-height: 1.6;">Your role has been set to <strong>{role.capitalize()}</strong>. You can now access your dashboard and manage your shifts, profile, and timesheets.</p>
+            
+            <div style="text-align: center; margin: 35px 0 25px 0;">
+              <a href="{login_link}" style="display: inline-block; padding: 12px 30px; background-color: #111827; color: #ffffff; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 16px; box-shadow: 0 4px 6px -1px rgba(17, 24, 39, 0.15);">Log In to Your Account</a>
+            </div>
+            
+            <p style="font-size: 12px; color: #9ca3af; text-align: center; margin-top: 20px;">
+              If the button above does not work, copy and paste this URL into your browser:<br>
+              <a href="{login_link}" style="color: #4f46e5; text-decoration: none;">{login_link}</a>
+            </p>
+          </div>
+          
+          <div style="text-align: center; margin-top: 30px; color: #9ca3af; font-size: 12px;">
+            &copy; {datetime.utcnow().year} NexBrix. All rights reserved.
+          </div>
+        </div>
+        """
+        
+        try:
+            resend.Emails.send({
+                "from": "NexBrix <info@nexbrix.com.au>",
+                "to": [user_email],
+                "subject": "Onboarding Request Approved | NexBrix",
+                "html": email_html
+            })
+        except Exception as e:
+            print(f"Failed to send approval email via Resend: {e}")
+
     return {"message": "Staff assignment approved and activated."}
 
 
@@ -899,6 +1028,7 @@ def approve_pending_staff(
 def reject_pending_staff(
     business_id: str,
     assignment_id: str,
+    request: Request,
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
@@ -908,11 +1038,28 @@ def reject_pending_staff(
     if not assignment or assignment.business_id != business_id:
         raise HTTPException(status_code=404, detail="Pending assignment not found")
 
+    user = assignment.user
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    user_email = user.email
+    user_name = user.name or user.email
+    user_id = user.id
+
+    # Determine the business name
+    business_name = "the business"
+    if assignment.business:
+        business_name = assignment.business.name
+    else:
+        biz = session.get(Business, business_id)
+        if biz:
+            business_name = biz.name
+
     session.delete(assignment)
 
     invite = session.exec(
         select(StaffInvitation).where(
-            StaffInvitation.registered_user_id == assignment.user_id,
+            StaffInvitation.registered_user_id == user_id,
             StaffInvitation.status == "waiting_approval"
         )
     ).first()
@@ -921,5 +1068,60 @@ def reject_pending_staff(
         session.add(invite)
 
     session.commit()
+
+    # Send email via Resend
+    api_key = os.environ.get("RESEND_API_KEY")
+    if api_key:
+        resend.api_key = api_key
+        
+        # Determine the client app URL dynamically from the request headers
+        origin = request.headers.get("origin")
+        if not origin:
+            referer = request.headers.get("referer")
+            if referer:
+                from urllib.parse import urlparse
+                parsed = urlparse(referer)
+                origin = f"{parsed.scheme}://{parsed.netloc}"
+        app_url = origin or os.environ.get("BETTER_AUTH_URL", "http://localhost:3000")
+        login_link = f"{app_url}/login"
+        
+        email_html = f"""
+        <div style="font-family: 'Outfit', 'Inter', sans-serif; max-width: 600px; margin: 0 auto; padding: 40px 20px; color: #111827; background-color: #f9fafb; border-radius: 8px; border: 1px solid #e5e7eb;">
+          <div style="text-align: center; margin-bottom: 30px;">
+            <h1 style="color: #111827; font-size: 24px; font-weight: 700; margin: 0;">Onboarding Request Status</h1>
+          </div>
+          
+          <div style="background-color: #ffffff; padding: 30px; border-radius: 6px; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05); border: 1px solid #f3f4f6;">
+            <p style="font-size: 16px; line-height: 1.6; margin-top: 0;">Hi {user_name},</p>
+            <p style="font-size: 16px; line-height: 1.6;">Thank you for your interest in joining <strong>{business_name}</strong>.</p>
+            <p style="font-size: 16px; line-height: 1.6;">We regret to inform you that your onboarding request has been declined at this time.</p>
+            <p style="font-size: 16px; line-height: 1.6;">If you believe this is an error or have questions about the decision, please contact the business administrator.</p>
+            
+            <div style="text-align: center; margin: 35px 0 25px 0;">
+              <a href="{login_link}" style="display: inline-block; padding: 12px 30px; background-color: #4b5563; color: #ffffff; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 16px; box-shadow: 0 4px 6px -1px rgba(75, 85, 99, 0.15);">Go to Login</a>
+            </div>
+            
+            <p style="font-size: 12px; color: #9ca3af; text-align: center; margin-top: 20px;">
+              If the button above does not work, copy and paste this URL into your browser:<br>
+              <a href="{login_link}" style="color: #4f46e5; text-decoration: none;">{login_link}</a>
+            </p>
+          </div>
+          
+          <div style="text-align: center; margin-top: 30px; color: #9ca3af; font-size: 12px;">
+            &copy; {datetime.utcnow().year} NexBrix. All rights reserved.
+          </div>
+        </div>
+        """
+        
+        try:
+            resend.Emails.send({
+                "from": "NexBrix <info@nexbrix.com.au>",
+                "to": [user_email],
+                "subject": "Onboarding Request Rejected | NexBrix",
+                "html": email_html
+            })
+        except Exception as e:
+            print(f"Failed to send rejection email via Resend: {e}")
+
     return {"message": "Staff assignment rejected and removed."}
 

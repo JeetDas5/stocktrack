@@ -66,7 +66,7 @@ export default function TimePicker({
 
   return (
     <div
-      className={`absolute right-0 mt-2 bg-white border border-black/10 rounded-3xl shadow-xl p-4 z-50 w-64 animate-scale-in flex gap-2 ${className}`}
+      className={`absolute bg-white border border-black/10 rounded-3xl shadow-xl p-4 z-50 w-64 animate-scale-in flex gap-2 ${className}`}
     >
       <div className="flex-1 flex flex-col items-center">
         <span className="text-[10px] font-bold text-black/40 uppercase tracking-wider mb-2">

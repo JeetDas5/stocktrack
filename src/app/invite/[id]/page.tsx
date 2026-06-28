@@ -2,6 +2,7 @@
 
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { useEffect, useState, use } from "react";
 
 import { useAuth } from "@/providers/auth-provider";
@@ -19,7 +20,6 @@ import {
   User,
   CheckCircle,
   ShieldAlert,
-  Sparkles,
   LogOut,
   ArrowRight,
 } from "lucide-react";
@@ -58,6 +58,15 @@ export default function InvitePage({
   const [sendingOtp, setSendingOtp] = useState(false);
   const [verifyingOtp, setVerifyingOtp] = useState(false);
   const [otpError, setOtpError] = useState<string | null>(null);
+  const [resendTimer, setResendTimer] = useState(0);
+
+  useEffect(() => {
+    if (resendTimer <= 0) return;
+    const interval = setInterval(() => {
+      setResendTimer((prev) => prev - 1);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [resendTimer]);
 
   const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -71,6 +80,7 @@ export default function InvitePage({
       setOtpError(null);
       await sendOtp(email.trim());
       setOtpSent(true);
+      setResendTimer(60);
       toast.success("Verification code sent to your email!");
     } catch (err) {
       if (err instanceof Error) {
@@ -202,10 +212,16 @@ export default function InvitePage({
 
   if (loadingInvite || authLoading) {
     return (
-      <div className="min-h-screen bg-[#F8FAFC] flex flex-col items-center justify-center p-4">
-        <div className="bg-white border border-zinc-200 rounded-3xl p-8 max-w-md w-full shadow-xl flex flex-col items-center justify-center">
-          <Loader2 className="h-8 w-8 text-[#16A34A] animate-spin mb-4" />
-          <p className="text-zinc-600 text-sm font-semibold">
+      <div className="min-h-screen bg-white flex flex-col items-center justify-center p-6 relative overflow-hidden">
+        <div className="absolute inset-0 z-0">
+          <div className="absolute inset-0 grain-bg opacity-[0.05]" />
+        </div>
+        <div className="bg-white border border-neutral-200 rounded-3xl p-8 max-w-sm w-full shadow-[0_20px_50px_-12px_rgba(0,0,0,0.03)] flex flex-col items-center justify-center z-10">
+          <Loader2
+            className="h-8 w-8 text-neutral-900 animate-spin mb-4"
+            strokeWidth={1.5}
+          />
+          <p className="text-neutral-500 text-[13px] font-medium tracking-tight">
             Loading invitation details...
           </p>
         </div>
@@ -215,20 +231,23 @@ export default function InvitePage({
 
   if (error || !invitation) {
     return (
-      <div className="min-h-screen bg-[#F8FAFC] flex flex-col items-center justify-center p-4">
-        <div className="bg-white border border-red-100 rounded-3xl p-8 max-w-md w-full shadow-xl text-center">
-          <div className="h-14 w-14 rounded-2xl bg-red-50 border border-red-100 flex items-center justify-center mx-auto mb-5 text-red-500">
-            <ShieldAlert className="h-7 w-7" />
+      <div className="min-h-screen bg-white flex flex-col items-center justify-center p-6 relative overflow-hidden">
+        <div className="absolute inset-0 z-0">
+          <div className="absolute inset-0 grain-bg opacity-[0.05]" />
+        </div>
+        <div className="bg-white border border-neutral-200 rounded-3xl p-8 max-w-sm w-full shadow-[0_20px_50px_-12px_rgba(0,0,0,0.03)] text-center z-10">
+          <div className="h-12 w-12 rounded-full border border-neutral-200 flex items-center justify-center mx-auto mb-5 text-neutral-900 bg-neutral-50">
+            <ShieldAlert className="h-5 w-5" strokeWidth={1.5} />
           </div>
-          <h1 className="text-2xl font-extrabold text-zinc-900 tracking-tight">
+          <h1 className="text-xl font-semibold text-neutral-900 tracking-tightest">
             Invitation Error
           </h1>
-          <p className="text-zinc-500 text-sm mt-3 leading-relaxed">
+          <p className="text-neutral-500 text-[13px] mt-2.5 leading-relaxed font-medium">
             {error || "Invalid invitation"}
           </p>
           <button
             onClick={() => router.push("/login")}
-            className="mt-6 w-full bg-zinc-900 hover:bg-zinc-800 text-white font-bold py-3 px-4 rounded-xl text-xs uppercase tracking-wider transition duration-200 cursor-pointer"
+            className="mt-6 w-full bg-neutral-900 hover:bg-neutral-800 text-white font-medium py-3 px-4 rounded-full text-[13px] transition-colors cursor-pointer"
           >
             Go to Login
           </button>
@@ -238,57 +257,64 @@ export default function InvitePage({
   }
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] flex flex-col items-center justify-center p-4 font-sans select-none relative overflow-hidden">
-      <div className="absolute top-0 left-1/4 w-96 h-96 bg-green-200/20 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-blue-200/20 rounded-full blur-3xl pointer-events-none" />
+    <div className="min-h-screen bg-white flex flex-col items-center justify-center p-6 font-sans select-none relative overflow-hidden">
+      <div className="absolute inset-0 z-0">
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[1000px] rounded-full bg-linear-to-br from-neutral-100 to-transparent blur-3xl opacity-60 pointer-events-none" />
+        <div className="absolute inset-0 grain-bg opacity-[0.05]" />
+      </div>
 
       <div className="w-full max-w-lg z-10">
-        <div className="bg-white border border-zinc-200/80 rounded-3xl p-8 shadow-xl shadow-zinc-200/30">
-          <div className="flex flex-col items-center text-center mb-8">
-            <div className="h-14 w-14 rounded-2xl bg-[#DCFCE7] border border-[#16A34A]/20 flex items-center justify-center mb-4">
-              <Sparkles className="h-7 w-7 text-[#16A34A]" />
-            </div>
-            <h1 className="text-3xl font-extrabold text-[#0F172A] tracking-tight">
+        <div className="bg-white border border-neutral-200 rounded-3xl p-8 md:p-10 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.03)]">
+          <div className="flex flex-col items-center text-center mb-4">
+            <Image
+              src="/logos/logo.png"
+              alt="logo"
+              width={110}
+              height={28}
+              style={{ width: "110px", height: "auto" }}
+              priority
+            />
+            <h1 className="mt-2 text-3xl font-semibold tracking-normal text-neutral-900 leading-none">
               Join the Team
             </h1>
-            <p className="text-[#64748B] text-xs font-bold uppercase tracking-wider mt-1.5">
-              NexBrix Staff Onboarding
+            <p className="mt-1 text-[11px] font-medium text-neutral-400 uppercase tracking-[0.2em]">
+              Staff Onboarding
             </p>
           </div>
 
-          <div className="bg-zinc-50 border border-zinc-200 rounded-2xl p-5 mb-8 text-center py-4">
-            <p className="text-sm font-extrabold text-[#0F172A] leading-relaxed">
-              <span className="text-[#16A34A]">
+          <div className="bg-neutral-50 border border-neutral-200/80 rounded-2xl p-5 mb-4 text-center">
+            <p className="text-[14px] font-medium text-neutral-900 leading-relaxed">
+              <span className="font-semibold text-neutral-900">
                 {invitation.invited_by || "An administrator"}
               </span>{" "}
-              invited you for Staff Onboarding
+              invited you to join the team
             </p>
-            <p className="text-xs text-zinc-500 font-semibold mt-2 leading-relaxed">
-              Please register below to submit your details. Once registered, the
-              company administrator will configure your access role, business,
-              and locations.
+            <p className="text-[12px] text-neutral-500 mt-2 leading-relaxed font-normal">
+              Please complete the registration below. Once submitted, your
+              administrator will set up your access role.
             </p>
           </div>
 
           {registered ? (
             <div className="text-center space-y-6 animate-scale-in">
-              <div className="h-16 w-16 rounded-full bg-[#DCFCE7] border border-[#16A34A]/20 flex items-center justify-center mx-auto text-[#16A34A]">
-                <CheckCircle className="h-9 w-9 stroke-[2.5px]" />
+              <div className="h-12 w-12 rounded-full border border-neutral-200 flex items-center justify-center mx-auto text-neutral-900 bg-neutral-50">
+                <CheckCircle className="h-5 w-5" strokeWidth={1.5} />
               </div>
               <div className="space-y-2">
-                <h2 className="text-2xl font-extrabold text-zinc-900 tracking-tight">
+                <h2 className="text-2xl font-semibold text-neutral-900 tracking-tightest">
                   Profile Submitted!
                 </h2>
-                <p className="text-zinc-500 text-xs font-semibold leading-relaxed max-w-sm mx-auto">
-                  Your request has been routed to the Company Admin for
-                  approval. You will receive access once approved.
+                <p className="text-neutral-500 text-[13px] leading-relaxed max-w-xs mx-auto font-medium">
+                  Your details have been successfully saved and routed to the
+                  administrator for setup. You will receive access once
+                  approved.
                 </p>
               </div>
 
-              <div className="border-t border-zinc-200 pt-6">
+              <div className="border-t border-neutral-200/60 pt-6">
                 <button
                   onClick={() => router.push("/dashboard/profile")}
-                  className="w-full bg-zinc-950 hover:bg-zinc-900 text-white rounded-xl py-3 text-xs font-bold uppercase tracking-wider shadow-md transition duration-200 flex items-center justify-center gap-2 cursor-pointer"
+                  className="w-full bg-neutral-900 hover:bg-neutral-800 text-white rounded-full py-3.5 text-[14px] font-medium transition-all hover:gap-3 flex items-center justify-center gap-2 cursor-pointer shadow-sm"
                 >
                   Go to Profile
                   <ArrowRight className="h-4 w-4" />
@@ -297,73 +323,71 @@ export default function InvitePage({
             </div>
           ) : !user ? (
             !otpSent ? (
-              <div className="space-y-6 animate-scale-in text-center">
+              <div className="space-y-4 animate-scale-in text-center">
                 <div className="space-y-2">
-                  <h2 className="text-xl font-bold text-zinc-800">
+                  <h2 className="text-xl font-semibold text-neutral-900 tracking-tightest">
                     Authentication Required
                   </h2>
-                  <p className="text-zinc-500 text-xs font-semibold leading-relaxed max-w-xs mx-auto">
-                    Please choose an authentication option to automatically
-                    verify your professional identity.
+                  <p className="text-neutral-500 text-[13px] leading-relaxed max-w-xs mx-auto font-medium font-sans">
+                    Please choose an authentication option to verify your
+                    professional identity.
                   </p>
                 </div>
 
                 <button
                   type="button"
                   onClick={handleGoogleLogin}
-                  className="w-full bg-white hover:bg-zinc-50 border border-zinc-300 active:bg-zinc-100 text-zinc-700 rounded-xl py-3.5 text-sm font-semibold tracking-wide shadow-sm transition-all duration-200 flex items-center justify-center gap-2.5 cursor-pointer"
+                  className="w-full bg-white hover:bg-neutral-50 border border-neutral-200 text-neutral-800 rounded-full py-3 text-[14px] font-medium shadow-sm transition-colors flex items-center justify-center gap-2.5 cursor-pointer"
                 >
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
-                    x="0px"
-                    y="0px"
-                    width="22"
-                    height="22"
+                    width="18"
+                    height="18"
                     viewBox="0 0 48 48"
                   >
                     <path
                       fill="#FFC107"
                       d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12c0-6.627,5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C12.955,4,4,12.955,4,24c0,11.045,8.955,20,20,20c11.045,0,20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z"
-                    ></path>
+                    />
                     <path
                       fill="#FF3D00"
                       d="M6.306,14.691l6.571,4.819C14.655,15.108,18.961,12,24,12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C16.318,4,9.656,8.337,6.306,14.691z"
-                    ></path>
+                    />
                     <path
                       fill="#4CAF50"
                       d="M24,44c5.166,0,9.86-1.977,13.409-5.192l-6.19-5.238C29.211,35.091,26.715,36,24,36c-5.202,0-9.619-3.317-11.283-7.946l-6.522,5.025C9.505,39.556,16.227,44,24,44z"
-                    ></path>
+                    />
                     <path
                       fill="#1976D2"
                       d="M43.611,20.083H42V20H24v8h11.303c-0.792,2.237-2.231,4.166-4.087,5.571c0.001-0.001,0.002-0.001,0.003-0.002l6.19,5.238C36.971,39.205,44,34,44,24C44,22.659,43.862,21.35,43.611,20.083z"
-                    ></path>
+                    />
                   </svg>
                   Continue with Google
                 </button>
 
-                <div className="relative flex items-center justify-center my-4">
+                <div className="relative flex items-center justify-center my-5">
                   <div className="absolute inset-0 flex items-center">
-                    <div className="w-full border-t border-zinc-200"></div>
+                    <div className="w-full border-t border-neutral-200"></div>
                   </div>
-                  <span className="relative px-3 bg-white text-[10px] font-extrabold text-zinc-400 uppercase tracking-widest">
+                  <span className="relative px-3 bg-white text-[10px] font-semibold text-neutral-400 uppercase tracking-[0.2em]">
                     or use email verification
                   </span>
                 </div>
 
                 <form onSubmit={handleSendOtp} className="space-y-4 text-left">
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-extrabold text-[#0F172A] uppercase tracking-wider block">
+                  <div className="space-y-2">
+                    <label className="text-[11px] font-semibold text-neutral-900 uppercase tracking-[0.15em] block">
                       Email Address
                     </label>
                     <div className="relative">
-                      <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-zinc-400">
-                        <Mail className="h-4 w-4" />
+                      <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-neutral-400">
+                        <Mail className="h-4 w-4" strokeWidth={1.5} />
                       </div>
                       <input
                         type="email"
                         required
-                        placeholder="Enter your email"
-                        className="w-full bg-white border border-zinc-300 focus:border-[#16A34A] rounded-xl py-3 pl-10 pr-4 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#16A34A] transition-all"
+                        placeholder="name@company.com"
+                        className="w-full bg-white border border-neutral-200 focus:border-neutral-900 focus:ring-1 focus:ring-neutral-900 rounded-full py-3 pl-11 pr-4 text-[13px] text-neutral-900 placeholder-neutral-400 focus:outline-none transition-all font-medium"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
                         disabled={sendingOtp}
@@ -374,7 +398,7 @@ export default function InvitePage({
                   <button
                     type="submit"
                     disabled={sendingOtp || !email.trim()}
-                    className="w-full bg-zinc-900 hover:bg-zinc-800 text-white rounded-xl py-3.5 text-xs font-bold uppercase tracking-wider shadow-sm transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                    className="w-full bg-neutral-900 hover:bg-neutral-800 text-white rounded-full py-3.5 text-[14px] font-medium transition-all hover:gap-3 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
                   >
                     {sendingOtp ? (
                       <>
@@ -382,7 +406,10 @@ export default function InvitePage({
                         Sending Code...
                       </>
                     ) : (
-                      "Send Verification Code"
+                      <>
+                        Send Verification Code{" "}
+                        <ArrowRight className="h-4 w-4" />
+                      </>
                     )}
                   </button>
                 </form>
@@ -390,12 +417,15 @@ export default function InvitePage({
             ) : (
               <div className="space-y-6 animate-scale-in text-center">
                 <div className="space-y-2">
-                  <h2 className="text-xl font-bold text-zinc-800">
+                  <h2 className="text-xl font-semibold text-neutral-900 tracking-tightest">
                     Verify Email Address
                   </h2>
-                  <p className="text-zinc-500 text-xs font-semibold leading-relaxed max-w-xs mx-auto">
+                  <p className="text-neutral-500 text-[13px] leading-relaxed max-w-xs mx-auto font-medium">
                     We sent a 6-digit verification code to{" "}
-                    <span className="font-bold text-zinc-800">{email}</span>.
+                    <span className="font-semibold text-neutral-950">
+                      {email}
+                    </span>
+                    .
                   </p>
                 </div>
 
@@ -403,16 +433,16 @@ export default function InvitePage({
                   onSubmit={handleVerifyOtp}
                   className="space-y-4 text-left"
                 >
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-extrabold text-[#0F172A] uppercase tracking-wider block">
+                  <div className="space-y-2">
+                    <label className="text-[11px] font-semibold text-neutral-900 uppercase tracking-[0.15em] block">
                       Verification Code
                     </label>
                     <input
                       type="text"
                       required
                       maxLength={6}
-                      placeholder="Enter 6-digit code"
-                      className="w-full text-center bg-white border border-zinc-300 focus:border-[#16A34A] rounded-xl py-3.5 text-base font-extrabold tracking-[0.4em] text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#16A34A] transition-all"
+                      placeholder="------"
+                      className="w-full text-center bg-white border border-neutral-200 focus:border-neutral-900 focus:ring-1 focus:ring-neutral-900 rounded-2xl py-3.5 text-[20px] font-semibold tracking-[0.4em] text-neutral-900 placeholder-neutral-300 focus:outline-none transition-all"
                       value={otp}
                       onChange={(e) =>
                         setOtp(
@@ -424,7 +454,7 @@ export default function InvitePage({
                   </div>
 
                   {otpError && (
-                    <p className="text-red-500 text-[11px] font-bold text-center mt-1">
+                    <p className="text-red-500 text-[11px] font-medium text-center mt-1">
                       {otpError}
                     </p>
                   )}
@@ -432,7 +462,7 @@ export default function InvitePage({
                   <button
                     type="submit"
                     disabled={verifyingOtp || otp.trim().length !== 6}
-                    className="w-full bg-[#16A34A] hover:bg-[#15803D] text-white rounded-xl py-3.5 text-xs font-bold uppercase tracking-wider shadow-sm transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                    className="w-full bg-neutral-900 hover:bg-neutral-800 text-white rounded-full py-3.5 text-[14px] font-medium transition-all hover:gap-3 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
                   >
                     {verifyingOtp ? (
                       <>
@@ -444,24 +474,28 @@ export default function InvitePage({
                     )}
                   </button>
 
-                  <div className="flex justify-between items-center text-xs pt-2">
+                  <div className="flex justify-between items-center text-[12px] pt-3 font-medium">
                     <button
                       type="button"
                       onClick={() => {
                         setOtpSent(false);
                         setOtp("");
                       }}
-                      className="text-zinc-500 hover:text-zinc-800 font-bold transition cursor-pointer"
+                      className="text-neutral-500 hover:text-neutral-900 transition cursor-pointer"
                     >
                       Go Back
                     </button>
                     <button
                       type="button"
                       onClick={handleSendOtp}
-                      disabled={sendingOtp}
-                      className="text-[#16A34A] hover:text-[#15803D] font-bold transition cursor-pointer disabled:opacity-50"
+                      disabled={sendingOtp || resendTimer > 0}
+                      className="text-neutral-900 hover:text-neutral-700 transition cursor-pointer disabled:opacity-50"
                     >
-                      {sendingOtp ? "Resending..." : "Resend Code"}
+                      {sendingOtp
+                        ? "Resending..."
+                        : resendTimer > 0
+                          ? `Resend in ${resendTimer}s`
+                          : "Resend Code"}
                     </button>
                   </div>
                 </form>
@@ -470,51 +504,51 @@ export default function InvitePage({
           ) : (
             <form
               onSubmit={handleSubmit}
-              className="space-y-6 animate-scale-in"
+              className="space-y-5 animate-scale-in"
             >
-              <div className="flex justify-between items-center text-xs font-semibold text-zinc-500">
-                <span>LOGGED IN AS:</span>
+              <div className="flex justify-between items-center text-[11px] font-semibold tracking-wider text-neutral-400">
+                <span>LOGGED IN AS</span>
                 <button
                   type="button"
                   onClick={logout}
-                  className="text-red-500 hover:text-red-600 font-bold flex items-center gap-1.5 cursor-pointer bg-none border-none p-0 focus:outline-none"
+                  className="text-neutral-500 hover:text-neutral-900 transition-colors font-semibold flex items-center gap-1.5 cursor-pointer bg-none border-none p-0 focus:outline-none"
                 >
-                  <LogOut className="h-3.5 w-3.5" />
+                  <LogOut className="h-3.5 w-3.5" strokeWidth={1.5} />
                   Sign Out
                 </button>
               </div>
 
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-extrabold text-[#0F172A] uppercase tracking-wider block">
+              <div className="space-y-2">
+                <label className="text-[11px] font-semibold text-neutral-900 uppercase tracking-[0.15em] block">
                   Email Address (Verified)
                 </label>
                 <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-zinc-400">
-                    <Mail className="h-4 w-4" />
+                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-neutral-400">
+                    <Mail className="h-4 w-4" strokeWidth={1.5} />
                   </div>
                   <input
                     type="email"
                     readOnly
                     disabled
-                    className="w-full bg-zinc-50 border border-zinc-200 rounded-xl py-3 pl-10 pr-4 text-xs text-zinc-500 font-semibold focus:outline-none select-none cursor-not-allowed"
+                    className="w-full bg-neutral-50 border border-neutral-200 rounded-full py-3 pl-11 pr-4 text-[13px] text-neutral-500 font-medium select-none cursor-not-allowed"
                     value={user.email || ""}
                   />
                 </div>
               </div>
 
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-extrabold text-[#0F172A] uppercase tracking-wider block">
+              <div className="space-y-2">
+                <label className="text-[11px] font-semibold text-neutral-900 uppercase tracking-[0.15em] block">
                   Full Name
                 </label>
                 <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-zinc-400">
-                    <User className="h-4 w-4" />
+                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-neutral-400">
+                    <User className="h-4 w-4" strokeWidth={1.5} />
                   </div>
                   <input
                     type="text"
                     required
                     placeholder="Enter your name"
-                    className="w-full bg-white border border-zinc-300 focus:border-[#16A34A] rounded-xl py-3 pl-10 pr-4 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#16A34A] transition-all"
+                    className="w-full bg-white border border-neutral-200 focus:border-neutral-900 focus:ring-1 focus:ring-neutral-900 rounded-full py-3 pl-11 pr-4 text-[13px] text-neutral-900 placeholder-neutral-400 focus:outline-none transition-all font-medium"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     disabled={submitting}
@@ -522,19 +556,19 @@ export default function InvitePage({
                 </div>
               </div>
 
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-extrabold text-[#0F172A] uppercase tracking-wider block">
+              <div className="space-y-2">
+                <label className="text-[11px] font-semibold text-neutral-900 uppercase tracking-[0.15em] block">
                   Phone Number
                 </label>
                 <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-zinc-400">
-                    <Phone className="h-4 w-4" />
+                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-neutral-400">
+                    <Phone className="h-4 w-4" strokeWidth={1.5} />
                   </div>
                   <input
                     type="tel"
                     required
-                    placeholder="e.g. 98765 43210"
-                    className="w-full bg-white border border-zinc-300 focus:border-[#16A34A] rounded-xl py-3 pl-10 pr-4 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#16A34A] transition-all"
+                    placeholder="e.g. 469872356"
+                    className="w-full bg-white border border-neutral-200 focus:border-neutral-900 focus:ring-1 focus:ring-neutral-900 rounded-full py-3 pl-11 pr-4 text-[13px] text-neutral-900 placeholder-neutral-400 focus:outline-none transition-all font-medium"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
                     disabled={submitting}
@@ -545,7 +579,7 @@ export default function InvitePage({
               <button
                 type="submit"
                 disabled={submitting || !name.trim() || !phone.trim()}
-                className="w-full bg-[#16A34A] hover:bg-[#15803D] active:bg-[#14532D] text-white rounded-xl py-3.5 text-xs font-bold uppercase tracking-wider shadow-md shadow-zinc-200 transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                className="w-full bg-neutral-900 hover:bg-neutral-800 text-white rounded-full py-3.5 text-[14px] font-medium transition-all hover:gap-3 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
               >
                 {submitting ? (
                   <>

@@ -122,6 +122,14 @@ def get_me(
         ).first()
         is_approved = active_assignment is not None
 
+    reports_to_name = None
+    if current_user.reports_to:
+        manager = session.get(User, current_user.reports_to)
+        if manager:
+            reports_to_name = manager.name or manager.email
+        else:
+            reports_to_name = current_user.reports_to
+
     return UserMeOut(
         id=current_user.id,
         email=current_user.email,
@@ -160,7 +168,7 @@ def get_me(
         visa_expiry_date=current_user.visa_expiry_date,
         employee_id=current_user.employee_id,
         position=current_user.position,
-        reports_to=current_user.reports_to,
+        reports_to=reports_to_name,
         employment_type=current_user.employment_type,
         modules=current_user.modules or []
     )
@@ -208,6 +216,14 @@ def update_me(
         ).first()
         is_approved = active_assignment is not None
         
+    reports_to_name = None
+    if current_user.reports_to:
+        manager = session.get(User, current_user.reports_to)
+        if manager:
+            reports_to_name = manager.name or manager.email
+        else:
+            reports_to_name = current_user.reports_to
+
     return UserMeOut(
         id=current_user.id,
         email=current_user.email,
@@ -246,7 +262,7 @@ def update_me(
         visa_expiry_date=current_user.visa_expiry_date,
         employee_id=current_user.employee_id,
         position=current_user.position,
-        reports_to=current_user.reports_to,
+        reports_to=reports_to_name,
         employment_type=current_user.employment_type,
         modules=current_user.modules or []
     )
