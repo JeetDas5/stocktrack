@@ -968,7 +968,9 @@ export default function TimesheetEntryPage() {
                             <div className="relative">
                               {!isEditable || row.isDayOff ? (
                                 <div className="flex items-center justify-center w-full border border-neutral-200/60 rounded-xl bg-neutral-100 px-3 py-2 font-medium text-[13px] text-neutral-400 h-10">
-                                  {row.startTime
+                                  {row.isDayOff
+                                    ? "N/A"
+                                    : row.startTime
                                     ? formatTimeToAMPM(row.startTime)
                                     : "—"}
                                 </div>
@@ -1018,7 +1020,9 @@ export default function TimesheetEntryPage() {
                             <div className="relative">
                               {!isEditable || row.isDayOff ? (
                                 <div className="flex items-center justify-center w-full border border-neutral-200/60 rounded-xl bg-neutral-100 px-3 py-2 font-medium text-[13px] text-neutral-400 h-10">
-                                  {row.endTime
+                                  {row.isDayOff
+                                    ? "N/A"
+                                    : row.endTime
                                     ? formatTimeToAMPM(row.endTime)
                                     : "—"}
                                 </div>
@@ -1053,7 +1057,7 @@ export default function TimesheetEntryPage() {
                                             setOpenTimePicker(null);
                                           }
                                         }}
-                                        className={`left-0 right-auto shadow-2xl border border-neutral-200 rounded-2xl ${idx >= 4 ? "bottom-full mb-2" : "top-full mt-2"}`}
+                                        className={`right-0! left-auto! shadow-2xl border border-neutral-200 rounded-2xl ${idx >= 4 ? "bottom-full mb-2" : "top-full mt-2"}`}
                                       />
                                     )}
                                 </>
@@ -1526,7 +1530,7 @@ export default function TimesheetEntryPage() {
                         >
                           {!isEditable || row.isDayOff ? (
                             <div className="flex items-center justify-center w-full border border-neutral-200/60 rounded-xl bg-neutral-50 px-3 py-2 font-medium text-[13px] text-neutral-400 h-10">
-                              {row.startTime ? formatTimeToAMPM(row.startTime) : "—"}
+                              {row.isDayOff ? "N/A" : row.startTime ? formatTimeToAMPM(row.startTime) : "—"}
                             </div>
                           ) : (
                             <>
@@ -1576,7 +1580,7 @@ export default function TimesheetEntryPage() {
                         >
                           {!isEditable || row.isDayOff ? (
                             <div className="flex items-center justify-center w-full border border-neutral-200/60 rounded-xl bg-neutral-50 px-3 py-2 font-medium text-[13px] text-neutral-400 h-10">
-                              {row.endTime ? formatTimeToAMPM(row.endTime) : "—"}
+                              {row.isDayOff ? "N/A" : row.endTime ? formatTimeToAMPM(row.endTime) : "—"}
                             </div>
                           ) : (
                             <>
@@ -1607,7 +1611,7 @@ export default function TimesheetEntryPage() {
                                         setOpenTimePicker(null);
                                       }
                                     }}
-                                    className="left-0 right-auto mt-2 shadow-2xl border border-neutral-200 rounded-2xl z-50"
+                                    className="!right-0 !left-auto mt-2 shadow-2xl border border-neutral-200 rounded-2xl z-50"
                                   />
                                 )}
                             </>
