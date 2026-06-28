@@ -710,6 +710,7 @@ def get_staff_invitation(
 def register_staff_invitation(
     invitation_id: str,
     data: StaffInvitationRegister,
+    request: Request,
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
@@ -790,6 +791,62 @@ def register_staff_invitation(
     # invite.registered_user_id = current_user.id
     # session.add(invite)
     session.commit()
+    
+    # Send email notification to the owner who created the invitation
+    owner = session.get(User, invite.created_by_id)
+    if owner and owner.email:
+        api_key = os.environ.get("RESEND_API_KEY")
+        if api_key:
+            resend.api_key = api_key
+            
+            # Determine the client app URL dynamically
+            origin = request.headers.get("origin")
+            if not origin:
+                referer = request.headers.get("referer")
+                if referer:
+                    from urllib.parse import urlparse
+                    parsed = urlparse(referer)
+                    origin = f"{parsed.scheme}://{parsed.netloc}"
+            app_url = origin or os.environ.get("BETTER_AUTH_URL", "http://localhost:3000")
+            approval_link = f"{app_url}/dashboard/team-members"
+            
+            email_html = f"""
+            <div style="font-family: 'Outfit', 'Inter', sans-serif; max-width: 600px; margin: 0 auto; padding: 40px 20px; color: #111827; background-color: #f9fafb; border-radius: 8px; border: 1px solid #e5e7eb;">
+              <div style="text-align: center; margin-bottom: 30px;">
+                <h1 style="color: #111827; font-size: 24px; font-weight: 700; margin: 0;">New Staff Registration</h1>
+                <p style="color: #6b7280; font-size: 14px; margin-top: 5px;">A new team member has registered</p>
+              </div>
+              
+              <div style="background-color: #ffffff; padding: 30px; border-radius: 6px; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05); border: 1px solid #f3f4f6;">
+                <p style="font-size: 16px; line-height: 1.6; margin-top: 0;">Hi {owner.first_name or owner.name},</p>
+                <p style="font-size: 16px; line-height: 1.6;"><strong>{current_user.name}</strong> has just completed their registration using the staff invitation link you provided.</p>
+                <p style="font-size: 16px; line-height: 1.6;">They are now waiting for your approval to be officially added to your team. Please review and approve their profile to complete the onboarding process.</p>
+                
+                <div style="text-align: center; margin: 35px 0 25px 0;">
+                  <a href="{approval_link}" style="display: inline-block; padding: 12px 30px; background-color: #111827; color: #ffffff; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 16px; box-shadow: 0 4px 6px -1px rgba(17, 24, 39, 0.15);">Review Pending Approvals</a>
+                </div>
+                
+                <p style="font-size: 12px; color: #9ca3af; text-align: center; margin-top: 20px;">
+                  If the button above does not work, copy and paste this URL into your browser:<br>
+                  <a href="{approval_link}" style="color: #4f46e5; text-decoration: none;">{approval_link}</a>
+                </p>
+              </div>
+              
+              <div style="text-align: center; margin-top: 30px; color: #9ca3af; font-size: 12px;">
+                &copy; {datetime.utcnow().year} NexBrix. All rights reserved.
+              </div>
+            </div>
+            """
+            
+            try:
+                resend.Emails.send({
+                    "from": "NexBrix <info@nexbrix.com.au>",
+                    "to": [owner.email],
+                    "subject": "Staff Registration Pending Approval | NexBrix",
+                    "html": email_html
+                })
+            except Exception as e:
+                print(f"Failed to send staff registration notification via Resend: {e}")
 
     return {"message": "Profile submitted and assignments are pending approval."}
 

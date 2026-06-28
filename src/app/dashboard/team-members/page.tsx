@@ -311,10 +311,8 @@ export default function StaffDirectoryPage() {
   }, [activeBusinessId]);
 
   useEffect(() => {
-    if (activeTab === "pending") {
-      loadPending();
-    }
-  }, [activeTab, loadPending]);
+    loadPending();
+  }, [loadPending]);
 
   const handleClearFilters = () => {
     setSearchQuery("");
@@ -1525,6 +1523,7 @@ export default function StaffDirectoryPage() {
                           setApprovalStartDate(dateStr);
                           setIsApprovalCalendarOpen(false);
                         }}
+                        className="left-0! right-auto!"
                       />
                     )}
                   </div>
@@ -1919,6 +1918,7 @@ export default function StaffDirectoryPage() {
                           setEditStartDate(dateStr);
                           setIsEditCalendarOpen(false);
                         }}
+                        className="!left-0 !right-auto"
                       />
                     )}
                   </div>
