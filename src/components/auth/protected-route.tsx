@@ -3,8 +3,8 @@
 import { useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 
-import { useAuth } from "@/providers/auth-provider";
 import Loading from "@/app/loading";
+import { useAuth } from "@/providers/auth-provider";
 import sidebarPermissions from "@/config/sidebar-permissions.json";
 import { getPostLoginRedirect } from "@/lib/auth/get-post-login-redirect";
 
