@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, ChevronDown } from "lucide-react";
 
 interface CalendarProps {
   selectedDate: string;
@@ -73,8 +73,6 @@ export default function Calendar({
     onChange(todayStr);
   };
 
-  const monthName = currentDate.toLocaleString("default", { month: "long" });
-
   return (
     <div
       className={`absolute right-0 mt-2 bg-white border border-black/10 rounded-3xl shadow-xl p-5 z-50 w-72 animate-scale-in ${className}`}
@@ -87,9 +85,48 @@ export default function Calendar({
         >
           <ChevronLeft className="h-4 w-4" />
         </button>
-        <span className="text-xs font-bold text-black uppercase tracking-wider">
-          {monthName} {year}
-        </span>
+        <div className="flex items-center gap-2">
+          <div className="relative">
+            <select
+              value={month}
+              onChange={(e) =>
+                setCurrentDate(new Date(year, parseInt(e.target.value), 1))
+              }
+              className="appearance-none text-xs font-bold text-zinc-850 bg-zinc-50 border border-zinc-200/80 hover:bg-zinc-100 rounded-xl pl-3 pr-6 py-1 focus:outline-none cursor-pointer transition-all min-w-[88px] h-7.5"
+            >
+              {Array.from({ length: 12 }, (_, i) => {
+                const d = new Date(2000, i, 1);
+                const mName = d.toLocaleString("default", { month: "short" });
+                return (
+                  <option key={i} value={i} className="font-semibold text-zinc-800">
+                    {mName}
+                  </option>
+                );
+              })}
+            </select>
+            <ChevronDown className="h-3.5 w-3.5 absolute right-2 top-1/2 -translate-y-1/2 text-zinc-450 pointer-events-none" />
+          </div>
+
+          <div className="relative">
+            <select
+              value={year}
+              onChange={(e) =>
+                setCurrentDate(new Date(parseInt(e.target.value), month, 1))
+              }
+              className="appearance-none text-xs font-bold text-zinc-850 bg-zinc-50 border border-zinc-200/80 hover:bg-zinc-100 rounded-xl pl-3 pr-6 py-1 focus:outline-none cursor-pointer transition-all min-w-[78px] h-7.5"
+            >
+              {Array.from({ length: 110 }, (_, i) => {
+                const yVal = new Date().getFullYear() - 85 + i;
+                return (
+                  <option key={yVal} value={yVal} className="font-semibold text-zinc-800">
+                    {yVal}
+                  </option>
+                );
+              })}
+            </select>
+            <ChevronDown className="h-3.5 w-3.5 absolute right-2 top-1/2 -translate-y-1/2 text-zinc-450 pointer-events-none" />
+          </div>
+        </div>
         <button
           type="button"
           onClick={handleNextMonth}

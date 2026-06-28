@@ -416,11 +416,13 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        <div className="bg-white border border-zinc-200 rounded-2xl shadow-xs overflow-hidden">
+        <div className="bg-white border border-zinc-200 rounded-2xl shadow-xs overflow-visible">
           <button
             type="button"
             onClick={() => toggleSection("personal")}
-            className="w-full flex justify-between items-center px-6 py-4.5 bg-zinc-50/50 border-b border-zinc-100 hover:bg-zinc-50/80 transition-colors text-left"
+            className={`w-full flex justify-between items-center px-6 py-4.5 bg-zinc-50/50 hover:bg-zinc-50/80 transition-colors text-left rounded-t-2xl ${
+              openSections.personal ? "border-b border-zinc-100" : "rounded-b-2xl"
+            }`}
           >
             <div className="flex items-center gap-3">
               <User className="h-4.5 w-4.5 text-[#0a2924]" />
@@ -708,11 +710,13 @@ export default function ProfilePage() {
         </div>
 
         {/* 2. EMERGENCY CONTACT SECTION */}
-        <div className="bg-white border border-zinc-200 rounded-2xl shadow-xs overflow-hidden">
+        <div className="bg-white border border-zinc-200 rounded-2xl shadow-xs overflow-visible">
           <button
             type="button"
             onClick={() => toggleSection("emergency")}
-            className="w-full flex justify-between items-center px-6 py-4.5 bg-zinc-50/50 border-b border-zinc-100 hover:bg-zinc-50/80 transition-colors text-left"
+            className={`w-full flex justify-between items-center px-6 py-4.5 bg-zinc-50/50 hover:bg-zinc-50/80 transition-colors text-left rounded-t-2xl ${
+              openSections.emergency ? "border-b border-zinc-100" : "rounded-b-2xl"
+            }`}
           >
             <div className="flex items-center gap-3">
               <HeartHandshake className="h-4.5 w-4.5 text-[#0a2924]" />
@@ -795,11 +799,13 @@ export default function ProfilePage() {
         </div>
 
         {/* 3. PAYROLL AND COMPLIANCE SECTION */}
-        <div className="bg-white border border-zinc-200 rounded-2xl shadow-xs overflow-hidden">
+        <div className="bg-white border border-zinc-200 rounded-2xl shadow-xs overflow-visible">
           <button
             type="button"
             onClick={() => toggleSection("payroll")}
-            className="w-full flex justify-between items-center px-6 py-4.5 bg-zinc-50/50 border-b border-zinc-100 hover:bg-zinc-50/80 transition-colors text-left"
+            className={`w-full flex justify-between items-center px-6 py-4.5 bg-zinc-50/50 hover:bg-zinc-50/80 transition-colors text-left rounded-t-2xl ${
+              openSections.payroll ? "border-b border-zinc-100" : "rounded-b-2xl"
+            }`}
           >
             <div className="flex items-center gap-3">
               <FileText className="h-4.5 w-4.5 text-[#0a2924]" />
@@ -1004,11 +1010,13 @@ export default function ProfilePage() {
         </div>
 
         {/* 4. EMPLOYMENT INFORMATION SECTION (DISABLED/ADMIN MANAGED) */}
-        <div className="bg-white border border-zinc-200 rounded-2xl shadow-xs overflow-hidden">
+        <div className="bg-white border border-zinc-200 rounded-2xl shadow-xs overflow-visible">
           <button
             type="button"
             onClick={() => toggleSection("employment")}
-            className="w-full flex justify-between items-center px-6 py-4.5 bg-zinc-50/50 border-b border-zinc-100 hover:bg-zinc-50/80 transition-colors text-left"
+            className={`w-full flex justify-between items-center px-6 py-4.5 bg-zinc-50/50 hover:bg-zinc-50/80 transition-colors text-left rounded-t-2xl ${
+              openSections.employment ? "border-b border-zinc-100" : "rounded-b-2xl"
+            }`}
           >
             <div className="flex items-center gap-3">
               <Briefcase className="h-4.5 w-4.5 text-[#0a2924]" />

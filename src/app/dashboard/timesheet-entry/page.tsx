@@ -1003,7 +1003,7 @@ export default function TimesheetEntryPage() {
                                             setOpenTimePicker(null);
                                           }
                                         }}
-                                        className="left-0 right-auto shadow-2xl border border-neutral-200 rounded-2xl"
+                                        className={`left-0 right-auto shadow-2xl border border-neutral-200 rounded-2xl ${idx >= 4 ? "bottom-full mb-2" : "top-full mt-2"}`}
                                       />
                                     )}
                                 </>
@@ -1053,7 +1053,7 @@ export default function TimesheetEntryPage() {
                                             setOpenTimePicker(null);
                                           }
                                         }}
-                                        className="left-0 right-auto shadow-2xl border border-neutral-200 rounded-2xl"
+                                        className={`left-0 right-auto shadow-2xl border border-neutral-200 rounded-2xl ${idx >= 4 ? "bottom-full mb-2" : "top-full mt-2"}`}
                                       />
                                     )}
                                 </>
@@ -1557,7 +1557,7 @@ export default function TimesheetEntryPage() {
                                         setOpenTimePicker(null);
                                       }
                                     }}
-                                    className="left-0 right-auto shadow-2xl border border-neutral-200 rounded-2xl z-50"
+                                    className="left-0 right-auto mt-2 shadow-2xl border border-neutral-200 rounded-2xl z-50"
                                   />
                                 )}
                             </>
@@ -1607,7 +1607,7 @@ export default function TimesheetEntryPage() {
                                         setOpenTimePicker(null);
                                       }
                                     }}
-                                    className="left-0 right-auto shadow-2xl border border-neutral-200 rounded-2xl z-50"
+                                    className="left-0 right-auto mt-2 shadow-2xl border border-neutral-200 rounded-2xl z-50"
                                   />
                                 )}
                             </>
