@@ -44,6 +44,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Dropdown } from "@/components/ui/dropdown";
 import { cn } from "@/lib/utils";
 
 export default function TimesheetReviewPage() {
@@ -102,6 +103,24 @@ export default function TimesheetReviewPage() {
   const [editStaffId, setEditStaffId] = useState("");
   const [editLocationId, setEditLocationId] = useState("");
   const [editSubmitting, setEditSubmitting] = useState(false);
+
+  const staffSpecificLocations = useMemo(() => {
+    const selectedStaff = staffList.find((s) => s.id === editStaffId);
+    return selectedStaff?.locations && selectedStaff.locations.length > 0
+      ? selectedStaff.locations
+      : locations;
+  }, [staffList, editStaffId, locations]);
+
+  useEffect(() => {
+    if (!editStaffId) return;
+    const selectedStaff = staffList.find((s) => s.id === editStaffId);
+    const staffLocs = selectedStaff?.locations || [];
+    if (staffLocs.length > 0) {
+      if (!staffLocs.some((l) => l.id === editLocationId)) {
+        setEditLocationId(staffLocs[0].id);
+      }
+    }
+  }, [editStaffId, staffList, editLocationId]);
 
   const pageSizeRef = useRef<HTMLDivElement>(null);
 
@@ -739,8 +758,15 @@ export default function TimesheetReviewPage() {
                   return (
                     <tr
                       key={ts.id}
+                      onClick={(e) => {
+                        const target = e.target as HTMLElement;
+                        if (target.closest("button") || target.closest("input") || target.closest("label")) {
+                          return;
+                        }
+                        handleOpenEditModal(ts);
+                      }}
                       className={cn(
-                        "hover:bg-neutral-50/50 transition-colors",
+                        "hover:bg-neutral-50/50 transition-colors cursor-pointer",
                         isRowSelected && "bg-neutral-50/30",
                       )}
                     >
@@ -832,18 +858,9 @@ export default function TimesheetReviewPage() {
                           {actionLoadingId === ts.id ? (
                             <Loader2 className="h-4 w-4 animate-spin text-neutral-900" />
                           ) : isLocked ? (
-                            <div className="flex items-center gap-3.5">
-                              <button
-                                onClick={() => handleOpenEditModal(ts)}
-                                className="text-neutral-450 hover:text-neutral-900 transition-colors cursor-pointer flex items-center gap-1 font-semibold text-[11px]"
-                                title="View Details (Locked)"
-                              >
-                                <Eye className="h-4.5 w-4.5" />
-                                <span>Locked</span>
-                              </button>
-                            </div>
+                            <span className="text-neutral-400 font-bold text-[10px] uppercase tracking-wider bg-neutral-100 px-2 py-1 rounded">Locked</span>
                           ) : isPending ? (
-                            <div className="flex items-center gap-3.5">
+                            <div className="flex items-center gap-3.5" onClick={(e) => e.stopPropagation()}>
                               <button
                                 onClick={() => handleApprove(ts.id)}
                                 className="text-green-600 hover:text-green-800 transition-colors cursor-pointer"
@@ -858,25 +875,8 @@ export default function TimesheetReviewPage() {
                               >
                                 <X className="h-4.5 w-4.5 stroke-[2.5px]" />
                               </button>
-                              <button
-                                onClick={() => handleOpenEditModal(ts)}
-                                className="text-neutral-450 hover:text-neutral-750 transition-colors cursor-pointer"
-                                title="View/Edit"
-                              >
-                                <Eye className="h-4.5 w-4.5" />
-                              </button>
                             </div>
-                          ) : (
-                            <div className="flex items-center gap-3.5">
-                              <button
-                                onClick={() => handleOpenEditModal(ts)}
-                                className="text-neutral-455 hover:text-neutral-900 transition-colors cursor-pointer"
-                                title="View/Edit"
-                              >
-                                <Eye className="h-4.5 w-4.5" />
-                              </button>
-                            </div>
-                          )}
+                          ) : null}
                         </div>
                       </td>
                     </tr>
@@ -1019,38 +1019,32 @@ export default function TimesheetReviewPage() {
                   <label className="text-xs font-bold text-neutral-600 uppercase tracking-wider">
                     Staff Member
                   </label>
-                  <select
+                  <Dropdown
                     value={editStaffId}
-                    onChange={(e) => setEditStaffId(e.target.value)}
-                    className="w-full bg-white border border-neutral-200 rounded-xl py-2 px-3 text-xs text-neutral-800 font-semibold focus:outline-none focus:border-neutral-900 focus:ring-4 focus:ring-neutral-900/5 transition cursor-pointer animate-fade-in disabled:opacity-60 disabled:cursor-not-allowed"
-                    required
+                    onChange={(val) => setEditStaffId(val)}
+                    options={staffList.map((s) => ({ value: s.id, label: s.name || s.email }))}
                     disabled={!isModalEditable}
-                  >
-                    {staffList.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.name}
-                      </option>
-                    ))}
-                  </select>
+                    className="w-full"
+                    triggerClassName="rounded-xl py-2.5 px-3.5 border-neutral-200 font-semibold text-neutral-800 h-10 bg-white animate-fade-in"
+                    optionClassName="font-semibold text-neutral-600"
+                    placeholder="Select Staff"
+                  />
                 </div>
 
                 <div className="flex flex-col space-y-1.5">
                   <label className="text-xs font-bold text-neutral-600 uppercase tracking-wider">
                     Location
                   </label>
-                  <select
+                  <Dropdown
                     value={editLocationId}
-                    onChange={(e) => setEditLocationId(e.target.value)}
-                    className="w-full bg-white border border-neutral-200 rounded-xl py-2 px-3 text-xs text-neutral-800 font-semibold focus:outline-none focus:border-neutral-900 focus:ring-4 focus:ring-neutral-900/5 transition cursor-pointer animate-fade-in disabled:opacity-60 disabled:cursor-not-allowed"
-                    required
+                    onChange={(val) => setEditLocationId(val)}
+                    options={staffSpecificLocations.map((l) => ({ value: l.id, label: l.name }))}
                     disabled={!isModalEditable}
-                  >
-                    {locations.map((l) => (
-                      <option key={l.id} value={l.id}>
-                        {l.name}
-                      </option>
-                    ))}
-                  </select>
+                    className="w-full"
+                    triggerClassName="rounded-xl py-2.5 px-3.5 border-neutral-200 font-semibold text-neutral-800 h-10 bg-white animate-fade-in"
+                    optionClassName="font-semibold text-neutral-600"
+                    placeholder="Select Location"
+                  />
                 </div>
               </div>
 

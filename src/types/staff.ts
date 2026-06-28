@@ -16,6 +16,7 @@ export interface Staff {
   hourlyRate?: number | null;
   reportingTo?: string | null;
   startDate?: string | null;
+  employmentType?: string | null;
 }
 
 export interface StaffCreateInput {
@@ -32,6 +33,7 @@ export interface StaffCreateInput {
   hourlyRate?: number | null;
   reportingTo?: string | null;
   startDate?: string | null;
+  employmentType?: string | null;
 }
 
 export interface StaffInvitationCreateInput {

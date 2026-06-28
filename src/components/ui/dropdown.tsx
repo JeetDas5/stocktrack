@@ -17,6 +17,7 @@ interface DropdownProps<T> {
   triggerClassName?: string;
   menuClassName?: string;
   optionClassName?: string;
+  disabled?: boolean;
 }
 
 
@@ -29,6 +30,7 @@ export function Dropdown<T extends string | number>({
   triggerClassName = "",
   menuClassName = "",
   optionClassName = "",
+  disabled = false,
 }: DropdownProps<T>) {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -54,8 +56,9 @@ export function Dropdown<T extends string | number>({
     <div ref={containerRef} className={`relative ${className}`}>
       <button
         type="button"
+        disabled={disabled}
         onClick={() => setIsOpen(!isOpen)}
-        className={`w-full flex justify-between items-center bg-white border border-zinc-200 text-xs text-zinc-700 hover:bg-zinc-50/50 transition-colors focus:outline-none focus:ring-1 focus:ring-[#0a2924] focus:border-[#0a2924] cursor-pointer ${triggerClassName}`}
+        className={`w-full flex justify-between items-center bg-white border border-zinc-200 text-xs text-zinc-700 hover:bg-zinc-50/50 transition-colors focus:outline-none focus:ring-1 focus:ring-[#0a2924] focus:border-[#0a2924] cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed ${triggerClassName}`}
       >
         <span>{selectedOption ? selectedOption.label : placeholder}</span>
         <ChevronDown
