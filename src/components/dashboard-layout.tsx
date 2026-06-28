@@ -1451,8 +1451,8 @@ export default function DashboardLayout({
           </div>
         )}
         <header className="sticky top-0 z-15 bg-white border-b border-gray-soft w-full">
-          <div className="max-w-[1600px] w-full mx-auto px-6 py-2 flex items-center justify-between">
-            <div className="flex items-center gap-4">
+          <div className="max-w-[1600px] w-full mx-auto px-3 sm:px-6 py-2 flex items-center justify-between">
+            <div className="flex items-center gap-2 sm:gap-4 flex-1 min-w-0">
               <button
                 onClick={() => setMobileSidebarOpen(true)}
                 className="lg:hidden p-1.5 rounded-lg bg-gray-soft/30 text-gray-dark hover:text-black border border-gray-soft/50 transition-colors cursor-pointer"
@@ -1461,7 +1461,7 @@ export default function DashboardLayout({
               </button>
               {profile?.role !== "super_admin" && (
                 <>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1 sm:gap-2 min-w-0">
                     <div className="flex flex-col">
                       <span className="text-[10px] font-bold text-gray-muted uppercase tracking-wider">
                         Business
@@ -1473,14 +1473,14 @@ export default function DashboardLayout({
                               !showHeaderBusinessDropdown,
                             )
                           }
-                          className="flex items-center gap-2 px-3 py-1.5 bg-white hover:bg-gray-soft/20 border border-gray-soft rounded-md text-xs font-bold text-black transition duration-200 cursor-pointer shadow-2xs mt-1"
+                          className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1.5 bg-white hover:bg-gray-soft/20 border border-gray-soft rounded-md text-xs font-bold text-black transition duration-200 cursor-pointer shadow-2xs mt-1"
                         >
                           <HugeiconsIcon
                             icon={Briefcase01Icon}
                             size={16}
-                            className="text-gray-dark"
+                            className="text-gray-dark shrink-0"
                           />
-                          <span>
+                          <span className="truncate max-w-[70px] sm:max-w-[150px]">
                             {activeBusiness?.name
                               ? activeBusiness.name.length > 20
                                 ? activeBusiness.name.substring(0, 20) + "..."
@@ -1490,7 +1490,7 @@ export default function DashboardLayout({
                           <HugeiconsIcon
                             icon={ChevronDownIcon}
                             size={14}
-                            className="text-gray-muted"
+                            className="text-gray-muted shrink-0"
                           />
                         </button>
 
@@ -1544,7 +1544,7 @@ export default function DashboardLayout({
                   </div>
 
                   {activeBusinessId && (
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1 sm:gap-2 min-w-0">
                       <div className="flex flex-col">
                         <span className="text-[10px] font-bold text-gray-muted uppercase tracking-wider">
                           Location
@@ -1556,14 +1556,14 @@ export default function DashboardLayout({
                                 !showHeaderLocationDropdown,
                               )
                             }
-                            className="flex items-center gap-2 px-3 py-1.5 bg-white hover:bg-gray-soft/20 border border-gray-soft rounded-md text-xs font-bold text-black transition duration-200 cursor-pointer shadow-2xs mt-1"
+                            className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1.5 bg-white hover:bg-gray-soft/20 border border-gray-soft rounded-md text-xs font-bold text-black transition duration-200 cursor-pointer shadow-2xs mt-1"
                           >
                             <HugeiconsIcon
                               icon={Location03Icon}
                               size={16}
-                              className="text-gray-dark"
+                              className="text-gray-dark shrink-0"
                             />
-                            <span>
+                            <span className="truncate max-w-[70px] sm:max-w-[150px]">
                               {activeLocation?.name
                                 ? activeLocation.name.length > 20
                                   ? activeLocation.name.substring(0, 20) + "..."
@@ -1573,7 +1573,7 @@ export default function DashboardLayout({
                             <HugeiconsIcon
                               icon={ChevronDownIcon}
                               size={14}
-                              className="text-gray-muted"
+                              className="text-gray-muted shrink-0"
                             />
                           </button>
 
@@ -1631,10 +1631,10 @@ export default function DashboardLayout({
               )}
             </div>
 
-            <div className="flex items-center gap-5">
+            <div className="flex items-center gap-2 sm:gap-5 shrink-0">
               <div className="h-5 w-px bg-gray-soft" />
               <div
-                className="flex items-center gap-3 relative"
+                className="flex items-center sm:gap-3 relative"
                 ref={profileDropdownRef}
               >
                 <div className="h-9 w-9 rounded-full bg-black text-white flex items-center justify-center font-extrabold text-xs shadow-sm border border-gray-soft">
