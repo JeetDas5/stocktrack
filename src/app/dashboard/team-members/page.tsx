@@ -158,6 +158,7 @@ export default function StaffDirectoryPage() {
   const [approvalHourlyRate, setApprovalHourlyRate] = useState<number | "">("");
   const [approvalReportingTo, setApprovalReportingTo] = useState("");
   const [approvalStartDate, setApprovalStartDate] = useState("");
+  const [approvalEmploymentType, setApprovalEmploymentType] = useState("Casual");
   const [
     isCreatingCustomPositionApproval,
     setIsCreatingCustomPositionApproval,
@@ -167,6 +168,7 @@ export default function StaffDirectoryPage() {
   const [editHourlyRate, setEditHourlyRate] = useState<number | "">("");
   const [editReportingTo, setEditReportingTo] = useState("");
   const [editStartDate, setEditStartDate] = useState("");
+  const [editEmploymentType, setEditEmploymentType] = useState("Casual");
   const [isCreatingCustomPositionEdit, setIsCreatingCustomPositionEdit] =
     useState(false);
   const [customPositionEdit, setCustomPositionEdit] = useState("");
@@ -534,6 +536,7 @@ export default function StaffDirectoryPage() {
     setApprovalHourlyRate("");
     setApprovalReportingTo("");
     setApprovalStartDate("");
+    setApprovalEmploymentType("Casual");
     setApprovalPriority(5);
     setApprovalMaxHours("");
 
@@ -639,6 +642,7 @@ export default function StaffDirectoryPage() {
             approvalHourlyRate === "" ? null : Number(approvalHourlyRate),
           reporting_to: approvalReportingTo || null,
           start_date: approvalStartDate || null,
+          employment_type: approvalEmploymentType,
         },
       );
 
@@ -693,6 +697,7 @@ export default function StaffDirectoryPage() {
     );
     setEditReportingTo(staff.reportingTo || "");
     setEditStartDate(staff.startDate ? staff.startDate.split("T")[0] : "");
+    setEditEmploymentType(staff.employmentType || "Casual");
     setEditPriority(staff.priority || 5);
     setEditMaxHours(
       staff.maxWorkingHours !== null && staff.maxWorkingHours !== undefined
@@ -778,6 +783,7 @@ export default function StaffDirectoryPage() {
         hourlyRate: editHourlyRate === "" ? null : Number(editHourlyRate),
         reportingTo: editReportingTo || null,
         startDate: editStartDate || null,
+        employmentType: editEmploymentType,
       };
 
       const isAdminOrSuper =
@@ -909,15 +915,17 @@ export default function StaffDirectoryPage() {
           }`}
         >
           Active Staff
-          <span
-            className={`text-[10px] px-2 py-0.5 rounded-full font-bold transition-all duration-150 ${
-              activeTab === "directory"
-                ? "bg-black text-white"
-                : "bg-zinc-100 text-zinc-500"
-            }`}
-          >
-            {staffMembers.length > 0 ? staffMembers.length : ""}
-          </span>
+          {staffMembers.length > 0 && (
+            <span
+              className={`text-[10px] px-2 py-0.5 rounded-full font-bold transition-all duration-150 ${
+                activeTab === "directory"
+                  ? "bg-black text-white"
+                  : "bg-zinc-100 text-zinc-500"
+              }`}
+            >
+              {staffMembers.length}
+            </span>
+          )}
         </button>
         <button
           onClick={() => setActiveTab("pending")}
@@ -928,15 +936,17 @@ export default function StaffDirectoryPage() {
           }`}
         >
           Pending Approvals
-          <span
-            className={`text-[10px] px-2 py-0.5 rounded-full font-bold transition-all duration-150 ${
-              activeTab === "pending"
-                ? "bg-black text-white"
-                : "bg-zinc-100 text-zinc-500"
-            }`}
-          >
-            {pendingStaff.length > 0 ? pendingStaff.length : ""}
-          </span>
+          {pendingStaff.length > 0 && (
+            <span
+              className={`text-[10px] px-2 py-0.5 rounded-full font-bold transition-all duration-150 ${
+                activeTab === "pending"
+                  ? "bg-black text-white"
+                  : "bg-zinc-100 text-zinc-500"
+              }`}
+            >
+              {pendingStaff.length}
+            </span>
+          )}
         </button>
       </div>
 
@@ -1471,6 +1481,22 @@ export default function StaffDirectoryPage() {
 
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-extrabold text-zinc-500 uppercase block">
+                    Employment Type
+                  </label>
+                  <Dropdown
+                    value={approvalEmploymentType}
+                    onChange={(val) => setApprovalEmploymentType(val)}
+                    options={[
+                      { value: "Casual", label: "Casual" },
+                      { value: "Full-time", label: "Full-time" },
+                    ]}
+                    className="w-full"
+                    triggerClassName="rounded-xl py-2.5 px-3.5 font-bold text-zinc-950 focus:ring-black focus:border-black h-10"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-extrabold text-zinc-500 uppercase block">
                     Start Date
                   </label>
                   <div className="relative" ref={approvalCalendarRef}>
@@ -1844,6 +1870,22 @@ export default function StaffDirectoryPage() {
                     value={editReportingTo}
                     onChange={(val) => setEditReportingTo(val)}
                     options={supervisorOptions}
+                    className="w-full"
+                    triggerClassName="rounded-xl py-2.5 px-3.5 font-bold text-zinc-950 focus:ring-black focus:border-black h-10"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-extrabold text-zinc-500 uppercase block mb-1">
+                    Employment Type
+                  </label>
+                  <Dropdown
+                    value={editEmploymentType}
+                    onChange={(val) => setEditEmploymentType(val)}
+                    options={[
+                      { value: "Casual", label: "Casual" },
+                      { value: "Full-time", label: "Full-time" },
+                    ]}
                     className="w-full"
                     triggerClassName="rounded-xl py-2.5 px-3.5 font-bold text-zinc-950 focus:ring-black focus:border-black h-10"
                   />

@@ -24,6 +24,7 @@ interface BackendStaff {
   hourly_rate?: number | null;
   reporting_to?: string | null;
   start_date?: string | null;
+  employment_type?: string | null;
 }
 
 export const getStaffMembers = async (businessId: string): Promise<Staff[]> => {
@@ -44,6 +45,7 @@ export const getStaffMembers = async (businessId: string): Promise<Staff[]> => {
     hourlyRate: s.hourly_rate,
     reportingTo: s.reporting_to,
     startDate: s.start_date,
+    employmentType: s.employment_type,
   }));
 };
 
@@ -64,6 +66,7 @@ export const createStaff = async (
     hourly_rate: data.hourlyRate,
     reporting_to: data.reportingTo,
     start_date: data.startDate,
+    employment_type: data.employmentType,
   });
   const s = response.data;
   return {
@@ -82,6 +85,7 @@ export const createStaff = async (
     hourlyRate: s.hourly_rate,
     reportingTo: s.reporting_to,
     startDate: s.start_date,
+    employmentType: s.employment_type,
   };
 };
 
@@ -106,6 +110,7 @@ export const updateStaff = async (
       hourly_rate: data.hourlyRate,
       reporting_to: data.reportingTo,
       start_date: data.startDate,
+      employment_type: data.employmentType,
     },
   );
   const s = response.data;
@@ -125,6 +130,7 @@ export const updateStaff = async (
     hourlyRate: s.hourly_rate,
     reportingTo: s.reporting_to,
     startDate: s.start_date,
+    employmentType: s.employment_type,
   };
 };
 
@@ -184,6 +190,7 @@ export const approvePendingStaff = async (
     hourly_rate?: number | null;
     reporting_to?: string | null;
     start_date?: string | null;
+    employment_type?: string | null;
   },
 ): Promise<{ message: string }> => {
   const response = await api.post(

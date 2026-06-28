@@ -26,6 +26,7 @@ class StaffCreate(SQLModel):
     hourly_rate: Optional[float] = None
     reporting_to: Optional[str] = None
     start_date: Optional[str] = None
+    employment_type: Optional[str] = None
 
 
 class LocationOut(SQLModel):
@@ -50,6 +51,7 @@ class StaffOut(SQLModel):
     hourly_rate: Optional[float] = None
     reporting_to: Optional[str] = None
     start_date: Optional[str] = None
+    employment_type: Optional[str] = None
 
 
 @router.post("/api/businesses/{business_id}/staff", response_model=StaffOut, status_code=status.HTTP_201_CREATED)
@@ -69,15 +71,31 @@ def create_staff(
             phone=data.phone.strip(),
             role="staff"
         )
-        session.add(user)
-        session.commit()
-        session.refresh(user)
     else:
         user.name = data.name.strip()
         user.phone = data.phone.strip()
-        session.add(user)
-        session.commit()
-        session.refresh(user)
+
+    user.position = data.position
+    user.reports_to = data.reporting_to
+    if not user.employee_id:
+        import random
+        user.employee_id = f"EMP-{random.randint(10000, 99999)}"
+    if data.employment_type:
+        user.employment_type = data.employment_type
+    elif not user.employment_type:
+        user.employment_type = "Casual"
+    if data.start_date:
+        try:
+            if "-" in data.start_date:
+                user.start_date = datetime.strptime(data.start_date, "%Y-%m-%d")
+            elif "/" in data.start_date:
+                user.start_date = datetime.strptime(data.start_date, "%d/%m/%Y")
+        except Exception:
+            pass
+
+    session.add(user)
+    session.commit()
+    session.refresh(user)
 
     existing_assignments = session.exec(
         select(UserAssignment).where(
@@ -176,7 +194,8 @@ def create_staff(
         max_working_hours=max_working_hours,
         hourly_rate=hourly_rate,
         reporting_to=reporting_to,
-        start_date=start_date
+        start_date=start_date,
+        employment_type=user.employment_type
     )
 
 
@@ -275,7 +294,8 @@ def get_staff_members(
             max_working_hours=max_working_hours,
             hourly_rate=hourly_rate,
             reporting_to=reporting_to,
-            start_date=start_date
+            start_date=start_date,
+            employment_type=user.employment_type
         ))
 
     return out
@@ -339,6 +359,25 @@ def update_staff(
     user.name = data.name.strip()
     user.phone = data.phone.strip()
     user.email = data.email.strip()
+
+    user.position = data.position
+    user.reports_to = data.reporting_to
+    if not user.employee_id:
+        import random
+        user.employee_id = f"EMP-{random.randint(10000, 99999)}"
+    if data.employment_type:
+        user.employment_type = data.employment_type
+    elif not user.employment_type:
+        user.employment_type = "Casual"
+    if data.start_date:
+        try:
+            if "-" in data.start_date:
+                user.start_date = datetime.strptime(data.start_date, "%Y-%m-%d")
+            elif "/" in data.start_date:
+                user.start_date = datetime.strptime(data.start_date, "%d/%m/%Y")
+        except Exception:
+            pass
+
     session.add(user)
     session.commit()
     session.refresh(user)
@@ -492,7 +531,8 @@ def update_staff(
         max_working_hours=max_working_hours,
         hourly_rate=hourly_rate,
         reporting_to=reporting_to,
-        start_date=start_date
+        start_date=start_date,
+        employment_type=user.employment_type
     )
 
 
@@ -802,6 +842,7 @@ class StaffApprovalDetails(SQLModel):
     hourly_rate: Optional[float] = None
     reporting_to: Optional[str] = None
     start_date: Optional[str] = None
+    employment_type: Optional[str] = None
 
 
 @router.post("/api/businesses/{business_id}/pending-staff/{assignment_id}/approve")
@@ -846,6 +887,24 @@ def approve_pending_staff(
         raise HTTPException(status_code=400, detail="At least one business assignment is required")
 
     user.role = role
+    user.position = data.position
+    user.reports_to = data.reporting_to
+    if not user.employee_id:
+        import random
+        user.employee_id = f"EMP-{random.randint(10000, 99999)}"
+    if data.employment_type:
+        user.employment_type = data.employment_type
+    elif not user.employment_type:
+        user.employment_type = "Casual"
+    if data.start_date:
+        try:
+            if "-" in data.start_date:
+                user.start_date = datetime.strptime(data.start_date, "%Y-%m-%d")
+            elif "/" in data.start_date:
+                user.start_date = datetime.strptime(data.start_date, "%d/%m/%Y")
+        except Exception:
+            pass
+
     session.add(user)
 
     existing_assignments = session.exec(
