@@ -14,6 +14,9 @@ import {
   CheckCircle2,
   AlertTriangle,
   Building,
+  Edit2,
+  Save,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -21,6 +24,7 @@ import {
   createOwnerInvitation,
   listOwnerInvitations,
   deleteOwnerInvitation,
+  updateOwnerInvitation,
 } from "@/lib/repositories/user.repository";
 
 interface Invitation {
@@ -45,6 +49,10 @@ export default function SuperAdminPage() {
   const [loadingInvites, setLoadingInvites] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  const [editingInviteId, setEditingInviteId] = useState<string | null>(null);
+  const [editModules, setEditModules] = useState<string[]>([]);
+  const [updatingModules, setUpdatingModules] = useState(false);
 
   // Security guard at the page level
   useEffect(() => {
@@ -129,6 +137,44 @@ export default function SuperAdminPage() {
     } catch (err) {
       console.error(err);
       toast.error("Failed to revoke invitation.");
+    }
+  };
+
+  const handleEditModulesClick = (invite: Invitation) => {
+    setEditingInviteId(invite.id);
+    setEditModules(invite.modules || []);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingInviteId(null);
+    setEditModules([]);
+  };
+
+  const handleToggleEditModule = (modName: string) => {
+    if (editModules.includes(modName)) {
+      setEditModules(editModules.filter((m) => m !== modName));
+    } else {
+      setEditModules([...editModules, modName]);
+    }
+  };
+
+  const handleSaveModules = async (inviteId: string) => {
+    if (editModules.length === 0) {
+      toast.error("Please select at least one module.");
+      return;
+    }
+    
+    try {
+      setUpdatingModules(true);
+      await updateOwnerInvitation(inviteId, editModules);
+      toast.success("Module access updated successfully.");
+      setEditingInviteId(null);
+      await loadInvitations();
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to update module access.");
+    } finally {
+      setUpdatingModules(false);
     }
   };
 
@@ -231,6 +277,23 @@ export default function SuperAdminPage() {
                       <span className="text-[10px] text-neutral-400 font-bold block mt-1 leading-snug">
                         Includes Roster Builder, Roster Settings, and
                         Availability management.
+                      </span>
+                    </div>
+                  </label>
+                  <label className="flex items-start gap-3 p-3.5 border border-neutral-200 rounded-2xl bg-neutral-50/50 hover:bg-neutral-50 transition cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={selectedModules.includes("inventory")}
+                      onChange={() => handleToggleModule("inventory")}
+                      className="mt-0.5 h-4 w-4 rounded border-neutral-300 text-black focus:ring-black accent-black cursor-pointer"
+                    />
+                    <div>
+                      <span className="text-xs font-extrabold text-neutral-900 block leading-tight">
+                        Inventory Module
+                      </span>
+                      <span className="text-[10px] text-neutral-400 font-bold block mt-1 leading-snug">
+                        Includes Stock Items, Suppliers, Purchase Orders, and
+                        Stock Counts.
                       </span>
                     </div>
                   </label>
@@ -376,6 +439,13 @@ export default function SuperAdminPage() {
                             </button>
                           )}
                           <button
+                            onClick={() => handleEditModulesClick(invite)}
+                            className="bg-white hover:bg-neutral-50 text-neutral-400 hover:text-neutral-700 rounded-lg p-2 border border-neutral-200 cursor-pointer transition"
+                            title="Edit Modules"
+                          >
+                            <Edit2 className="h-4 w-4" />
+                          </button>
+                          <button
                             onClick={() => handleDeleteInvite(invite.id)}
                             className="bg-white hover:bg-red-50 hover:border-red-200 text-neutral-400 hover:text-red-600 rounded-lg p-2 border border-neutral-200 cursor-pointer transition"
                             title="Revoke invitation"
@@ -384,6 +454,56 @@ export default function SuperAdminPage() {
                           </button>
                         </div>
                       </div>
+
+                      {editingInviteId === invite.id && (
+                        <div className="mt-3 pt-3 border-t border-neutral-100">
+                          <p className="text-[10px] font-extrabold uppercase text-neutral-500 tracking-wider mb-3">
+                            Edit Modules
+                          </p>
+                          <div className="flex flex-wrap gap-2 mb-4">
+                            {["timesheet", "roster", "inventory"].map((modName) => (
+                              <label
+                                key={modName}
+                                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border text-[10px] font-bold uppercase cursor-pointer select-none transition ${
+                                  editModules.includes(modName)
+                                    ? "bg-neutral-900 text-white border-neutral-900"
+                                    : "bg-neutral-50 text-neutral-500 border-neutral-200 hover:bg-neutral-100"
+                                }`}
+                              >
+                                <input
+                                  type="checkbox"
+                                  className="hidden"
+                                  checked={editModules.includes(modName)}
+                                  onChange={() => handleToggleEditModule(modName)}
+                                />
+                                {modName}
+                              </label>
+                            ))}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => handleSaveModules(invite.id)}
+                              disabled={updatingModules}
+                              className="bg-neutral-900 hover:bg-black text-white text-[10px] font-bold uppercase tracking-wide px-3 py-1.5 rounded-md flex items-center gap-1.5 disabled:opacity-50 transition"
+                            >
+                              {updatingModules ? (
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                              ) : (
+                                <Save className="h-3 w-3" />
+                              )}
+                              Save
+                            </button>
+                            <button
+                              onClick={handleCancelEdit}
+                              disabled={updatingModules}
+                              className="bg-white hover:bg-neutral-50 text-neutral-600 border border-neutral-200 text-[10px] font-bold uppercase tracking-wide px-3 py-1.5 rounded-md flex items-center gap-1.5 disabled:opacity-50 transition"
+                            >
+                              <X className="h-3 w-3" />
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   );
                 })}

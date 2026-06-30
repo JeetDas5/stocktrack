@@ -218,3 +218,9 @@ export const deleteOwnerInvitation = async (invitationId: string): Promise<any> 
   const response = await api.delete(`/api/super-admin/invitations/${invitationId}`);
   return response.data;
 };
+
+export const updateOwnerInvitation = async (invitationId: string, modules: string[]): Promise<any> => {
+  const response = await api.put(`/api/super-admin/invitations/${invitationId}`, { modules });
+  return response.data;
+};
+

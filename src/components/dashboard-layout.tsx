@@ -183,7 +183,7 @@ export default function DashboardLayout({
       localStorage.setItem("nexbrix_impersonated_user_id", userId);
       localStorage.removeItem("nexbrix_active_business_id");
       localStorage.removeItem("nexbrix_active_location_id");
-      window.location.reload();
+      window.location.assign("/dashboard/profile");
     }
   };
 
@@ -192,7 +192,7 @@ export default function DashboardLayout({
       localStorage.removeItem("nexbrix_impersonated_user_id");
       localStorage.removeItem("nexbrix_active_business_id");
       localStorage.removeItem("nexbrix_active_location_id");
-      window.location.reload();
+      window.location.assign("/dashboard/super-admin");
     }
   };
 
@@ -591,6 +591,20 @@ export default function DashboardLayout({
       "/dashboard/roaster-settings",
       "/dashboard/availablity-entry",
       "/dashboard/availability-overview",
+    ],
+    inventory: [
+      "/dashboard/counts",
+      "/dashboard/stock-items",
+      "/dashboard/categories",
+      "/dashboard/suppliers",
+      "/dashboard/recipes",
+      "/dashboard/refill-planner",
+      "/dashboard/purchase-orders",
+      "/dashboard/deliveries",
+      "/dashboard/reconciliation",
+      "/dashboard/sales",
+      "/dashboard/sales-imports",
+      "/dashboard/consumption",
     ],
   };
 
