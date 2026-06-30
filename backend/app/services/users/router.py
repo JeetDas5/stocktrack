@@ -668,3 +668,41 @@ def delete_super_admin_invitation(
     session.commit()
     return {"message": "Invitation deleted successfully"}
 
+
+class SuperAdminInvitationUpdate(SQLModel):
+    modules: List[str]
+
+@router.put("/api/super-admin/invitations/{invitation_id}")
+def update_super_admin_invitation(
+    invitation_id: str,
+    data: SuperAdminInvitationUpdate,
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session)
+):
+    if current_user.role != "super_admin":
+        raise HTTPException(status_code=403, detail="Only super admin can access this resource")
+        
+    invite = session.get(StaffInvitation, invitation_id)
+    if not invite:
+        raise HTTPException(status_code=404, detail="Invitation not found")
+        
+    invite.modules = data.modules
+    session.add(invite)
+    
+    # If the invitation is completed, we should also update the created User
+    if invite.status == "completed" and invite.email:
+        user = session.exec(select(User).where(User.email == invite.email.lower().strip())).first()
+        if user:
+            user.modules = data.modules
+            session.add(user)
+
+    session.commit()
+    
+    return {
+        "id": invite.id,
+        "email": invite.email,
+        "modules": invite.modules,
+        "status": invite.status
+    }
+
+
