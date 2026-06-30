@@ -166,21 +166,7 @@ export default function ProtectedRoute({
         "/dashboard/locations",
         "/dashboard/profile",
       ];
-      const MODULE_ROUTES: Record<string, string[]> = {
-        timesheet: [
-          "/dashboard/team-members",
-          "/dashboard/timesheet-entry",
-          "/dashboard/timesheet-review",
-          "/dashboard/timesheet-reports",
-          "/dashboard/timesheet-settings",
-        ],
-        roster: [
-          "/dashboard/roaster-builder",
-          "/dashboard/roaster-settings",
-          "/dashboard/availablity-entry",
-          "/dashboard/availability-overview",
-        ],
-      };
+
       const userRole = profile.role || "staff";
       const allowedHrefs =
         sidebarPermissions[userRole as keyof typeof sidebarPermissions] || [];
