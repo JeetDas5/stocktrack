@@ -101,7 +101,8 @@ export default function TimesheetEntryPage() {
   });
 
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
-  const calendarRef = useRef<HTMLDivElement>(null);
+  const desktopCalendarRef = useRef<HTMLDivElement>(null);
+  const mobileCalendarRef = useRef<HTMLDivElement>(null);
 
   const [openTimePicker, setOpenTimePicker] = useState<{
     dayIndex: number;
@@ -365,15 +366,23 @@ export default function TimesheetEntryPage() {
     function handleClickOutside(event: MouseEvent) {
       const target = event.target as Node;
 
-      if (calendarRef.current && !calendarRef.current.contains(target)) {
+      const isInsideDesktopCal = desktopCalendarRef.current?.contains(target);
+      const isInsideMobileCal = mobileCalendarRef.current?.contains(target);
+      if (!isInsideDesktopCal && !isInsideMobileCal) {
         setIsCalendarOpen(false);
       }
 
       if (openTimePicker) {
-        const cell = document.getElementById(
+        const desktopCell = document.getElementById(
           `timecell-${openTimePicker.dayIndex}-${openTimePicker.type}`,
         );
-        if (cell && !cell.contains(target)) {
+        const mobileCell = document.getElementById(
+          `timecell-mobile-${openTimePicker.dayIndex}-${openTimePicker.type}`,
+        );
+        const insideDesktop = desktopCell?.contains(target);
+        const insideMobile = mobileCell?.contains(target);
+
+        if (!insideDesktop && !insideMobile) {
           setOpenTimePicker(null);
         }
       }
@@ -842,7 +851,7 @@ export default function TimesheetEntryPage() {
 
               <div
                 className="relative w-full sm:w-auto flex justify-end"
-                ref={calendarRef}
+                ref={desktopCalendarRef}
               >
                 <div className="flex items-center border border-neutral-200 rounded-xl bg-white h-10 px-3 select-none hover:bg-neutral-50/50 cursor-pointer transition-colors shadow-2xs w-full sm:w-auto">
                   <button
@@ -1366,7 +1375,7 @@ export default function TimesheetEntryPage() {
 
           <div
             className="relative flex-1 flex justify-end"
-            ref={calendarRef}
+            ref={mobileCalendarRef}
           >
             <div className="flex items-center justify-between border border-neutral-200 rounded-full bg-white h-11 px-3 select-none hover:bg-neutral-50/50 cursor-pointer transition-colors shadow-2xs w-full">
               <button
