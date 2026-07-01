@@ -16,7 +16,7 @@ class User(SQLModel, table=True):
     hashed_password: Optional[str] = Field(default=None)
     email_verified: bool = Field(default=False)
     image: Optional[str] = Field(default=None)
-    role: str = Field(default="admin")
+    role: str = Field(default="staff")
     accepted_terms_version: Optional[str] = Field(default=None)
     accepted_terms_at: Optional[datetime] = Field(default=None)
     ip_address: Optional[str] = Field(default=None)
@@ -774,4 +774,14 @@ class ContactMessage(SQLModel, table=True):
     message: Optional[str] = Field(default=None)
     intent: str = Field(default="contact")
     created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class ExternalUserLead(SQLModel, table=True):
+    __tablename__ = "external_user_leads"
+
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
+    email: str = Field(unique=True, index=True)
+    name: Optional[str] = Field(default=None)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
 

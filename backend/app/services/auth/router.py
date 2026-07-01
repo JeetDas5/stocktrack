@@ -165,13 +165,66 @@ def send_otp(data: OTPSendRequest, session: Session = Depends(get_session)):
         )
     resend.api_key = api_key
 
+    base_url = os.environ.get("BETTER_AUTH_URL") or "http://localhost:3000"
+    if base_url.endswith("/"):
+        base_url = base_url[:-1]
+    
+    logo_url = "https://nexbrix.com.au/logos/logo.png"
+    dashboard_url = f"{base_url}/dashboard"
+    privacy_url = f"{base_url}/privacy-policy"
+    terms_url = f"{base_url}/terms"
+    current_year = datetime.utcnow().year
+
+    html_content = f"""
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 560px; margin: 0 auto; padding: 32px 24px; border: 1px solid #e4e4e7; border-radius: 16px; background-color: #ffffff;">
+      <!-- Logo Header -->
+      <div style="margin-bottom: 24px; text-align: left;">
+        <img src="{logo_url}" alt="NexBrix Logo" style="height: 32px; max-width: 150px; display: block; object-fit: contain;" />
+      </div>
+
+      <!-- Content -->
+      <h2 style="font-size: 20px; font-weight: 700; color: #09090b; margin-top: 0; margin-bottom: 12px; tracking-tight: -0.02em;">OTP for Login</h2>
+      <p style="color: #52525b; font-size: 14px; line-height: 1.5; margin-top: 0; margin-bottom: 24px;">
+        Hello,<br/><br/>
+        You are receiving this email because a request was made to log in to your NexBrix account. Please use the following One-Time Password (OTP) to securely complete your login:
+      </p>
+
+      <!-- OTP Display -->
+      <div style="background-color: #f4f4f5; border: 1px solid #e4e4e7; border-radius: 12px; padding: 20px; text-align: center; margin-bottom: 24px;">
+        <div style="font-family: SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace; font-size: 32px; font-weight: 700; color: #09090b; letter-spacing: 6px; line-height: 1;">
+          {otp}
+        </div>
+      </div>
+
+      <!-- Notice -->
+      <p style="color: #71717a; font-size: 12px; line-height: 1.6; margin-top: 0; margin-bottom: 32px;">
+        This verification code is valid for <strong>10 minutes</strong>. If you did not request this login, you can safely ignore this email or contact support if you have security concerns.
+      </p>
+
+      <!-- Divider -->
+      <div style="border-top: 1px solid #e4e4e7; margin-bottom: 20px;"></div>
+
+      <!-- Footer -->
+      <div style="text-align: center;">
+        <p style="color: #a1a1aa; font-size: 11px; margin-top: 0; margin-bottom: 12px; font-weight: 500;">
+          <a href="{dashboard_url}" style="color: #71717a; text-decoration: underline; margin-right: 12px;">Dashboard</a>
+          <a href="{privacy_url}" style="color: #71717a; text-decoration: underline; margin-right: 12px;">Privacy Policy</a>
+          <a href="{terms_url}" style="color: #71717a; text-decoration: underline;">Terms of Service</a>
+        </p>
+        <p style="color: #a1a1aa; font-size: 11px; line-height: 1.4; margin: 0;">
+          © {current_year} NexBrix. All rights reserved.
+        </p>
+      </div>
+    </div>
+    """
+
     try:
         resend.Emails.send(
             {
                 "from": "NexBrix <info@nexbrix.com.au>",
                 "to": [email],
-                "subject": "Staff Onboarding - Verification Code | NexBrix",
-                "html": f"<p>Your verification code for Staff Onboarding is: <strong>{otp}</strong></p><p>This code will expire in 10 minutes.</p>",
+                "subject": "OTP for Login | NexBrix",
+                "html": html_content,
             }
         )
     except Exception as e:

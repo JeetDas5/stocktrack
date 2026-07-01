@@ -34,6 +34,7 @@ def init_db():
     try:
         with Session(engine) as session:
             session.execute(text("ALTER TABLE timesheets ADD COLUMN IF NOT EXISTS project VARCHAR"))
+            session.execute(text("ALTER TABLE users ALTER COLUMN role SET DEFAULT 'staff'"))
             session.commit()
             
             # Check and add new profile columns dynamically to the users table
