@@ -224,3 +224,14 @@ export const updateOwnerInvitation = async (invitationId: string, modules: strin
   return response.data;
 };
 
+export const listExternalLeads = async (): Promise<any[]> => {
+  const response = await api.get("/api/super-admin/external-leads");
+  return response.data;
+};
+
+export const deleteExternalLead = async (leadId: string): Promise<any> => {
+  const response = await api.delete(`/api/super-admin/external-leads/${leadId}`);
+  return response.data;
+};
+
+

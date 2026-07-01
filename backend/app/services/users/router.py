@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlmodel import Session, select, SQLModel
 
 from app.database import get_session
-from app.models import User, UserAssignment, Business, Location, StaffInvitation
+from app.models import User, UserAssignment, Business, Location, StaffInvitation, ExternalUserLead
 from app.services.auth.dependencies import get_current_user
 
 router = APIRouter(tags=["Users"])
@@ -111,6 +111,18 @@ def get_me(
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
+    if not current_user.is_internal and current_user.role != "super_admin":
+        existing_lead = session.exec(
+            select(ExternalUserLead).where(ExternalUserLead.email == current_user.email.lower().strip())
+        ).first()
+        if not existing_lead:
+            new_lead = ExternalUserLead(
+                email=current_user.email.lower().strip(),
+                name=current_user.name
+            )
+            session.add(new_lead)
+            session.commit()
+
     if current_user.role in ("super_admin", "admin"):
         is_approved = True
     else:
@@ -704,5 +716,36 @@ def update_super_admin_invitation(
         "modules": invite.modules,
         "status": invite.status
     }
+
+
+@router.get("/api/super-admin/external-leads", response_model=List[ExternalUserLead])
+def list_external_leads(
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session)
+):
+    if current_user.role != "super_admin":
+        raise HTTPException(status_code=403, detail="Only super admin can access this resource")
+        
+    leads = session.exec(select(ExternalUserLead).order_by(ExternalUserLead.created_at.desc())).all()
+    return leads
+
+
+@router.delete("/api/super-admin/external-leads/{lead_id}")
+def delete_external_lead(
+    lead_id: str,
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session)
+):
+    if current_user.role != "super_admin":
+        raise HTTPException(status_code=403, detail="Only super admin can access this resource")
+        
+    lead = session.get(ExternalUserLead, lead_id)
+    if not lead:
+        raise HTTPException(status_code=404, detail="Lead not found")
+        
+    session.delete(lead)
+    session.commit()
+    return {"status": "success", "message": "Lead deleted successfully"}
+
 
 

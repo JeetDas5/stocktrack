@@ -25,6 +25,8 @@ import {
   listOwnerInvitations,
   deleteOwnerInvitation,
   updateOwnerInvitation,
+  listExternalLeads,
+  deleteExternalLead,
 } from "@/lib/repositories/user.repository";
 
 interface Invitation {
@@ -35,6 +37,13 @@ interface Invitation {
   created_at: string;
   status: string;
   signup_link: string;
+}
+
+interface ExternalLead {
+  id: string;
+  email: string;
+  name: string | null;
+  created_at: string;
 }
 
 export default function SuperAdminPage() {
@@ -53,6 +62,9 @@ export default function SuperAdminPage() {
   const [editingInviteId, setEditingInviteId] = useState<string | null>(null);
   const [editModules, setEditModules] = useState<string[]>([]);
   const [updatingModules, setUpdatingModules] = useState(false);
+
+  const [leads, setLeads] = useState<ExternalLead[]>([]);
+  const [loadingLeads, setLoadingLeads] = useState(true);
 
   // Security guard at the page level
   useEffect(() => {
@@ -76,10 +88,35 @@ export default function SuperAdminPage() {
     }
   };
 
+  const loadLeads = async () => {
+    try {
+      setLoadingLeads(true);
+      const data = await listExternalLeads();
+      setLeads(data);
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to load external leads.");
+    } finally {
+      setLoadingLeads(false);
+    }
+  };
+
+  const handleDeleteLead = async (leadId: string) => {
+    try {
+      await deleteExternalLead(leadId);
+      toast.success("Lead removed successfully.");
+      setLeads(leads.filter((lead) => lead.id !== leadId));
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to remove lead.");
+    }
+  };
+
   useEffect(() => {
     if (profile?.role === "super_admin") {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       loadInvitations();
+      loadLeads();
     }
   }, [profile]);
 
@@ -511,6 +548,76 @@ export default function SuperAdminPage() {
             )}
           </div>
         </div>
+      </div>
+
+      {/* External User Leads / failed login capture section */}
+      <div className="mt-8 bg-white border border-neutral-200 rounded-3xl p-6 shadow-sm mb-8">
+        <h2 className="text-base font-bold text-neutral-900 mb-1">
+          External Login Leads (Contact Requests)
+        </h2>
+        <p className="text-neutral-400 text-[10px] font-bold tracking-wide uppercase mb-6">
+          Monitor contact info of external users who attempted to access the system
+        </p>
+
+        {loadingLeads ? (
+          <div className="py-20 flex flex-col items-center justify-center bg-white border border-neutral-100 rounded-2xl">
+            <Loader2 className="h-6 w-6 text-black animate-spin mb-2" />
+            <span className="text-[11px] text-neutral-400 font-bold uppercase tracking-wider">
+              Loading external leads...
+            </span>
+          </div>
+        ) : leads.length === 0 ? (
+          <div className="bg-neutral-50/50 border border-neutral-200/60 rounded-2xl py-20 px-6 text-center flex flex-col items-center justify-center">
+            <Mail className="h-10 w-10 text-neutral-300 mb-3" />
+            <h3 className="text-xs font-extrabold text-neutral-950 uppercase tracking-wider">
+              No login leads recorded
+            </h3>
+            <p className="text-neutral-500 text-[11px] font-semibold mt-1 max-w-xs leading-relaxed">
+              When external users attempt to authenticate, their contact info will be logged here.
+            </p>
+          </div>
+        ) : (
+          <div className="border border-neutral-200 rounded-2xl overflow-hidden bg-white">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-neutral-50 border-b border-neutral-200 text-[10px] font-extrabold uppercase text-neutral-500 tracking-wider">
+                    <th className="py-3.5 px-6">Name</th>
+                    <th className="py-3.5 px-6">Email Address</th>
+                    <th className="py-3.5 px-6">Attempt Date</th>
+                    <th className="py-3.5 px-6 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-neutral-100 text-xs font-semibold text-neutral-700">
+                  {leads.map((lead) => (
+                    <tr key={lead.id} className="hover:bg-neutral-50/50 transition-colors">
+                      <td className="py-4 px-6 text-neutral-950">
+                        {lead.name || <span className="text-neutral-400 font-normal italic">Not provided</span>}
+                      </td>
+                      <td className="py-4 px-6 font-mono text-neutral-600">{lead.email}</td>
+                      <td className="py-4 px-6 text-neutral-400">
+                        {new Date(lead.created_at).toLocaleDateString()} at{" "}
+                        {new Date(lead.created_at).toLocaleTimeString([], {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </td>
+                      <td className="py-4 px-6 text-right">
+                        <button
+                          onClick={() => handleDeleteLead(lead.id)}
+                          className="inline-flex items-center gap-1 bg-white hover:bg-red-50 hover:border-red-200 text-neutral-400 hover:text-red-600 rounded-lg p-2 border border-neutral-200 cursor-pointer transition"
+                          title="Remove Lead"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
