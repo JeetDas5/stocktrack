@@ -36,7 +36,7 @@ class UserMeOut(SQLModel):
     phone: Optional[str] = None
     role: str
     is_approved: bool
-    is_internal: bool
+    is_internal: bool = False
     created_at: datetime
     updated_at: datetime
     start_date: datetime
@@ -137,7 +137,7 @@ def get_me(
         phone=current_user.phone,
         role=current_user.role,
         is_approved=is_approved,
-        is_internal=current_user.is_internal,
+        is_internal=current_user.is_internal is True,
         created_at=current_user.created_at,
         updated_at=current_user.updated_at,
         start_date=current_user.start_date or current_user.created_at,
@@ -231,7 +231,7 @@ def update_me(
         phone=current_user.phone,
         role=current_user.role,
         is_approved=is_approved,
-        is_internal=current_user.is_internal,
+        is_internal=current_user.is_internal is True,
         created_at=current_user.created_at,
         updated_at=current_user.updated_at,
         start_date=current_user.start_date or current_user.created_at,
@@ -516,7 +516,7 @@ def list_all_users_for_super_admin(
             phone=u.phone,
             role=u.role,
             is_approved=True,
-            is_internal=u.is_internal,
+            is_internal=u.is_internal is True,
             created_at=u.created_at,
             updated_at=u.updated_at,
             start_date=u.start_date or u.created_at,
