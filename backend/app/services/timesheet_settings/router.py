@@ -144,7 +144,7 @@ def get_timesheet_settings(
                 allow_past_entry=True,
                 max_past_days=1,
                 lock_submitted=True,
-                allow_staff_edit_pending=True,
+                allow_staff_edit_pending=False,
                 allow_managers_edit_approved=True,
                 require_break_entry=True,
                 default_break_minutes=30,

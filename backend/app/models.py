@@ -715,7 +715,7 @@ class TimesheetSettings(SQLModel, table=True):
     allow_past_entry: bool = Field(default=True)
     max_past_days: int = Field(default=1)
     lock_submitted: bool = Field(default=True)
-    allow_staff_edit_pending: bool = Field(default=True)
+    allow_staff_edit_pending: bool = Field(default=False)
     allow_managers_edit_approved: bool = Field(default=True)
 
     # 3. Break Rules

@@ -116,7 +116,7 @@ export default function TimesheetSettingsPage() {
   const [allowPastEntry, setAllowPastEntry] = useState(true);
   const [maxPastDays, setMaxPastDays] = useState(1);
   const [lockSubmitted, setLockSubmitted] = useState(true);
-  const [allowStaffEditPending, setAllowStaffEditPending] = useState(true);
+  const [allowStaffEditPending, setAllowStaffEditPending] = useState(false);
   const [allowManagersEditApproved, setAllowManagersEditApproved] =
     useState(true);
 
