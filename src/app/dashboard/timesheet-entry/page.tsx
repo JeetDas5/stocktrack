@@ -112,7 +112,15 @@ export default function TimesheetEntryPage() {
   const getWeekStart = useCallback((d: Date, startDay: string = "Monday") => {
     const date = new Date(d);
     date.setHours(0, 0, 0, 0);
-    const DAYS_ORDER = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+    const DAYS_ORDER = [
+      "Sunday",
+      "Monday",
+      "Tuesday",
+      "Wednesday",
+      "Thursday",
+      "Friday",
+      "Saturday",
+    ];
     const targetIndex = DAYS_ORDER.indexOf(startDay);
     const currentDay = date.getDay();
     let diff = currentDay - targetIndex;
@@ -123,15 +131,24 @@ export default function TimesheetEntryPage() {
     return date;
   }, []);
 
-  const getMonday = useCallback((d: Date) => {
-    return getWeekStart(d, settings?.week_starts_on || "Monday");
-  }, [settings, getWeekStart]);
+  const getMonday = useCallback(
+    (d: Date) => {
+      return getWeekStart(d, settings?.week_starts_on || "Monday");
+    },
+    [settings, getWeekStart],
+  );
 
-  const isCurrentWeek = useCallback((monday: Date) => {
-    const today = new Date();
-    const currentMonday = getWeekStart(today, settings?.week_starts_on || "Monday");
-    return monday.getTime() === currentMonday.getTime();
-  }, [settings, getWeekStart]);
+  const isCurrentWeek = useCallback(
+    (monday: Date) => {
+      const today = new Date();
+      const currentMonday = getWeekStart(
+        today,
+        settings?.week_starts_on || "Monday",
+      );
+      return monday.getTime() === currentMonday.getTime();
+    },
+    [settings, getWeekStart],
+  );
 
   const formatWeekRangeShort = (monday: Date) => {
     const sunday = new Date(monday);
@@ -151,34 +168,45 @@ export default function TimesheetEntryPage() {
     return date.getTime() > today.getTime();
   };
 
-  const getWeekDays = useCallback((weekStartDate: Date) => {
-    const days = [];
-    const DAYS_ORDER = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-    const startDay = settings?.week_starts_on || "Monday";
-    const targetIndex = DAYS_ORDER.indexOf(startDay);
+  const getWeekDays = useCallback(
+    (weekStartDate: Date) => {
+      const days = [];
+      const DAYS_ORDER = [
+        "Sunday",
+        "Monday",
+        "Tuesday",
+        "Wednesday",
+        "Thursday",
+        "Friday",
+        "Saturday",
+      ];
+      const startDay = settings?.week_starts_on || "Monday";
+      const targetIndex = DAYS_ORDER.indexOf(startDay);
 
-    const daysOfWeekShort = [];
-    for (let i = 0; i < 7; i++) {
-      const idx = (targetIndex + i) % 7;
-      daysOfWeekShort.push(DAYS_ORDER[idx].substring(0, 3));
-    }
+      const daysOfWeekShort = [];
+      for (let i = 0; i < 7; i++) {
+        const idx = (targetIndex + i) % 7;
+        daysOfWeekShort.push(DAYS_ORDER[idx].substring(0, 3));
+      }
 
-    for (let i = 0; i < 7; i++) {
-      const d = new Date(weekStartDate);
-      d.setDate(weekStartDate.getDate() + i);
-      const dayName = daysOfWeekShort[i];
-      const year = d.getFullYear();
-      const month = (d.getMonth() + 1).toString().padStart(2, "0");
-      const date = d.getDate().toString().padStart(2, "0");
-      const dateStr = `${year}-${month}-${date}`;
-      days.push({
-        dayName,
-        dateStr,
-        displayDate: `${date}/${month}/${year}`,
-      });
-    }
-    return days;
-  }, [settings]);
+      for (let i = 0; i < 7; i++) {
+        const d = new Date(weekStartDate);
+        d.setDate(weekStartDate.getDate() + i);
+        const dayName = daysOfWeekShort[i];
+        const year = d.getFullYear();
+        const month = (d.getMonth() + 1).toString().padStart(2, "0");
+        const date = d.getDate().toString().padStart(2, "0");
+        const dateStr = `${year}-${month}-${date}`;
+        days.push({
+          dayName,
+          dateStr,
+          displayDate: `${date}/${month}/${year}`,
+        });
+      }
+      return days;
+    },
+    [settings],
+  );
 
   useEffect(() => {
     async function loadSettings() {
@@ -195,7 +223,9 @@ export default function TimesheetEntryPage() {
 
   useEffect(() => {
     if (settings) {
-      setCurrentWeekStart((prev) => getWeekStart(prev, settings.week_starts_on));
+      setCurrentWeekStart((prev) =>
+        getWeekStart(prev, settings.week_starts_on),
+      );
     }
   }, [settings, getWeekStart]);
 
@@ -257,11 +287,17 @@ export default function TimesheetEntryPage() {
       if (data && data.length > 0) {
         let latestDate = 0;
         data.forEach((ts) => {
-          const t = ts.updatedAt ? new Date(ts.updatedAt).getTime() : (ts.createdAt ? new Date(ts.createdAt).getTime() : 0);
+          const t = ts.updatedAt
+            ? new Date(ts.updatedAt).getTime()
+            : ts.createdAt
+              ? new Date(ts.createdAt).getTime()
+              : 0;
           if (t > latestDate) latestDate = t;
         });
         if (latestDate > 0) {
-          setLastSavedTime(formatLastSavedTime(new Date(latestDate).toISOString()));
+          setLastSavedTime(
+            formatLastSavedTime(new Date(latestDate).toISOString()),
+          );
         }
       }
     } catch (err) {
@@ -289,47 +325,56 @@ export default function TimesheetEntryPage() {
     return timesheets.filter((ts) => ts.staffId === staffId);
   }, [timesheets, staffId]);
 
-  const checkIsDateEditable = useCallback((dateStr: string, status: string) => {
-    if (isFutureDate(dateStr)) return false;
-    if (status === "approved") return false;
+  const checkIsDateEditable = useCallback(
+    (dateStr: string, status: string) => {
+      if (isFutureDate(dateStr)) return false;
+      if (status === "approved") return false;
 
-    // 1. Payroll lock (all users)
-    if (settings?.lock_timesheets_before_date && settings?.lock_payroll_period_date) {
-      if (dateStr <= settings.lock_payroll_period_date) {
-        return false;
-      }
-    }
-
-    // 2. Staff restrictions
-    if (isStaff) {
-      // Pending locks
-      if (status === "submitted" || status === "edited") {
-        if (settings?.lock_submitted || !settings?.allow_staff_edit_pending) {
+      // 1. Payroll lock (all users)
+      if (
+        settings?.lock_timesheets_before_date &&
+        settings?.lock_payroll_period_date
+      ) {
+        if (dateStr <= settings.lock_payroll_period_date) {
           return false;
         }
       }
 
-      // Past entry restrictions
-      const today = new Date();
-      const todayStr = `${today.getFullYear()}-${(today.getMonth() + 1).toString().padStart(2, "0")}-${today.getDate().toString().padStart(2, "0")}`;
-      if (dateStr < todayStr) {
-        if (settings?.allow_past_entry === false) {
-          return false;
-        }
-        if (settings?.allow_past_entry === true && settings?.max_past_days !== undefined) {
-          const rowDate = new Date(dateStr + "T00:00:00");
-          const todayDate = new Date(todayStr + "T00:00:00");
-          const diffTime = todayDate.getTime() - rowDate.getTime();
-          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-          if (diffDays > settings.max_past_days) {
+      // 2. Staff restrictions
+      if (isStaff) {
+        // Pending locks
+        if (status === "submitted" || status === "edited") {
+          if (settings?.lock_submitted || !settings?.allow_staff_edit_pending) {
             return false;
           }
         }
-      }
-    }
 
-    return true;
-  }, [isStaff, settings]);
+        // Past entry restrictions
+        const today = new Date();
+        const todayStr = `${today.getFullYear()}-${(today.getMonth() + 1).toString().padStart(2, "0")}-${today.getDate().toString().padStart(2, "0")}`;
+        if (dateStr < todayStr) {
+          if (settings?.allow_past_entry === false) {
+            return false;
+          }
+          if (
+            settings?.allow_past_entry === true &&
+            settings?.max_past_days !== undefined
+          ) {
+            const rowDate = new Date(dateStr + "T00:00:00");
+            const todayDate = new Date(todayStr + "T00:00:00");
+            const diffTime = todayDate.getTime() - rowDate.getTime();
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            if (diffDays > settings.max_past_days) {
+              return false;
+            }
+          }
+        }
+      }
+
+      return true;
+    },
+    [isStaff, settings],
+  );
 
   useEffect(() => {
     if (!currentWeekStart || !staffId) return;
@@ -340,8 +385,13 @@ export default function TimesheetEntryPage() {
         (ts) => ts.workDate === day.dateStr,
       );
       const isFuture = isFutureDate(day.dateStr);
-      const isDayOff = existing ? (existing.startTime === "00:00" && existing.endTime === "00:00") : false;
-      const defaultBreak = settings?.default_break_minutes !== undefined ? settings.default_break_minutes.toString() : "30";
+      const isDayOff = existing
+        ? existing.startTime === "00:00" && existing.endTime === "00:00"
+        : false;
+      const defaultBreak =
+        settings?.default_break_minutes !== undefined
+          ? settings.default_break_minutes.toString()
+          : "30";
 
       return {
         dayName: day.dayName,
@@ -581,7 +631,9 @@ export default function TimesheetEntryPage() {
 
       if (prevTimesheet) {
         copiedCount++;
-        const isDayOff = prevTimesheet.startTime === "00:00" && prevTimesheet.endTime === "00:00";
+        const isDayOff =
+          prevTimesheet.startTime === "00:00" &&
+          prevTimesheet.endTime === "00:00";
         return {
           ...row,
           startTime: prevTimesheet.startTime,
@@ -606,22 +658,43 @@ export default function TimesheetEntryPage() {
   };
 
   const handleClearAll = () => {
+    const defaultBreak =
+      settings?.default_break_minutes !== undefined
+        ? settings.default_break_minutes.toString()
+        : "30";
     const newRows = weekRows.map((row) => {
       if (row.isFuture || row.status === "approved") {
         return row;
+      }
+      if (row.dbTimesheetId) {
+        const original = staffTimesheets.find(
+          (ts) => ts.id === row.dbTimesheetId,
+        );
+        if (original) {
+          return {
+            ...row,
+            startTime: original.startTime,
+            endTime: original.endTime,
+            unpaidBreak: original.unpaidBreak.toString(),
+            project: original.project || "",
+            notes: original.notes || "",
+            isDayOff:
+              original.startTime === "00:00" && original.endTime === "00:00",
+          };
+        }
       }
       return {
         ...row,
         startTime: "",
         endTime: "",
-        unpaidBreak: "30",
+        unpaidBreak: defaultBreak,
         project: "",
         notes: "",
         isDayOff: false,
       };
     });
     setWeekRows(newRows);
-    toast.success("Form cleared for all editable days.");
+    toast.success("Unsaved changes cleared.");
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -666,17 +739,28 @@ export default function TimesheetEntryPage() {
 
             // Break rules verification
             const breakMins = parseInt(row.unpaidBreak, 10) || 0;
-            if (settings?.require_break_entry && (isNaN(breakMins) || breakMins < 0)) {
+            if (
+              settings?.require_break_entry &&
+              (isNaN(breakMins) || breakMins < 0)
+            ) {
               throw new Error(
-                `On ${row.dayName} (${row.displayDate}), a valid unpaid break is required.`
+                `On ${row.dayName} (${row.displayDate}), a valid unpaid break is required.`,
               );
             }
 
-            if (settings?.require_break_entry && settings?.require_reason_no_break && breakMins === 0) {
-              const shiftDuration = calculateRowHours(row.startTime, row.endTime, "0");
+            if (
+              settings?.require_break_entry &&
+              settings?.require_reason_no_break &&
+              breakMins === 0
+            ) {
+              const shiftDuration = calculateRowHours(
+                row.startTime,
+                row.endTime,
+                "0",
+              );
               if (shiftDuration > 5 && !row.notes.trim()) {
                 throw new Error(
-                  `On ${row.dayName} (${row.displayDate}), please provide a reason in the notes for not taking a break on this longer shift.`
+                  `On ${row.dayName} (${row.displayDate}), please provide a reason in the notes for not taking a break on this longer shift.`,
                 );
               }
             }
@@ -691,7 +775,8 @@ export default function TimesheetEntryPage() {
             unpaidBreak: parseInt(row.unpaidBreak, 10) || 0,
             project: row.project.trim() || undefined,
             notes: row.notes.trim() || undefined,
-            status: (settings?.require_approval === false) ? "approved" : "submitted",
+            status:
+              settings?.require_approval === false ? "approved" : "submitted",
           };
 
           if (row.dbTimesheetId) {
@@ -764,7 +849,6 @@ export default function TimesheetEntryPage() {
 
   return (
     <div className="select-none bg-white min-h-0 flex flex-col w-full">
-    
       <div className="hidden md:flex flex-col bg-white h-[calc(100vh-120px)] md:h-[85vh] min-h-0 relative pb-4">
         <div className="flex-1 min-h-0 flex flex-col space-y-4 pr-0 lg:pr-4">
           <div className="bg-white border border-neutral-200 rounded-3xl py-4 px-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 shadow-sm">
@@ -891,7 +975,9 @@ export default function TimesheetEntryPage() {
                 {isCalendarOpen && (
                   <div className="absolute right-0 top-11 z-50 animate-scale-in">
                     <Calendar
-                      selectedDate={currentWeekStart.toISOString().split("T")[0]}
+                      selectedDate={
+                        currentWeekStart.toISOString().split("T")[0]
+                      }
                       onChange={handleCalendarChange}
                       className="shadow-xl border border-neutral-200 rounded-2xl bg-white"
                     />
@@ -912,7 +998,9 @@ export default function TimesheetEntryPage() {
                   <thead>
                     <tr className="border-b border-neutral-200 text-[11px] font-semibold uppercase tracking-wider text-neutral-500 bg-white sticky top-0 z-10 text-center">
                       <th className="py-4 px-6 text-left font-semibold">Day</th>
-                      <th className="py-4 px-6 text-left font-semibold">Date</th>
+                      <th className="py-4 px-6 text-left font-semibold">
+                        Date
+                      </th>
                       <th className="py-4 px-3 text-center font-semibold text-xs min-w-[75px]">
                         Day Off
                       </th>
@@ -931,12 +1019,17 @@ export default function TimesheetEntryPage() {
                       <th className="py-4 px-3 text-left font-semibold">
                         Project
                       </th>
-                      <th className="py-4 px-3 text-left font-semibold">Notes</th>
+                      <th className="py-4 px-3 text-left font-semibold">
+                        Notes
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-neutral-200 text-xs text-neutral-800 bg-white">
                     {filteredWeekRows.map(({ row, index: idx }) => {
-                      const isEditable = checkIsDateEditable(row.dateStr, row.status);
+                      const isEditable = checkIsDateEditable(
+                        row.dateStr,
+                        row.status,
+                      );
                       const hours = calculateRowHours(
                         row.startTime,
                         row.endTime,
@@ -962,10 +1055,12 @@ export default function TimesheetEntryPage() {
 
                           <td className="py-4 px-3 text-center">
                             <input
-                               type="checkbox"
+                              type="checkbox"
                               disabled={!isEditable || submitting}
                               checked={row.isDayOff || false}
-                              onChange={(e) => handleDayOffChange(idx, e.target.checked)}
+                              onChange={(e) =>
+                                handleDayOffChange(idx, e.target.checked)
+                              }
                               className="h-4 w-4 rounded border-neutral-300 text-[#0A2924] focus:ring-[#0A2924] cursor-pointer disabled:opacity-50"
                             />
                           </td>
@@ -980,8 +1075,8 @@ export default function TimesheetEntryPage() {
                                   {row.isDayOff
                                     ? "N/A"
                                     : row.startTime
-                                    ? formatTimeToAMPM(row.startTime)
-                                    : "—"}
+                                      ? formatTimeToAMPM(row.startTime)
+                                      : "—"}
                                 </div>
                               ) : (
                                 <>
@@ -1032,8 +1127,8 @@ export default function TimesheetEntryPage() {
                                   {row.isDayOff
                                     ? "N/A"
                                     : row.endTime
-                                    ? formatTimeToAMPM(row.endTime)
-                                    : "—"}
+                                      ? formatTimeToAMPM(row.endTime)
+                                      : "—"}
                                 </div>
                               ) : (
                                 <>
@@ -1087,7 +1182,10 @@ export default function TimesheetEntryPage() {
                                   min="0"
                                   step="5"
                                   disabled={
-                                    !isEditable || submitting || (!row.startTime && !row.endTime) || settings?.require_break_entry === false
+                                    !isEditable ||
+                                    submitting ||
+                                    (!row.startTime && !row.endTime) ||
+                                    settings?.require_break_entry === false
                                   }
                                   value={row.unpaidBreak}
                                   onChange={(e) =>
@@ -1099,7 +1197,8 @@ export default function TimesheetEntryPage() {
                                   <button
                                     type="button"
                                     disabled={
-                                      !isEditable || submitting ||
+                                      !isEditable ||
+                                      submitting ||
                                       (!row.startTime && !row.endTime) ||
                                       settings?.require_break_entry === false
                                     }
@@ -1118,7 +1217,8 @@ export default function TimesheetEntryPage() {
                                   <button
                                     type="button"
                                     disabled={
-                                      !isEditable || submitting ||
+                                      !isEditable ||
+                                      submitting ||
                                       (!row.startTime && !row.endTime) ||
                                       settings?.require_break_entry === false
                                     }
@@ -1164,7 +1264,8 @@ export default function TimesheetEntryPage() {
                                         handleProjectSelect(idx, val)
                                       }
                                       disabled={
-                                        !isEditable || submitting ||
+                                        !isEditable ||
+                                        submitting ||
                                         (!row.startTime && !row.endTime)
                                       }
                                     >
@@ -1241,7 +1342,9 @@ export default function TimesheetEntryPage() {
                               <input
                                 type="text"
                                 disabled={
-                                  !isEditable || submitting || (!row.startTime && !row.endTime)
+                                  !isEditable ||
+                                  submitting ||
+                                  (!row.startTime && !row.endTime)
                                 }
                                 value={row.notes}
                                 onChange={(e) =>
@@ -1440,7 +1543,8 @@ export default function TimesheetEntryPage() {
                   key={row.dateStr}
                   className={cn(
                     "bg-white border border-neutral-200 rounded-[24px] shadow-sm transition-all overflow-hidden",
-                    (!isEditable || row.isFuture) && "opacity-60 bg-neutral-50/20",
+                    (!isEditable || row.isFuture) &&
+                      "opacity-60 bg-neutral-50/20",
                   )}
                 >
                   {/* Card Header */}
@@ -1457,7 +1561,8 @@ export default function TimesheetEntryPage() {
                           {row.displayDate}
                         </span>
                         <span className="text-neutral-500 text-[11px] leading-tight mt-0.5 font-medium">
-                          {row.project || `${activeBusinessName} | ${activeLocationName}`}
+                          {row.project ||
+                            `${activeBusinessName} | ${activeLocationName}`}
                         </span>
                       </div>
                     </div>
@@ -1501,7 +1606,9 @@ export default function TimesheetEntryPage() {
                         <div
                           className={cn(
                             "w-5 h-5 rounded-full bg-white absolute top-0.5 transition-transform shadow-xs",
-                            row.isDayOff ? "translate-x-[22px]" : "translate-x-0.5",
+                            row.isDayOff
+                              ? "translate-x-[22px]"
+                              : "translate-x-0.5",
                           )}
                         />
                       </button>
@@ -1539,7 +1646,11 @@ export default function TimesheetEntryPage() {
                         >
                           {!isEditable || row.isDayOff ? (
                             <div className="flex items-center justify-center w-full border border-neutral-200/60 rounded-xl bg-neutral-50 px-3 py-2 font-medium text-[13px] text-neutral-400 h-10">
-                              {row.isDayOff ? "N/A" : row.startTime ? formatTimeToAMPM(row.startTime) : "—"}
+                              {row.isDayOff
+                                ? "N/A"
+                                : row.startTime
+                                  ? formatTimeToAMPM(row.startTime)
+                                  : "—"}
                             </div>
                           ) : (
                             <>
@@ -1555,7 +1666,9 @@ export default function TimesheetEntryPage() {
                                 className="flex items-center justify-between w-full border border-neutral-200 rounded-xl bg-white hover:bg-neutral-50 px-3 py-2 text-left focus:outline-none focus:border-neutral-900 transition group cursor-pointer font-medium text-[13px] text-neutral-900 h-10 disabled:opacity-50"
                               >
                                 <span>
-                                  {row.startTime ? formatTimeToAMPM(row.startTime) : "—"}
+                                  {row.startTime
+                                    ? formatTimeToAMPM(row.startTime)
+                                    : "—"}
                                 </span>
                                 <ChevronDown className="w-4 h-4 text-neutral-400 shrink-0" />
                               </button>
@@ -1589,7 +1702,11 @@ export default function TimesheetEntryPage() {
                         >
                           {!isEditable || row.isDayOff ? (
                             <div className="flex items-center justify-center w-full border border-neutral-200/60 rounded-xl bg-neutral-50 px-3 py-2 font-medium text-[13px] text-neutral-400 h-10">
-                              {row.isDayOff ? "N/A" : row.endTime ? formatTimeToAMPM(row.endTime) : "—"}
+                              {row.isDayOff
+                                ? "N/A"
+                                : row.endTime
+                                  ? formatTimeToAMPM(row.endTime)
+                                  : "—"}
                             </div>
                           ) : (
                             <>
@@ -1605,7 +1722,9 @@ export default function TimesheetEntryPage() {
                                 className="flex items-center justify-between w-full border border-neutral-200 rounded-xl bg-white hover:bg-neutral-50 px-3 py-2 text-left focus:outline-none focus:border-neutral-900 transition group cursor-pointer font-medium text-[13px] text-neutral-900 h-10 disabled:opacity-50"
                               >
                                 <span>
-                                  {row.endTime ? formatTimeToAMPM(row.endTime) : "—"}
+                                  {row.endTime
+                                    ? formatTimeToAMPM(row.endTime)
+                                    : "—"}
                                 </span>
                                 <ChevronDown className="w-4 h-4 text-neutral-400 shrink-0" />
                               </button>
@@ -1620,7 +1739,7 @@ export default function TimesheetEntryPage() {
                                         setOpenTimePicker(null);
                                       }
                                     }}
-                                    className="!right-0 !left-auto mt-2 shadow-2xl border border-neutral-200 rounded-2xl z-50"
+                                    className="right-0! left-auto! mt-2 shadow-2xl border border-neutral-200 rounded-2xl z-50"
                                   />
                                 )}
                             </>
@@ -1641,21 +1760,27 @@ export default function TimesheetEntryPage() {
                           <Select
                             value={row.unpaidBreak}
                             onValueChange={(val) => handleBreakChange(idx, val)}
-                            disabled={submitting || (!row.startTime && !row.endTime) || settings?.require_break_entry === false}
+                            disabled={
+                              submitting ||
+                              (!row.startTime && !row.endTime) ||
+                              settings?.require_break_entry === false
+                            }
                           >
                             <SelectTrigger className="w-full h-10 rounded-xl border border-neutral-200 bg-white px-3.5 py-2 text-left focus:outline-none focus:border-neutral-900 transition cursor-pointer font-semibold text-xs text-neutral-900 hover:bg-neutral-50 flex items-center justify-between">
                               <SelectValue placeholder="Select Break" />
                             </SelectTrigger>
                             <SelectContent className="rounded-xl border border-neutral-200 bg-white p-1 max-h-56 z-50">
-                              {["0", "15", "30", "45", "60", "90", "120"].map((opt) => (
-                                <SelectItem
-                                  value={opt}
-                                  key={opt}
-                                  className="rounded-lg px-3 py-2 text-xs font-semibold text-neutral-955 cursor-pointer flex items-center"
-                                >
-                                  {opt}
-                                </SelectItem>
-                              ))}
+                              {["0", "15", "30", "45", "60", "90", "120"].map(
+                                (opt) => (
+                                  <SelectItem
+                                    value={opt}
+                                    key={opt}
+                                    className="rounded-lg px-3 py-2 text-xs font-semibold text-neutral-955 cursor-pointer flex items-center"
+                                  >
+                                    {opt}
+                                  </SelectItem>
+                                ),
+                              )}
                             </SelectContent>
                           </Select>
                         )}
@@ -1676,13 +1801,22 @@ export default function TimesheetEntryPage() {
                               {isStandardProject(row.project) ? (
                                 <Select
                                   value={row.project || ""}
-                                  onValueChange={(val) => handleProjectSelect(idx, val)}
-                                  disabled={submitting || (!row.startTime && !row.endTime)}
+                                  onValueChange={(val) =>
+                                    handleProjectSelect(idx, val)
+                                  }
+                                  disabled={
+                                    submitting ||
+                                    (!row.startTime && !row.endTime)
+                                  }
                                 >
-                                  <SelectTrigger className={cn(
-                                    "flex items-center justify-between w-full border border-neutral-200 rounded-xl bg-white px-3 py-2 text-left focus:outline-none transition hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed font-semibold text-xs h-10 cursor-pointer",
-                                    row.project ? "text-emerald-700" : "text-neutral-400 font-medium"
-                                  )}>
+                                  <SelectTrigger
+                                    className={cn(
+                                      "flex items-center justify-between w-full border border-neutral-200 rounded-xl bg-white px-3 py-2 text-left focus:outline-none transition hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed font-semibold text-xs h-10 cursor-pointer",
+                                      row.project
+                                        ? "text-emerald-700"
+                                        : "text-neutral-400 font-medium",
+                                    )}
+                                  >
                                     <SelectValue placeholder="Select Project" />
                                   </SelectTrigger>
                                   <SelectContent className="rounded-xl border border-neutral-200 bg-white p-1 max-h-56 z-50">
@@ -1707,8 +1841,10 @@ export default function TimesheetEntryPage() {
                                       const val = e.target.value;
                                       setWeekRows((prev) =>
                                         prev.map((r, i) =>
-                                          i === idx ? { ...r, project: val } : r
-                                        )
+                                          i === idx
+                                            ? { ...r, project: val }
+                                            : r,
+                                        ),
                                       );
                                     }}
                                     placeholder="Project Name..."
@@ -1719,8 +1855,8 @@ export default function TimesheetEntryPage() {
                                     onClick={() => {
                                       setWeekRows((prev) =>
                                         prev.map((r, i) =>
-                                          i === idx ? { ...r, project: "" } : r
-                                        )
+                                          i === idx ? { ...r, project: "" } : r,
+                                        ),
                                       );
                                     }}
                                     className="absolute right-2.5 text-neutral-400 hover:text-neutral-600 cursor-pointer animate-fade-in"
@@ -1746,9 +1882,13 @@ export default function TimesheetEntryPage() {
                         </div>
                       ) : (
                         <textarea
-                          disabled={submitting || (!row.startTime && !row.endTime)}
+                          disabled={
+                            submitting || (!row.startTime && !row.endTime)
+                          }
                           value={row.notes}
-                          onChange={(e) => handleNotesChange(idx, e.target.value)}
+                          onChange={(e) =>
+                            handleNotesChange(idx, e.target.value)
+                          }
                           placeholder="Add Notes..."
                           rows={3}
                           className="w-full border border-neutral-200 rounded-xl bg-white px-3 py-2 text-xs font-medium text-neutral-900 placeholder-neutral-400 focus:outline-none focus:border-neutral-900 focus:ring-4 focus:ring-neutral-900/5 transition disabled:opacity-50 disabled:bg-neutral-50 disabled:cursor-not-allowed resize-none"
