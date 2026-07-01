@@ -357,7 +357,7 @@ def update_timesheet(
     allow_past_entry = True
     max_past_days = 1
     lock_submitted = True
-    allow_staff_edit_pending = True
+    allow_staff_edit_pending = False
     allow_managers_edit_approved = True
     lock_timesheets_before_date = False
     lock_payroll_period_date = None
@@ -513,7 +513,7 @@ def delete_timesheet(
     settings = session.exec(stmt_settings).first()
 
     lock_submitted = True
-    allow_staff_edit_pending = True
+    allow_staff_edit_pending = False
     lock_timesheets_before_date = False
     lock_payroll_period_date = None
 
