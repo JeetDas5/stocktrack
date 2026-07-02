@@ -1172,7 +1172,7 @@ export default function TimesheetEntryPage() {
                           {/* Unpaid Break with spinner */}
                           <td className="py-4 px-3 text-center">
                             {!isEditable || row.isDayOff ? (
-                              <div className="w-20 mx-auto border border-neutral-200/60 rounded-xl bg-neutral-100 px-2 py-2 text-center font-medium text-[13px] text-neutral-400 h-10 flex items-center justify-center">
+                              <div className="w-24 mx-auto border border-neutral-200/60 rounded-xl bg-neutral-100 px-2 py-2 text-center font-medium text-[13px] text-neutral-400 h-10 flex items-center justify-center">
                                 {row.unpaidBreak}
                               </div>
                             ) : (
@@ -1252,7 +1252,7 @@ export default function TimesheetEntryPage() {
                           >
                             <div className="relative">
                               {!isEditable || row.isDayOff ? (
-                                <div className="w-full font-semibold text-[13px] text-emerald-700/60 py-2 truncate">
+                                <div className="w-full font-semibold text-[13px] text-emerald-700/60 border border-neutral-200/60 rounded-xl bg-neutral-100 px-3 h-10 flex items-center truncate">
                                   {row.project || "—"}
                                 </div>
                               ) : (
