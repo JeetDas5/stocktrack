@@ -555,6 +555,11 @@ export default function DashboardLayout({
           icon: Analytics03Icon,
         },
         {
+          name: "My Reports",
+          href: "/dashboard/timesheet-my-reports",
+          icon: Analytics03Icon,
+        },
+        {
           name: "Timesheet Settings",
           href: "/dashboard/timesheet-settings",
           icon: Settings01Icon,
@@ -585,6 +590,7 @@ export default function DashboardLayout({
       "/dashboard/timesheet-review",
       "/dashboard/timesheet-reports",
       "/dashboard/timesheet-settings",
+      "/dashboard/timesheet-my-reports",
     ],
     roster: [
       "/dashboard/roaster-builder",
@@ -609,6 +615,7 @@ export default function DashboardLayout({
   };
 
   const isLinkAllowed = (href: string) => {
+    if (href === "/dashboard/timesheet-my-reports" && profile?.role !== "staff") return false;
     if (profile?.role === "super_admin") return true;
     if (href === "/dashboard/super-admin") return false;
 

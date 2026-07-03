@@ -21,10 +21,11 @@ import {
 import Calendar from "@/components/ui/calendar";
 import { useAuth } from "@/providers/auth-provider";
 import { updateMeProfile } from "@/lib/repositories/user.repository";
+import { getMyStaffProfile } from "@/lib/repositories/staff.repository";
 import { Dropdown } from "@/components/ui/dropdown";
 import { useBusinessStore } from "@/stores/business-store";
-import { useStaffStore } from "@/stores/staff-store";
 import { useLocationStore } from "@/stores/location-store";
+import type { Staff } from "@/types/staff";
 
 const GENDER_OPTIONS = [
   { value: "Male", label: "Male" },
@@ -38,17 +39,19 @@ export default function ProfilePage() {
   const [saving, setSaving] = useState(false);
 
   const { activeBusinessId } = useBusinessStore();
-  const { staffMembers, fetchStaffMembers } = useStaffStore();
   const { locations, fetchLocations } = useLocationStore();
+  const [myStaffProfile, setMyStaffProfile] = useState<Staff | null>(null);
 
   useEffect(() => {
     if (activeBusinessId) {
       fetchLocations(activeBusinessId);
-      fetchStaffMembers(activeBusinessId).catch((err) => {
-        console.error("Failed to fetch staff members:", err);
-      });
+      getMyStaffProfile(activeBusinessId)
+        .then(setMyStaffProfile)
+        .catch(() => {
+          // Not all users have a staff record (e.g. business owner); silently ignore
+        });
     }
-  }, [activeBusinessId, fetchLocations, fetchStaffMembers]);
+  }, [activeBusinessId, fetchLocations]);
 
   const assignedLocations = useMemo(() => {
     if (!profile) return [];
@@ -57,16 +60,12 @@ export default function ProfilePage() {
       return locations;
     }
 
-    const matchingStaff = staffMembers.find(
-      (s) => s.email.toLowerCase() === profile.email?.toLowerCase(),
-    );
-
-    if (matchingStaff && matchingStaff.locations) {
-      return matchingStaff.locations;
+    if (myStaffProfile?.locations) {
+      return myStaffProfile.locations;
     }
 
     return [];
-  }, [profile, locations, staffMembers]);
+  }, [profile, locations, myStaffProfile]);
 
   const [openSections, setOpenSections] = useState({
     personal: true,

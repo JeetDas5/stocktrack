@@ -69,11 +69,14 @@ def create_staff(
             email=data.email.strip(),
             name=data.name.strip(),
             phone=data.phone.strip(),
-            role="staff"
+            role=data.role.strip().lower()
         )
     else:
         user.name = data.name.strip()
         user.phone = data.phone.strip()
+        role = data.role.strip().lower()
+        if role in ["staff", "manager", "admin"]:
+            user.role = role
 
     user.position = data.position
     user.reports_to = data.reporting_to
@@ -196,6 +199,91 @@ def create_staff(
         reporting_to=reporting_to,
         start_date=start_date,
         employment_type=user.employment_type
+    )
+
+
+@router.get("/api/businesses/{business_id}/staff/me", response_model=StaffOut)
+def get_my_staff_profile(
+    business_id: str,
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session)
+):
+    """Returns the current user's own staff record for a given business."""
+    assignments = session.exec(
+        select(UserAssignment).where(
+            UserAssignment.user_id == current_user.id,
+            UserAssignment.business_id == business_id,
+            or_(
+                UserAssignment.status != "pending_approval",
+                UserAssignment.status.is_(None)
+            )
+        )
+    ).all()
+
+    if not assignments:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No staff record found for this user in the given business"
+        )
+
+    locs = []
+    is_all_locations = False
+    role = "staff"
+    is_active = False
+    priority = 5
+    position = None
+    max_working_hours = None
+    hourly_rate = None
+    reporting_to = None
+    start_date = None
+
+    for ass in assignments:
+        if ass.role:
+            role = ass.role
+        if ass.is_active:
+            is_active = True
+        if ass.location_id is None:
+            is_all_locations = True
+        elif ass.location:
+            locs.append(LocationOut(id=ass.location.id, name=ass.location.name))
+
+        if ass.priority:
+            priority = ass.priority
+        if ass.position:
+            position = ass.position
+        if ass.max_working_hours is not None:
+            max_working_hours = ass.max_working_hours
+        if ass.hourly_rate is not None:
+            hourly_rate = ass.hourly_rate
+        if ass.reporting_to:
+            reporting_to = ass.reporting_to
+        if ass.start_date:
+            start_date = ass.start_date
+
+    if is_all_locations:
+        all_biz_locs = session.exec(select(Location).where(Location.business_id == business_id)).all()
+        locs = [LocationOut(id=l.id, name=l.name) for l in all_biz_locs]
+
+    created_at = assignments[0].created_at if assignments else datetime.utcnow()
+
+    return StaffOut(
+        id=current_user.id,
+        name=current_user.name or "",
+        phone=current_user.phone or "",
+        email=current_user.email,
+        role=role,
+        status="Active" if is_active else "Inactive",
+        business_id=business_id,
+        created_at=created_at,
+        updated_at=current_user.updated_at or datetime.utcnow(),
+        locations=locs,
+        priority=priority,
+        position=position,
+        max_working_hours=max_working_hours,
+        hourly_rate=hourly_rate,
+        reporting_to=reporting_to,
+        start_date=start_date,
+        employment_type=current_user.employment_type
     )
 
 
@@ -359,6 +447,10 @@ def update_staff(
     user.name = data.name.strip()
     user.phone = data.phone.strip()
     user.email = data.email.strip()
+    
+    role = data.role.strip().lower()
+    if role in ["staff", "manager", "admin"]:
+        user.role = role
 
     user.position = data.position
     user.reports_to = data.reporting_to
@@ -1050,7 +1142,7 @@ def approve_pending_staff(
           <div style="background-color: #ffffff; padding: 30px; border-radius: 6px; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05); border: 1px solid #f3f4f6;">
             <p style="font-size: 16px; line-height: 1.6; margin-top: 0;">Hi {user_name},</p>
             <p style="font-size: 16px; line-height: 1.6;">We are pleased to inform you that your onboarding request for <strong>{business_name}</strong> has been approved by the administrator.</p>
-            <p style="font-size: 16px; line-height: 1.6;">Your role has been set to <strong>{role.capitalize()}</strong>. You can now access your dashboard and manage your shifts, profile, and timesheets.</p>
+            <p style="font-size: 16px; line-height: 1.6;">Your role has been set to <strong>{role.capitalize()}</strong>. You can now access your dashboard and manage your profile, and timesheets.</p>
             
             <div style="text-align: center; margin: 35px 0 25px 0;">
               <a href="{login_link}" style="display: inline-block; padding: 12px 30px; background-color: #111827; color: #ffffff; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 16px; box-shadow: 0 4px 6px -1px rgba(17, 24, 39, 0.15);">Log In to Your Account</a>

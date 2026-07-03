@@ -1178,9 +1178,9 @@ export default function TimesheetEntryPage() {
                             ) : (
                               <div className="relative w-24 mx-auto">
                                 <input
-                                  type="number"
-                                  min="0"
-                                  step="5"
+                                  type="text"
+                                  inputMode="numeric"
+                                  pattern="[0-9]*"
                                   disabled={
                                     !isEditable ||
                                     submitting ||
@@ -1188,9 +1188,12 @@ export default function TimesheetEntryPage() {
                                     settings?.require_break_entry === false
                                   }
                                   value={row.unpaidBreak}
-                                  onChange={(e) =>
-                                    handleBreakChange(idx, e.target.value)
-                                  }
+                                  onChange={(e) => {
+                                    const val = e.target.value;
+                                    if (val === "" || /^\d*$/.test(val)) {
+                                      handleBreakChange(idx, val);
+                                    }
+                                  }}
                                   className="w-full border border-neutral-200 rounded-xl bg-white pl-3 pr-8 py-2 text-center focus:outline-none focus:border-neutral-900 focus:ring-4 focus:ring-neutral-900/5 transition disabled:opacity-50 disabled:bg-neutral-50 disabled:cursor-not-allowed font-medium text-[13px] text-neutral-900 h-10 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                 />
                                 <div className="absolute right-1 top-1/2 -translate-y-1/2 flex flex-col gap-0.5 pr-1.5">
@@ -1757,32 +1760,69 @@ export default function TimesheetEntryPage() {
                             {row.unpaidBreak}
                           </div>
                         ) : (
-                          <Select
-                            value={row.unpaidBreak}
-                            onValueChange={(val) => handleBreakChange(idx, val)}
-                            disabled={
-                              submitting ||
-                              (!row.startTime && !row.endTime) ||
-                              settings?.require_break_entry === false
-                            }
-                          >
-                            <SelectTrigger className="w-full h-10 rounded-xl border border-neutral-200 bg-white px-3.5 py-2 text-left focus:outline-none focus:border-neutral-900 transition cursor-pointer font-semibold text-xs text-neutral-900 hover:bg-neutral-50 flex items-center justify-between">
-                              <SelectValue placeholder="Select Break" />
-                            </SelectTrigger>
-                            <SelectContent className="rounded-xl border border-neutral-200 bg-white p-1 max-h-56 z-50">
-                              {["0", "15", "30", "45", "60", "90", "120"].map(
-                                (opt) => (
-                                  <SelectItem
-                                    value={opt}
-                                    key={opt}
-                                    className="rounded-lg px-3 py-2 text-xs font-semibold text-neutral-955 cursor-pointer flex items-center"
-                                  >
-                                    {opt}
-                                  </SelectItem>
-                                ),
-                              )}
-                            </SelectContent>
-                          </Select>
+                           <div className="relative w-full">
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              pattern="[0-9]*"
+                              disabled={
+                                !isEditable ||
+                                submitting ||
+                                (!row.startTime && !row.endTime) ||
+                                settings?.require_break_entry === false
+                              }
+                              value={row.unpaidBreak}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                if (val === "" || /^\d*$/.test(val)) {
+                                  handleBreakChange(idx, val);
+                                }
+                              }}
+                              className="w-full border border-neutral-200 rounded-xl bg-white pl-3 pr-8 py-2 text-center focus:outline-none focus:border-neutral-900 focus:ring-4 focus:ring-neutral-900/5 transition disabled:opacity-50 disabled:bg-neutral-50 disabled:cursor-not-allowed font-medium text-[13px] text-neutral-900 h-10 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                            />
+                            <div className="absolute right-1 top-1/2 -translate-y-1/2 flex flex-col gap-0.5 pr-1.5">
+                              <button
+                                type="button"
+                                disabled={
+                                  !isEditable ||
+                                  submitting ||
+                                  (!row.startTime && !row.endTime) ||
+                                  settings?.require_break_entry === false
+                                }
+                                onClick={() => {
+                                  const currentVal =
+                                    parseInt(row.unpaidBreak, 10) || 0;
+                                  handleBreakChange(
+                                    idx,
+                                    (currentVal + 5).toString(),
+                                  );
+                                }}
+                                className="text-neutral-400 hover:text-neutral-800 disabled:opacity-40 cursor-pointer"
+                              >
+                                <ChevronDown className="w-3.5 h-3.5 rotate-180" />
+                              </button>
+                              <button
+                                type="button"
+                                disabled={
+                                  !isEditable ||
+                                  submitting ||
+                                  (!row.startTime && !row.endTime) ||
+                                  settings?.require_break_entry === false
+                                }
+                                onClick={() => {
+                                  const currentVal =
+                                    parseInt(row.unpaidBreak, 10) || 0;
+                                  handleBreakChange(
+                                    idx,
+                                    Math.max(0, currentVal - 5).toString(),
+                                  );
+                                }}
+                                className="text-neutral-400 hover:text-neutral-800 disabled:opacity-40 cursor-pointer"
+                              >
+                                <ChevronDown className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
                         )}
                       </div>
 

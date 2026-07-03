@@ -27,6 +27,36 @@ interface BackendStaff {
   employment_type?: string | null;
 }
 
+export const getMyStaffProfile = async (businessId: string): Promise<Staff> => {
+  const response = await api.get(`/api/businesses/${businessId}/staff/me`);
+  const s: BackendStaff = response.data;
+  return {
+    id: s.id,
+    businessId: s.business_id,
+    name: s.name,
+    phone: s.phone,
+    email: s.email,
+    role: s.role,
+    status: s.status,
+    createdAt: s.created_at,
+    locations: s.locations?.map((l) => ({
+      id: l.id,
+      businessId,
+      name: l.name,
+      type: "",
+      isActive: true,
+      createdAt: "",
+    })),
+    priority: s.priority,
+    position: s.position,
+    maxWorkingHours: s.max_working_hours,
+    hourlyRate: s.hourly_rate,
+    reportingTo: s.reporting_to,
+    startDate: s.start_date,
+    employmentType: s.employment_type,
+  };
+};
+
 export const getStaffMembers = async (businessId: string): Promise<Staff[]> => {
   const response = await api.get(`/api/businesses/${businessId}/staff`);
   return response.data.map((s: BackendStaff) => ({
@@ -38,7 +68,14 @@ export const getStaffMembers = async (businessId: string): Promise<Staff[]> => {
     role: s.role,
     status: s.status,
     createdAt: s.created_at,
-    locations: s.locations,
+    locations: s.locations?.map((l) => ({
+      id: l.id,
+      businessId,
+      name: l.name,
+      type: "",
+      isActive: true,
+      createdAt: "",
+    })),
     priority: s.priority,
     position: s.position,
     maxWorkingHours: s.max_working_hours,
