@@ -371,6 +371,11 @@ def create_user_assignment(
         is_active=True
     )
     session.add(assignment)
+    
+    # Keep the User.role in sync
+    user_to_assign.role = data.role
+    session.add(user_to_assign)
+    
     session.commit()
     session.refresh(assignment)
 
@@ -453,6 +458,9 @@ def update_user_assignment(
 
     if data.role is not None:
         assignment.role = data.role
+        if assignment.user:
+            assignment.user.role = data.role
+            session.add(assignment.user)
     if data.location_id is not None:
         if data.location_id:
             loc = session.get(Location, data.location_id)

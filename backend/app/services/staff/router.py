@@ -69,11 +69,14 @@ def create_staff(
             email=data.email.strip(),
             name=data.name.strip(),
             phone=data.phone.strip(),
-            role="staff"
+            role=data.role.strip().lower()
         )
     else:
         user.name = data.name.strip()
         user.phone = data.phone.strip()
+        role = data.role.strip().lower()
+        if role in ["staff", "manager", "admin"]:
+            user.role = role
 
     user.position = data.position
     user.reports_to = data.reporting_to
@@ -444,6 +447,10 @@ def update_staff(
     user.name = data.name.strip()
     user.phone = data.phone.strip()
     user.email = data.email.strip()
+    
+    role = data.role.strip().lower()
+    if role in ["staff", "manager", "admin"]:
+        user.role = role
 
     user.position = data.position
     user.reports_to = data.reporting_to
@@ -1135,7 +1142,7 @@ def approve_pending_staff(
           <div style="background-color: #ffffff; padding: 30px; border-radius: 6px; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05); border: 1px solid #f3f4f6;">
             <p style="font-size: 16px; line-height: 1.6; margin-top: 0;">Hi {user_name},</p>
             <p style="font-size: 16px; line-height: 1.6;">We are pleased to inform you that your onboarding request for <strong>{business_name}</strong> has been approved by the administrator.</p>
-            <p style="font-size: 16px; line-height: 1.6;">Your role has been set to <strong>{role.capitalize()}</strong>. You can now access your dashboard and manage your shifts, profile, and timesheets.</p>
+            <p style="font-size: 16px; line-height: 1.6;">Your role has been set to <strong>{role.capitalize()}</strong>. You can now access your dashboard and manage your profile, and timesheets.</p>
             
             <div style="text-align: center; margin: 35px 0 25px 0;">
               <a href="{login_link}" style="display: inline-block; padding: 12px 30px; background-color: #111827; color: #ffffff; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 16px; box-shadow: 0 4px 6px -1px rgba(17, 24, 39, 0.15);">Log In to Your Account</a>
