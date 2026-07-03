@@ -48,9 +48,25 @@ export default function InvitePage({
   const [error, setError] = useState<string | null>(null);
 
   const [name, setName] = useState("");
+  const [countryCode, setCountryCode] = useState("+61");
   const [phone, setPhone] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [registered, setRegistered] = useState(false);
+
+  const handleCountryCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    let sanitized = value.replace(/[^+\d]/g, "");
+    if (sanitized.includes("+")) {
+      sanitized = "+" + sanitized.replace(/\+/g, "");
+    }
+    setCountryCode(sanitized);
+  };
+
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    const sanitized = value.replace(/[^\d]/g, "");
+    setPhone(sanitized);
+  };
 
   const [email, setEmail] = useState("");
   const [otp, setOtp] = useState("");
@@ -190,9 +206,10 @@ export default function InvitePage({
 
     try {
       setSubmitting(true);
+      const combinedPhone = phone.trim() ? `${countryCode} ${phone.trim()}`.trim() : "";
       await registerStaffInvitation(invitationId, {
         name: name.trim(),
-        phone: phone.trim(),
+        phone: combinedPhone,
       });
       toast.success("Profile submitted successfully!");
       setRegistered(true);
@@ -560,17 +577,27 @@ export default function InvitePage({
                 <label className="text-[11px] font-semibold text-neutral-900 uppercase tracking-[0.15em] block">
                   Phone Number
                 </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-neutral-400">
+                <div className="flex gap-0 items-center bg-white border border-neutral-200 focus-within:border-neutral-900 focus-within:ring-1 focus-within:ring-neutral-900 rounded-full py-3 px-4 transition-all">
+                  <div className="flex items-center text-neutral-400 shrink-0 mr-2">
                     <Phone className="h-4 w-4" strokeWidth={1.5} />
                   </div>
+                  <input
+                    type="text"
+                    required
+                    placeholder="+61"
+                    className="w-12 text-center bg-transparent border-none outline-none focus:outline-none focus:ring-0 text-[13px] text-neutral-900 placeholder-neutral-400 font-medium p-0"
+                    value={countryCode}
+                    onChange={handleCountryCodeChange}
+                    disabled={submitting}
+                  />
+                  <div className="h-5 w-px bg-neutral-200 mx-2 shrink-0" />
                   <input
                     type="tel"
                     required
                     placeholder="e.g. 469872356"
-                    className="w-full bg-white border border-neutral-200 focus:border-neutral-900 focus:ring-1 focus:ring-neutral-900 rounded-full py-3 pl-11 pr-4 text-[13px] text-neutral-900 placeholder-neutral-400 focus:outline-none transition-all font-medium"
+                    className="flex-1 bg-transparent border-none outline-none focus:outline-none focus:ring-0 text-[13px] text-neutral-900 placeholder-neutral-400 font-medium p-0"
                     value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
+                    onChange={handlePhoneChange}
                     disabled={submitting}
                   />
                 </div>

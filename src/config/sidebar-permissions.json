@@ -25,6 +25,7 @@
     "/dashboard/profile",
     "/dashboard/counts",
     "/dashboard/timesheet-entry",
-    "/dashboard/availablity-entry"
+    "/dashboard/availablity-entry",
+    "/dashboard/timesheet-my-reports"
   ]
 }

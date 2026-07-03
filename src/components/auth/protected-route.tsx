@@ -22,6 +22,7 @@ const MODULE_ROUTES: Record<string, string[]> = {
     "/dashboard/timesheet-review",
     "/dashboard/timesheet-reports",
     "/dashboard/timesheet-settings",
+    "/dashboard/timesheet-my-reports",
   ],
   roster: [
     "/dashboard/roaster-builder",

@@ -573,9 +573,9 @@ export default function TimesheetReviewPage() {
     selectableIds.every((id) => selectedIds.includes(id));
 
   return (
-    <div className="flex flex-col bg-white h-[calc(100vh-120px)] md:h-[85vh] min-h-0 relative select-none pb-4">
+    <div className="flex flex-col bg-white h-auto md:h-[85vh] min-h-0 relative select-none pb-4">
       <div className="flex-1 min-h-0 flex flex-col space-y-4 pr-0 lg:pr-4">
-        {/* Header container */}
+        
         <div className="bg-white border border-neutral-200 rounded-3xl py-4 px-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 shadow-sm">
           <h1 className="text-[24px] font-bold text-neutral-900 tracking-tight">
             Timesheet Review
@@ -806,7 +806,7 @@ export default function TimesheetReviewPage() {
                       </td>
 
                       <td className="py-4 px-6 font-medium text-neutral-500">
-                        {ts.unpaidBreak} mis
+                        {ts.unpaidBreak} min
                       </td>
 
                       <td className="py-4 px-6 font-bold text-neutral-900">
@@ -1074,10 +1074,16 @@ export default function TimesheetReviewPage() {
                     Unpaid Break (mins)
                   </label>
                   <input
-                    type="number"
-                    min="0"
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
                     value={editUnpaidBreak}
-                    onChange={(e) => setEditUnpaidBreak(e.target.value)}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val === "" || /^\d*$/.test(val)) {
+                        setEditUnpaidBreak(val);
+                      }
+                    }}
                     className="w-full bg-white border border-neutral-200 rounded-xl py-2 px-3 text-xs text-neutral-800 font-semibold focus:outline-none focus:border-neutral-900 focus:ring-4 focus:ring-neutral-900/5 transition h-10 disabled:bg-neutral-50 disabled:text-neutral-500 disabled:cursor-not-allowed"
                     required
                     disabled={!isModalEditable}
