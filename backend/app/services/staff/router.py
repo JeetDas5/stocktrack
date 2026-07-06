@@ -982,6 +982,10 @@ def get_pending_staff(
     return out
 
 
+class StaffRejectionDetails(SQLModel):
+    reason: str
+
+
 class StaffApprovalDetails(SQLModel):
     role: str
     assignments: List[dict]
@@ -1177,6 +1181,7 @@ def approve_pending_staff(
 def reject_pending_staff(
     business_id: str,
     assignment_id: str,
+    data: StaffRejectionDetails,
     request: Request,
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session)
@@ -1244,6 +1249,12 @@ def reject_pending_staff(
             <p style="font-size: 16px; line-height: 1.6; margin-top: 0;">Hi {user_name},</p>
             <p style="font-size: 16px; line-height: 1.6;">Thank you for your interest in joining <strong>{business_name}</strong>.</p>
             <p style="font-size: 16px; line-height: 1.6;">We regret to inform you that your onboarding request has been declined at this time.</p>
+            
+            <div style="margin: 20px 0; padding: 15px; background-color: #fef2f2; border-left: 4px solid #ef4444; border-radius: 4px;">
+              <p style="font-size: 14px; font-weight: 600; color: #991b1b; margin: 0 0 5px 0;">Reason for rejection:</p>
+              <p style="font-size: 14px; color: #7f1d1d; margin: 0; line-height: 1.5; white-space: pre-wrap;">{data.reason}</p>
+            </div>
+            
             <p style="font-size: 16px; line-height: 1.6;">If you believe this is an error or have questions about the decision, please contact the business administrator.</p>
             
             <div style="text-align: center; margin: 35px 0 25px 0;">

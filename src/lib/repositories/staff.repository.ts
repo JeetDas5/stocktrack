@@ -240,9 +240,11 @@ export const approvePendingStaff = async (
 export const rejectPendingStaff = async (
   businessId: string,
   assignmentId: string,
+  reason: string,
 ): Promise<{ message: string }> => {
   const response = await api.post(
     `/api/businesses/${businessId}/pending-staff/${assignmentId}/reject`,
+    { reason },
   );
   return response.data;
 };

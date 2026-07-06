@@ -112,7 +112,9 @@ export default function RosterSettingsPage() {
       toast.success("Roster settings saved successfully!");
     } catch (err) {
       console.error(err);
-      toast.error("Failed to save settings.");
+      toast.error(
+        err instanceof Error ? err.message : "Failed to save settings",
+      );
     } finally {
       setSaving(false);
     }
@@ -123,7 +125,7 @@ export default function RosterSettingsPage() {
     const cleanPos = newPosition.trim();
     if (!cleanPos) return;
     if (positions.some((p) => p.toLowerCase() === cleanPos.toLowerCase())) {
-      toast.error("Position already exists.");
+      toast.error("This position already exists.");
       return;
     }
     setPositions([...positions, cleanPos]);

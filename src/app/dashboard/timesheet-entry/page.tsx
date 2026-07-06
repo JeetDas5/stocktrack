@@ -748,6 +748,23 @@ export default function TimesheetEntryPage() {
               );
             }
 
+            const [startH, startM] = row.startTime.split(":").map(Number);
+            const [endH, endM] = row.endTime.split(":").map(Number);
+            let diffMins = endH * 60 + endM - (startH * 60 + startM);
+            if (diffMins < 0) {
+              diffMins += 24 * 60;
+            }
+            if (breakMins >= diffMins) {
+              throw new Error(
+                `On ${row.dayName} (${row.displayDate}), unpaid break must be less than the total shift duration.`,
+              );
+            }
+            if (breakMins >= 360) {
+              throw new Error(
+                `On ${row.dayName} (${row.displayDate}), unpaid break must be less than 6 hours.`,
+              );
+            }
+
             if (
               settings?.require_break_entry &&
               settings?.require_reason_no_break &&
@@ -997,29 +1014,29 @@ export default function TimesheetEntryPage() {
                 <table className="w-full text-left border-collapse min-w-[1000px]">
                   <thead>
                     <tr className="border-b border-neutral-200 text-[11px] font-semibold uppercase tracking-wider text-neutral-500 bg-white sticky top-0 z-10 text-center">
-                      <th className="py-4 px-6 text-left font-semibold">Day</th>
-                      <th className="py-4 px-6 text-left font-semibold">
+                      <th className="py-4 px-6 text-left font-semibold min-w-[80px]">Day</th>
+                      <th className="py-4 px-6 text-left font-semibold min-w-[100px]">
                         Date
                       </th>
                       <th className="py-4 px-3 text-center font-semibold text-xs min-w-[75px]">
                         Day Off
                       </th>
-                      <th className="py-4 px-3 text-center font-semibold">
+                      <th className="py-4 px-3 text-center font-semibold min-w-[125px]">
                         Start Time
                       </th>
-                      <th className="py-4 px-3 text-center font-semibold">
+                      <th className="py-4 px-3 text-center font-semibold min-w-[125px]">
                         End Time
                       </th>
-                      <th className="py-4 px-3 text-center font-semibold">
+                      <th className="py-4 px-3 text-center font-semibold min-w-[150px]">
                         Unpaid Break (Mins)
                       </th>
-                      <th className="py-4 px-3 text-center font-semibold">
+                      <th className="py-4 px-3 text-center font-semibold min-w-[100px]">
                         Total Hours
                       </th>
-                      <th className="py-4 px-3 text-left font-semibold">
+                      <th className="py-4 px-3 text-left font-semibold min-w-[180px]">
                         Project
                       </th>
-                      <th className="py-4 px-3 text-left font-semibold">
+                      <th className="py-4 px-3 text-left font-semibold min-w-[240px]">
                         Notes
                       </th>
                     </tr>
