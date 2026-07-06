@@ -89,6 +89,21 @@ def calculate_timesheet_hours(start: str, end: str, break_mins: int) -> float:
     if total_seconds < 0:
         total_seconds += 24 * 3600
     hours = total_seconds / 3600.0
+
+    is_day_off = (start.strip() in ("00:00", "00:00:00")) and (end.strip() in ("00:00", "00:00:00"))
+    if not is_day_off:
+        shift_mins = total_seconds / 60.0
+        if break_mins >= shift_mins:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Unpaid break must be less than the total shift duration."
+            )
+        if break_mins >= 360:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Unpaid break must be less than 6 hours."
+            )
+
     net_hours = hours - (break_mins / 60.0)
     return max(0.0, net_hours)
 

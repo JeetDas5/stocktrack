@@ -142,6 +142,19 @@ def save_roster_settings(
 ):
     verify_roster_admin(current_user, business_id, session)
 
+    if data.positions:
+        seen_positions = set()
+        for pos in data.positions:
+            if not pos:
+                continue
+            clean_pos = pos.strip().lower()
+            if clean_pos in seen_positions:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="This position already exists."
+                )
+            seen_positions.add(clean_pos)
+
     stmt = select(RosterSettings).where(RosterSettings.business_id == business_id)
     settings = session.exec(stmt).first()
     if not settings:
