@@ -158,7 +158,8 @@ export default function StaffDirectoryPage() {
   const [approvalHourlyRate, setApprovalHourlyRate] = useState<number | "">("");
   const [approvalReportingTo, setApprovalReportingTo] = useState("");
   const [approvalStartDate, setApprovalStartDate] = useState("");
-  const [approvalEmploymentType, setApprovalEmploymentType] = useState("Casual");
+  const [approvalEmploymentType, setApprovalEmploymentType] =
+    useState("Casual");
   const [
     isCreatingCustomPositionApproval,
     setIsCreatingCustomPositionApproval,
@@ -239,6 +240,12 @@ export default function StaffDirectoryPage() {
     profile?.email !== staffToEdit.email
   );
 
+  const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
+  const [pendingStaffToReject, setPendingStaffToReject] =
+    useState<PendingStaffAssignment | null>(null);
+  const [rejectionReason, setRejectionReason] = useState("");
+  const [submittingRejection, setSubmittingRejection] = useState(false);
+
   const loadData = useCallback(async () => {
     if (!activeBusinessId) return;
     try {
@@ -292,6 +299,33 @@ export default function StaffDirectoryPage() {
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, []);
+
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        if (isApprovalModalOpen) {
+          setIsApprovalModalOpen(false);
+          setPendingStaffToApprove(null);
+        }
+        if (isRejectModalOpen) {
+          setIsRejectModalOpen(false);
+          setPendingStaffToReject(null);
+        }
+        if (isEditModalOpen) {
+          setIsEditModalOpen(false);
+          setStaffToEdit(null);
+        }
+        if (isAddStaffOpen) {
+          setIsAddStaffOpen(false);
+          setGeneratedLink(null);
+        }
+      }
+    }
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isApprovalModalOpen, isRejectModalOpen, isEditModalOpen, isAddStaffOpen]);
 
   const loadPending = useCallback(async () => {
     if (!activeBusinessId) return;
@@ -616,15 +650,31 @@ export default function StaffDirectoryPage() {
     }
 
     try {
+      const finalPosition = isCreatingCustomPositionApproval
+        ? customPositionApproval.trim()
+        : approvalPosition;
+
+      if (isCreatingCustomPositionApproval && finalPosition) {
+        const alreadyExists =
+          positions.some(
+            (p) => p.toLowerCase() === finalPosition.toLowerCase(),
+          ) ||
+          staffMembers.some(
+            (s) =>
+              s.position &&
+              s.position.toLowerCase() === finalPosition.toLowerCase(),
+          );
+        if (alreadyExists) {
+          toast.error("This position already exists.");
+          return;
+        }
+      }
+
       setSubmittingApproval(true);
       const assignments = approvalBusinesses.map((bizId) => ({
         business_id: bizId,
         location_ids: approvalLocations[bizId] || [],
       }));
-
-      const finalPosition = isCreatingCustomPositionApproval
-        ? customPositionApproval.trim()
-        : approvalPosition;
 
       const res = await approvePendingStaff(
         activeBusinessId,
@@ -662,11 +712,24 @@ export default function StaffDirectoryPage() {
     }
   };
 
-  const handleReject = async (assignmentId: string) => {
-    if (!activeBusinessId) return;
+  const handleSubmitRejection = async () => {
+    if (!activeBusinessId || !pendingStaffToReject || !rejectionReason.trim())
+      return;
+    if (rejectionReason.trim().length < 5) {
+      toast.error("Rejection reason must be at least 5 characters long.");
+      return;
+    }
     try {
-      const res = await rejectPendingStaff(activeBusinessId, assignmentId);
+      setSubmittingRejection(true);
+      const res = await rejectPendingStaff(
+        activeBusinessId,
+        pendingStaffToReject.id,
+        rejectionReason.trim(),
+      );
       toast.success(res.message || "Staff request rejected.");
+      setIsRejectModalOpen(false);
+      setPendingStaffToReject(null);
+      setRejectionReason("");
       await loadPending();
     } catch (err) {
       if (err instanceof Error) {
@@ -674,6 +737,8 @@ export default function StaffDirectoryPage() {
       } else {
         toast.error("Failed to reject staff.");
       }
+    } finally {
+      setSubmittingRejection(false);
     }
   };
 
@@ -759,14 +824,31 @@ export default function StaffDirectoryPage() {
     }
 
     try {
+      const finalPosition = isCreatingCustomPositionEdit
+        ? customPositionEdit.trim()
+        : editPosition;
+
+      if (isCreatingCustomPositionEdit && finalPosition) {
+        const alreadyExists =
+          positions.some(
+            (p) => p.toLowerCase() === finalPosition.toLowerCase(),
+          ) ||
+          staffMembers.some(
+            (s) =>
+              s.position &&
+              s.position.toLowerCase() === finalPosition.toLowerCase() &&
+              s.id !== staffToEdit.id,
+          );
+        if (alreadyExists) {
+          toast.error("This position already exists.");
+          return;
+        }
+      }
+
       setSubmittingEdit(true);
 
       const { updateStaff } =
         await import("@/lib/repositories/staff.repository");
-
-      const finalPosition = isCreatingCustomPositionEdit
-        ? customPositionEdit.trim()
-        : editPosition;
 
       const payload: any = {
         name: isRestrictedAdmin ? staffToEdit.name : editName.trim(),
@@ -1213,11 +1295,54 @@ export default function StaffDirectoryPage() {
                           {p.user_phone || "N/A"}
                         </td>
                         <td className="py-4 px-6 text-[#64748B] font-medium">
-                          {new Date(p.created_at).toLocaleDateString()}
+                          <div className="font-bold">
+                            {new Date(p.created_at).toLocaleDateString()}
+                          </div>
+                          {(() => {
+                            const diffTime =
+                              new Date().getTime() -
+                              new Date(p.created_at).getTime();
+                            const diffDays = Math.floor(
+                              diffTime / (1000 * 60 * 60 * 24),
+                            );
+                            const isExtended = diffDays >= 7;
+                            if (diffDays === 0) {
+                              return (
+                                <span className="text-[10px] text-zinc-400 font-semibold mt-0.5 block">
+                                  Today
+                                </span>
+                              );
+                            }
+                            if (diffDays === 1) {
+                              return (
+                                <span className="text-[10px] text-zinc-500 font-semibold mt-0.5 block">
+                                  Yesterday
+                                </span>
+                              );
+                            }
+                            return (
+                              <span
+                                className={`text-[10px] font-bold px-2 py-0.5 rounded-full inline-flex items-center gap-1.5 mt-0.5 ${
+                                  isExtended
+                                    ? "bg-red-50 text-red-600 border border-red-200"
+                                    : "bg-amber-50 text-amber-600 border border-amber-200"
+                                }`}
+                              >
+                                {isExtended && (
+                                  <span className="h-1.5 w-1.5 rounded-full bg-red-600 animate-pulse" />
+                                )}
+                                {diffDays} days ago
+                              </span>
+                            );
+                          })()}
                         </td>
                         <td className="py-4 px-6 text-right flex items-center justify-end gap-2">
                           <button
-                            onClick={() => handleReject(p.id)}
+                            onClick={() => {
+                              setPendingStaffToReject(p);
+                              setRejectionReason("");
+                              setIsRejectModalOpen(true);
+                            }}
                             className="bg-white hover:bg-zinc-50 text-zinc-600 rounded-lg p-2 text-xs font-bold border border-zinc-200 cursor-pointer flex items-center gap-1 transition"
                           >
                             <ShieldX className="h-4 w-4" />
@@ -1393,7 +1518,12 @@ export default function StaffDirectoryPage() {
                   </label>
                   <Dropdown
                     value={approvalRole}
-                    onChange={(val) => setApprovalRole(val)}
+                    onChange={(val) => {
+                      setApprovalRole(val);
+                      if (val === "manager") {
+                        setApprovalReportingTo("");
+                      }
+                    }}
                     options={[
                       { value: "staff", label: "Staff" },
                       { value: "manager", label: "Manager" },
@@ -1472,6 +1602,7 @@ export default function StaffDirectoryPage() {
                     value={approvalReportingTo}
                     onChange={(val) => setApprovalReportingTo(val)}
                     options={supervisorOptions}
+                    disabled={approvalRole === "manager"}
                     className="w-full"
                     triggerClassName="rounded-xl py-2.5 px-3.5 font-bold text-zinc-950 focus:ring-black focus:border-black h-10"
                   />
@@ -1792,7 +1923,12 @@ export default function StaffDirectoryPage() {
                   </label>
                   <Dropdown
                     value={editRole}
-                    onChange={(val) => setEditRole(val)}
+                    onChange={(val) => {
+                      setEditRole(val);
+                      if (val === "manager") {
+                        setEditReportingTo("");
+                      }
+                    }}
                     options={[
                       { value: "staff", label: "Staff" },
                       { value: "manager", label: "Manager" },
@@ -1869,6 +2005,7 @@ export default function StaffDirectoryPage() {
                     value={editReportingTo}
                     onChange={(val) => setEditReportingTo(val)}
                     options={supervisorOptions}
+                    disabled={editRole === "manager"}
                     className="w-full"
                     triggerClassName="rounded-xl py-2.5 px-3.5 font-bold text-zinc-950 focus:ring-black focus:border-black h-10"
                   />
@@ -1918,7 +2055,7 @@ export default function StaffDirectoryPage() {
                           setEditStartDate(dateStr);
                           setIsEditCalendarOpen(false);
                         }}
-                        className="!left-0 !right-auto"
+                        className="left-0! right-auto!"
                       />
                     )}
                   </div>
@@ -2116,6 +2253,90 @@ export default function StaffDirectoryPage() {
                     </>
                   ) : (
                     "Save Changes"
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isRejectModalOpen && pendingStaffToReject && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-50 animate-fade-in p-4">
+          <div className="bg-white border border-zinc-200 rounded-3xl p-6 w-full max-w-md shadow-2xl relative animate-scale-in max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-start border-b border-zinc-200 pb-4 mb-4">
+              <div>
+                <h3 className="text-xl font-extrabold text-[#0F172A]">
+                  Reject Staff Application
+                </h3>
+                <p className="text-[#64748B] text-xs font-bold mt-1">
+                  Specify a reason for declining the registration request.
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  setIsRejectModalOpen(false);
+                  setPendingStaffToReject(null);
+                }}
+                className="p-1 rounded-lg hover:bg-zinc-100 text-zinc-400 hover:text-zinc-600 transition cursor-pointer"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4 py-2">
+              <div className="bg-zinc-50 border border-zinc-200 rounded-2xl p-4 space-y-2 text-xs">
+                <div>
+                  <span className="text-zinc-500 font-bold block">
+                    APPLICANT
+                  </span>
+                  <span className="text-zinc-900 font-extrabold mt-0.5 block">
+                    {pendingStaffToReject.user_name || "New Staff"} (
+                    {pendingStaffToReject.user_email})
+                  </span>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-extrabold text-[#0F172A] uppercase tracking-wider block">
+                  Rejection Reason <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  required
+                  rows={4}
+                  placeholder="Explain why the application is being rejected (this will be emailed to the applicant)..."
+                  className="w-full bg-white border border-zinc-200 focus:border-black rounded-xl py-2 px-3 text-xs font-semibold text-zinc-950 focus:outline-none focus:ring-1 focus:ring-black resize-none"
+                  value={rejectionReason}
+                  onChange={(e) => setRejectionReason(e.target.value)}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 mt-6">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsRejectModalOpen(false);
+                    setPendingStaffToReject(null);
+                  }}
+                  className="bg-white hover:bg-zinc-50 border border-zinc-200 text-zinc-700 rounded-xl py-3 text-xs font-bold uppercase tracking-wider transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSubmitRejection}
+                  disabled={
+                    submittingRejection || rejectionReason.trim().length < 5
+                  }
+                  className="bg-red-600 hover:bg-red-700 disabled:bg-zinc-200 disabled:text-zinc-400 text-white rounded-xl py-3 text-xs font-bold uppercase tracking-wider shadow-md transition duration-200 flex items-center justify-center gap-2 cursor-pointer disabled:cursor-not-allowed disabled:opacity-100"
+                >
+                  {submittingRejection ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin text-white" />
+                      Rejecting...
+                    </>
+                  ) : (
+                    "Confirm Reject"
                   )}
                 </button>
               </div>
