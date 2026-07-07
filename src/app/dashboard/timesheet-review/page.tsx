@@ -3,18 +3,16 @@
 
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
-import { useEffect, useState, useMemo, useRef, useCallback } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 
 import {
   Calendar,
   Clock,
-  ChevronDown,
   X,
   Check,
   Edit2,
   Download,
   Loader2,
-  Eye,
   Search,
   AlertTriangle,
 } from "lucide-react";
@@ -88,9 +86,7 @@ export default function TimesheetReviewPage() {
   const [filterStaff, setFilterStaff] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
 
-  const [pageSize, setPageSize] = useState(10);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [showPageSizeDropdown, setShowPageSizeDropdown] = useState(false);
+  const [displayLimit, setDisplayLimit] = useState(30);
 
   const [editingTimesheet, setEditingTimesheet] = useState<Timesheet | null>(
     null,
@@ -122,8 +118,6 @@ export default function TimesheetReviewPage() {
     }
   }, [editStaffId, staffList, editLocationId]);
 
-  const pageSizeRef = useRef<HTMLDivElement>(null);
-
   const isStaff = profile?.role === "staff";
 
   useEffect(() => {
@@ -131,21 +125,6 @@ export default function TimesheetReviewPage() {
       router.push("/dashboard/profile");
     }
   }, [profile, authLoading, isStaff, router]);
-
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (
-        pageSizeRef.current &&
-        !pageSizeRef.current.contains(event.target as Node)
-      ) {
-        setShowPageSizeDropdown(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, []);
 
   const [settings, setSettings] = useState<TimesheetSettings | null>(null);
 
@@ -410,17 +389,11 @@ export default function TimesheetReviewPage() {
   ]);
 
   const paginatedTimesheets = useMemo(() => {
-    const startIndex = (currentPage - 1) * pageSize;
-    return filteredTimesheets.slice(startIndex, startIndex + pageSize);
-  }, [filteredTimesheets, currentPage, pageSize]);
-
-  const totalPages = Math.max(
-    1,
-    Math.ceil(filteredTimesheets.length / pageSize),
-  );
+    return filteredTimesheets.slice(0, displayLimit);
+  }, [filteredTimesheets, displayLimit]);
 
   useEffect(() => {
-    setCurrentPage(1);
+    setDisplayLimit(30);
   }, [
     activeBusinessId,
     activeLocationId,
@@ -428,7 +401,6 @@ export default function TimesheetReviewPage() {
     filterStatus,
     startDate,
     endDate,
-    pageSize,
     searchQuery,
   ]);
 
@@ -454,7 +426,11 @@ export default function TimesheetReviewPage() {
       ts.endTime,
       ts.unpaidBreak,
       ts.totalHours.toFixed(2),
-      ts.status,
+      ts.status.toLowerCase() === "submitted"
+        ? "Pending"
+        : ts.status.toLowerCase() === "edited"
+          ? "Resubmitted"
+          : ts.status.charAt(0).toUpperCase() + ts.status.slice(1),
     ]);
     const csvContent =
       "data:text/csv;charset=utf-8," +
@@ -472,22 +448,33 @@ export default function TimesheetReviewPage() {
     toast.success("Timesheets exported successfully.");
   };
 
-  const getWeekStartStr = useCallback((dateStr: string) => {
-    const d = new Date(dateStr);
-    if (isNaN(d.getTime())) return "";
-    d.setHours(0, 0, 0, 0);
-    const DAYS_ORDER = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-    const startDay = settings?.week_starts_on || "Monday";
-    const targetIndex = DAYS_ORDER.indexOf(startDay);
-    const currentDay = d.getDay();
-    let diff = currentDay - targetIndex;
-    if (diff < 0) {
-      diff += 7;
-    }
-    d.setDate(d.getDate() - diff);
-    const pad = (n: number) => String(n).padStart(2, "0");
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-  }, [settings?.week_starts_on]);
+  const getWeekStartStr = useCallback(
+    (dateStr: string) => {
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return "";
+      d.setHours(0, 0, 0, 0);
+      const DAYS_ORDER = [
+        "Sunday",
+        "Monday",
+        "Tuesday",
+        "Wednesday",
+        "Thursday",
+        "Friday",
+        "Saturday",
+      ];
+      const startDay = settings?.week_starts_on || "Monday";
+      const targetIndex = DAYS_ORDER.indexOf(startDay);
+      const currentDay = d.getDay();
+      let diff = currentDay - targetIndex;
+      if (diff < 0) {
+        diff += 7;
+      }
+      d.setDate(d.getDate() - diff);
+      const pad = (n: number) => String(n).padStart(2, "0");
+      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    },
+    [settings?.week_starts_on],
+  );
 
   const weeklyHoursMap = useMemo(() => {
     const map: Record<string, number> = {};
@@ -502,7 +489,7 @@ export default function TimesheetReviewPage() {
 
   const isModalEditable = useMemo(() => {
     if (!editingTimesheet) return false;
-    
+
     // 1. Payroll period lock check
     if (
       settings?.lock_timesheets_before_date &&
@@ -575,7 +562,6 @@ export default function TimesheetReviewPage() {
   return (
     <div className="flex flex-col bg-white h-auto md:h-[85vh] min-h-0 relative select-none pb-4">
       <div className="flex-1 min-h-0 flex flex-col space-y-4 pr-0 lg:pr-4">
-        
         <div className="bg-white border border-neutral-200 rounded-3xl py-4 px-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 shadow-sm">
           <h1 className="text-[24px] font-bold text-neutral-900 tracking-tight">
             Timesheet Review
@@ -583,14 +569,13 @@ export default function TimesheetReviewPage() {
           <button
             type="button"
             onClick={handleExport}
-            className="inline-flex items-center gap-2 bg-white hover:bg-neutral-50 border border-neutral-200 text-neutral-900 px-5 py-2.5 rounded-full text-xs font-semibold transition-all duration-200 cursor-pointer shadow-sm animate-fade-in"
+            className="inline-flex items-center gap-2 bg-[#0A2924] hover:bg-[#0A2924]/90 border border-[#0A2924] text-white px-5 py-2.5 rounded-full text-xs font-bold transition-all duration-200 cursor-pointer disabled:opacity-50 shadow-sm"
           >
-            <Download className="h-3.5 w-3.5 text-neutral-450 shrink-0" />
+            <Download className="h-3.5 w-3.5" />
             Export
           </button>
         </div>
 
-        {/* Filter inputs row */}
         <div className="flex flex-col sm:flex-row gap-3 items-center justify-between">
           <div className="relative w-full sm:w-80">
             <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-neutral-400">
@@ -646,7 +631,6 @@ export default function TimesheetReviewPage() {
               </Select>
             </div>
 
-            {/* Date Range Picker */}
             <DateRangePicker
               className="w-full sm:w-64"
               triggerClassName="!rounded-xl !border-neutral-200 !text-neutral-900 !font-semibold focus:!border-neutral-900 focus:!ring-4 focus:!ring-neutral-900/5 !h-10"
@@ -704,7 +688,20 @@ export default function TimesheetReviewPage() {
 
         {/* Main Table Container */}
         <div className="bg-white border border-neutral-200 rounded-3xl shadow-2xs overflow-hidden flex-1 min-h-0 flex flex-col">
-          <div className="overflow-auto flex-1 min-h-0">
+          <div
+            className="overflow-auto flex-1 min-h-0"
+            onScroll={(e) => {
+              const container = e.currentTarget;
+              if (
+                container.scrollHeight - container.scrollTop <=
+                container.clientHeight + 100
+              ) {
+                setDisplayLimit((prev) =>
+                  Math.min(prev + 30, filteredTimesheets.length),
+                );
+              }
+            }}
+          >
             <table className="w-full text-left border-collapse min-w-[1000px]">
               <thead>
                 <tr className="border-b border-neutral-200 text-[11px] uppercase font-semibold tracking-wider text-neutral-550 bg-white sticky top-0 z-10">
@@ -738,10 +735,11 @@ export default function TimesheetReviewPage() {
                     settings?.lock_payroll_period_date &&
                     ts.workDate <= settings.lock_payroll_period_date
                   );
-                  
+
                   const weekStartStr = getWeekStartStr(ts.workDate);
-                  const totalWeeklyHours = weeklyHoursMap[`${ts.staffId}_${weekStartStr}`] || 0;
-                  
+                  const totalWeeklyHours =
+                    weeklyHoursMap[`${ts.staffId}_${weekStartStr}`] || 0;
+
                   const hasDailyWarning = !!(
                     settings?.show_overtime_warnings &&
                     settings?.daily_hours_warning &&
@@ -760,7 +758,11 @@ export default function TimesheetReviewPage() {
                       key={ts.id}
                       onClick={(e) => {
                         const target = e.target as HTMLElement;
-                        if (target.closest("button") || target.closest("input") || target.closest("label")) {
+                        if (
+                          target.closest("button") ||
+                          target.closest("input") ||
+                          target.closest("label")
+                        ) {
                           return;
                         }
                         handleOpenEditModal(ts);
@@ -812,21 +814,30 @@ export default function TimesheetReviewPage() {
                       <td className="py-4 px-6 font-bold text-neutral-900">
                         <div className="flex items-center gap-1.5">
                           <span>{Number(ts.totalHours.toFixed(2))}</span>
-                          {settings?.show_overtime_warnings && (hasDailyWarning || hasWeeklyWarning) && (
-                            <div className="relative group flex items-center">
-                              <AlertTriangle className="h-4 w-4 text-amber-500 animate-pulse cursor-help shrink-0" />
-                              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-56 hidden group-hover:block bg-neutral-900 border border-neutral-800 text-white text-[10px] rounded-lg p-2.5 shadow-xl z-50 leading-relaxed font-medium transition-all duration-200">
-                                <div className="font-bold text-amber-400 mb-1 uppercase tracking-wider text-[9px]">Overtime Warning</div>
-                                {hasDailyWarning && (
-                                  <div>• Daily hours exceed warning limit ({settings.daily_hours_warning} hrs)</div>
-                                )}
-                                {hasWeeklyWarning && (
-                                  <div>• Weekly hours exceed warning limit ({settings.weekly_hours_warning} hrs)</div>
-                                )}
-                                <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-neutral-900" />
+                          {settings?.show_overtime_warnings &&
+                            (hasDailyWarning || hasWeeklyWarning) && (
+                              <div className="relative group flex items-center">
+                                <AlertTriangle className="h-4 w-4 text-amber-500 animate-pulse cursor-help shrink-0" />
+                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-56 hidden group-hover:block bg-neutral-900 border border-neutral-800 text-white text-[10px] rounded-lg p-2.5 shadow-xl z-50 leading-relaxed font-medium transition-all duration-200">
+                                  <div className="font-bold text-amber-400 mb-1 uppercase tracking-wider text-[9px]">
+                                    Overtime Warning
+                                  </div>
+                                  {hasDailyWarning && (
+                                    <div>
+                                      • Daily hours exceed warning limit (
+                                      {settings.daily_hours_warning} hrs)
+                                    </div>
+                                  )}
+                                  {hasWeeklyWarning && (
+                                    <div>
+                                      • Weekly hours exceed warning limit (
+                                      {settings.weekly_hours_warning} hrs)
+                                    </div>
+                                  )}
+                                  <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-neutral-900" />
+                                </div>
                               </div>
-                            </div>
-                          )}
+                            )}
                         </div>
                       </td>
 
@@ -858,9 +869,14 @@ export default function TimesheetReviewPage() {
                           {actionLoadingId === ts.id ? (
                             <Loader2 className="h-4 w-4 animate-spin text-neutral-900" />
                           ) : isLocked ? (
-                            <span className="text-neutral-400 font-bold text-[10px] uppercase tracking-wider bg-neutral-100 px-2 py-1 rounded">Locked</span>
+                            <span className="text-neutral-400 font-bold text-[10px] uppercase tracking-wider bg-neutral-100 px-2 py-1 rounded">
+                              Locked
+                            </span>
                           ) : isPending ? (
-                            <div className="flex items-center gap-3.5" onClick={(e) => e.stopPropagation()}>
+                            <div
+                              className="flex items-center gap-3.5"
+                              onClick={(e) => e.stopPropagation()}
+                            >
                               <button
                                 onClick={() => handleApprove(ts.id)}
                                 className="text-green-600 hover:text-green-800 transition-colors cursor-pointer"
@@ -899,87 +915,16 @@ export default function TimesheetReviewPage() {
           {/* Pagination Container */}
           <div className="bg-neutral-50/50 border-t border-neutral-200 py-4 px-6 flex flex-col sm:flex-row justify-between items-center gap-4 text-xs text-neutral-500 font-semibold sticky bottom-0 z-10">
             <span>
-              Showing{" "}
-              {filteredTimesheets.length > 0
-                ? (currentPage - 1) * pageSize + 1
-                : 0}{" "}
-              to {Math.min(currentPage * pageSize, filteredTimesheets.length)}{" "}
-              of {filteredTimesheets.length} timesheets
+              Showing {Math.min(displayLimit, filteredTimesheets.length)} of{" "}
+              {filteredTimesheets.length} timesheets
             </span>
-
-            <div className="flex items-center gap-5">
-              {totalPages > 1 && (
-                <div className="flex items-center gap-1">
-                  <button
-                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                    className="p-1.5 rounded-lg border border-neutral-200 bg-white hover:bg-neutral-50 text-neutral-500 disabled:opacity-40 disabled:hover:bg-white cursor-pointer disabled:cursor-not-allowed"
-                    disabled={currentPage === 1}
-                  >
-                    &lt;
-                  </button>
-
-                  {Array.from({ length: totalPages }, (_, i) => i + 1).map(
-                    (page) => (
-                      <button
-                        key={page}
-                        onClick={() => setCurrentPage(page)}
-                        className={`h-8 w-8 rounded-lg font-bold text-xs cursor-pointer transition-all duration-150 ${
-                          currentPage === page
-                            ? "bg-neutral-900 text-white shadow-xs"
-                            : "border border-neutral-200 bg-white hover:bg-neutral-50 text-neutral-700"
-                        }`}
-                      >
-                        {page}
-                      </button>
-                    ),
-                  )}
-
-                  <button
-                    onClick={() =>
-                      setCurrentPage((p) => Math.min(totalPages, p + 1))
-                    }
-                    className="p-1.5 rounded-lg border border-neutral-200 bg-white hover:bg-neutral-50 text-neutral-500 disabled:opacity-40 disabled:hover:bg-white cursor-pointer disabled:cursor-not-allowed"
-                    disabled={currentPage === totalPages}
-                  >
-                    &gt;
-                  </button>
-                </div>
-              )}
-
-              <div className="relative" ref={pageSizeRef}>
-                <button
-                  onClick={() => setShowPageSizeDropdown(!showPageSizeDropdown)}
-                  className="flex items-center gap-1.5 border border-neutral-200 rounded-xl bg-white px-3 py-1.5 text-xs font-bold text-neutral-800 transition-all cursor-pointer"
-                >
-                  {pageSize} / page
-                  <ChevronDown className="h-3.5 w-3.5 text-neutral-400" />
-                </button>
-                {showPageSizeDropdown && (
-                  <div className="absolute bottom-full right-0 mb-1 bg-white border border-neutral-200 rounded-xl shadow-lg z-30 overflow-hidden w-28 animate-scale-in">
-                    {[5, 10, 20, 50].map((size) => (
-                      <button
-                        key={size}
-                        onClick={() => {
-                          setPageSize(size);
-                          setShowPageSizeDropdown(false);
-                        }}
-                        className="w-full text-left px-4 py-2 hover:bg-neutral-55 transition-colors text-xs font-semibold text-neutral-700"
-                      >
-                        {size} / page
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
           </div>
         </div>
 
-        {/* Legend Panel */}
         <div className="mt-2 border border-neutral-200 bg-white rounded-3xl p-4 flex flex-wrap items-center gap-6 shadow-3xs px-6 py-4">
           <div className="flex items-center gap-2 text-xs font-bold text-neutral-700">
             <span className="h-2 w-2 rounded-full bg-neutral-900 inline-block" />
-            <span>Submitted: Awaiting review</span>
+            <span>Pending: Awaiting review</span>
           </div>
           <div className="flex items-center gap-2 text-xs font-bold text-neutral-700">
             <span className="h-2 w-2 rounded-full bg-neutral-300 inline-block" />
@@ -1013,7 +958,8 @@ export default function TimesheetReviewPage() {
               >
                 <X className="h-4.5 w-4.5" />
               </button>
-            </div>            <form onSubmit={handleSaveEdit} className="p-6 space-y-4">
+            </div>{" "}
+            <form onSubmit={handleSaveEdit} className="p-6 space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="flex flex-col space-y-1.5">
                   <label className="text-xs font-bold text-neutral-600 uppercase tracking-wider">
@@ -1022,7 +968,10 @@ export default function TimesheetReviewPage() {
                   <Dropdown
                     value={editStaffId}
                     onChange={(val) => setEditStaffId(val)}
-                    options={staffList.map((s) => ({ value: s.id, label: s.name || s.email }))}
+                    options={staffList.map((s) => ({
+                      value: s.id,
+                      label: s.name || s.email,
+                    }))}
                     disabled={!isModalEditable}
                     className="w-full"
                     triggerClassName="rounded-xl py-2.5 px-3.5 border-neutral-200 font-semibold text-neutral-800 h-10 bg-white animate-fade-in"
@@ -1038,7 +987,10 @@ export default function TimesheetReviewPage() {
                   <Dropdown
                     value={editLocationId}
                     onChange={(val) => setEditLocationId(val)}
-                    options={staffSpecificLocations.map((l) => ({ value: l.id, label: l.name }))}
+                    options={staffSpecificLocations.map((l) => ({
+                      value: l.id,
+                      label: l.name,
+                    }))}
                     disabled={!isModalEditable}
                     className="w-full"
                     triggerClassName="rounded-xl py-2.5 px-3.5 border-neutral-200 font-semibold text-neutral-800 h-10 bg-white animate-fade-in"
