@@ -686,6 +686,8 @@ class StaffInvitationPublicOut(SQLModel):
 class StaffInvitationRegister(SQLModel):
     name: str
     phone: str
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
 
 
 class PendingStaffAssignmentOut(SQLModel):
@@ -825,10 +827,17 @@ def register_staff_invitation(
     current_user.is_internal = True
     current_user.modules = invite.modules or []
     
-    # Set first_name and last_name on backend to prevent race condition with client-side profile update
-    if data.name.strip():
+    # Set first_name and last_name on backend from input data
+    if data.first_name and data.first_name.strip():
+        current_user.first_name = data.first_name.strip()
+    elif data.name.strip():
         name_parts = data.name.strip().split(None, 1)
         current_user.first_name = name_parts[0]
+        
+    if data.last_name and data.last_name.strip():
+        current_user.last_name = data.last_name.strip()
+    elif data.name.strip():
+        name_parts = data.name.strip().split(None, 1)
         if len(name_parts) > 1:
             current_user.last_name = name_parts[1]
             

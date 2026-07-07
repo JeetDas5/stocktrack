@@ -2,16 +2,7 @@
 
 import { toast } from "sonner";
 import { useEffect, useState, useMemo } from "react";
-import {
-  Calendar,
-  MapPin,
-  ChevronDown,
-  ChevronLeft,
-  ChevronRight,
-  Download,
-  Loader2,
-  Search,
-} from "lucide-react";
+import { Calendar, MapPin, Download, Loader2, Search } from "lucide-react";
 
 import { TimesheetReport } from "@/types/timesheet-report";
 import { useBusinessStore } from "@/stores/business-store";
@@ -26,12 +17,11 @@ import {
 
 const STATUS_OPTIONS = [
   { value: "all", label: "All Statuses" },
-  { value: "submitted", label: "Submitted" },
+  { value: "submitted", label: "Pending" },
   { value: "approved", label: "Approved" },
-  { value: "edited", label: "Edited" },
+  { value: "edited", label: "Resubmitted" },
   { value: "rejected", label: "Rejected" },
 ] as const;
-
 
 export default function TimesheetReportsPage() {
   const { activeBusinessId } = useBusinessStore();
@@ -42,8 +32,7 @@ export default function TimesheetReportsPage() {
   const [settings, setSettings] = useState<TimesheetSettings | null>(null);
   const [initLoading, setInitLoading] = useState(true);
 
-  const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const [displayLimit, setDisplayLimit] = useState(30);
   const [searchQuery, setSearchQuery] = useState("");
   const [sortField, setSortField] = useState<keyof TimesheetReport | null>(
     null,
@@ -56,7 +45,7 @@ export default function TimesheetReportsPage() {
       locationId: activeLocationId || "all",
     });
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setCurrentPage(1);
+    setDisplayLimit(30);
   }, [activeBusinessId, activeLocationId, setFilters]);
 
   useEffect(() => {
@@ -64,7 +53,7 @@ export default function TimesheetReportsPage() {
       setInitLoading(true);
       if (activeBusinessId) {
         try {
-          const [_, settingsData] = await Promise.all([
+          const [, settingsData] = await Promise.all([
             fetchReports(activeBusinessId),
             getTimesheetSettings(activeBusinessId).catch(() => null),
           ]);
@@ -102,15 +91,8 @@ export default function TimesheetReportsPage() {
       status: "all",
     });
     setSearchQuery("");
-    setCurrentPage(1);
+    setDisplayLimit(30);
     toast.success("Filters cleared.");
-  };
-
-  const handleRefresh = () => {
-    if (activeBusinessId) {
-      fetchReports(activeBusinessId);
-      toast.success("Reports refreshed.");
-    }
   };
 
   const handleSort = (field: keyof TimesheetReport) => {
@@ -132,7 +114,7 @@ export default function TimesheetReportsPage() {
           r.locationName.toLowerCase().includes(q) ||
           r.businessName.toLowerCase().includes(q) ||
           (r.project && r.project.toLowerCase().includes(q)) ||
-          (r.notes && r.notes.toLowerCase().includes(q))
+          (r.notes && r.notes.toLowerCase().includes(q)),
       );
     }
     return data;
@@ -159,11 +141,8 @@ export default function TimesheetReportsPage() {
   }, [searchedReports, sortField, sortDirection]);
 
   const paginatedReports = useMemo(() => {
-    const start = (currentPage - 1) * pageSize;
-    return sortedReports.slice(start, start + pageSize);
-  }, [sortedReports, currentPage, pageSize]);
-
-  const totalPages = Math.ceil(sortedReports.length / pageSize) || 1;
+    return sortedReports.slice(0, displayLimit);
+  }, [sortedReports, displayLimit]);
 
   const getStatusBadgeClass = (status: string) => {
     switch (status.toLowerCase()) {
@@ -228,8 +207,6 @@ export default function TimesheetReportsPage() {
     return `${h}h ${String(m).padStart(2, "0")}m`;
   };
 
-
-
   const totalHoursDecimal = useMemo(() => {
     return searchedReports.reduce((sum, r) => sum + r.totalHours, 0);
   }, [searchedReports]);
@@ -258,7 +235,11 @@ export default function TimesheetReportsPage() {
       r.unpaidBreak,
       r.project || "",
       r.totalHours.toFixed(2),
-      r.status,
+      r.status.toLowerCase() === "submitted"
+        ? "Pending"
+        : r.status.toLowerCase() === "edited"
+          ? "Resubmitted"
+          : r.status.charAt(0).toUpperCase() + r.status.slice(1),
     ]);
 
     const csvContent =
@@ -307,7 +288,11 @@ export default function TimesheetReportsPage() {
       r.unpaidBreak,
       r.project || "",
       r.totalHours.toFixed(2),
-      r.status,
+      r.status.toLowerCase() === "submitted"
+        ? "Pending"
+        : r.status.toLowerCase() === "edited"
+          ? "Resubmitted"
+          : r.status.charAt(0).toUpperCase() + r.status.slice(1),
     ]);
 
     let content =
@@ -469,17 +454,13 @@ export default function TimesheetReportsPage() {
   }
 
   return (
-    <div className="p-6 bg-white min-h-[85vh] relative select-none">
-      <div className="max-w-7xl mx-auto space-y-6">
-        {/* Header Card */}
+    <div className="pb-6 bg-white min-h-[85vh] relative select-none">
+      <div className="max-w-7xl mx-auto space-y-4">
         <div className="bg-white border border-neutral-200 rounded-3xl py-4 px-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 shadow-sm">
           <div>
             <h1 className="text-[24px] font-bold text-neutral-900 tracking-tight">
               Timesheet Reports
             </h1>
-            <p className="text-xs text-neutral-500 mt-1">
-              View and download timesheet reports for payroll and analysis.
-            </p>
           </div>
 
           <div className="flex items-center gap-3 flex-wrap">
@@ -493,10 +474,8 @@ export default function TimesheetReportsPage() {
           </div>
         </div>
 
-        {/* Filters Row */}
         <div className="flex flex-col sm:flex-row gap-3 items-center justify-between">
           <div className="flex flex-col sm:flex-row gap-3 items-center w-full sm:w-auto flex-1">
-            {/* Search Input */}
             <div className="relative w-full sm:w-80">
               <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-neutral-450">
                 <Search className="h-4 w-4" />
@@ -508,18 +487,17 @@ export default function TimesheetReportsPage() {
                 value={searchQuery}
                 onChange={(e) => {
                   setSearchQuery(e.target.value);
-                  setCurrentPage(1);
+                  setDisplayLimit(30);
                 }}
               />
             </div>
 
-            {/* Status Dropdown */}
             <div className="w-full sm:w-48">
               <Dropdown
                 value={filters.status}
                 onChange={(val) => {
                   setFilters({ status: val });
-                  setCurrentPage(1);
+                  setDisplayLimit(30);
                 }}
                 options={STATUS_OPTIONS}
                 triggerClassName="rounded-xl px-3.5 py-2.5 h-10 border-neutral-200 font-semibold text-neutral-900"
@@ -535,7 +513,7 @@ export default function TimesheetReportsPage() {
                 endDate={filters.endDate}
                 onChange={(range) => {
                   setFilters(range);
-                  setCurrentPage(1);
+                  setDisplayLimit(30);
                 }}
                 focusClassName="focus:border-neutral-900 focus:ring-4 focus:ring-neutral-900/5"
               />
@@ -553,7 +531,20 @@ export default function TimesheetReportsPage() {
 
         {/* Table Container Card */}
         <div className="bg-white border border-neutral-200 rounded-3xl overflow-hidden shadow-2xs flex flex-col">
-          <div className="overflow-x-auto">
+          <div
+            className="overflow-auto max-h-[600px]"
+            onScroll={(e) => {
+              const container = e.currentTarget;
+              if (
+                container.scrollHeight - container.scrollTop <=
+                container.clientHeight + 100
+              ) {
+                setDisplayLimit((prev) =>
+                  Math.min(prev + 30, sortedReports.length),
+                );
+              }
+            }}
+          >
             {loading ? (
               <div className="py-24 flex flex-col items-center justify-center">
                 <Loader2 className="h-7 w-7 text-[#0A2924] animate-spin mb-3" />
@@ -575,7 +566,7 @@ export default function TimesheetReportsPage() {
             ) : (
               <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="border-b border-neutral-200 text-[11px] uppercase font-semibold tracking-wider text-neutral-500 bg-neutral-50/20 text-center">
+                  <tr className="border-b border-neutral-200 text-[11px] uppercase font-semibold tracking-wider text-neutral-500 bg-white sticky top-0 z-10 text-center">
                     <th
                       onClick={() => handleSort("staffName")}
                       className="py-4 px-6 font-semibold cursor-pointer hover:bg-neutral-50/80 transition duration-150 select-none text-left"
@@ -654,7 +645,8 @@ export default function TimesheetReportsPage() {
                         {formatDateToDisplay(r.workDate)}
                       </td>
                       <td className="py-4 px-6 text-neutral-700 font-semibold text-center whitespace-nowrap">
-                        {formatTimeToAMPM(r.startTime)} - {formatTimeToAMPM(r.endTime)}
+                        {formatTimeToAMPM(r.startTime)} -{" "}
+                        {formatTimeToAMPM(r.endTime)}
                       </td>
                       <td className="py-4 px-6 text-neutral-700 font-semibold text-center whitespace-nowrap">
                         {r.unpaidBreak} min
@@ -680,7 +672,11 @@ export default function TimesheetReportsPage() {
                                     : "bg-blue-500"
                             }`}
                           />
-                          {r.status}
+                          {r.status.toLowerCase() === "submitted"
+                            ? "Pending"
+                            : r.status.toLowerCase() === "edited"
+                              ? "Resubmitted"
+                              : r.status}
                         </span>
                       </td>
                     </tr>
@@ -694,58 +690,9 @@ export default function TimesheetReportsPage() {
           {!loading && sortedReports.length > 0 && (
             <div className="bg-neutral-50/10 border-t border-neutral-200 py-3.5 px-6 flex flex-col sm:flex-row justify-between items-center gap-4 text-xs text-neutral-500 font-semibold">
               <span>
-                Showing{" "}
-                {Math.min(
-                  (currentPage - 1) * pageSize + 1,
-                  sortedReports.length,
-                )}{" "}
-                to {Math.min(currentPage * pageSize, sortedReports.length)} of{" "}
+                Showing {Math.min(displayLimit, sortedReports.length)} of{" "}
                 {sortedReports.length} entries
               </span>
-
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[11px] font-semibold">Show</span>
-                  <div className="relative">
-                    <select
-                      value={pageSize}
-                      onChange={(e) => {
-                        setPageSize(Number(e.target.value));
-                        setCurrentPage(1);
-                      }}
-                      className="bg-white border border-neutral-200 rounded-lg pl-2 pr-6 py-1 text-[11px] font-bold text-neutral-750 focus:outline-none focus:ring-1 focus:ring-neutral-900 cursor-pointer appearance-none"
-                    >
-                      <option value={5}>5 / page</option>
-                      <option value={10}>10 / page</option>
-                      <option value={20}>20 / page</option>
-                      <option value={50}>50 / page</option>
-                    </select>
-                    <ChevronDown className="absolute right-1.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-neutral-450 pointer-events-none" />
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-1.5">
-                  <button
-                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                    className="p-1.5 rounded-lg border border-neutral-200 bg-white hover:bg-neutral-50 text-neutral-450 disabled:opacity-45 transition-colors cursor-pointer"
-                    disabled={currentPage === 1}
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                  </button>
-                  <span className="h-8 w-8 bg-[#0A2924] text-white flex items-center justify-center rounded-lg font-bold">
-                    {currentPage}
-                  </span>
-                  <button
-                    onClick={() =>
-                      setCurrentPage((p) => Math.min(totalPages, p + 1))
-                    }
-                    className="p-1.5 rounded-lg border border-neutral-200 bg-white hover:bg-neutral-50 text-neutral-450 disabled:opacity-45 transition-colors cursor-pointer"
-                    disabled={currentPage === totalPages}
-                  >
-                    <ChevronRight className="h-4 w-4" />
-                  </button>
-                </div>
-              </div>
             </div>
           )}
         </div>

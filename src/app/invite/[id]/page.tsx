@@ -48,6 +48,8 @@ export default function InvitePage({
   const [error, setError] = useState<string | null>(null);
 
   const [name, setName] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [countryCode, setCountryCode] = useState("+61");
   const [phone, setPhone] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -172,6 +174,13 @@ export default function InvitePage({
     if (user?.displayName) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setName(user.displayName);
+      const partsList = user.displayName.trim().split(/\s+/);
+      if (partsList.length > 0) {
+        setFirstName(partsList[0]);
+      }
+      if (partsList.length > 1) {
+        setLastName(partsList.slice(1).join(" "));
+      }
     }
   }, [user]);
 
@@ -195,8 +204,16 @@ export default function InvitePage({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!firstName.trim()) {
+      toast.error("Please enter your first name.");
+      return;
+    }
+    if (!lastName.trim()) {
+      toast.error("Please enter your last name.");
+      return;
+    }
     if (!name.trim()) {
-      toast.error("Please enter your name.");
+      toast.error("Please enter your preferred name.");
       return;
     }
     if (!phone.trim()) {
@@ -210,6 +227,8 @@ export default function InvitePage({
       await registerStaffInvitation(invitationId, {
         name: name.trim(),
         phone: combinedPhone,
+        first_name: firstName.trim(),
+        last_name: lastName.trim(),
       });
       toast.success("Profile submitted successfully!");
       setRegistered(true);
@@ -553,23 +572,87 @@ export default function InvitePage({
                 </div>
               </div>
 
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-[11px] font-semibold text-neutral-900 uppercase tracking-[0.15em] block">
+                    First Name
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-neutral-450">
+                      <User className="h-4 w-4" strokeWidth={1.5} />
+                    </div>
+                    <input
+                      type="text"
+                      required
+                      placeholder="First name"
+                      className="w-full bg-white border border-neutral-200 focus:border-neutral-900 focus:ring-1 focus:ring-neutral-900 rounded-full py-3 pl-11 pr-4 text-[13px] text-neutral-900 placeholder-neutral-400 focus:outline-none transition-all font-medium"
+                      value={firstName}
+                      onChange={(e) => setFirstName(e.target.value)}
+                      disabled={submitting}
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[11px] font-semibold text-neutral-900 uppercase tracking-[0.15em] block">
+                    Last Name
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-neutral-450">
+                      <User className="h-4 w-4" strokeWidth={1.5} />
+                    </div>
+                    <input
+                      type="text"
+                      required
+                      placeholder="Last name"
+                      className="w-full bg-white border border-neutral-200 focus:border-neutral-900 focus:ring-1 focus:ring-neutral-900 rounded-full py-3 pl-11 pr-4 text-[13px] text-neutral-900 placeholder-neutral-400 focus:outline-none transition-all font-medium"
+                      value={lastName}
+                      onChange={(e) => setLastName(e.target.value)}
+                      disabled={submitting}
+                    />
+                  </div>
+                </div>
+              </div>
+
               <div className="space-y-2">
                 <label className="text-[11px] font-semibold text-neutral-900 uppercase tracking-[0.15em] block">
-                  Full Name
+                  Preferred Name
                 </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-neutral-400">
+                <div className="relative flex items-center">
+                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-neutral-450">
                     <User className="h-4 w-4" strokeWidth={1.5} />
                   </div>
                   <input
                     type="text"
                     required
-                    placeholder="Enter your name"
-                    className="w-full bg-white border border-neutral-200 focus:border-neutral-900 focus:ring-1 focus:ring-neutral-900 rounded-full py-3 pl-11 pr-4 text-[13px] text-neutral-900 placeholder-neutral-400 focus:outline-none transition-all font-medium"
+                    placeholder="e.g. Alex"
+                    className="w-full bg-white border border-neutral-200 focus:border-neutral-900 focus:ring-1 focus:ring-neutral-900 rounded-full py-3 pl-11 pr-12 text-[13px] text-neutral-900 placeholder-neutral-400 focus:outline-none transition-all font-medium"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     disabled={submitting}
                   />
+                  <div className="absolute right-4 flex items-center group">
+                    <div className="cursor-help text-neutral-400 hover:text-neutral-900 transition-colors">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        strokeWidth="1.5"
+                        stroke="currentColor"
+                        className="w-4 h-4"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 5.25h.008v.008H12v-.008Z"
+                        />
+                      </svg>
+                    </div>
+                    <div className="absolute left-full ml-3 bg-neutral-950 text-white text-[11px] font-semibold py-2 px-3.5 rounded-xl shadow-xl whitespace-nowrap opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-all duration-200 -translate-x-2 group-hover:translate-x-0 z-50">
+                      write the name that you want to be displayed
+                      <div className="absolute right-full top-1/2 -translate-y-1/2 border-8 border-transparent border-r-neutral-950" />
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -605,7 +688,7 @@ export default function InvitePage({
 
               <button
                 type="submit"
-                disabled={submitting || !name.trim() || !phone.trim()}
+                disabled={submitting || !firstName.trim() || !lastName.trim() || !name.trim() || !phone.trim()}
                 className="w-full bg-neutral-900 hover:bg-neutral-800 text-white rounded-full py-3.5 text-[14px] font-medium transition-all hover:gap-3 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
               >
                 {submitting ? (

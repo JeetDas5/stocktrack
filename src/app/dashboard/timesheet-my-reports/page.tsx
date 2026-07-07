@@ -6,9 +6,6 @@ import { useRouter } from "next/navigation";
 import {
   Calendar,
   MapPin,
-  ChevronDown,
-  ChevronLeft,
-  ChevronRight,
   Download,
   Loader2,
   Search,
@@ -28,9 +25,9 @@ import {
 
 const STATUS_OPTIONS = [
   { value: "all", label: "All Statuses" },
-  { value: "submitted", label: "Submitted" },
+  { value: "submitted", label: "Pending" },
   { value: "approved", label: "Approved" },
-  { value: "edited", label: "Edited" },
+  { value: "edited", label: "Resubmitted" },
   { value: "rejected", label: "Rejected" },
 ] as const;
 
@@ -46,8 +43,7 @@ export default function TimesheetMyReportsPage() {
   const [settings, setSettings] = useState<TimesheetSettings | null>(null);
   const [initLoading, setInitLoading] = useState(true);
 
-  const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const [displayLimit, setDisplayLimit] = useState(30);
   const [searchQuery, setSearchQuery] = useState("");
   const [sortField, setSortField] = useState<keyof TimesheetReport | null>(
     null,
@@ -67,7 +63,7 @@ export default function TimesheetMyReportsPage() {
       locationId: activeLocationId || "all",
     });
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setCurrentPage(1);
+    setDisplayLimit(30);
   }, [activeBusinessId, activeLocationId, setFilters]);
 
   useEffect(() => {
@@ -75,7 +71,7 @@ export default function TimesheetMyReportsPage() {
       setInitLoading(true);
       if (activeBusinessId) {
         try {
-          const [_, settingsData] = await Promise.all([
+          const [, settingsData] = await Promise.all([
             fetchReports(activeBusinessId),
             getTimesheetSettings(activeBusinessId).catch(() => null),
           ]);
@@ -113,7 +109,7 @@ export default function TimesheetMyReportsPage() {
       status: "all",
     });
     setSearchQuery("");
-    setCurrentPage(1);
+    setDisplayLimit(30);
     toast.success("Filters cleared.");
   };
 
@@ -163,11 +159,8 @@ export default function TimesheetMyReportsPage() {
   }, [searchedReports, sortField, sortDirection]);
 
   const paginatedReports = useMemo(() => {
-    const start = (currentPage - 1) * pageSize;
-    return sortedReports.slice(start, start + pageSize);
-  }, [sortedReports, currentPage, pageSize]);
-
-  const totalPages = Math.ceil(sortedReports.length / pageSize) || 1;
+    return sortedReports.slice(0, displayLimit);
+  }, [sortedReports, displayLimit]);
 
   const getStatusBadgeClass = (status: string) => {
     switch (status.toLowerCase()) {
@@ -260,7 +253,11 @@ export default function TimesheetMyReportsPage() {
       r.unpaidBreak,
       r.project || "",
       r.totalHours.toFixed(2),
-      r.status,
+      r.status.toLowerCase() === "submitted"
+        ? "Pending"
+        : r.status.toLowerCase() === "edited"
+          ? "Resubmitted"
+          : r.status.charAt(0).toUpperCase() + r.status.slice(1),
     ]);
 
     const csvContent =
@@ -309,7 +306,11 @@ export default function TimesheetMyReportsPage() {
       r.unpaidBreak,
       r.project || "",
       r.totalHours.toFixed(2),
-      r.status,
+      r.status.toLowerCase() === "submitted"
+        ? "Pending"
+        : r.status.toLowerCase() === "edited"
+          ? "Resubmitted"
+          : r.status.charAt(0).toUpperCase() + r.status.slice(1),
     ]);
 
     let content =
@@ -408,7 +409,7 @@ export default function TimesheetMyReportsPage() {
                 value={searchQuery}
                 onChange={(e) => {
                   setSearchQuery(e.target.value);
-                  setCurrentPage(1);
+                  setDisplayLimit(30);
                 }}
               />
             </div>
@@ -418,7 +419,7 @@ export default function TimesheetMyReportsPage() {
                 value={filters.status}
                 onChange={(val) => {
                   setFilters({ status: val });
-                  setCurrentPage(1);
+                  setDisplayLimit(30);
                 }}
                 options={STATUS_OPTIONS}
                 triggerClassName="rounded-xl px-3.5 py-2.5 h-10 border-neutral-200 font-semibold text-neutral-900"
@@ -433,7 +434,7 @@ export default function TimesheetMyReportsPage() {
                 endDate={filters.endDate}
                 onChange={(range) => {
                   setFilters(range);
-                  setCurrentPage(1);
+                  setDisplayLimit(30);
                 }}
                 focusClassName="focus:border-neutral-900 focus:ring-4 focus:ring-neutral-900/5"
               />
@@ -449,7 +450,20 @@ export default function TimesheetMyReportsPage() {
         </div>
 
         <div className="bg-white border border-neutral-200 rounded-3xl overflow-hidden shadow-2xs flex flex-col">
-          <div className="overflow-x-auto">
+          <div
+            className="overflow-auto max-h-[600px]"
+            onScroll={(e) => {
+              const container = e.currentTarget;
+              if (
+                container.scrollHeight - container.scrollTop <=
+                container.clientHeight + 100
+              ) {
+                setDisplayLimit((prev) =>
+                  Math.min(prev + 30, sortedReports.length),
+                );
+              }
+            }}
+          >
             {loading ? (
               <div className="py-24 flex flex-col items-center justify-center">
                 <Loader2 className="h-7 w-7 text-[#0A2924] animate-spin mb-3" />
@@ -471,7 +485,7 @@ export default function TimesheetMyReportsPage() {
             ) : (
               <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="border-b border-neutral-200 text-[11px] uppercase font-semibold tracking-wider text-neutral-500 bg-neutral-50/20 text-center">
+                  <tr className="border-b border-neutral-200 text-[11px] uppercase font-semibold tracking-wider text-neutral-550 bg-white sticky top-0 z-10 text-center">
                     <th
                       onClick={() => handleSort("staffName")}
                       className="py-4 px-6 font-semibold cursor-pointer hover:bg-neutral-50/80 transition duration-150 select-none text-left"
@@ -577,7 +591,11 @@ export default function TimesheetMyReportsPage() {
                                     : "bg-blue-500"
                             }`}
                           />
-                          {r.status}
+                          {r.status.toLowerCase() === "submitted"
+                            ? "Pending"
+                            : r.status.toLowerCase() === "edited"
+                              ? "Resubmitted"
+                              : r.status}
                         </span>
                       </td>
                     </tr>
@@ -586,62 +604,13 @@ export default function TimesheetMyReportsPage() {
               </table>
             )}
           </div>
-
+          {/* Pagination Footer */}
           {!loading && sortedReports.length > 0 && (
             <div className="bg-neutral-50/10 border-t border-neutral-200 py-3.5 px-6 flex flex-col sm:flex-row justify-between items-center gap-4 text-xs text-neutral-500 font-semibold">
               <span>
-                Showing{" "}
-                {Math.min(
-                  (currentPage - 1) * pageSize + 1,
-                  sortedReports.length,
-                )}{" "}
-                to {Math.min(currentPage * pageSize, sortedReports.length)} of{" "}
+                Showing {Math.min(displayLimit, sortedReports.length)} of{" "}
                 {sortedReports.length} entries
               </span>
-
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[11px] font-semibold">Show</span>
-                  <div className="relative">
-                    <select
-                      value={pageSize}
-                      onChange={(e) => {
-                        setPageSize(Number(e.target.value));
-                        setCurrentPage(1);
-                      }}
-                      className="bg-white border border-neutral-200 rounded-lg pl-2 pr-6 py-1 text-[11px] font-bold text-neutral-750 focus:outline-none focus:ring-1 focus:ring-neutral-900 cursor-pointer appearance-none"
-                    >
-                      <option value={5}>5 / page</option>
-                      <option value={10}>10 / page</option>
-                      <option value={20}>20 / page</option>
-                      <option value={50}>50 / page</option>
-                    </select>
-                    <ChevronDown className="absolute right-1.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-neutral-450 pointer-events-none" />
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-1.5">
-                  <button
-                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                    className="p-1.5 rounded-lg border border-neutral-200 bg-white hover:bg-neutral-50 text-neutral-450 disabled:opacity-45 transition-colors cursor-pointer"
-                    disabled={currentPage === 1}
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                  </button>
-                  <span className="h-8 w-8 bg-[#0A2924] text-white flex items-center justify-center rounded-lg font-bold">
-                    {currentPage}
-                  </span>
-                  <button
-                    onClick={() =>
-                      setCurrentPage((p) => Math.min(totalPages, p + 1))
-                    }
-                    className="p-1.5 rounded-lg border border-neutral-200 bg-white hover:bg-neutral-50 text-neutral-450 disabled:opacity-45 transition-colors cursor-pointer"
-                    disabled={currentPage === totalPages}
-                  >
-                    <ChevronRight className="h-4 w-4" />
-                  </button>
-                </div>
-              </div>
             </div>
           )}
         </div>
