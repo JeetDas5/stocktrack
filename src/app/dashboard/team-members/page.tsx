@@ -1664,22 +1664,24 @@ export default function StaffDirectoryPage() {
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-extrabold text-zinc-500 uppercase block">
-                    Priority (1-10)
+                    Priority (1-5)
                   </label>
-                  <input
-                    type="number"
-                    min="1"
-                    max="10"
-                    value={approvalPriority}
-                    onChange={(e) => {
-                      const val = Math.max(
-                        1,
-                        Math.min(10, Number(e.target.value) || 5),
-                      );
-                      setApprovalPriority(val);
-                    }}
-                    className="w-full bg-white border border-zinc-200 focus:border-black rounded-xl py-2 px-3 text-xs font-semibold text-zinc-950 focus:outline-none focus:ring-1 focus:ring-black h-10"
-                  />
+                  <div className="flex gap-2 h-10">
+                    {[1, 2, 3, 4, 5].map((val) => (
+                      <button
+                        key={val}
+                        type="button"
+                        onClick={() => setApprovalPriority(val)}
+                        className={`flex-1 h-full rounded-xl border text-xs font-bold transition-all duration-200 cursor-pointer flex items-center justify-center ${
+                          approvalPriority === val
+                            ? "bg-black border-black text-white shadow-sm"
+                            : "bg-white border-zinc-200 text-zinc-700 hover:bg-zinc-50 hover:text-black hover:border-zinc-300"
+                        }`}
+                      >
+                        {val}
+                      </button>
+                    ))}
+                  </div>
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-extrabold text-zinc-500 uppercase block">

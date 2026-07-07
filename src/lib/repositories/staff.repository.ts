@@ -199,7 +199,12 @@ export const getStaffInvitation = async (
 
 export const registerStaffInvitation = async (
   invitationId: string,
-  data: { name: string; phone: string },
+  data: {
+    name: string;
+    phone: string;
+    first_name?: string;
+    last_name?: string;
+  },
 ): Promise<{ message: string }> => {
   const response = await api.post(
     `/api/staff/invitations/${invitationId}/register`,
