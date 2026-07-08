@@ -1,9 +1,10 @@
 "use client";
 
 import { toast } from "sonner";
-import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { useEffect, useState, use } from "react";
+import { motion } from "framer-motion";
+import { useRouter } from "next/navigation";
+import React, { useEffect, useState, use, useRef } from "react";
 
 import { useAuth } from "@/providers/auth-provider";
 import { StaffInvitationPublic } from "@/types/staff";
@@ -22,7 +23,107 @@ import {
   ShieldAlert,
   LogOut,
   ArrowRight,
+  Search,
+  ChevronDown,
 } from "lucide-react";
+
+interface Country {
+  name: string;
+  alpha2Code: string;
+  callingCodes: string[];
+  flag: string;
+  flags?: {
+    png?: string;
+    svg?: string;
+  };
+}
+
+const POPULAR_COUNTRIES: Country[] = [
+  {
+    name: "Australia",
+    alpha2Code: "AU",
+    callingCodes: ["61"],
+    flag: "🇦🇺",
+    flags: {
+      svg: "https://flagcdn.com/au.svg",
+      png: "https://flagcdn.com/w320/au.png",
+    },
+  },
+  {
+    name: "New Zealand",
+    alpha2Code: "NZ",
+    callingCodes: ["64"],
+    flag: "🇳🇿",
+    flags: {
+      svg: "https://flagcdn.com/nz.svg",
+      png: "https://flagcdn.com/w320/nz.png",
+    },
+  },
+  {
+    name: "United States",
+    alpha2Code: "US",
+    callingCodes: ["1"],
+    flag: "🇺🇸",
+    flags: {
+      svg: "https://flagcdn.com/us.svg",
+      png: "https://flagcdn.com/w320/us.png",
+    },
+  },
+  {
+    name: "United Kingdom",
+    alpha2Code: "GB",
+    callingCodes: ["44"],
+    flag: "🇬🇧",
+    flags: {
+      svg: "https://flagcdn.com/gb.svg",
+      png: "https://flagcdn.com/w320/gb.png",
+    },
+  },
+  {
+    name: "Canada",
+    alpha2Code: "CA",
+    callingCodes: ["1"],
+    flag: "🇨🇦",
+    flags: {
+      svg: "https://flagcdn.com/ca.svg",
+      png: "https://flagcdn.com/w320/ca.png",
+    },
+  },
+  {
+    name: "India",
+    alpha2Code: "IN",
+    callingCodes: ["91"],
+    flag: "🇮🇳",
+    flags: {
+      svg: "https://flagcdn.com/in.svg",
+      png: "https://flagcdn.com/w320/in.png",
+    },
+  },
+];
+
+const CountryFlag = ({
+  country,
+  className = "w-5 h-3.5 object-cover rounded-[2px]",
+}: {
+  country: Country;
+  className?: string;
+}) => {
+  const [imgError, setImgError] = useState(false);
+  const flagUrl = country.flags?.svg || country.flags?.png;
+
+  if (flagUrl && !imgError) {
+    return (
+      <img
+        src={flagUrl}
+        alt={country.name}
+        className={className}
+        onError={() => setImgError(true)}
+      />
+    );
+  }
+
+  return <span className="text-base leading-none">{country.flag}</span>;
+};
 
 export default function InvitePage({
   params,
@@ -55,13 +156,79 @@ export default function InvitePage({
   const [submitting, setSubmitting] = useState(false);
   const [registered, setRegistered] = useState(false);
 
-  const handleCountryCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    let sanitized = value.replace(/[^+\d]/g, "");
-    if (sanitized.includes("+")) {
-      sanitized = "+" + sanitized.replace(/\+/g, "");
+  const [countries, setCountries] = useState<Country[]>(POPULAR_COUNTRIES);
+  const [selectedCountry, setSelectedCountry] = useState<Country>(
+    POPULAR_COUNTRIES[0],
+  );
+  const [isOpen, setIsOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const fetchCountries = async () => {
+      try {
+        const response = await fetch(
+          "https://countries.dev/countries?fields=name,alpha2Code,callingCodes,flag,flags",
+        );
+        if (!response.ok) throw new Error("Failed to fetch");
+        const data = (await response.json()) as Country[];
+
+        const validCountries = data.filter(
+          (c) =>
+            c.name &&
+            c.alpha2Code &&
+            c.callingCodes &&
+            c.callingCodes.length > 0,
+        );
+
+        if (validCountries.length > 0) {
+          validCountries.sort((a, b) => a.name.localeCompare(b.name));
+
+          const popularCodes = POPULAR_COUNTRIES.map((c) => c.alpha2Code);
+          const rest = validCountries.filter(
+            (c) => !popularCodes.includes(c.alpha2Code),
+          );
+
+          setCountries([...POPULAR_COUNTRIES, ...rest]);
+
+          const foundDefault = validCountries.find(
+            (c) => c.alpha2Code === "AU",
+          );
+          if (foundDefault) {
+            setSelectedCountry(foundDefault);
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching country codes:", error);
+      }
+    };
+
+    fetchCountries();
+  }, []);
+
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(e.target as Node)
+      ) {
+        setIsOpen(false);
+      }
+    };
+    if (isOpen) {
+      document.addEventListener("mousedown", handleOutsideClick);
     }
-    setCountryCode(sanitized);
+    return () => {
+      document.removeEventListener("mousedown", handleOutsideClick);
+    };
+  }, [isOpen]);
+
+  const selectCountry = (country: Country) => {
+    setSelectedCountry(country);
+    const code = country.callingCodes[0] ? `+${country.callingCodes[0]}` : "";
+    setCountryCode(code);
+    setIsOpen(false);
+    setSearchQuery("");
   };
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -69,6 +236,16 @@ export default function InvitePage({
     const sanitized = value.replace(/[^\d]/g, "");
     setPhone(sanitized);
   };
+
+  const filteredCountries = countries.filter((c) => {
+    const q = searchQuery.toLowerCase();
+    const matchesName = c.name.toLowerCase().includes(q);
+    const matchesAlpha = c.alpha2Code.toLowerCase().includes(q);
+    const matchesCode = c.callingCodes.some((code) =>
+      code.includes(q.replace("+", "")),
+    );
+    return matchesName || matchesAlpha || matchesCode;
+  });
 
   const [email, setEmail] = useState("");
   const [otp, setOtp] = useState("");
@@ -223,7 +400,9 @@ export default function InvitePage({
 
     try {
       setSubmitting(true);
-      const combinedPhone = phone.trim() ? `${countryCode} ${phone.trim()}`.trim() : "";
+      const combinedPhone = phone.trim()
+        ? `${countryCode} ${phone.trim()}`.trim()
+        : "";
       await registerStaffInvitation(invitationId, {
         name: name.trim(),
         phone: combinedPhone,
@@ -293,7 +472,7 @@ export default function InvitePage({
   }
 
   return (
-    <div className="min-h-screen bg-white flex flex-col items-center justify-center p-6 font-sans select-none relative overflow-hidden">
+    <div className="min-h-screen bg-white flex flex-col items-center justify-center p-6 font-sans select-none relative overflow-x-hidden">
       <div className="absolute inset-0 z-0">
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[1000px] rounded-full bg-linear-to-br from-neutral-100 to-transparent blur-3xl opacity-60 pointer-events-none" />
         <div className="absolute inset-0 grain-bg opacity-[0.05]" />
@@ -660,19 +839,79 @@ export default function InvitePage({
                 <label className="text-[11px] font-semibold text-neutral-900 uppercase tracking-[0.15em] block">
                   Phone Number
                 </label>
-                <div className="flex gap-0 items-center bg-white border border-neutral-200 focus-within:border-neutral-900 focus-within:ring-1 focus-within:ring-neutral-900 rounded-full py-3 px-4 transition-all">
+                <div className="flex gap-0 items-center bg-white border border-neutral-200 focus-within:border-neutral-900 focus-within:ring-1 focus-within:ring-neutral-900 rounded-full py-2.5 pl-4 pr-3 transition-all relative">
                   <div className="flex items-center text-neutral-400 shrink-0 mr-2">
                     <Phone className="h-4 w-4" strokeWidth={1.5} />
                   </div>
-                  <input
-                    type="text"
-                    required
-                    placeholder="+61"
-                    className="w-12 text-center bg-transparent border-none outline-none focus:outline-none focus:ring-0 text-[13px] text-neutral-900 placeholder-neutral-400 font-medium p-0"
-                    value={countryCode}
-                    onChange={handleCountryCodeChange}
-                    disabled={submitting}
-                  />
+
+                  <div ref={dropdownRef} className="relative shrink-0">
+                    <button
+                      type="button"
+                      disabled={submitting}
+                      onClick={() => setIsOpen(!isOpen)}
+                      className="flex items-center gap-1.5 px-2 py-1.5 bg-transparent border-none outline-none focus:outline-none cursor-pointer select-none text-[13px] font-medium text-neutral-900 rounded-lg hover:bg-neutral-50 transition-colors disabled:opacity-50"
+                    >
+                      <CountryFlag country={selectedCountry} />
+                      <span className="text-neutral-500 font-normal text-[12px]">
+                        +{selectedCountry.callingCodes[0]}
+                      </span>
+                      <ChevronDown className="w-3 h-3 text-neutral-400" />
+                    </button>
+
+                    {isOpen && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 5 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="absolute top-full left-0 mt-2 w-72 max-h-80 overflow-hidden bg-white border border-neutral-200 rounded-2xl shadow-xl z-50 flex flex-col"
+                      >
+                        <div className="flex items-center gap-2 px-3 py-2 border-b border-neutral-100 bg-neutral-50">
+                          <Search className="w-4 h-4 text-neutral-400 shrink-0" />
+                          <input
+                            type="text"
+                            placeholder="Search country or code..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="w-full bg-transparent border-none outline-none text-[13px] text-neutral-900 placeholder-neutral-400 focus:ring-0 p-0"
+                            autoFocus
+                          />
+                        </div>
+
+                        <div className="flex-1 overflow-y-auto py-1 max-h-56">
+                          {filteredCountries.length > 0 ? (
+                            filteredCountries.map((c, index) => {
+                              const isSelected =
+                                c.alpha2Code === selectedCountry.alpha2Code;
+                              return (
+                                <button
+                                  key={`${c.alpha2Code}-${index}`}
+                                  type="button"
+                                  onClick={() => selectCountry(c)}
+                                  className={`w-full flex items-center justify-between px-3.5 py-2 text-left text-[13px] transition-colors ${
+                                    isSelected
+                                      ? "bg-neutral-100 text-neutral-900 font-medium"
+                                      : "text-neutral-700 hover:bg-neutral-50"
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-2.5 min-w-0">
+                                    <CountryFlag country={c} />
+                                    <span className="truncate">{c.name}</span>
+                                  </div>
+                                  <span className="text-[12px] text-neutral-500 ml-2 shrink-0 font-normal">
+                                    +{c.callingCodes[0]}
+                                  </span>
+                                </button>
+                              );
+                            })
+                          ) : (
+                            <div className="px-3.5 py-6 text-center text-[13px] text-neutral-500">
+                              No countries found
+                            </div>
+                          )}
+                        </div>
+                      </motion.div>
+                    )}
+                  </div>
+
                   <div className="h-5 w-px bg-neutral-200 mx-2 shrink-0" />
                   <input
                     type="tel"
@@ -688,7 +927,13 @@ export default function InvitePage({
 
               <button
                 type="submit"
-                disabled={submitting || !firstName.trim() || !lastName.trim() || !name.trim() || !phone.trim()}
+                disabled={
+                  submitting ||
+                  !firstName.trim() ||
+                  !lastName.trim() ||
+                  !name.trim() ||
+                  !phone.trim()
+                }
                 className="w-full bg-neutral-900 hover:bg-neutral-800 text-white rounded-full py-3.5 text-[14px] font-medium transition-all hover:gap-3 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
               >
                 {submitting ? (
