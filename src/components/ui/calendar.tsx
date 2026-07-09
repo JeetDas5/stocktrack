@@ -7,12 +7,16 @@ interface CalendarProps {
   selectedDate: string;
   onChange: (dateStr: string) => void;
   className?: string;
+  maxDate?: string;
+  minDate?: string;
 }
 
 export default function Calendar({
   selectedDate,
   onChange,
   className = "",
+  maxDate,
+  minDate,
 }: CalendarProps) {
   const [currentDate, setCurrentDate] = useState(() => {
     return selectedDate ? new Date(selectedDate + "T00:00:00") : new Date();
@@ -69,6 +73,8 @@ export default function Calendar({
   const handleTodayClick = () => {
     const today = new Date();
     const todayStr = today.toISOString().split("T")[0];
+    if (maxDate && todayStr > maxDate) return;
+    if (minDate && todayStr < minDate) return;
     setCurrentDate(today);
     onChange(todayStr);
   };
@@ -150,17 +156,23 @@ export default function Calendar({
       <div className="grid grid-cols-7 gap-1 text-center">
         {cells.map((cell, idx) => {
           const isSelected = cell.dateStr === selectedDate;
+          const isDisabled =
+            !!((maxDate && cell.dateStr > maxDate) ||
+            (minDate && cell.dateStr < minDate));
           return (
             <button
               key={`${cell.dateStr}-${idx}`}
               type="button"
-              onClick={() => onChange(cell.dateStr)}
-              className={`py-1.5 text-xs rounded-full transition-all cursor-pointer font-bold ${
-                isSelected
-                  ? "bg-black text-white font-extrabold"
-                  : cell.isCurrentMonth
-                    ? "text-black hover:bg-black hover:text-white"
-                    : "text-black/20 hover:bg-black/5 hover:text-black"
+              disabled={isDisabled}
+              onClick={() => !isDisabled && onChange(cell.dateStr)}
+              className={`py-1.5 text-xs rounded-full transition-all font-bold ${
+                isDisabled
+                  ? "text-black/10 opacity-30 cursor-not-allowed pointer-events-none"
+                  : isSelected
+                    ? "bg-black text-white font-extrabold cursor-pointer"
+                    : cell.isCurrentMonth
+                      ? "text-black hover:bg-black hover:text-white cursor-pointer"
+                      : "text-black/20 hover:bg-black/5 hover:text-black cursor-pointer"
               }`}
             >
               {cell.dayNum}
@@ -172,8 +184,17 @@ export default function Calendar({
       <div className="border-t border-black/10 mt-3.5 pt-3">
         <button
           type="button"
+          disabled={
+            !!((maxDate && new Date().toISOString().split("T")[0] > maxDate) ||
+            (minDate && new Date().toISOString().split("T")[0] < minDate))
+          }
           onClick={handleTodayClick}
-          className="w-full text-center text-xs font-bold text-black bg-white hover:bg-black hover:text-white rounded-2xl py-2 transition-colors cursor-pointer border border-black/10"
+          className={`w-full text-center text-xs font-bold bg-white rounded-2xl py-2 transition-colors border border-black/10 ${
+            (maxDate && new Date().toISOString().split("T")[0] > maxDate) ||
+            (minDate && new Date().toISOString().split("T")[0] < minDate)
+              ? "text-black/20 cursor-not-allowed opacity-50"
+              : "text-black hover:bg-black hover:text-white cursor-pointer"
+          }`}
         >
           Today
         </button>

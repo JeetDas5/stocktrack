@@ -99,7 +99,7 @@ export default function DashboardLayout({
     Record<string, boolean>
   >({});
 
-  const [isReadOnly, setIsReadOnly] = useState<boolean>(false);
+  const [isReadOnly, setIsReadOnly] = useState<boolean>(true);
   const [userSearch, setUserSearch] = useState("");
   const [showSuperAdminDropdown, setShowSuperAdminDropdown] = useState(false);
   const [allUsers, setAllUsers] = useState<any[]>([]);
@@ -145,11 +145,22 @@ export default function DashboardLayout({
 
   useEffect(() => {
     if (typeof window !== "undefined") {
-      setIsReadOnly(
-        localStorage.getItem("nexbrix_super_admin_readonly") === "true",
-      );
+      const stored = localStorage.getItem("nexbrix_super_admin_readonly");
+      if (stored === null) {
+        const isSuperAdmin =
+          profile?.role === "super_admin" ||
+          !!localStorage.getItem("nexbrix_impersonated_user_id");
+        if (isSuperAdmin) {
+          setIsReadOnly(true);
+          localStorage.setItem("nexbrix_super_admin_readonly", "true");
+        } else {
+          setIsReadOnly(false);
+        }
+      } else {
+        setIsReadOnly(stored === "true");
+      }
     }
-  }, []);
+  }, [profile]);
 
   const handleReadOnlyToggle = (val: boolean) => {
     setIsReadOnly(val);
@@ -1480,7 +1491,7 @@ export default function DashboardLayout({
               >
                 <HugeiconsIcon icon={Menu01Icon} size={18} />
               </button>
-              {profile?.role !== "super_admin" && (
+              {profile?.role !== "super_admin" && pathname !== "/dashboard/timesheet-review" && (
                 <>
                   <div className="flex items-center gap-1 sm:gap-2 min-w-0">
                     <div className="flex flex-col">
