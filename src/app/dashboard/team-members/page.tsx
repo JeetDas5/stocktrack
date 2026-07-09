@@ -33,13 +33,12 @@ import {
   Send,
   Mail,
   X,
-  ShieldCheck,
-  ShieldX,
   UserCheck,
   Edit2,
   MoreVertical,
   UserX,
   Calendar as CalendarIcon,
+  Eye,
 } from "lucide-react";
 import { Dropdown } from "@/components/ui/dropdown";
 import Calendar from "@/components/ui/calendar";
@@ -1338,22 +1337,11 @@ export default function StaffDirectoryPage() {
                         </td>
                         <td className="py-4 px-6 text-right flex items-center justify-end gap-2">
                           <button
-                            onClick={() => {
-                              setPendingStaffToReject(p);
-                              setRejectionReason("");
-                              setIsRejectModalOpen(true);
-                            }}
-                            className="bg-white hover:bg-zinc-50 text-zinc-600 rounded-lg p-2 text-xs font-bold border border-zinc-200 cursor-pointer flex items-center gap-1 transition"
-                          >
-                            <ShieldX className="h-4 w-4" />
-                            Reject
-                          </button>
-                          <button
                             onClick={() => handleOpenApprovalModal(p)}
                             className="bg-black hover:bg-neutral-800 text-white rounded-lg p-2 px-3.5 text-xs font-bold cursor-pointer flex items-center gap-1 transition"
                           >
-                            <ShieldCheck className="h-4 w-4" />
-                            Approve
+                            <Eye className="h-4 w-4" />
+                            View
                           </button>
                         </td>
                       </tr>
@@ -1802,16 +1790,29 @@ export default function StaffDirectoryPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3 mt-6">
+              <div className="grid grid-cols-3 gap-3 mt-6">
                 <button
                   type="button"
                   onClick={() => {
                     setIsApprovalModalOpen(false);
                     setPendingStaffToApprove(null);
                   }}
-                  className="bg-white hover:bg-zinc-50 border border-zinc-200 text-zinc-700 rounded-xl py-3 text-xs font-bold uppercase tracking-wider transition cursor-pointer"
+                  className="bg-white hover:bg-zinc-50 border border-zinc-200 text-zinc-700 rounded-xl py-3 text-xs font-bold uppercase tracking-wider transition cursor-pointer flex items-center justify-center"
                 >
                   Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPendingStaffToReject(pendingStaffToApprove);
+                    setRejectionReason("");
+                    setIsRejectModalOpen(true);
+                    setIsApprovalModalOpen(false);
+                    setPendingStaffToApprove(null);
+                  }}
+                  className="bg-red-50 hover:bg-red-100/80 border border-red-200 text-red-600 rounded-xl py-3 text-xs font-bold uppercase tracking-wider transition cursor-pointer flex items-center justify-center"
+                >
+                  Reject
                 </button>
                 <button
                   type="button"

@@ -1,12 +1,14 @@
 import os
 from pathlib import Path
 from dotenv import load_dotenv
+from sqlalchemy import text, inspect
 from sqlmodel import create_engine, SQLModel, Session
 
 env_path = Path(__file__).resolve().parent.parent.parent / ".env"
 load_dotenv(dotenv_path=env_path)
 
 DATABASE_URL = os.getenv("DATABASE_URL")
+
 if not DATABASE_URL:
     raise ValueError("DATABASE_URL environment variable is not set")
 
@@ -27,7 +29,6 @@ engine = create_engine(
 )
 
 
-from sqlalchemy import text, inspect
 
 def init_db():
     SQLModel.metadata.create_all(engine)

@@ -37,6 +37,7 @@ const GENDER_OPTIONS = [
 export default function ProfilePage() {
   const { profile, loading: authLoading, refreshProfile } = useAuth();
   const [saving, setSaving] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   const { activeBusinessId } = useBusinessStore();
   const { locations, fetchLocations } = useLocationStore();
@@ -218,6 +219,13 @@ export default function ProfilePage() {
             : Number(value)
           : value,
     }));
+    if (errors[name]) {
+      setErrors((prev) => {
+        const next = { ...prev };
+        delete next[name];
+        return next;
+      });
+    }
   };
 
   // Profile Completion Score Calculator
@@ -261,22 +269,149 @@ export default function ProfilePage() {
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    const newErrors: Record<string, string> = {};
+    const NAME_REGEX = /^[A-Za-z\s'\-]+$/;
+    const PHONE_REGEX = /^\+?[0-9\s\-()]+$/;
+    const ALPHA_REGEX = /^[A-Za-z\s]+$/;
+    const SUBURB_REGEX = /^[A-Za-z\s\-]+$/;
+    const ALPHANUMERIC_REGEX = /^[A-Za-z0-9\s\-]+$/;
+
+    // First Name Validation
     if (!formData.first_name.trim()) {
-      toast.error("First Name is required.");
-      return;
+      newErrors.first_name = "First Name is required.";
+    } else if (formData.first_name.length > 50) {
+      newErrors.first_name = "First Name must not exceed 50 characters.";
+    } else if (!NAME_REGEX.test(formData.first_name)) {
+      newErrors.first_name = "First Name must contain only alphabetical characters, spaces, hyphens, or apostrophes.";
     }
+
+    // Last Name Validation
+    if (!formData.last_name.trim()) {
+      newErrors.last_name = "Last Name is required.";
+    } else if (formData.last_name.length > 50) {
+      newErrors.last_name = "Last Name must not exceed 50 characters.";
+    } else if (!NAME_REGEX.test(formData.last_name)) {
+      newErrors.last_name = "Last Name must contain only alphabetical characters, spaces, hyphens, or apostrophes.";
+    }
+
+    // Phone Validation
     if (!formData.phone.trim()) {
-      toast.error("Mobile Number is required.");
-      return;
+      newErrors.phone = "Mobile Number is required.";
+    } else if (formData.phone.length > 15) {
+      newErrors.phone = "Mobile Number must not exceed 15 characters.";
+    } else if (!PHONE_REGEX.test(formData.phone)) {
+      newErrors.phone = "Mobile Number must contain only digits, spaces, hyphens, parentheses, or +.";
     }
+
+    // Date of Birth Age validation (must be 18+) and future date check
+    if (formData.date_of_birth) {
+      const dob = new Date(formData.date_of_birth);
+      const today = new Date();
+      
+      let age = today.getFullYear() - dob.getFullYear();
+      const m = today.getMonth() - dob.getMonth();
+      if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) {
+        age--;
+      }
+
+      if (dob > today) {
+        newErrors.date_of_birth = "Date of Birth cannot be in the future.";
+      } else if (age < 18) {
+        newErrors.date_of_birth = "You must be 18 years of age or older.";
+      }
+    }
+
+    // Address Line 1 Validation
+    if (formData.address_line1 && formData.address_line1.trim().length > 100) {
+      newErrors.address_line1 = "Address Line 1 must not exceed 100 characters.";
+    }
+
+    // Country Validation
+    if (formData.country && formData.country.trim()) {
+      const countryVal = formData.country.trim();
+      if (countryVal.length > 50) {
+        newErrors.country = "Country must not exceed 50 characters.";
+      } else if (!ALPHA_REGEX.test(countryVal)) {
+        newErrors.country = "Country must contain only alphabetical characters.";
+      }
+    }
+
+    // Suburb Validation
+    if (formData.suburb && formData.suburb.trim()) {
+      const suburbVal = formData.suburb.trim();
+      if (suburbVal.length > 50) {
+        newErrors.suburb = "Suburb must not exceed 50 characters.";
+      } else if (!SUBURB_REGEX.test(suburbVal)) {
+        newErrors.suburb = "Suburb must contain only letters, spaces, or hyphens.";
+      }
+    }
+
+    // State Validation
+    if (formData.state && formData.state.trim()) {
+      const stateVal = formData.state.trim();
+      if (stateVal.length > 50) {
+        newErrors.state = "State must not exceed 50 characters.";
+      } else if (!ALPHA_REGEX.test(stateVal)) {
+        newErrors.state = "State must contain only alphabetical characters.";
+      }
+    }
+
+    // Post Code Validation
+    if (formData.post_code && formData.post_code.trim()) {
+      const postCodeVal = formData.post_code.trim();
+      if (postCodeVal.length > 10) {
+        newErrors.post_code = "Post Code must not exceed 10 characters.";
+      } else if (!ALPHANUMERIC_REGEX.test(postCodeVal)) {
+        newErrors.post_code = "Post Code must contain only alphanumeric characters, spaces, or hyphens.";
+      }
+    }
+
+    // Driving License Number Validation
+    if (formData.driving_license_number && formData.driving_license_number.trim()) {
+      const licenseVal = formData.driving_license_number.trim();
+      if (licenseVal.length > 20) {
+        newErrors.driving_license_number = "Driving License Number must not exceed 20 characters.";
+      } else if (!ALPHANUMERIC_REGEX.test(licenseVal)) {
+        newErrors.driving_license_number = "Driving License Number must contain only alphanumeric characters, spaces, or hyphens.";
+      }
+    }
+
+    // License Expiry Date Validation (must not be in the past)
+    if (formData.license_expiry_date) {
+      const expiry = new Date(formData.license_expiry_date + "T00:00:00");
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      if (expiry < today) {
+        newErrors.license_expiry_date = "License Expiry Date cannot be in the past.";
+      }
+    }
+
+    // Visa Expiry Date Validation (must not be in the past)
+    if (formData.visa_expiry_date) {
+      const expiry = new Date(formData.visa_expiry_date + "T00:00:00");
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      if (expiry < today) {
+        newErrors.visa_expiry_date = "Visa Expiry Date cannot be in the past.";
+      }
+    }
+
+    // Emergency Contact
     if (!formData.emergency_contact_name.trim()) {
-      toast.error("Emergency Contact Name is required.");
-      return;
+      newErrors.emergency_contact_name = "Emergency Contact Name is required.";
     }
     if (!formData.emergency_contact_phone.trim()) {
-      toast.error("Emergency Contact Phone is required.");
+      newErrors.emergency_contact_phone = "Emergency Contact Phone is required.";
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      const firstErrorMessage = Object.values(newErrors)[0];
+      toast.error(firstErrorMessage);
       return;
     }
+
+    setErrors({});
 
     try {
       setSaving(true);
@@ -327,6 +462,7 @@ export default function ProfilePage() {
 
   const handleCancel = () => {
     if (profile) {
+      setErrors({});
       setFormData({
         first_name: profile.first_name || "",
         last_name: profile.last_name || "",
@@ -478,25 +614,46 @@ export default function ProfilePage() {
                       type="text"
                       name="first_name"
                       required
+                      maxLength={50}
                       placeholder="Enter First Name"
                       value={formData.first_name}
                       onChange={handleChange}
-                      className="w-full bg-white border border-zinc-200 focus:border-[#0a2924] rounded-xl py-2.5 px-3.5 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#0a2924] transition-all shadow-xs font-bold"
+                      className={`w-full bg-white border ${
+                        errors.first_name
+                          ? "border-rose-500 focus:border-rose-500 focus:ring-rose-500"
+                          : "border-zinc-200 focus:border-[#0a2924] focus:ring-[#0a2924]"
+                      } rounded-xl py-2.5 px-3.5 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 transition-all shadow-xs font-bold`}
                     />
+                    {errors.first_name && (
+                      <p className="text-[10px] text-rose-500 font-bold mt-0.5">
+                        {errors.first_name}
+                      </p>
+                    )}
                   </div>
 
                   <div className="space-y-1.5">
                     <label className="text-xs font-extrabold text-zinc-700 uppercase tracking-wide">
-                      Last Name
+                      Last Name <span className="text-rose-500">*</span>
                     </label>
                     <input
                       type="text"
                       name="last_name"
+                      required
+                      maxLength={50}
                       placeholder="Enter Last Name"
                       value={formData.last_name}
                       onChange={handleChange}
-                      className="w-full bg-white border border-zinc-200 focus:border-[#0a2924] rounded-xl py-2.5 px-3.5 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#0a2924] transition-all shadow-xs font-bold"
+                      className={`w-full bg-white border ${
+                        errors.last_name
+                          ? "border-rose-500 focus:border-rose-500 focus:ring-rose-500"
+                          : "border-zinc-200 focus:border-[#0a2924] focus:ring-[#0a2924]"
+                      } rounded-xl py-2.5 px-3.5 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 transition-all shadow-xs font-bold`}
                     />
+                    {errors.last_name && (
+                      <p className="text-[10px] text-rose-500 font-bold mt-0.5">
+                        {errors.last_name}
+                      </p>
+                    )}
                   </div>
 
                   <div className="space-y-1.5">
@@ -507,11 +664,21 @@ export default function ProfilePage() {
                       type="text"
                       name="phone"
                       required
+                      maxLength={15}
                       placeholder="Enter Mobile Number"
                       value={formData.phone}
                       onChange={handleChange}
-                      className="w-full bg-white border border-zinc-200 focus:border-[#0a2924] rounded-xl py-2.5 px-3.5 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#0a2924] transition-all shadow-xs font-bold"
+                      className={`w-full bg-white border ${
+                        errors.phone
+                          ? "border-rose-500 focus:border-rose-500 focus:ring-rose-500"
+                          : "border-zinc-200 focus:border-[#0a2924] focus:ring-[#0a2924]"
+                      } rounded-xl py-2.5 px-3.5 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 transition-all shadow-xs font-bold`}
                     />
+                    {errors.phone && (
+                      <p className="text-[10px] text-rose-500 font-bold mt-0.5">
+                        {errors.phone}
+                      </p>
+                    )}
                   </div>
 
                   <div className="space-y-1.5">
@@ -551,7 +718,11 @@ export default function ProfilePage() {
                       <button
                         type="button"
                         onClick={() => setShowDOBCalendar(!showDOBCalendar)}
-                        className="w-full flex justify-between items-center bg-white border border-zinc-200 text-xs hover:bg-zinc-50/50 transition-colors focus:outline-none focus:ring-1 focus:ring-[#0a2924] focus:border-[#0a2924] cursor-pointer rounded-xl py-2.5 px-3.5 shadow-xs font-bold"
+                        className={`w-full flex justify-between items-center bg-white border ${
+                          errors.date_of_birth
+                            ? "border-rose-500 focus:border-rose-500 focus:ring-rose-500"
+                            : "border-zinc-200 focus:border-[#0a2924] focus:border-[#0a2924]"
+                        } text-xs hover:bg-zinc-50/50 transition-colors focus:outline-none focus:ring-1 cursor-pointer rounded-xl py-2.5 px-3.5 shadow-xs font-bold`}
                       >
                         <span
                           className={
@@ -568,17 +739,30 @@ export default function ProfilePage() {
                       {showDOBCalendar && (
                         <Calendar
                           selectedDate={formData.date_of_birth}
+                          maxDate={new Date().toISOString().split("T")[0]}
                           onChange={(dateStr) => {
                             setFormData((prev) => ({
                               ...prev,
                               date_of_birth: dateStr,
                             }));
+                            if (errors.date_of_birth) {
+                              setErrors((prev) => {
+                                const next = { ...prev };
+                                delete next.date_of_birth;
+                                return next;
+                              });
+                            }
                             setShowDOBCalendar(false);
                           }}
                           className="right-0 top-full mt-1.5"
                         />
                       )}
                     </div>
+                    {errors.date_of_birth && (
+                      <p className="text-[10px] text-rose-500 font-bold mt-0.5">
+                        {errors.date_of_birth}
+                      </p>
+                    )}
                   </div>
 
                   <div className="space-y-1.5 md:col-span-2 lg:col-span-3">
@@ -588,11 +772,21 @@ export default function ProfilePage() {
                     <input
                       type="text"
                       name="address_line1"
+                      maxLength={100}
                       placeholder="Street address, P.O. Box, etc."
                       value={formData.address_line1}
                       onChange={handleChange}
-                      className="w-full bg-white border border-zinc-200 focus:border-[#0a2924] rounded-xl py-2.5 px-3.5 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#0a2924] transition-all shadow-xs font-bold"
+                      className={`w-full bg-white border ${
+                        errors.address_line1
+                          ? "border-rose-500 focus:border-rose-500 focus:ring-rose-500"
+                          : "border-zinc-200 focus:border-[#0a2924] focus:ring-[#0a2924]"
+                      } rounded-xl py-2.5 px-3.5 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 transition-all shadow-xs font-bold`}
                     />
+                    {errors.address_line1 && (
+                      <p className="text-[10px] text-rose-500 font-bold mt-0.5">
+                        {errors.address_line1}
+                      </p>
+                    )}
                   </div>
 
                   <div className="space-y-1.5">
@@ -602,11 +796,21 @@ export default function ProfilePage() {
                     <input
                       type="text"
                       name="country"
+                      maxLength={50}
                       placeholder="e.g. Australia"
                       value={formData.country}
                       onChange={handleChange}
-                      className="w-full bg-white border border-zinc-200 focus:border-[#0a2924] rounded-xl py-2.5 px-3.5 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#0a2924] transition-all shadow-xs font-bold"
+                      className={`w-full bg-white border ${
+                        errors.country
+                          ? "border-rose-500 focus:border-rose-500 focus:ring-rose-500"
+                          : "border-zinc-200 focus:border-[#0a2924] focus:ring-[#0a2924]"
+                      } rounded-xl py-2.5 px-3.5 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 transition-all shadow-xs font-bold`}
                     />
+                    {errors.country && (
+                      <p className="text-[10px] text-rose-500 font-bold mt-0.5">
+                        {errors.country}
+                      </p>
+                    )}
                   </div>
 
                   <div className="space-y-1.5">
@@ -616,11 +820,21 @@ export default function ProfilePage() {
                     <input
                       type="text"
                       name="suburb"
+                      maxLength={50}
                       placeholder="e.g. Richmond"
                       value={formData.suburb}
                       onChange={handleChange}
-                      className="w-full bg-white border border-zinc-200 focus:border-[#0a2924] rounded-xl py-2.5 px-3.5 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#0a2924] transition-all shadow-xs font-bold"
+                      className={`w-full bg-white border ${
+                        errors.suburb
+                          ? "border-rose-500 focus:border-rose-500 focus:ring-rose-500"
+                          : "border-zinc-200 focus:border-[#0a2924] focus:ring-[#0a2924]"
+                      } rounded-xl py-2.5 px-3.5 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 transition-all shadow-xs font-bold`}
                     />
+                    {errors.suburb && (
+                      <p className="text-[10px] text-rose-500 font-bold mt-0.5">
+                        {errors.suburb}
+                      </p>
+                    )}
                   </div>
 
                   <div className="space-y-1.5">
@@ -630,11 +844,21 @@ export default function ProfilePage() {
                     <input
                       type="text"
                       name="state"
+                      maxLength={50}
                       placeholder="e.g. Victoria"
                       value={formData.state}
                       onChange={handleChange}
-                      className="w-full bg-white border border-zinc-200 focus:border-[#0a2924] rounded-xl py-2.5 px-3.5 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#0a2924] transition-all shadow-xs font-bold"
+                      className={`w-full bg-white border ${
+                        errors.state
+                          ? "border-rose-500 focus:border-rose-500 focus:ring-rose-500"
+                          : "border-zinc-200 focus:border-[#0a2924] focus:ring-[#0a2924]"
+                      } rounded-xl py-2.5 px-3.5 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 transition-all shadow-xs font-bold`}
                     />
+                    {errors.state && (
+                      <p className="text-[10px] text-rose-500 font-bold mt-0.5">
+                        {errors.state}
+                      </p>
+                    )}
                   </div>
 
                   <div className="space-y-1.5">
@@ -644,11 +868,21 @@ export default function ProfilePage() {
                     <input
                       type="text"
                       name="post_code"
+                      maxLength={10}
                       placeholder="e.g. 3121"
                       value={formData.post_code}
                       onChange={handleChange}
-                      className="w-full bg-white border border-zinc-200 focus:border-[#0a2924] rounded-xl py-2.5 px-3.5 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#0a2924] transition-all shadow-xs font-bold"
+                      className={`w-full bg-white border ${
+                        errors.post_code
+                          ? "border-rose-500 focus:border-rose-500 focus:ring-rose-500"
+                          : "border-zinc-200 focus:border-[#0a2924] focus:ring-[#0a2924]"
+                      } rounded-xl py-2.5 px-3.5 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 transition-all shadow-xs font-bold`}
                     />
+                    {errors.post_code && (
+                      <p className="text-[10px] text-rose-500 font-bold mt-0.5">
+                        {errors.post_code}
+                      </p>
+                    )}
                   </div>
 
                   <div className="space-y-1.5">
@@ -658,11 +892,21 @@ export default function ProfilePage() {
                     <input
                       type="text"
                       name="driving_license_number"
+                      maxLength={20}
                       placeholder="License ID"
                       value={formData.driving_license_number}
                       onChange={handleChange}
-                      className="w-full bg-white border border-zinc-200 focus:border-[#0a2924] rounded-xl py-2.5 px-3.5 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#0a2924] transition-all shadow-xs font-bold"
+                      className={`w-full bg-white border ${
+                        errors.driving_license_number
+                          ? "border-rose-500 focus:border-rose-500 focus:ring-rose-500"
+                          : "border-zinc-200 focus:border-[#0a2924] focus:ring-[#0a2924]"
+                      } rounded-xl py-2.5 px-3.5 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 transition-all shadow-xs font-bold`}
                     />
+                    {errors.driving_license_number && (
+                      <p className="text-[10px] text-rose-500 font-bold mt-0.5">
+                        {errors.driving_license_number}
+                      </p>
+                    )}
                   </div>
 
                   <div className="space-y-1.5">
@@ -673,7 +917,11 @@ export default function ProfilePage() {
                       <button
                         type="button"
                         onClick={() => setShowLicenseCalendar(!showLicenseCalendar)}
-                        className="w-full flex justify-between items-center bg-white border border-zinc-200 text-xs hover:bg-zinc-50/50 transition-colors focus:outline-none focus:ring-1 focus:ring-[#0a2924] focus:border-[#0a2924] cursor-pointer rounded-xl py-2.5 px-3.5 shadow-xs font-bold"
+                        className={`w-full flex justify-between items-center bg-white border ${
+                          errors.license_expiry_date
+                            ? "border-rose-500 focus:border-rose-500 focus:ring-rose-500"
+                            : "border-zinc-200 focus:border-[#0a2924] focus:border-[#0a2924]"
+                        } text-xs hover:bg-zinc-50/50 transition-colors focus:outline-none focus:ring-1 cursor-pointer rounded-xl py-2.5 px-3.5 shadow-xs font-bold`}
                       >
                         <span
                           className={
@@ -690,17 +938,30 @@ export default function ProfilePage() {
                       {showLicenseCalendar && (
                         <Calendar
                           selectedDate={formData.license_expiry_date}
+                          minDate={new Date().toISOString().split("T")[0]}
                           onChange={(dateStr) => {
                             setFormData((prev) => ({
                               ...prev,
                               license_expiry_date: dateStr,
                             }));
+                            if (errors.license_expiry_date) {
+                              setErrors((prev) => {
+                                const next = { ...prev };
+                                delete next.license_expiry_date;
+                                return next;
+                              });
+                            }
                             setShowLicenseCalendar(false);
                           }}
                           className="right-0 top-full mt-1.5"
                         />
                       )}
                     </div>
+                    {errors.license_expiry_date && (
+                      <p className="text-[10px] text-rose-500 font-bold mt-0.5">
+                        {errors.license_expiry_date}
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>
@@ -974,7 +1235,11 @@ export default function ProfilePage() {
                     <button
                       type="button"
                       onClick={() => setShowVisaCalendar(!showVisaCalendar)}
-                      className="w-full flex justify-between items-center bg-white border border-zinc-200 text-xs hover:bg-zinc-50/50 transition-colors focus:outline-none focus:ring-1 focus:ring-[#0a2924] focus:border-[#0a2924] cursor-pointer rounded-xl py-2.5 px-3.5 shadow-xs font-bold"
+                      className={`w-full flex justify-between items-center bg-white border ${
+                        errors.visa_expiry_date
+                          ? "border-rose-500 focus:border-rose-500 focus:ring-rose-500"
+                          : "border-zinc-200 focus:border-[#0a2924] focus:border-[#0a2924]"
+                      } text-xs hover:bg-zinc-50/50 transition-colors focus:outline-none focus:ring-1 cursor-pointer rounded-xl py-2.5 px-3.5 shadow-xs font-bold`}
                     >
                       <span
                         className={
@@ -991,17 +1256,30 @@ export default function ProfilePage() {
                     {showVisaCalendar && (
                       <Calendar
                         selectedDate={formData.visa_expiry_date}
+                        minDate={new Date().toISOString().split("T")[0]}
                         onChange={(dateStr) => {
                           setFormData((prev) => ({
                             ...prev,
                             visa_expiry_date: dateStr,
                           }));
+                          if (errors.visa_expiry_date) {
+                            setErrors((prev) => {
+                              const next = { ...prev };
+                              delete next.visa_expiry_date;
+                              return next;
+                            });
+                          }
                           setShowVisaCalendar(false);
                         }}
                         className="right-0 top-full mt-1.5"
                       />
                     )}
                   </div>
+                  {errors.visa_expiry_date && (
+                    <p className="text-[10px] text-rose-500 font-bold mt-0.5">
+                      {errors.visa_expiry_date}
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
