@@ -17,12 +17,14 @@ import {
   AlertTriangle,
 } from "lucide-react";
 
+import { Location } from "@/types/inventory";
 import { Staff } from "@/types/staff";
 import { Business } from "@/types/business";
 import { Timesheet } from "@/types/timesheet";
 import { useAuth } from "@/providers/auth-provider";
 import { useBusinessStore } from "@/stores/business-store";
 import { useLocationStore } from "@/stores/location-store";
+import { getLocations } from "@/lib/repositories/location.repository";
 import { getStaffMembers } from "@/lib/repositories/staff.repository";
 import { getUserBusinesses } from "@/lib/repositories/business.repository";
 import {
@@ -88,6 +90,10 @@ export default function TimesheetReviewPage() {
 
   const [displayLimit, setDisplayLimit] = useState(30);
 
+  const [filterBusiness, setFilterBusiness] = useState("all");
+  const [filterLocation, setFilterLocation] = useState("all");
+  const [allLocations, setAllLocations] = useState<Location[]>([]);
+
   const [editingTimesheet, setEditingTimesheet] = useState<Timesheet | null>(
     null,
   );
@@ -104,8 +110,8 @@ export default function TimesheetReviewPage() {
     const selectedStaff = staffList.find((s) => s.id === editStaffId);
     return selectedStaff?.locations && selectedStaff.locations.length > 0
       ? selectedStaff.locations
-      : locations;
-  }, [staffList, editStaffId, locations]);
+      : allLocations;
+  }, [staffList, editStaffId, allLocations]);
 
   useEffect(() => {
     if (!editStaffId) return;
@@ -129,36 +135,68 @@ export default function TimesheetReviewPage() {
   const [settings, setSettings] = useState<TimesheetSettings | null>(null);
 
   const loadData = useCallback(async () => {
-    if (!activeBusinessId || isStaff) return;
+    if (isStaff) return;
     try {
       setLoading(true);
-      const [bizList, tsList, sList, settingsData] = await Promise.all([
-        getUserBusinesses(),
-        getTimesheets(activeBusinessId),
-        getStaffMembers(activeBusinessId),
-        getTimesheetSettings(activeBusinessId).catch(() => null),
-      ]);
+      const bizList = await getUserBusinesses();
       setBusinesses(bizList);
+
+      const [tsList, staffResults, locationResults] = await Promise.all([
+        getTimesheets("all"),
+        Promise.all(bizList.map((b) => getStaffMembers(b.id).catch(() => []))),
+        Promise.all(bizList.map((b) => getLocations(b.id).catch(() => []))),
+      ]);
+
       setTimesheets(tsList);
-      setStaffList(sList);
-      setSettings(settingsData);
-      await fetchLocations(activeBusinessId);
+
+      const uniqueStaffMap = new Map();
+      staffResults.flat().forEach((s) => {
+        if (!uniqueStaffMap.has(s.id)) {
+          uniqueStaffMap.set(s.id, s);
+        }
+      });
+      setStaffList(Array.from(uniqueStaffMap.values()));
+      setAllLocations(locationResults.flat());
+
+      if (activeBusinessId) {
+        const settingsData = await getTimesheetSettings(activeBusinessId).catch(() => null);
+        setSettings(settingsData);
+      }
     } catch {
       toast.error("Failed to load timesheet review data.");
     } finally {
       setLoading(false);
     }
-  }, [activeBusinessId, isStaff, fetchLocations]);
+  }, [activeBusinessId, isStaff]);
 
   useEffect(() => {
     loadData();
   }, [loadData]);
 
+  const handleBusinessFilterChange = (val: string) => {
+    setFilterBusiness(val);
+    if (val !== "all" && filterLocation !== "all") {
+      const loc = allLocations.find((l) => l.id === filterLocation);
+      if (!loc || loc.businessId !== val) {
+        setFilterLocation("all");
+      }
+    }
+  };
+
+  const visibleLocations = useMemo(() => {
+    if (filterBusiness === "all") {
+      return allLocations;
+    }
+    return allLocations.filter((l) => l.businessId === filterBusiness);
+  }, [allLocations, filterBusiness]);
+
   const handleApprove = async (id: string) => {
-    if (!activeBusinessId) return;
+    const ts = timesheets.find((t) => t.id === id);
+    const targetBusinessId = ts ? ts.businessId : activeBusinessId;
+    if (!targetBusinessId) return;
     setActionLoadingId(id);
     try {
-      await updateTimesheetStatus(activeBusinessId, id, "approved");
+      await updateTimesheetStatus(targetBusinessId, id, "approved");
       setTimesheets((prev) =>
         prev.map((t) => (t.id === id ? { ...t, status: "approved" } : t)),
       );
@@ -171,10 +209,12 @@ export default function TimesheetReviewPage() {
   };
 
   const handleReject = async (id: string) => {
-    if (!activeBusinessId) return;
+    const ts = timesheets.find((t) => t.id === id);
+    const targetBusinessId = ts ? ts.businessId : activeBusinessId;
+    if (!targetBusinessId) return;
     setActionLoadingId(id);
     try {
-      await updateTimesheetStatus(activeBusinessId, id, "rejected");
+      await updateTimesheetStatus(targetBusinessId, id, "rejected");
       setTimesheets((prev) =>
         prev.map((t) => (t.id === id ? { ...t, status: "rejected" } : t)),
       );
@@ -199,7 +239,9 @@ export default function TimesheetReviewPage() {
 
   const handleSaveEdit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!activeBusinessId || !editingTimesheet) return;
+    if (!editingTimesheet) return;
+    const targetBusinessId = editingTimesheet.businessId || activeBusinessId;
+    if (!targetBusinessId) return;
     setEditSubmitting(true);
 
     const hasChanged =
@@ -213,7 +255,7 @@ export default function TimesheetReviewPage() {
 
     try {
       const updated = await updateTimesheet(
-        activeBusinessId,
+        targetBusinessId,
         editingTimesheet.id,
         {
           locationId: editLocationId,
@@ -239,6 +281,8 @@ export default function TimesheetReviewPage() {
   };
 
   const handleClearFilters = () => {
+    setFilterBusiness("all");
+    setFilterLocation("all");
     setFilterStaff("all");
     setFilterStatus("all");
     setStartDate("");
@@ -270,13 +314,16 @@ export default function TimesheetReviewPage() {
   };
 
   const handleBatchApprove = async () => {
-    if (selectedIds.length === 0 || !activeBusinessId) return;
+    if (selectedIds.length === 0) return;
     setBatchActionLoading(true);
     try {
       await Promise.all(
-        selectedIds.map((id) =>
-          updateTimesheetStatus(activeBusinessId, id, "approved"),
-        ),
+        selectedIds.map((id) => {
+          const ts = timesheets.find((t) => t.id === id);
+          const targetBusinessId = ts ? ts.businessId : activeBusinessId;
+          if (!targetBusinessId) throw new Error("Missing business id");
+          return updateTimesheetStatus(targetBusinessId, id, "approved");
+        }),
       );
       setTimesheets((prev) =>
         prev.map((t) =>
@@ -293,13 +340,16 @@ export default function TimesheetReviewPage() {
   };
 
   const handleBatchReject = async () => {
-    if (selectedIds.length === 0 || !activeBusinessId) return;
+    if (selectedIds.length === 0) return;
     setBatchActionLoading(true);
     try {
       await Promise.all(
-        selectedIds.map((id) =>
-          updateTimesheetStatus(activeBusinessId, id, "rejected"),
-        ),
+        selectedIds.map((id) => {
+          const ts = timesheets.find((t) => t.id === id);
+          const targetBusinessId = ts ? ts.businessId : activeBusinessId;
+          if (!targetBusinessId) throw new Error("Missing business id");
+          return updateTimesheetStatus(targetBusinessId, id, "rejected");
+        }),
       );
       setTimesheets((prev) =>
         prev.map((t) =>
@@ -363,8 +413,8 @@ export default function TimesheetReviewPage() {
 
   const filteredTimesheets = useMemo(() => {
     return timesheets.filter((ts) => {
-      if (activeBusinessId && ts.businessId !== activeBusinessId) return false;
-      if (activeLocationId && ts.locationId !== activeLocationId) return false;
+      if (filterBusiness !== "all" && ts.businessId !== filterBusiness) return false;
+      if (filterLocation !== "all" && ts.locationId !== filterLocation) return false;
       if (filterStaff !== "all" && ts.staffId !== filterStaff) return false;
       if (filterStatus !== "all" && ts.status !== filterStatus) return false;
       if (startDate && ts.workDate < startDate) return false;
@@ -379,8 +429,8 @@ export default function TimesheetReviewPage() {
     });
   }, [
     timesheets,
-    activeBusinessId,
-    activeLocationId,
+    filterBusiness,
+    filterLocation,
     filterStaff,
     filterStatus,
     startDate,
@@ -395,8 +445,8 @@ export default function TimesheetReviewPage() {
   useEffect(() => {
     setDisplayLimit(30);
   }, [
-    activeBusinessId,
-    activeLocationId,
+    filterBusiness,
+    filterLocation,
     filterStaff,
     filterStatus,
     startDate,
@@ -591,6 +641,58 @@ export default function TimesheetReviewPage() {
           </div>
 
           <div className="flex flex-col sm:flex-row gap-3 items-center w-full sm:w-auto relative">
+            {/* Business Dropdown */}
+            <div className="w-full sm:w-44">
+              <Select value={filterBusiness} onValueChange={handleBusinessFilterChange}>
+                <SelectTrigger className="w-full h-10 rounded-xl border border-neutral-200 bg-white px-3.5 py-2 text-left focus:outline-none focus:border-neutral-900 focus:ring-4 focus:ring-neutral-900/5 transition cursor-pointer font-semibold text-xs text-neutral-900 hover:bg-neutral-50">
+                  <SelectValue placeholder="All Businesses" />
+                </SelectTrigger>
+                <SelectContent className="rounded-xl border border-neutral-200 bg-white p-1 max-h-56">
+                  <SelectItem
+                    value="all"
+                    className="rounded-lg px-3 py-2 text-xs font-semibold hover:bg-neutral-50 hover:text-neutral-900 text-neutral-900 cursor-pointer"
+                  >
+                    All Businesses
+                  </SelectItem>
+                  {businesses.map((b) => (
+                    <SelectItem
+                      key={b.id}
+                      value={b.id}
+                      className="rounded-lg px-3 py-2 text-xs font-semibold hover:bg-neutral-50 hover:text-neutral-900 text-neutral-900 cursor-pointer"
+                    >
+                      {b.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Location Dropdown */}
+            <div className="w-full sm:w-44">
+              <Select value={filterLocation} onValueChange={setFilterLocation}>
+                <SelectTrigger className="w-full h-10 rounded-xl border border-neutral-200 bg-white px-3.5 py-2 text-left focus:outline-none focus:border-neutral-900 focus:ring-4 focus:ring-neutral-900/5 transition cursor-pointer font-semibold text-xs text-neutral-900 hover:bg-neutral-50">
+                  <SelectValue placeholder="All Locations" />
+                </SelectTrigger>
+                <SelectContent className="rounded-xl border border-neutral-200 bg-white p-1 max-h-56">
+                  <SelectItem
+                    value="all"
+                    className="rounded-lg px-3 py-2 text-xs font-semibold hover:bg-neutral-50 hover:text-neutral-900 text-neutral-900 cursor-pointer"
+                  >
+                    All Locations
+                  </SelectItem>
+                  {visibleLocations.map((l) => (
+                    <SelectItem
+                      key={l.id}
+                      value={l.id}
+                      className="rounded-lg px-3 py-2 text-xs font-semibold hover:bg-neutral-50 hover:text-neutral-900 text-neutral-900 cursor-pointer"
+                    >
+                      {l.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
             <div className="w-full sm:w-44">
               <Select value={filterStatus} onValueChange={setFilterStatus}>
                 <SelectTrigger className="w-full h-10 rounded-xl border border-neutral-200 bg-white px-3.5 py-2 text-left focus:outline-none focus:border-neutral-900 focus:ring-4 focus:ring-neutral-900/5 transition cursor-pointer font-semibold text-xs text-neutral-900 hover:bg-neutral-50">

@@ -99,7 +99,7 @@ export default function DashboardLayout({
     Record<string, boolean>
   >({});
 
-  const [isReadOnly, setIsReadOnly] = useState<boolean>(false);
+  const [isReadOnly, setIsReadOnly] = useState<boolean>(true);
   const [userSearch, setUserSearch] = useState("");
   const [showSuperAdminDropdown, setShowSuperAdminDropdown] = useState(false);
   const [allUsers, setAllUsers] = useState<any[]>([]);
@@ -1480,7 +1480,7 @@ export default function DashboardLayout({
               >
                 <HugeiconsIcon icon={Menu01Icon} size={18} />
               </button>
-              {profile?.role !== "super_admin" && (
+              {profile?.role !== "super_admin" && pathname !== "/dashboard/timesheet-review" && (
                 <>
                   <div className="flex items-center gap-1 sm:gap-2 min-w-0">
                     <div className="flex flex-col">
