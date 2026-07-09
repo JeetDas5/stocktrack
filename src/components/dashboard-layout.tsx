@@ -145,11 +145,22 @@ export default function DashboardLayout({
 
   useEffect(() => {
     if (typeof window !== "undefined") {
-      setIsReadOnly(
-        localStorage.getItem("nexbrix_super_admin_readonly") === "true",
-      );
+      const stored = localStorage.getItem("nexbrix_super_admin_readonly");
+      if (stored === null) {
+        const isSuperAdmin =
+          profile?.role === "super_admin" ||
+          !!localStorage.getItem("nexbrix_impersonated_user_id");
+        if (isSuperAdmin) {
+          setIsReadOnly(true);
+          localStorage.setItem("nexbrix_super_admin_readonly", "true");
+        } else {
+          setIsReadOnly(false);
+        }
+      } else {
+        setIsReadOnly(stored === "true");
+      }
     }
-  }, []);
+  }, [profile]);
 
   const handleReadOnlyToggle = (val: boolean) => {
     setIsReadOnly(val);

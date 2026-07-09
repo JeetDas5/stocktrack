@@ -162,6 +162,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session?.user]);
 
+  useEffect(() => {
+    if (profile?.role === "super_admin") {
+      if (
+        typeof window !== "undefined" &&
+        localStorage.getItem("nexbrix_super_admin_readonly") === null
+      ) {
+        localStorage.setItem("nexbrix_super_admin_readonly", "true");
+      }
+    }
+  }, [profile]);
+
   const logout = async () => {
     await authClient.signOut();
     localStorage.removeItem("nexbrix_token");
