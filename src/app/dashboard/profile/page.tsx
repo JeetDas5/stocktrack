@@ -282,7 +282,8 @@ export default function ProfilePage() {
     } else if (formData.first_name.length > 50) {
       newErrors.first_name = "First Name must not exceed 50 characters.";
     } else if (!NAME_REGEX.test(formData.first_name)) {
-      newErrors.first_name = "First Name must contain only alphabetical characters, spaces, hyphens, or apostrophes.";
+      newErrors.first_name =
+        "First Name must contain only alphabetical characters, spaces, hyphens, or apostrophes.";
     }
 
     // Last Name Validation
@@ -291,7 +292,8 @@ export default function ProfilePage() {
     } else if (formData.last_name.length > 50) {
       newErrors.last_name = "Last Name must not exceed 50 characters.";
     } else if (!NAME_REGEX.test(formData.last_name)) {
-      newErrors.last_name = "Last Name must contain only alphabetical characters, spaces, hyphens, or apostrophes.";
+      newErrors.last_name =
+        "Last Name must contain only alphabetical characters, spaces, hyphens, or apostrophes.";
     }
 
     // Phone Validation
@@ -300,14 +302,15 @@ export default function ProfilePage() {
     } else if (formData.phone.length > 15) {
       newErrors.phone = "Mobile Number must not exceed 15 characters.";
     } else if (!PHONE_REGEX.test(formData.phone)) {
-      newErrors.phone = "Mobile Number must contain only digits, spaces, hyphens, parentheses, or +.";
+      newErrors.phone =
+        "Mobile Number must contain only digits, spaces, hyphens, parentheses, or +.";
     }
 
     // Date of Birth Age validation (must be 18+) and future date check
     if (formData.date_of_birth) {
       const dob = new Date(formData.date_of_birth);
       const today = new Date();
-      
+
       let age = today.getFullYear() - dob.getFullYear();
       const m = today.getMonth() - dob.getMonth();
       if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) {
@@ -323,7 +326,8 @@ export default function ProfilePage() {
 
     // Address Line 1 Validation
     if (formData.address_line1 && formData.address_line1.trim().length > 100) {
-      newErrors.address_line1 = "Address Line 1 must not exceed 100 characters.";
+      newErrors.address_line1 =
+        "Address Line 1 must not exceed 100 characters.";
     }
 
     // Country Validation
@@ -332,7 +336,8 @@ export default function ProfilePage() {
       if (countryVal.length > 50) {
         newErrors.country = "Country must not exceed 50 characters.";
       } else if (!ALPHA_REGEX.test(countryVal)) {
-        newErrors.country = "Country must contain only alphabetical characters.";
+        newErrors.country =
+          "Country must contain only alphabetical characters.";
       }
     }
 
@@ -342,7 +347,8 @@ export default function ProfilePage() {
       if (suburbVal.length > 50) {
         newErrors.suburb = "Suburb must not exceed 50 characters.";
       } else if (!SUBURB_REGEX.test(suburbVal)) {
-        newErrors.suburb = "Suburb must contain only letters, spaces, or hyphens.";
+        newErrors.suburb =
+          "Suburb must contain only letters, spaces, or hyphens.";
       }
     }
 
@@ -362,17 +368,23 @@ export default function ProfilePage() {
       if (postCodeVal.length > 10) {
         newErrors.post_code = "Post Code must not exceed 10 characters.";
       } else if (!ALPHANUMERIC_REGEX.test(postCodeVal)) {
-        newErrors.post_code = "Post Code must contain only alphanumeric characters, spaces, or hyphens.";
+        newErrors.post_code =
+          "Post Code must contain only alphanumeric characters, spaces, or hyphens.";
       }
     }
 
     // Driving License Number Validation
-    if (formData.driving_license_number && formData.driving_license_number.trim()) {
+    if (
+      formData.driving_license_number &&
+      formData.driving_license_number.trim()
+    ) {
       const licenseVal = formData.driving_license_number.trim();
       if (licenseVal.length > 20) {
-        newErrors.driving_license_number = "Driving License Number must not exceed 20 characters.";
+        newErrors.driving_license_number =
+          "Driving License Number must not exceed 20 characters.";
       } else if (!ALPHANUMERIC_REGEX.test(licenseVal)) {
-        newErrors.driving_license_number = "Driving License Number must contain only alphanumeric characters, spaces, or hyphens.";
+        newErrors.driving_license_number =
+          "Driving License Number must contain only alphanumeric characters, spaces, or hyphens.";
       }
     }
 
@@ -382,7 +394,8 @@ export default function ProfilePage() {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       if (expiry < today) {
-        newErrors.license_expiry_date = "License Expiry Date cannot be in the past.";
+        newErrors.license_expiry_date =
+          "License Expiry Date cannot be in the past.";
       }
     }
 
@@ -399,9 +412,135 @@ export default function ProfilePage() {
     // Emergency Contact
     if (!formData.emergency_contact_name.trim()) {
       newErrors.emergency_contact_name = "Emergency Contact Name is required.";
+    } else if (formData.emergency_contact_name.length > 100) {
+      newErrors.emergency_contact_name =
+        "Emergency Contact Name must not exceed 100 characters.";
+    } else if (!NAME_REGEX.test(formData.emergency_contact_name)) {
+      newErrors.emergency_contact_name =
+        "Emergency Contact Name must contain only alphabetical characters, spaces, hyphens, or apostrophes.";
     }
+
+    if (
+      formData.emergency_contact_relationship &&
+      formData.emergency_contact_relationship.trim()
+    ) {
+      const relationshipVal = formData.emergency_contact_relationship.trim();
+      if (relationshipVal.length > 50) {
+        newErrors.emergency_contact_relationship =
+          "Relationship must not exceed 50 characters.";
+      } else if (!ALPHA_REGEX.test(relationshipVal)) {
+        newErrors.emergency_contact_relationship =
+          "Relationship must contain only alphabetical characters.";
+      }
+    }
+
     if (!formData.emergency_contact_phone.trim()) {
-      newErrors.emergency_contact_phone = "Emergency Contact Phone is required.";
+      newErrors.emergency_contact_phone =
+        "Emergency Contact Phone is required.";
+    } else if (formData.emergency_contact_phone.length > 15) {
+      newErrors.emergency_contact_phone =
+        "Emergency Contact Phone must not exceed 15 characters.";
+    } else if (!PHONE_REGEX.test(formData.emergency_contact_phone)) {
+      newErrors.emergency_contact_phone =
+        "Emergency Contact Phone must contain only digits, spaces, hyphens, parentheses, or +.";
+    }
+
+    if (
+      formData.emergency_contact_email &&
+      formData.emergency_contact_email.trim()
+    ) {
+      const emailVal = formData.emergency_contact_email.trim();
+      if (emailVal.length > 100) {
+        newErrors.emergency_contact_email =
+          "Emergency Contact Email must not exceed 100 characters.";
+      } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailVal)) {
+        newErrors.emergency_contact_email =
+          "Emergency Contact Email must be a valid email address.";
+      }
+    }
+
+    // Payroll & Compliance
+    if (formData.tax_file_number && formData.tax_file_number.trim()) {
+      const tfnVal = formData.tax_file_number.trim();
+      if (!/^\d+$/.test(tfnVal)) {
+        newErrors.tax_file_number = "Tax File Number must contain only digits.";
+      } else if (tfnVal.length !== 9) {
+        newErrors.tax_file_number =
+          "Tax File Number must be exactly 9 digits long.";
+      }
+    }
+
+    if (formData.super_fund_name && formData.super_fund_name.trim()) {
+      const superFundVal = formData.super_fund_name.trim();
+      if (superFundVal.length > 100) {
+        newErrors.super_fund_name =
+          "Super Fund Name must not exceed 100 characters.";
+      } else if (!ALPHA_REGEX.test(superFundVal)) {
+        newErrors.super_fund_name =
+          "Super Fund Name must contain only alphabetical characters.";
+      }
+    }
+
+    if (formData.super_fund_member_no && formData.super_fund_member_no.trim()) {
+      const memberNoVal = formData.super_fund_member_no.trim();
+      if (memberNoVal.length > 30) {
+        newErrors.super_fund_member_no =
+          "Super Fund Member Number must not exceed 30 characters.";
+      } else if (!/^[A-Za-z0-9\s]+$/.test(memberNoVal)) {
+        newErrors.super_fund_member_no =
+          "Super Fund Member Number must contain only alphanumeric characters.";
+      }
+    }
+
+    if (formData.bank_account_name && formData.bank_account_name.trim()) {
+      const bankAccountNameVal = formData.bank_account_name.trim();
+      if (bankAccountNameVal.length > 100) {
+        newErrors.bank_account_name =
+          "Bank Account Name must not exceed 100 characters.";
+      } else if (!NAME_REGEX.test(bankAccountNameVal)) {
+        newErrors.bank_account_name =
+          "Bank Account Name must contain only alphabetical characters, spaces, hyphens, or apostrophes.";
+      }
+    }
+
+    if (formData.bank_bsb && formData.bank_bsb.trim()) {
+      const bsbVal = formData.bank_bsb.trim();
+      if (!/^\d{3}-?\d{3}$/.test(bsbVal)) {
+        newErrors.bank_bsb =
+          "BSB must contain only digits and be exactly 6 digits long (e.g., 123-456 or 123456).";
+      }
+    }
+
+    if (formData.bank_account_number && formData.bank_account_number.trim()) {
+      const accountNoVal = formData.bank_account_number.trim();
+      if (!/^\d+$/.test(accountNoVal)) {
+        newErrors.bank_account_number =
+          "Account Number must contain only digits.";
+      } else if (accountNoVal.length < 6 || accountNoVal.length > 10) {
+        newErrors.bank_account_number =
+          "Account Number must be between 6 and 10 digits.";
+      }
+    }
+
+    if (
+      formData.weekly_work_hours !== undefined &&
+      formData.weekly_work_hours !== null
+    ) {
+      if (formData.weekly_work_hours < 0 || formData.weekly_work_hours > 168) {
+        newErrors.weekly_work_hours =
+          "Weekly Work Hours must be between 0 and 168.";
+      }
+    }
+
+    if (formData.residency_status && formData.residency_status.trim()) {
+      const residencyVal = formData.residency_status.trim();
+      if (residencyVal.length > 50) {
+        newErrors.residency_status =
+          "Residency Status must not exceed 50 characters.";
+      } else if (!ALPHA_REGEX.test(residencyVal)) {
+        newErrors.residency_status =
+          "Residency Status must contain only alphabetical characters.";
+      }
     }
 
     if (Object.keys(newErrors).length > 0) {
@@ -500,7 +639,7 @@ export default function ProfilePage() {
         start_date: profile.createdAt
           ? new Date(profile.createdAt).toLocaleDateString()
           : "",
-        reports_to: profile.reports_to || "Jane Smith (Store Manager)",
+        reports_to: profile.reports_to || "N/A",
         employment_type: profile.employment_type || "Casual",
       });
       toast.info("Changes discarded.");
@@ -556,7 +695,9 @@ export default function ProfilePage() {
             type="button"
             onClick={() => toggleSection("personal")}
             className={`w-full flex justify-between items-center px-6 py-4.5 bg-zinc-50/50 hover:bg-zinc-50/80 transition-colors text-left rounded-t-2xl ${
-              openSections.personal ? "border-b border-zinc-100" : "rounded-b-2xl"
+              openSections.personal
+                ? "border-b border-zinc-100"
+                : "rounded-b-2xl"
             }`}
           >
             <div className="flex items-center gap-3">
@@ -721,7 +862,7 @@ export default function ProfilePage() {
                         className={`w-full flex justify-between items-center bg-white border ${
                           errors.date_of_birth
                             ? "border-rose-500 focus:border-rose-500 focus:ring-rose-500"
-                            : "border-zinc-200 focus:border-[#0a2924] focus:border-[#0a2924]"
+                            : "border-zinc-200 focus:border-[#0a2924]"
                         } text-xs hover:bg-zinc-50/50 transition-colors focus:outline-none focus:ring-1 cursor-pointer rounded-xl py-2.5 px-3.5 shadow-xs font-bold`}
                       >
                         <span
@@ -916,11 +1057,13 @@ export default function ProfilePage() {
                     <div ref={licenseCalendarRef} className="relative">
                       <button
                         type="button"
-                        onClick={() => setShowLicenseCalendar(!showLicenseCalendar)}
+                        onClick={() =>
+                          setShowLicenseCalendar(!showLicenseCalendar)
+                        }
                         className={`w-full flex justify-between items-center bg-white border ${
                           errors.license_expiry_date
                             ? "border-rose-500 focus:border-rose-500 focus:ring-rose-500"
-                            : "border-zinc-200 focus:border-[#0a2924] focus:border-[#0a2924]"
+                            : "border-zinc-200 focus:border-[#0a2924]"
                         } text-xs hover:bg-zinc-50/50 transition-colors focus:outline-none focus:ring-1 cursor-pointer rounded-xl py-2.5 px-3.5 shadow-xs font-bold`}
                       >
                         <span
@@ -975,7 +1118,9 @@ export default function ProfilePage() {
             type="button"
             onClick={() => toggleSection("emergency")}
             className={`w-full flex justify-between items-center px-6 py-4.5 bg-zinc-50/50 hover:bg-zinc-50/80 transition-colors text-left rounded-t-2xl ${
-              openSections.emergency ? "border-b border-zinc-100" : "rounded-b-2xl"
+              openSections.emergency
+                ? "border-b border-zinc-100"
+                : "rounded-b-2xl"
             }`}
           >
             <div className="flex items-center gap-3">
@@ -1007,8 +1152,17 @@ export default function ProfilePage() {
                     placeholder="Enter Contact Name"
                     value={formData.emergency_contact_name}
                     onChange={handleChange}
-                    className="w-full bg-white border border-zinc-200 focus:border-[#0a2924] rounded-xl py-2.5 px-3.5 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#0a2924] transition-all shadow-xs font-bold"
+                    className={`w-full bg-white border ${
+                      errors.emergency_contact_name
+                        ? "border-rose-500 focus:border-rose-500 focus:ring-rose-500"
+                        : "border-zinc-200 focus:border-[#0a2924] focus:ring-[#0a2924]"
+                    } rounded-xl py-2.5 px-3.5 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 transition-all shadow-xs font-bold`}
                   />
+                  {errors.emergency_contact_name && (
+                    <p className="text-[10px] text-rose-500 font-bold mt-0.5">
+                      {errors.emergency_contact_name}
+                    </p>
+                  )}
                 </div>
 
                 <div className="space-y-1.5">
@@ -1021,8 +1175,17 @@ export default function ProfilePage() {
                     placeholder="e.g. Father"
                     value={formData.emergency_contact_relationship}
                     onChange={handleChange}
-                    className="w-full bg-white border border-zinc-200 focus:border-[#0a2924] rounded-xl py-2.5 px-3.5 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#0a2924] transition-all shadow-xs font-bold"
+                    className={`w-full bg-white border ${
+                      errors.emergency_contact_relationship
+                        ? "border-rose-500 focus:border-rose-500 focus:ring-rose-500"
+                        : "border-zinc-200 focus:border-[#0a2924] focus:ring-[#0a2924]"
+                    } rounded-xl py-2.5 px-3.5 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 transition-all shadow-xs font-bold`}
                   />
+                  {errors.emergency_contact_relationship && (
+                    <p className="text-[10px] text-rose-500 font-bold mt-0.5">
+                      {errors.emergency_contact_relationship}
+                    </p>
+                  )}
                 </div>
 
                 <div className="space-y-1.5">
@@ -1036,8 +1199,17 @@ export default function ProfilePage() {
                     placeholder="Enter Phone Number"
                     value={formData.emergency_contact_phone}
                     onChange={handleChange}
-                    className="w-full bg-white border border-zinc-200 focus:border-[#0a2924] rounded-xl py-2.5 px-3.5 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#0a2924] transition-all shadow-xs font-bold"
+                    className={`w-full bg-white border ${
+                      errors.emergency_contact_phone
+                        ? "border-rose-500 focus:border-rose-500 focus:ring-rose-500"
+                        : "border-zinc-200 focus:border-[#0a2924] focus:ring-[#0a2924]"
+                    } rounded-xl py-2.5 px-3.5 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 transition-all shadow-xs font-bold`}
                   />
+                  {errors.emergency_contact_phone && (
+                    <p className="text-[10px] text-rose-500 font-bold mt-0.5">
+                      {errors.emergency_contact_phone}
+                    </p>
+                  )}
                 </div>
 
                 <div className="space-y-1.5">
@@ -1050,8 +1222,17 @@ export default function ProfilePage() {
                     placeholder="Enter Email Address"
                     value={formData.emergency_contact_email}
                     onChange={handleChange}
-                    className="w-full bg-white border border-zinc-200 focus:border-[#0a2924] rounded-xl py-2.5 px-3.5 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#0a2924] transition-all shadow-xs font-bold"
+                    className={`w-full bg-white border ${
+                      errors.emergency_contact_email
+                        ? "border-rose-500 focus:border-rose-500 focus:ring-rose-500"
+                        : "border-zinc-200 focus:border-[#0a2924] focus:ring-[#0a2924]"
+                    } rounded-xl py-2.5 px-3.5 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 transition-all shadow-xs font-bold`}
                   />
+                  {errors.emergency_contact_email && (
+                    <p className="text-[10px] text-rose-500 font-bold mt-0.5">
+                      {errors.emergency_contact_email}
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
@@ -1064,7 +1245,9 @@ export default function ProfilePage() {
             type="button"
             onClick={() => toggleSection("payroll")}
             className={`w-full flex justify-between items-center px-6 py-4.5 bg-zinc-50/50 hover:bg-zinc-50/80 transition-colors text-left rounded-t-2xl ${
-              openSections.payroll ? "border-b border-zinc-100" : "rounded-b-2xl"
+              openSections.payroll
+                ? "border-b border-zinc-100"
+                : "rounded-b-2xl"
             }`}
           >
             <div className="flex items-center gap-3">
@@ -1097,7 +1280,11 @@ export default function ProfilePage() {
                       placeholder="e.g. 123456789"
                       value={formData.tax_file_number}
                       onChange={handleChange}
-                      className="w-full bg-white border border-zinc-200 focus:border-[#0a2924] rounded-xl py-2.5 pl-3.5 pr-10 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#0a2924] transition-all shadow-xs font-bold"
+                      className={`w-full bg-white border ${
+                        errors.tax_file_number
+                          ? "border-rose-500 focus:border-rose-500 focus:ring-rose-500"
+                          : "border-zinc-200 focus:border-[#0a2924] focus:ring-[#0a2924]"
+                      } rounded-xl py-2.5 pl-3.5 pr-10 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 transition-all shadow-xs font-bold`}
                     />
                     <button
                       type="button"
@@ -1111,6 +1298,11 @@ export default function ProfilePage() {
                       )}
                     </button>
                   </div>
+                  {errors.tax_file_number && (
+                    <p className="text-[10px] text-rose-500 font-bold mt-0.5">
+                      {errors.tax_file_number}
+                    </p>
+                  )}
                 </div>
 
                 <div className="space-y-1.5">
@@ -1123,8 +1315,17 @@ export default function ProfilePage() {
                     placeholder="e.g. AustralianSuper"
                     value={formData.super_fund_name}
                     onChange={handleChange}
-                    className="w-full bg-white border border-zinc-200 focus:border-[#0a2924] rounded-xl py-2.5 px-3.5 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#0a2924] transition-all shadow-xs font-bold"
+                    className={`w-full bg-white border ${
+                      errors.super_fund_name
+                        ? "border-rose-500 focus:border-rose-500 focus:ring-rose-500"
+                        : "border-zinc-200 focus:border-[#0a2924] focus:ring-[#0a2924]"
+                    } rounded-xl py-2.5 px-3.5 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 transition-all shadow-xs font-bold`}
                   />
+                  {errors.super_fund_name && (
+                    <p className="text-[10px] text-rose-500 font-bold mt-0.5">
+                      {errors.super_fund_name}
+                    </p>
+                  )}
                 </div>
 
                 <div className="space-y-1.5">
@@ -1137,8 +1338,17 @@ export default function ProfilePage() {
                     placeholder="Super Member Number"
                     value={formData.super_fund_member_no}
                     onChange={handleChange}
-                    className="w-full bg-white border border-zinc-200 focus:border-[#0a2924] rounded-xl py-2.5 px-3.5 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#0a2924] transition-all shadow-xs font-bold"
+                    className={`w-full bg-white border ${
+                      errors.super_fund_member_no
+                        ? "border-rose-500 focus:border-rose-500 focus:ring-rose-500"
+                        : "border-zinc-200 focus:border-[#0a2924] focus:ring-[#0a2924]"
+                    } rounded-xl py-2.5 px-3.5 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 transition-all shadow-xs font-bold`}
                   />
+                  {errors.super_fund_member_no && (
+                    <p className="text-[10px] text-rose-500 font-bold mt-0.5">
+                      {errors.super_fund_member_no}
+                    </p>
+                  )}
                 </div>
 
                 <div className="space-y-1.5">
@@ -1151,8 +1361,17 @@ export default function ProfilePage() {
                     placeholder="Account Holder Name"
                     value={formData.bank_account_name}
                     onChange={handleChange}
-                    className="w-full bg-white border border-zinc-200 focus:border-[#0a2924] rounded-xl py-2.5 px-3.5 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#0a2924] transition-all shadow-xs font-bold"
+                    className={`w-full bg-white border ${
+                      errors.bank_account_name
+                        ? "border-rose-500 focus:border-rose-500 focus:ring-rose-500"
+                        : "border-zinc-200 focus:border-[#0a2924] focus:ring-[#0a2924]"
+                    } rounded-xl py-2.5 px-3.5 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 transition-all shadow-xs font-bold`}
                   />
+                  {errors.bank_account_name && (
+                    <p className="text-[10px] text-rose-500 font-bold mt-0.5">
+                      {errors.bank_account_name}
+                    </p>
+                  )}
                 </div>
 
                 <div className="space-y-1.5">
@@ -1165,8 +1384,17 @@ export default function ProfilePage() {
                     placeholder="e.g. 062-000"
                     value={formData.bank_bsb}
                     onChange={handleChange}
-                    className="w-full bg-white border border-zinc-200 focus:border-[#0a2924] rounded-xl py-2.5 px-3.5 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#0a2924] transition-all shadow-xs font-bold"
+                    className={`w-full bg-white border ${
+                      errors.bank_bsb
+                        ? "border-rose-500 focus:border-rose-500 focus:ring-rose-500"
+                        : "border-zinc-200 focus:border-[#0a2924] focus:ring-[#0a2924]"
+                    } rounded-xl py-2.5 px-3.5 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 transition-all shadow-xs font-bold`}
                   />
+                  {errors.bank_bsb && (
+                    <p className="text-[10px] text-rose-500 font-bold mt-0.5">
+                      {errors.bank_bsb}
+                    </p>
+                  )}
                 </div>
 
                 {/* Account Number with visibility toggle */}
@@ -1181,7 +1409,11 @@ export default function ProfilePage() {
                       placeholder="Account ID Number"
                       value={formData.bank_account_number}
                       onChange={handleChange}
-                      className="w-full bg-white border border-zinc-200 focus:border-[#0a2924] rounded-xl py-2.5 pl-3.5 pr-10 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#0a2924] transition-all shadow-xs font-bold"
+                      className={`w-full bg-white border ${
+                        errors.bank_account_number
+                          ? "border-rose-500 focus:border-rose-500 focus:ring-rose-500"
+                          : "border-zinc-200 focus:border-[#0a2924] focus:ring-[#0a2924]"
+                      } rounded-xl py-2.5 pl-3.5 pr-10 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 transition-all shadow-xs font-bold`}
                     />
                     <button
                       type="button"
@@ -1195,6 +1427,11 @@ export default function ProfilePage() {
                       )}
                     </button>
                   </div>
+                  {errors.bank_account_number && (
+                    <p className="text-[10px] text-rose-500 font-bold mt-0.5">
+                      {errors.bank_account_number}
+                    </p>
+                  )}
                 </div>
 
                 <div className="space-y-1.5">
@@ -1209,8 +1446,17 @@ export default function ProfilePage() {
                     max={168}
                     value={formData.weekly_work_hours || ""}
                     onChange={handleChange}
-                    className="w-full bg-white border border-zinc-200 focus:border-[#0a2924] rounded-xl py-2.5 px-3.5 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#0a2924] transition-all shadow-xs font-bold"
+                    className={`w-full bg-white border ${
+                      errors.weekly_work_hours
+                        ? "border-rose-500 focus:border-rose-500 focus:ring-rose-500"
+                        : "border-zinc-200 focus:border-[#0a2924] focus:ring-[#0a2924]"
+                    } rounded-xl py-2.5 px-3.5 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 transition-all shadow-xs font-bold`}
                   />
+                  {errors.weekly_work_hours && (
+                    <p className="text-[10px] text-rose-500 font-bold mt-0.5">
+                      {errors.weekly_work_hours}
+                    </p>
+                  )}
                 </div>
 
                 <div className="space-y-1.5">
@@ -1223,8 +1469,17 @@ export default function ProfilePage() {
                     placeholder="e.g. Citizen, Visa"
                     value={formData.residency_status}
                     onChange={handleChange}
-                    className="w-full bg-white border border-zinc-200 focus:border-[#0a2924] rounded-xl py-2.5 px-3.5 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#0a2924] transition-all shadow-xs font-bold"
+                    className={`w-full bg-white border ${
+                      errors.residency_status
+                        ? "border-rose-500 focus:border-rose-500 focus:ring-rose-500"
+                        : "border-zinc-200 focus:border-[#0a2924] focus:ring-[#0a2924]"
+                    } rounded-xl py-2.5 px-3.5 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 transition-all shadow-xs font-bold`}
                   />
+                  {errors.residency_status && (
+                    <p className="text-[10px] text-rose-500 font-bold mt-0.5">
+                      {errors.residency_status}
+                    </p>
+                  )}
                 </div>
 
                 <div className="space-y-1.5">
@@ -1292,7 +1547,9 @@ export default function ProfilePage() {
             type="button"
             onClick={() => toggleSection("employment")}
             className={`w-full flex justify-between items-center px-6 py-4.5 bg-zinc-50/50 hover:bg-zinc-50/80 transition-colors text-left rounded-t-2xl ${
-              openSections.employment ? "border-b border-zinc-100" : "rounded-b-2xl"
+              openSections.employment
+                ? "border-b border-zinc-100"
+                : "rounded-b-2xl"
             }`}
           >
             <div className="flex items-center gap-3">
@@ -1354,7 +1611,7 @@ export default function ProfilePage() {
                     <input
                       type="text"
                       disabled
-                      value={formData.position || "Barista"}
+                      value={formData.position || "N/A"}
                       className="w-full bg-zinc-100 border border-zinc-200 rounded-xl py-2.5 px-3.5 text-xs text-zinc-450 font-bold select-none cursor-not-allowed outline-none"
                     />
                   </div>
