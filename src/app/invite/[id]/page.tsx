@@ -528,11 +528,41 @@ export default function InvitePage({
 
               <div className="border-t border-neutral-200/60 pt-6">
                 <button
-                  onClick={() => router.push("/dashboard/profile")}
-                  className="w-full bg-neutral-900 hover:bg-neutral-800 text-white rounded-full py-3.5 text-[14px] font-medium transition-all hover:gap-3 flex items-center justify-center gap-2 cursor-pointer shadow-sm"
+                  onClick={async () => {
+                    setSubmitting(true);
+                    try {
+                      const freshProfile = await refreshProfile();
+                      if (
+                        freshProfile?.isInternal &&
+                        (freshProfile.role === "admin" ||
+                          freshProfile.role === "super_admin" ||
+                          freshProfile.isActive)
+                      ) {
+                        router.push("/dashboard/profile");
+                      } else {
+                        toast.info("Approval still pending. Redirecting to status page.");
+                        router.push("/invite");
+                      }
+                    } catch (err) {
+                      toast.error("Failed to check approval status. Please try again.");
+                    } finally {
+                      setSubmitting(false);
+                    }
+                  }}
+                  disabled={submitting}
+                  className="w-full bg-neutral-900 hover:bg-neutral-800 text-white rounded-full py-3.5 text-[14px] font-medium transition-all hover:gap-3 flex items-center justify-center gap-2 cursor-pointer shadow-sm disabled:opacity-50"
                 >
-                  Go to Profile
-                  <ArrowRight className="h-4 w-4" />
+                  {submitting ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Checking Status...
+                    </>
+                  ) : (
+                    <>
+                      Go to Profile
+                      <ArrowRight className="h-4 w-4" />
+                    </>
+                  )}
                 </button>
               </div>
             </div>

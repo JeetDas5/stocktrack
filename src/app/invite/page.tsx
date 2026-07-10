@@ -1,13 +1,21 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/providers/auth-provider";
 import { Loader2, LogOut, Clock, Lock } from "lucide-react";
 
 export default function InvitePendingPage() {
   const router = useRouter();
-  const { user, profile, loading, logout } = useAuth();
+  const { user, profile, loading, logout, refreshProfile } = useAuth();
+  const [checking, setChecking] = useState(false);
+
+  useEffect(() => {
+    if (user) {
+      refreshProfile();
+    }
+  }, [user, refreshProfile]);
 
   useEffect(() => {
     if (!loading) {
@@ -25,6 +33,27 @@ export default function InvitePendingPage() {
       }
     }
   }, [user, profile, loading, router]);
+
+  const handleCheckStatus = async () => {
+    setChecking(true);
+    try {
+      const fresh = await refreshProfile();
+      if (
+        fresh?.isInternal &&
+        (fresh.role === "admin" ||
+          fresh.role === "super_admin" ||
+          fresh.isActive)
+      ) {
+        router.push("/dashboard/profile");
+      } else {
+        toast.info("Approval still pending");
+      }
+    } catch (err) {
+      toast.error("Failed to check status. Please try again.");
+    } finally {
+      setChecking(false);
+    }
+  };
 
   const handleLogout = async () => {
     await logout();
@@ -113,10 +142,30 @@ export default function InvitePendingPage() {
           </>
         )}
 
-        <div className="mt-10 border-t border-zinc-100 pt-8">
+        <div className="mt-10 border-t border-zinc-100 pt-8 space-y-3">
+          {!isInviteOnly && (
+            <button
+              onClick={handleCheckStatus}
+              disabled={checking}
+              className="w-full bg-zinc-950 hover:bg-zinc-800 text-white rounded-full py-3.5 text-[13px] font-semibold transition-colors cursor-pointer flex items-center justify-center gap-2 shadow-xs disabled:opacity-50"
+            >
+              {checking ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Checking Status...
+                </>
+              ) : (
+                "Check Approval Status"
+              )}
+            </button>
+          )}
           <button
             onClick={handleLogout}
-            className="w-full bg-zinc-950 hover:bg-zinc-800 text-white rounded-full py-3.5 text-xs font-bold uppercase tracking-wider shadow-sm transition-colors cursor-pointer flex items-center justify-center gap-2"
+            className={`w-full rounded-full py-3.5 text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer flex items-center justify-center gap-2 ${
+              isInviteOnly
+                ? "bg-zinc-950 hover:bg-zinc-800 text-white shadow-sm"
+                : "bg-transparent hover:bg-zinc-50 text-zinc-500 hover:text-zinc-900 border border-transparent"
+            }`}
           >
             <LogOut className="h-4 w-4" />
             Sign Out
