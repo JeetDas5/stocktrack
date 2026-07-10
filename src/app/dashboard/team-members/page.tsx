@@ -1282,7 +1282,8 @@ export default function StaffDirectoryPage() {
                     {pendingStaff.map((p) => (
                       <tr
                         key={p.id}
-                        className="hover:bg-zinc-50/40 transition-colors"
+                        onClick={() => handleOpenApprovalModal(p)}
+                        className="hover:bg-zinc-50/40 transition-colors cursor-pointer"
                       >
                         <td className="py-4 px-6 font-extrabold">
                           {p.user_name || "New Staff"}
@@ -1335,7 +1336,10 @@ export default function StaffDirectoryPage() {
                             );
                           })()}
                         </td>
-                        <td className="py-4 px-6 text-right flex items-center justify-end gap-2">
+                        <td
+                          className="py-4 px-6 text-right flex items-center justify-end gap-2"
+                          onClick={(e) => e.stopPropagation()}
+                        >
                           <button
                             onClick={() => handleOpenApprovalModal(p)}
                             className="bg-black hover:bg-neutral-800 text-white rounded-lg p-2 px-3.5 text-xs font-bold cursor-pointer flex items-center gap-1 transition"
