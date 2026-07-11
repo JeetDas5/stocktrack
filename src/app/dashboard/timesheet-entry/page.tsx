@@ -322,8 +322,10 @@ export default function TimesheetEntryPage() {
   }, [loadTimesheets]);
 
   const staffTimesheets = useMemo(() => {
-    return timesheets.filter((ts) => ts.staffId === staffId);
-  }, [timesheets, staffId]);
+    return timesheets.filter(
+      (ts) => ts.staffId === staffId && ts.locationId === activeLocationId,
+    );
+  }, [timesheets, staffId, activeLocationId]);
 
   const checkIsDateEditable = useCallback(
     (dateStr: string, status: string) => {
@@ -410,7 +412,7 @@ export default function TimesheetEntryPage() {
     });
 
     setWeekRows(rows);
-  }, [currentWeekStart, staffId, timesheets, settings, getWeekDays]);
+  }, [currentWeekStart, staffId, staffTimesheets, settings, getWeekDays]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
