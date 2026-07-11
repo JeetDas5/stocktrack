@@ -454,27 +454,29 @@ export default function TimesheetReviewPage() {
     searchQuery,
   ]);
 
-  const handleExport = () => {
+  const exportCSV = () => {
     const headers = [
       "Staff Name",
-      "Date",
       "Business",
       "Location",
+      "Date",
       "Start Time",
       "End Time",
       "Break (min)",
+      "Project",
       "Total Hours",
       "Status",
     ];
+
     const rows = filteredTimesheets.map((ts) => [
       ts.staffName,
-      ts.workDate,
-      businesses.find((b) => b.id === ts.businessId)?.name ||
-        "Unknown Business",
+      businesses.find((b) => b.id === ts.businessId)?.name || "Unknown Business",
       ts.locationName,
+      ts.workDate,
       ts.startTime,
       ts.endTime,
       ts.unpaidBreak,
+      ts.project || "",
       ts.totalHours.toFixed(2),
       ts.status.toLowerCase() === "submitted"
         ? "Pending"
@@ -482,9 +484,16 @@ export default function TimesheetReviewPage() {
           ? "Resubmitted"
           : ts.status.charAt(0).toUpperCase() + ts.status.slice(1),
     ]);
+
     const csvContent =
       "data:text/csv;charset=utf-8," +
-      [headers.join(","), ...rows.map((e) => e.join(","))].join("\n");
+      [
+        headers.join(","),
+        ...rows.map((e) =>
+          e.map((val) => `"${String(val).replace(/"/g, '""')}"`).join(","),
+        ),
+      ].join("\n");
+
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
@@ -495,7 +504,185 @@ export default function TimesheetReviewPage() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    toast.success("Timesheets exported successfully.");
+    toast.success("CSV report exported successfully.");
+  };
+
+  const exportExcel = () => {
+    const headers = [
+      "Staff Name",
+      "Business",
+      "Location",
+      "Date",
+      "Start Time",
+      "End Time",
+      "Break (min)",
+      "Project",
+      "Total Hours",
+      "Status",
+    ];
+
+    const rows = filteredTimesheets.map((ts) => [
+      ts.staffName,
+      businesses.find((b) => b.id === ts.businessId)?.name || "Unknown Business",
+      ts.locationName,
+      ts.workDate,
+      ts.startTime,
+      ts.endTime,
+      ts.unpaidBreak,
+      ts.project || "",
+      ts.totalHours.toFixed(2),
+      ts.status.toLowerCase() === "submitted"
+        ? "Pending"
+        : ts.status.toLowerCase() === "edited"
+          ? "Resubmitted"
+          : ts.status.charAt(0).toUpperCase() + ts.status.slice(1),
+    ]);
+
+    let content =
+      '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">';
+    content +=
+      '<head><meta charset="utf-8" /><!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet><x:Name>Timesheet Review</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions></x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]--></head>';
+    content += "<body><table>";
+    content +=
+      "<tr>" +
+      headers
+        .map(
+          (h) =>
+            `<th style="background-color: #0A2924; color: white; font-weight: bold; border: 1px solid #ccc; padding: 5px;">${h}</th>`,
+        )
+        .join("") +
+      "</tr>";
+    rows.forEach((row) => {
+      content +=
+        "<tr>" +
+        row
+          .map(
+            (cell) =>
+              `<td style="border: 1px solid #ccc; padding: 5px;">${cell}</td>`,
+          )
+          .join("") +
+        "</tr>";
+    });
+    content += "</table></body></html>";
+
+    const blob = new Blob([content], { type: "application/vnd.ms-excel" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `timesheet_review_${new Date().toISOString().slice(0, 10)}.xls`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    toast.success("Excel report exported successfully.");
+  };
+
+  const exportXeroCSV = () => {
+    const headers = [
+      "EmployeeName",
+      "Email",
+      "Date",
+      "TrackingCategory1",
+      "TrackingCategory2",
+      "NumberOfHours",
+    ];
+
+    const rows = filteredTimesheets.map((ts) => [
+      ts.staffName,
+      "",
+      ts.workDate,
+      ts.locationName || "",
+      "",
+      ts.totalHours.toFixed(2),
+    ]);
+
+    const csvContent =
+      "data:text/csv;charset=utf-8," +
+      [
+        headers.join(","),
+        ...rows.map((e) =>
+          e.map((val) => `"${String(val).replace(/"/g, '""')}"`).join(","),
+        ),
+      ].join("\n");
+
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute(
+      "download",
+      `timesheet_xero_${new Date().toISOString().slice(0, 10)}.csv`,
+    );
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast.success("Xero payroll CSV exported successfully.");
+  };
+
+  const exportMYOBCSV = () => {
+    const headers = [
+      "Co/Last Name",
+      "First Name",
+      "Date",
+      "Activity",
+      "Hours",
+      "Notes",
+    ];
+
+    const rows = filteredTimesheets.map((ts) => {
+      const nameParts = ts.staffName.trim().split(/\s+/);
+      const firstName = nameParts[0] || "";
+      const lastName = nameParts.slice(1).join(" ") || firstName;
+      const finalFirstName = nameParts.length > 1 ? firstName : "";
+
+      return [
+        lastName,
+        finalFirstName,
+        ts.workDate,
+        ts.locationName || "Regular Hours",
+        ts.totalHours.toFixed(2),
+        ts.notes || "",
+      ];
+    });
+
+    const csvContent =
+      "data:text/csv;charset=utf-8," +
+      [
+        headers.join(","),
+        ...rows.map((e) =>
+          e.map((val) => `"${String(val).replace(/"/g, '""')}"`).join(","),
+        ),
+      ].join("\n");
+
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute(
+      "download",
+      `timesheet_myob_${new Date().toISOString().slice(0, 10)}.csv`,
+    );
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast.success("MYOB payroll CSV exported successfully.");
+  };
+
+  const handleExport = () => {
+    const format = settings?.payroll_export_format || "CSV";
+    switch (format) {
+      case "Xero":
+        exportXeroCSV();
+        break;
+      case "MYOB":
+        exportMYOBCSV();
+        break;
+      case "Excel":
+        exportExcel();
+        break;
+      case "CSV":
+      default:
+        exportCSV();
+        break;
+    }
   };
 
   const getWeekStartStr = useCallback(
@@ -622,7 +809,7 @@ export default function TimesheetReviewPage() {
             className="inline-flex items-center gap-2 bg-[#0A2924] hover:bg-[#0A2924]/90 border border-[#0A2924] text-white px-5 py-2.5 rounded-full text-xs font-bold transition-all duration-200 cursor-pointer disabled:opacity-50 shadow-sm"
           >
             <Download className="h-3.5 w-3.5" />
-            Export
+            Export {settings?.payroll_export_format || "Excel"}
           </button>
         </div>
 
