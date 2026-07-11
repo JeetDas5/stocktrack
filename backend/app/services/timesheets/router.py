@@ -244,6 +244,23 @@ def create_timesheet(
             status_code=status.HTTP_404_NOT_FOUND, detail="Location not found"
         )
 
+    # Check for existing duplicate timesheet
+    existing = session.exec(
+        select(Timesheet).where(
+            Timesheet.business_id == business_id,
+            Timesheet.location_id == data.location_id,
+            Timesheet.staff_id == data.staff_id,
+            Timesheet.work_date == data.work_date,
+            Timesheet.start_time == data.start_time,
+            Timesheet.end_time == data.end_time,
+        )
+    ).first()
+    if existing:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="A timesheet entry for this date, time, and location already exists."
+        )
+
     total_h = calculate_timesheet_hours(
         data.start_time, data.end_time, data.unpaid_break
     )
