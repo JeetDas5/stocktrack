@@ -818,10 +818,13 @@ def get_timesheet_reports(
 
     stmt = select(Timesheet).where(or_(*conditions))
 
-    if start_date:
-        stmt = stmt.where(Timesheet.work_date >= start_date)
-    if end_date:
-        stmt = stmt.where(Timesheet.work_date <= end_date)
+    if start_date and not end_date:
+        stmt = stmt.where(Timesheet.work_date == start_date)
+    else:
+        if start_date:
+            stmt = stmt.where(Timesheet.work_date >= start_date)
+        if end_date:
+            stmt = stmt.where(Timesheet.work_date <= end_date)
     if location_id and location_id != "all":
         stmt = stmt.where(Timesheet.location_id == location_id)
     if staff_id and staff_id != "all":
