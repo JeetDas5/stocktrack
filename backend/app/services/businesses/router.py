@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import Session, select, SQLModel, func
@@ -20,6 +20,7 @@ class BusinessOut(SQLModel):
     is_active: bool
     created_at: datetime
     created_by_id: str
+    owner_name: Optional[str] = None
     locations_count: int = 0
     items_count: int = 0
 
@@ -33,12 +34,12 @@ class BusinessOut(SQLModel):
     responses={
         201: {"description": "Business profile successfully created."},
         401: {"description": "Missing or invalid authorization credentials."},
-    }
+    },
 )
 def create_business(
     data: BusinessCreate,
     current_user: User = Depends(get_current_user),
-    session: Session = Depends(get_session)
+    session: Session = Depends(get_session),
 ):
     """
     **Create a Business**
@@ -48,13 +49,13 @@ def create_business(
     existing = session.exec(
         select(Business).where(
             Business.created_by_id == current_user.id,
-            func.lower(Business.name) == data.name.strip().lower()
+            func.lower(Business.name) == data.name.strip().lower(),
         )
     ).first()
     if existing:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=f"A business with the name '{data.name.strip()}' already exists"
+            detail=f"A business with the name '{data.name.strip()}' already exists",
         )
 
     business = Business(name=data.name.strip(), created_by_id=current_user.id)
@@ -70,13 +71,15 @@ def create_business(
     summary="List all businesses",
     description="Retrieves a list of all businesses owned/created or assigned to the currently authenticated user.",
     responses={
-        200: {"description": "List of owned/assigned businesses successfully retrieved."},
+        200: {
+            "description": "List of owned/assigned businesses successfully retrieved."
+        },
         401: {"description": "Missing or invalid authorization credentials."},
-    }
+    },
 )
 def get_businesses(
     current_user: User = Depends(get_current_user),
-    session: Session = Depends(get_session)
+    session: Session = Depends(get_session),
 ):
     """
     **List Owned & Assigned Businesses**
@@ -85,27 +88,32 @@ def get_businesses(
         statement = select(Business)
     else:
         statement = select(Business).where(
-            (Business.created_by_id == current_user.id) |
-            (Business.id.in_(
-                select(UserAssignment.business_id).where(
-                    UserAssignment.user_id == current_user.id,
-                    UserAssignment.is_active
+            (Business.created_by_id == current_user.id)
+            | (
+                Business.id.in_(
+                    select(UserAssignment.business_id).where(
+                        UserAssignment.user_id == current_user.id,
+                        UserAssignment.is_active,
+                    )
                 )
-            ))
+            )
         )
     businesses = session.exec(statement).all()
 
     out = []
     for b in businesses:
-        out.append(BusinessOut(
-            id=b.id,
-            name=b.name,
-            is_active=b.is_active,
-            created_at=b.created_at,
-            created_by_id=b.created_by_id,
-            locations_count=len(b.locations),
-            items_count=len(b.stock_items)
-        ))
+        out.append(
+            BusinessOut(
+                id=b.id,
+                name=b.name,
+                is_active=b.is_active,
+                created_at=b.created_at,
+                created_by_id=b.created_by_id,
+                owner_name=b.created_by.name if b.created_by else None,
+                locations_count=len(b.locations),
+                items_count=len(b.stock_items),
+            )
+        )
     return out
 
 
@@ -118,12 +126,12 @@ def get_businesses(
         200: {"description": "Business details successfully retrieved."},
         401: {"description": "Missing or invalid authorization credentials."},
         404: {"description": "Business profile not found in database."},
-    }
+    },
 )
 def get_business(
     business_id: str,
     current_user: User = Depends(get_current_user),
-    session: Session = Depends(get_session)
+    session: Session = Depends(get_session),
 ):
     """
     **Get Business by ID**
@@ -133,12 +141,9 @@ def get_business(
     business = session.get(Business, business_id)
     if not business:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Business not found"
+            status_code=status.HTTP_404_NOT_FOUND, detail="Business not found"
         )
-    
+
     verify_user_permission(current_user, business_id, "business.read", session=session)
-    
+
     return business
-
-

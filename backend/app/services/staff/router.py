@@ -703,6 +703,8 @@ class PendingStaffAssignmentOut(SQLModel):
     role: str
     status: str
     created_at: datetime
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
 
 
 @router.post("/api/staff/invitations", response_model=StaffInvitationOut, status_code=status.HTTP_201_CREATED)
@@ -985,7 +987,9 @@ def get_pending_staff(
             location_name=location_name,
             role=ass.role,
             status=ass.status,
-            created_at=ass.created_at
+            created_at=ass.created_at,
+            first_name=ass.user.first_name,
+            last_name=ass.user.last_name
         ))
 
     return out

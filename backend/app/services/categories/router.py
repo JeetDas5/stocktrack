@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select, SQLModel, func
 
 from app.database import get_session
-from app.models import User, Business, Category, CategoryStatus
+from app.models import User, Category, CategoryStatus
 from app.services.auth.dependencies import get_current_user, verify_user_permission
 
 router = APIRouter(tags=["Categories"])
