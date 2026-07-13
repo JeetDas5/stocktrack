@@ -80,5 +80,7 @@ export interface PendingStaffAssignment {
   role: string;
   status: string;
   created_at: string;
+  first_name?: string | null;
+  last_name?: string | null;
 }
 

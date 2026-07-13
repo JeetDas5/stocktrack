@@ -74,6 +74,24 @@ export function Dropdown<T extends string | number>({
         >
           {options.map((option) => {
             const isSelected = option.value === value;
+            const isActionBtn = option.value === "CREATE_NEW_CUSTOM";
+
+            if (isActionBtn) {
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => {
+                    onChange(option.value);
+                    setIsOpen(false);
+                  }}
+                  className="flex items-center justify-center gap-1.5 px-3.5 py-2 w-full text-center text-xs font-extrabold text-zinc-950 bg-zinc-50 border-t border-zinc-150 hover:bg-zinc-100 hover:text-black transition-colors cursor-pointer mt-1"
+                >
+                  <span>{option.label}</span>
+                </button>
+              );
+            }
+
             return (
               <button
                 key={option.value}
