@@ -7,6 +7,7 @@ interface BusinessApiResponse {
   is_active: boolean;
   created_at: string;
   created_by_id: string;
+  owner_name?: string;
   locations_count?: number;
   items_count?: number;
 }
@@ -30,6 +31,7 @@ export const getUserBusinesses = async (
     isActive: b.is_active,
     createdAt: b.created_at,
     createdBy: b.created_by_id,
+    ownerName: b.owner_name,
     locationsCount: b.locations_count ?? 0,
     itemsCount: b.items_count ?? 0,
   }));

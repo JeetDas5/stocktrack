@@ -134,7 +134,7 @@ export default function TimesheetSettingsPage() {
   const [notifyStaffOnRejection, setNotifyStaffOnRejection] = useState(true);
 
   const [weekStartsOn, setWeekStartsOn] = useState("Monday");
-  const [payrollExportFormat, setPayrollExportFormat] = useState("CSV");
+  const [payrollExportFormat, setPayrollExportFormat] = useState("Excel");
   const [lockPayrollPeriodDate, setLockPayrollPeriodDate] = useState("");
   const [lockTimesheetsBeforeDate, setLockTimesheetsBeforeDate] =
     useState(true);

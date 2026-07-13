@@ -1491,7 +1491,7 @@ export default function DashboardLayout({
               >
                 <HugeiconsIcon icon={Menu01Icon} size={18} />
               </button>
-              {profile?.role !== "super_admin" && pathname !== "/dashboard/timesheet-review" && (
+              {profile?.role !== "super_admin" && pathname !== "/dashboard/timesheet-review" && pathname !== "/dashboard/timesheet-reports" && (
                 <>
                   <div className="flex items-center gap-1 sm:gap-2 min-w-0">
                     <div className="flex flex-col">

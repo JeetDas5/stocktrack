@@ -5,15 +5,26 @@ import { useEffect, useState, useMemo } from "react";
 import { Calendar, MapPin, Download, Loader2, Search } from "lucide-react";
 
 import { TimesheetReport } from "@/types/timesheet-report";
+import { Location } from "@/types/inventory";
+import { Business } from "@/types/business";
 import { useBusinessStore } from "@/stores/business-store";
 import { useLocationStore } from "@/stores/location-store";
 import DateRangePicker from "@/components/ui/date-range-picker";
 import { Dropdown } from "@/components/ui/dropdown";
 import { useTimesheetReportStore } from "@/stores/timesheet-report-store";
+import { getUserBusinesses } from "@/lib/repositories/business.repository";
+import { getLocations } from "@/lib/repositories/location.repository";
 import {
   getTimesheetSettings,
   TimesheetSettings,
 } from "@/lib/repositories/timesheet-settings.repository";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 const STATUS_OPTIONS = [
   { value: "all", label: "All Statuses" },
@@ -39,37 +50,50 @@ export default function TimesheetReportsPage() {
   );
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
 
+  const [businesses, setBusinesses] = useState<Business[]>([]);
+  const [allLocations, setAllLocations] = useState<Location[]>([]);
+
   useEffect(() => {
     setFilters({
-      businessId: activeBusinessId || "all",
-      locationId: activeLocationId || "all",
+      businessId: "all",
+      locationId: "all",
     });
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setDisplayLimit(30);
-  }, [activeBusinessId, activeLocationId, setFilters]);
+  }, [setFilters]);
 
   useEffect(() => {
     const init = async () => {
       setInitLoading(true);
-      if (activeBusinessId) {
-        try {
-          const [, settingsData] = await Promise.all([
-            fetchReports(activeBusinessId),
-            getTimesheetSettings(activeBusinessId).catch(() => null),
-          ]);
+      try {
+        const bizList = await getUserBusinesses();
+        setBusinesses(bizList);
+
+        const locationResults = await Promise.all(
+          bizList.map((b) => getLocations(b.id).catch(() => []))
+        );
+        setAllLocations(locationResults.flat());
+
+        const targetSettingsBizId = activeBusinessId || (bizList.length > 0 ? bizList[0].id : null);
+        if (targetSettingsBizId) {
+          const settingsData = await getTimesheetSettings(targetSettingsBizId).catch(() => null);
           setSettings(settingsData);
-        } catch (err) {
-          console.error("Failed to load settings in reports:", err);
         }
+
+        // Fetch reports for all businesses initially
+        await fetchReports("all");
+      } catch (err) {
+        console.error("Failed to load init data in reports:", err);
+      } finally {
+        setInitLoading(false);
       }
-      setInitLoading(false);
     };
     init();
   }, [activeBusinessId, fetchReports]);
 
   useEffect(() => {
-    if (!initLoading && activeBusinessId) {
-      fetchReports(activeBusinessId);
+    if (!initLoading) {
+      fetchReports(filters.businessId);
     }
   }, [
     filters.startDate,
@@ -80,13 +104,32 @@ export default function TimesheetReportsPage() {
     filters.status,
     initLoading,
     fetchReports,
-    activeBusinessId,
   ]);
 
+  const handleBusinessFilterChange = (val: string) => {
+    const updates: Partial<typeof filters> = { businessId: val };
+    if (val !== "all" && filters.locationId !== "all") {
+      const loc = allLocations.find((l) => l.id === filters.locationId);
+      if (!loc || loc.businessId !== val) {
+        updates.locationId = "all";
+      }
+    }
+    setFilters(updates);
+    setDisplayLimit(30);
+  };
+
+  const visibleLocations = useMemo(() => {
+    if (filters.businessId === "all") {
+      return allLocations;
+    }
+    return allLocations.filter((l) => l.businessId === filters.businessId);
+  }, [allLocations, filters.businessId]);
+
   const handleClear = () => {
-    clearFilters(activeBusinessId || "all");
+    clearFilters("all");
     setFilters({
-      locationId: activeLocationId || "all",
+      businessId: "all",
+      locationId: "all",
       staffId: "all",
       status: "all",
     });
@@ -492,7 +535,62 @@ export default function TimesheetReportsPage() {
               />
             </div>
 
-            <div className="w-full sm:w-48">
+            {/* Business Dropdown */}
+            <div className="w-full sm:w-44">
+              <Select value={filters.businessId} onValueChange={handleBusinessFilterChange}>
+                <SelectTrigger className="w-full h-10 rounded-xl border border-neutral-200 bg-white px-3.5 py-2 text-left focus:outline-none focus:border-neutral-900 focus:ring-4 focus:ring-neutral-900/5 transition cursor-pointer font-semibold text-xs text-neutral-900 hover:bg-neutral-50">
+                  <SelectValue placeholder="All Businesses" />
+                </SelectTrigger>
+                <SelectContent className="rounded-xl border border-neutral-200 bg-white p-1 max-h-56">
+                  <SelectItem
+                    value="all"
+                    className="rounded-lg px-3 py-2 text-xs font-semibold hover:bg-neutral-50 hover:text-neutral-900 text-neutral-900 cursor-pointer"
+                  >
+                    All Businesses
+                  </SelectItem>
+                  {businesses.map((b) => (
+                    <SelectItem
+                      key={b.id}
+                      value={b.id}
+                      className="rounded-lg px-3 py-2 text-xs font-semibold hover:bg-neutral-50 hover:text-neutral-900 text-neutral-900 cursor-pointer"
+                    >
+                      {b.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Location Dropdown */}
+            <div className="w-full sm:w-44">
+              <Select value={filters.locationId} onValueChange={(val) => {
+                setFilters({ locationId: val });
+                setDisplayLimit(30);
+              }}>
+                <SelectTrigger className="w-full h-10 rounded-xl border border-neutral-200 bg-white px-3.5 py-2 text-left focus:outline-none focus:border-neutral-900 focus:ring-4 focus:ring-neutral-900/5 transition cursor-pointer font-semibold text-xs text-neutral-900 hover:bg-neutral-50">
+                  <SelectValue placeholder="All Locations" />
+                </SelectTrigger>
+                <SelectContent className="rounded-xl border border-neutral-200 bg-white p-1 max-h-56">
+                  <SelectItem
+                    value="all"
+                    className="rounded-lg px-3 py-2 text-xs font-semibold hover:bg-neutral-50 hover:text-neutral-900 text-neutral-900 cursor-pointer"
+                  >
+                    All Locations
+                  </SelectItem>
+                  {visibleLocations.map((l) => (
+                    <SelectItem
+                      key={l.id}
+                      value={l.id}
+                      className="rounded-lg px-3 py-2 text-xs font-semibold hover:bg-neutral-50 hover:text-neutral-900 text-neutral-900 cursor-pointer"
+                    >
+                      {l.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="w-full sm:w-44">
               <Dropdown
                 value={filters.status}
                 onChange={(val) => {

@@ -205,8 +205,21 @@ export default function StaffDirectoryPage() {
       value: s.id,
       label: s.name,
     }));
+
+    const ownerId = activeBusiness?.createdBy;
+    const ownerName = activeBusiness?.ownerName;
+    if (ownerId && ownerName) {
+      const alreadyHasOwner = opts.some((opt) => opt.value === ownerId);
+      if (!alreadyHasOwner) {
+        opts.unshift({
+          value: ownerId,
+          label: `${ownerName} (Owner)`,
+        });
+      }
+    }
+
     return [{ value: "", label: "Choose Manager" }, ...opts];
-  }, [staffMembers]);
+  }, [staffMembers, activeBusiness]);
 
   const [isApprovalModalOpen, setIsApprovalModalOpen] = useState(false);
   const [pendingStaffToApprove, setPendingStaffToApprove] =
@@ -565,7 +578,7 @@ export default function StaffDirectoryPage() {
     setIsCreatingCustomPositionApproval(false);
     setCustomPositionApproval("");
     setApprovalHourlyRate("");
-    setApprovalReportingTo("");
+    setApprovalReportingTo(activeBusiness?.createdBy || "");
     setApprovalStartDate("");
     setApprovalEmploymentType("Casual");
     setApprovalPriority(5);
@@ -638,6 +651,49 @@ export default function StaffDirectoryPage() {
         ...prev,
         [bizId]: allLocs.map((l) => l.id),
       }));
+    }
+  };
+
+  const isAllBusinessesAndLocationsSelected = useMemo(() => {
+    if (businesses.length === 0) return false;
+    const allBizSelected = businesses.every((b) => approvalBusinesses.includes(b.id));
+    const allLocsSelected = businesses.every((b) => {
+      const locs = businessLocations[b.id] || [];
+      const selectedLocs = approvalLocations[b.id] || [];
+      return locs.length > 0 && selectedLocs.length === locs.length;
+    });
+    return allBizSelected && allLocsSelected;
+  }, [businesses, approvalBusinesses, approvalLocations, businessLocations]);
+
+  const handleToggleSelectAllBusinessesAndLocations = async () => {
+    if (isAllBusinessesAndLocationsSelected) {
+      setApprovalBusinesses([]);
+      setApprovalLocations({});
+    } else {
+      const allBizIds = businesses.map((b) => b.id);
+      setApprovalBusinesses(allBizIds);
+
+      const newLocsRecord = { ...businessLocations };
+      const newApprovalLocs: Record<string, string[]> = {};
+
+      await Promise.all(
+        businesses.map(async (b) => {
+          let locs = businessLocations[b.id];
+          if (!locs) {
+            try {
+              locs = await getLocations(b.id);
+              newLocsRecord[b.id] = locs;
+            } catch (err) {
+              console.error(`Failed to load locations for business ${b.id}:`, err);
+              locs = [];
+            }
+          }
+          newApprovalLocs[b.id] = locs.map((l) => l.id);
+        })
+      );
+
+      setBusinessLocations(newLocsRecord);
+      setApprovalLocations(newApprovalLocs);
     }
   };
 
@@ -1448,7 +1504,7 @@ export default function StaffDirectoryPage() {
             <div className="flex justify-between items-start border-b border-zinc-200 pb-4 mb-4">
               <div>
                 <h3 className="text-xl font-extrabold text-[#0F172A]">
-                  Configure & Approve Staff
+                  Approve Team Member
                 </h3>
                 <p className="text-[#64748B] text-xs font-bold mt-1">
                   Assign role, businesses, locations, position, priority, and
@@ -1473,26 +1529,38 @@ export default function StaffDirectoryPage() {
                 </span>
                 <div className="grid grid-cols-2 gap-4 text-xs">
                   <div>
-                    <span className="text-zinc-500 font-bold block">NAME</span>
+                    <span className="text-zinc-500 font-bold block">First Name</span>
                     <span className="text-zinc-900 font-extrabold mt-0.5 block">
-                      {pendingStaffToApprove.user_name || "New Staff"}
+                      {pendingStaffToApprove.first_name || "N/A"}
                     </span>
                   </div>
                   <div>
-                    <span className="text-zinc-500 font-bold block">EMAIL</span>
+                    <span className="text-zinc-500 font-bold block">Last Name</span>
+                    <span className="text-zinc-900 font-extrabold mt-0.5 block">
+                      {pendingStaffToApprove.last_name || "N/A"}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-zinc-500 font-bold block">Preferred Name</span>
+                    <span className="text-zinc-900 font-extrabold mt-0.5 block">
+                      {pendingStaffToApprove.user_name || "N/A"}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-zinc-500 font-bold block">Email</span>
                     <span className="text-zinc-900 font-extrabold mt-0.5 block truncate">
                       {pendingStaffToApprove.user_email}
                     </span>
                   </div>
                   <div>
-                    <span className="text-zinc-500 font-bold block">PHONE</span>
+                    <span className="text-zinc-500 font-bold block">Phone</span>
                     <span className="text-zinc-900 font-extrabold mt-0.5 block">
                       {pendingStaffToApprove.user_phone || "N/A"}
                     </span>
                   </div>
                   <div>
                     <span className="text-zinc-500 font-bold block">
-                      SUBMITTED ON
+                      Submitted On
                     </span>
                     <span className="text-zinc-900 font-extrabold mt-0.5 block">
                       {new Date(
@@ -1506,7 +1574,7 @@ export default function StaffDirectoryPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-extrabold text-[#0F172A] uppercase tracking-wider block">
-                    Access Role
+                    NexBrix Role
                   </label>
                   <Dropdown
                     value={approvalRole}
@@ -1588,7 +1656,7 @@ export default function StaffDirectoryPage() {
 
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-extrabold text-zinc-500 uppercase block">
-                    Reporting To
+                    Reports To
                   </label>
                   <Dropdown
                     value={approvalReportingTo}
@@ -1673,6 +1741,10 @@ export default function StaffDirectoryPage() {
                         {val}
                       </button>
                     ))}
+                  </div>
+                  <div className="flex justify-between text-[9px] font-extrabold text-zinc-400 px-1 uppercase tracking-wider">
+                    <span>Highest</span>
+                    <span>Lowest</span>
                   </div>
                 </div>
                 <div className="space-y-1.5">
@@ -1792,6 +1864,17 @@ export default function StaffDirectoryPage() {
                     })
                   )}
                 </div>
+
+                {/* Select All Businesses & Locations */}
+                <label className="flex items-center gap-2 cursor-pointer select-none text-xs font-bold text-zinc-700 mt-2">
+                  <input
+                    type="checkbox"
+                    checked={isAllBusinessesAndLocationsSelected}
+                    onChange={handleToggleSelectAllBusinessesAndLocations}
+                    className="h-4 w-4 rounded border-zinc-300 text-black focus:ring-black accent-black cursor-pointer"
+                  />
+                  <span>Select All Businesses & Locations</span>
+                </label>
               </div>
 
               <div className="grid grid-cols-3 gap-3 mt-6">
@@ -2006,7 +2089,7 @@ export default function StaffDirectoryPage() {
 
                 <div>
                   <label className="text-[10px] font-extrabold text-zinc-500 uppercase block mb-1">
-                    Reporting To
+                    Reports To
                   </label>
                   <Dropdown
                     value={editReportingTo}

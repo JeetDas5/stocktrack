@@ -5,6 +5,7 @@ export interface Business {
   createdBy: string;
   createdAt: string;
   isActive: boolean;
+  ownerName?: string;
   locationsCount?: number;
   itemsCount?: number;
 }
