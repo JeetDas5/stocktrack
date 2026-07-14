@@ -4,16 +4,15 @@ import { toast } from "sonner";
 import { useEffect, useState, useMemo } from "react";
 import { Calendar, MapPin, Download, Loader2, Search } from "lucide-react";
 
-import { TimesheetReport } from "@/types/timesheet-report";
 import { Location } from "@/types/inventory";
 import { Business } from "@/types/business";
-import { useBusinessStore } from "@/stores/business-store";
-import { useLocationStore } from "@/stores/location-store";
-import DateRangePicker from "@/components/ui/date-range-picker";
 import { Dropdown } from "@/components/ui/dropdown";
+import { useBusinessStore } from "@/stores/business-store";
+import { TimesheetReport } from "@/types/timesheet-report";
+import DateRangePicker from "@/components/ui/date-range-picker";
+import { getLocations } from "@/lib/repositories/location.repository";
 import { useTimesheetReportStore } from "@/stores/timesheet-report-store";
 import { getUserBusinesses } from "@/lib/repositories/business.repository";
-import { getLocations } from "@/lib/repositories/location.repository";
 import {
   getTimesheetSettings,
   TimesheetSettings,
@@ -36,7 +35,6 @@ const STATUS_OPTIONS = [
 
 export default function TimesheetReportsPage() {
   const { activeBusinessId } = useBusinessStore();
-  const { activeLocationId } = useLocationStore();
   const { reports, loading, filters, setFilters, fetchReports, clearFilters } =
     useTimesheetReportStore();
 
@@ -148,7 +146,7 @@ export default function TimesheetReportsPage() {
   };
 
   const searchedReports = useMemo(() => {
-    let data = [...reports];
+    let data = reports.filter((r) => r.totalHours > 0);
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       data = data.filter(

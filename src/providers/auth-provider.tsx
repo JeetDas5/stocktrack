@@ -1,7 +1,7 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 "use client";
 
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState, useCallback, useMemo } from "react";
 
 import { AppUser } from "@/types/user";
 import { authClient } from "@/lib/auth/auth-client";
@@ -40,7 +40,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [sessionLoading, setSessionLoading] = useState(true);
   const [profileLoading, setProfileLoading] = useState(false);
 
-  const fetchSession = async () => {
+  const fetchSession = useCallback(async () => {
     try {
       setSessionLoading(true);
       const token =
@@ -112,19 +112,21 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     } finally {
       setSessionLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchSession();
-  }, []);
+  }, [fetchSession]);
 
-  const user = session?.user
-    ? {
-        uid: session.user.id,
-        email: session.user.email,
-        displayName: session.user.name,
-      }
-    : null;
+  const user = useMemo(() => {
+    return session?.user
+      ? {
+          uid: session.user.id,
+          email: session.user.email,
+          displayName: session.user.name,
+        }
+      : null;
+  }, [session?.user]);
 
   useEffect(() => {
     if (session?.session?.token) {
@@ -136,7 +138,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   }, [session, sessionLoading]);
 
-  const refreshProfile = async () => {
+  const refreshProfile = useCallback(async () => {
     if (!session?.user) return null;
     try {
       setProfileLoading(true);
@@ -151,7 +153,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setProfileLoading(false);
     }
     return null;
-  };
+  }, [session?.user]);
 
   useEffect(() => {
     if (session?.user) {
@@ -159,8 +161,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     } else {
       setProfile(null);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session?.user]);
+  }, [session?.user, refreshProfile]);
 
   useEffect(() => {
     if (profile?.role === "super_admin") {
@@ -173,7 +174,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   }, [profile]);
 
-  const logout = async () => {
+  const logout = useCallback(async () => {
     await authClient.signOut();
     localStorage.removeItem("nexbrix_token");
     localStorage.removeItem("nexbrix_active_business_id");
@@ -182,7 +183,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     localStorage.removeItem("nexbrix_super_admin_readonly");
     setSession(null);
     setProfile(null);
-  };
+  }, []);
 
   const loading =
     sessionLoading || profileLoading || (session?.user && !profile);

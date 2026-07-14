@@ -413,6 +413,7 @@ export default function TimesheetReviewPage() {
 
   const filteredTimesheets = useMemo(() => {
     return timesheets.filter((ts) => {
+      if (ts.totalHours === 0) return false;
       if (filterBusiness !== "all" && ts.businessId !== filterBusiness)
         return false;
       if (filterLocation !== "all" && ts.locationId !== filterLocation)

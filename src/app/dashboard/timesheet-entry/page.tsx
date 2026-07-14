@@ -88,6 +88,8 @@ export default function TimesheetEntryPage() {
 
   const [loadingContext, setLoadingContext] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [confirmRows, setConfirmRows] = useState<WeekRowState[]>([]);
 
   const [settings, setSettings] = useState<TimesheetSettings | null>(null);
 
@@ -699,9 +701,8 @@ export default function TimesheetEntryPage() {
     toast.success("Unsaved changes cleared.");
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
+  const executeSubmit = async (rowsToSubmit: WeekRowState[]) => {
+    setShowConfirmModal(false);
     if (!activeBusinessId) {
       toast.error("Active business not found. Please select a business.");
       return;
@@ -710,15 +711,12 @@ export default function TimesheetEntryPage() {
       toast.error("Active location not found. Please select a location.");
       return;
     }
-    if (!staffId) {
-      toast.error("Please select a staff member.");
-      return;
-    }
-
+    const businessId = activeBusinessId;
+    const locationId = activeLocationId;
     setSubmitting(true);
 
     try {
-      const promises = weekRows.map((row) => {
+      const promises = rowsToSubmit.map((row) => {
         const isEditable = checkIsDateEditable(row.dateStr, row.status);
         if (!isEditable) {
           return Promise.resolve();
@@ -727,66 +725,8 @@ export default function TimesheetEntryPage() {
         const hasTimeSet = row.startTime && row.endTime;
 
         if (hasTimeSet) {
-          if (!row.isDayOff) {
-            if (row.startTime > row.endTime) {
-              throw new Error(
-                `On ${row.dayName} (${row.displayDate}), Start Time cannot be after End Time.`,
-              );
-            }
-            if (row.startTime === row.endTime) {
-              throw new Error(
-                `On ${row.dayName} (${row.displayDate}), Start and End times cannot be identical.`,
-              );
-            }
-
-            // Break rules verification
-            const breakMins = parseInt(row.unpaidBreak, 10) || 0;
-            if (
-              settings?.require_break_entry &&
-              (isNaN(breakMins) || breakMins < 0)
-            ) {
-              throw new Error(
-                `On ${row.dayName} (${row.displayDate}), a valid unpaid break is required.`,
-              );
-            }
-
-            const [startH, startM] = row.startTime.split(":").map(Number);
-            const [endH, endM] = row.endTime.split(":").map(Number);
-            let diffMins = endH * 60 + endM - (startH * 60 + startM);
-            if (diffMins < 0) {
-              diffMins += 24 * 60;
-            }
-            if (breakMins >= diffMins) {
-              throw new Error(
-                `On ${row.dayName} (${row.displayDate}), unpaid break must be less than the total shift duration.`,
-              );
-            }
-            if (breakMins >= 360) {
-              throw new Error(
-                `On ${row.dayName} (${row.displayDate}), unpaid break must be less than 6 hours.`,
-              );
-            }
-
-            if (
-              settings?.require_break_entry &&
-              settings?.require_reason_no_break &&
-              breakMins === 0
-            ) {
-              const shiftDuration = calculateRowHours(
-                row.startTime,
-                row.endTime,
-                "0",
-              );
-              if (shiftDuration > 5 && !row.notes.trim()) {
-                throw new Error(
-                  `On ${row.dayName} (${row.displayDate}), please provide a reason in the notes for not taking a break on this longer shift.`,
-                );
-              }
-            }
-          }
-
           const payload = {
-            locationId: activeLocationId,
+            locationId,
             staffId,
             workDate: row.dateStr,
             startTime: row.startTime,
@@ -810,18 +750,14 @@ export default function TimesheetEntryPage() {
               (original?.notes || "") !== row.notes.trim();
 
             if (changed) {
-              return updateTimesheet(
-                activeBusinessId,
-                row.dbTimesheetId,
-                payload,
-              );
+              return updateTimesheet(businessId, row.dbTimesheetId, payload);
             }
           } else {
-            return createTimesheet(activeBusinessId, payload);
+            return createTimesheet(businessId, payload);
           }
         } else {
           if (row.dbTimesheetId) {
-            return deleteTimesheet(activeBusinessId, row.dbTimesheetId);
+            return deleteTimesheet(businessId, row.dbTimesheetId);
           }
         }
 
@@ -837,6 +773,119 @@ export default function TimesheetEntryPage() {
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!activeBusinessId) {
+      toast.error("Active business not found. Please select a business.");
+      return;
+    }
+    if (!activeLocationId) {
+      toast.error("Active location not found. Please select a location.");
+      return;
+    }
+    if (!staffId) {
+      toast.error("Please select a staff member.");
+      return;
+    }
+
+    // Process rows to map unentered timesheets to day-off if selected week is current week
+    const processed = weekRows.map((row) => {
+      const isEditable = checkIsDateEditable(row.dateStr, row.status);
+      if (
+        isEditable &&
+        isCurrentWeek(currentWeekStart) &&
+        !row.startTime &&
+        !row.endTime
+      ) {
+        return {
+          ...row,
+          startTime: "00:00",
+          endTime: "00:00",
+          unpaidBreak: "0",
+          isDayOff: true,
+        };
+      }
+      return row;
+    });
+
+    // Validate times for non-day-off entries
+    try {
+      processed.forEach((row) => {
+        const isEditable = checkIsDateEditable(row.dateStr, row.status);
+        if (!isEditable) return;
+
+        const hasTimeSet = row.startTime && row.endTime;
+        const isOff =
+          row.isDayOff ||
+          (row.startTime === "00:00" && row.endTime === "00:00");
+        if (hasTimeSet && !isOff) {
+          if (row.startTime > row.endTime) {
+            throw new Error(
+              `On ${row.dayName} (${row.displayDate}), Start Time cannot be after End Time.`,
+            );
+          }
+          if (row.startTime === row.endTime) {
+            throw new Error(
+              `On ${row.dayName} (${row.displayDate}), Start and End times cannot be identical.`,
+            );
+          }
+
+          // Break rules verification
+          const breakMins = parseInt(row.unpaidBreak, 10) || 0;
+          if (
+            settings?.require_break_entry &&
+            (isNaN(breakMins) || breakMins < 0)
+          ) {
+            throw new Error(
+              `On ${row.dayName} (${row.displayDate}), a valid unpaid break is required.`,
+            );
+          }
+
+          const [startH, startM] = row.startTime.split(":").map(Number);
+          const [endH, endM] = row.endTime.split(":").map(Number);
+          let diffMins = endH * 60 + endM - (startH * 60 + startM);
+          if (diffMins < 0) {
+            diffMins += 24 * 60;
+          }
+          if (breakMins >= diffMins) {
+            throw new Error(
+              `On ${row.dayName} (${row.displayDate}), unpaid break must be less than the total shift duration.`,
+            );
+          }
+          if (breakMins >= 360) {
+            throw new Error(
+              `On ${row.dayName} (${row.displayDate}), unpaid break must be less than 6 hours.`,
+            );
+          }
+
+          if (
+            settings?.require_break_entry &&
+            settings?.require_reason_no_break &&
+            breakMins === 0
+          ) {
+            const shiftDuration = calculateRowHours(
+              row.startTime,
+              row.endTime,
+              "0",
+            );
+            if (shiftDuration > 5 && !row.notes.trim()) {
+              throw new Error(
+                `On ${row.dayName} (${row.displayDate}), please provide a reason in the notes for not taking a break on this longer shift.`,
+              );
+            }
+          }
+        }
+      });
+    } catch (err: unknown) {
+      toast.error((err as Error).message || "Validation failed.");
+      return;
+    }
+
+    setConfirmRows(processed);
+    setShowConfirmModal(true);
   };
 
   const getInitials = (name: string) => {
@@ -1016,7 +1065,9 @@ export default function TimesheetEntryPage() {
                 <table className="w-full text-left border-collapse min-w-[1000px]">
                   <thead>
                     <tr className="border-b border-neutral-200 text-[11px] font-semibold uppercase tracking-wider text-neutral-500 bg-white sticky top-0 z-10 text-center">
-                      <th className="py-4 px-6 text-left font-semibold min-w-[80px]">Day</th>
+                      <th className="py-4 px-6 text-left font-semibold min-w-[80px]">
+                        Day
+                      </th>
                       <th className="py-4 px-6 text-left font-semibold min-w-[100px]">
                         Date
                       </th>
@@ -1779,7 +1830,7 @@ export default function TimesheetEntryPage() {
                             {row.unpaidBreak}
                           </div>
                         ) : (
-                           <div className="relative w-full">
+                          <div className="relative w-full">
                             <input
                               type="text"
                               inputMode="numeric"
@@ -2018,6 +2069,146 @@ export default function TimesheetEntryPage() {
           </div>
         </form>
       </div>
+
+      {showConfirmModal && (
+        <div className="fixed inset-0 bg-[#0A2924]/30 backdrop-blur-sm flex items-center justify-center z-100 p-4 select-none animate-fade-in">
+          <div className="bg-white border border-neutral-200 rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden animate-scale-in flex flex-col max-h-[85vh]">
+            <div className="px-6 py-5 border-b border-neutral-100 flex items-center justify-between bg-neutral-50/50">
+              <div className="flex flex-col">
+                <h3 className="text-base font-bold text-neutral-900 leading-tight">
+                  Confirm Submission
+                </h3>
+                <p className="text-[11px] text-neutral-500 font-medium mt-0.5">
+                  Review your weekly hours summary before submitting.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowConfirmModal(false)}
+                className="p-1 rounded-lg hover:bg-neutral-100 text-neutral-400 hover:text-neutral-600 transition-colors cursor-pointer"
+              >
+                <X className="h-4.5 w-4.5" />
+              </button>
+            </div>
+
+            <div className="px-6 py-4 flex-1 overflow-y-auto space-y-4 scrollbar-thin scrollbar-gutter-stable">
+              <div className="bg-emerald-50/30 border border-emerald-100/50 rounded-2xl p-4 flex flex-col gap-1 text-xs">
+                <div className="flex justify-between items-center">
+                  <span className="text-neutral-500 font-semibold">
+                    Staff Member
+                  </span>
+                  <span className="font-bold text-neutral-900">
+                    {selectedStaffName}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center mt-1">
+                  <span className="text-neutral-500 font-semibold">
+                    Location
+                  </span>
+                  <span className="font-bold text-neutral-900">
+                    {activeLocationName}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center mt-1">
+                  <span className="text-neutral-500 font-semibold">
+                    Selected Week
+                  </span>
+                  <span className="font-bold text-emerald-800">
+                    {formatWeekRangeShort(currentWeekStart)}
+                  </span>
+                </div>
+              </div>
+
+              <div className="divide-y divide-neutral-100 pr-1">
+                {confirmRows.map((row) => {
+                  const hours = calculateRowHours(
+                    row.startTime,
+                    row.endTime,
+                    row.unpaidBreak,
+                  );
+                  const isOff =
+                    row.isDayOff ||
+                    (row.startTime === "00:00" && row.endTime === "00:00");
+
+                  return (
+                    <div
+                      key={row.dateStr}
+                      className="py-3 flex items-center justify-between gap-4"
+                    >
+                      <div className="flex flex-col">
+                        <span className="text-xs font-bold text-neutral-900">
+                          {row.dayName}
+                        </span>
+                        <span className="text-[10px] font-medium text-neutral-500">
+                          {row.displayDate}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        {isOff ? (
+                          <span className="inline-flex items-center justify-center px-3 py-1 rounded-full text-[10px] font-bold bg-neutral-100 text-neutral-500 border border-neutral-200">
+                            Day Off
+                          </span>
+                        ) : (
+                          <div className="flex flex-col items-end">
+                            <span className="text-xs font-bold text-emerald-800">
+                              {hours.toFixed(1)} hrs
+                            </span>
+                            <span className="text-[9px] font-semibold text-neutral-450 leading-tight">
+                              {formatTimeToAMPM(row.startTime)} -{" "}
+                              {formatTimeToAMPM(row.endTime)}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="px-6 py-5 border-t border-neutral-100 bg-neutral-50/50 flex flex-col gap-4">
+              <div className="flex justify-between items-center">
+                <span className="text-xs font-bold text-neutral-700">
+                  Total Weekly Hours
+                </span>
+                <span className="text-base font-black text-emerald-800 bg-[#BAEBCE]/40 px-3 py-1.5 rounded-xl border border-[#BAEBCE]/20 leading-none">
+                  {confirmRows
+                    .reduce(
+                      (sum, row) =>
+                        sum +
+                        calculateRowHours(
+                          row.startTime,
+                          row.endTime,
+                          row.unpaidBreak,
+                        ),
+                      0,
+                    )
+                    .toFixed(1)}{" "}
+                  hrs
+                </span>
+              </div>
+
+              <div className="flex items-center gap-3 w-full">
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmModal(false)}
+                  className="flex-1 bg-white border border-neutral-200 hover:border-neutral-500 text-neutral-750 py-3 rounded-full text-xs font-bold transition-all duration-200 cursor-pointer shadow-xs"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => executeSubmit(confirmRows)}
+                  className="flex-1 bg-[#0A2924] hover:bg-[#0A2924]/90 border border-[#0A2924] text-white py-3 rounded-full text-xs font-bold transition-all duration-200 shadow-sm flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  Confirm & Submit
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
