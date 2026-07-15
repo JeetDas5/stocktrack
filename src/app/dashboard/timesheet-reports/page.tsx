@@ -146,7 +146,7 @@ export default function TimesheetReportsPage() {
   };
 
   const searchedReports = useMemo(() => {
-    let data = reports.filter((r) => r.totalHours > 0);
+    let data = reports.filter((r) => r.totalHours > 0 && !(r.startTime === "00:00" && r.endTime === "00:00"));
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       data = data.filter(

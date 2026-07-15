@@ -735,7 +735,9 @@ export default function TimesheetEntryPage() {
             project: row.project.trim() || undefined,
             notes: row.notes.trim() || undefined,
             status:
-              settings?.require_approval === false ? "approved" : "submitted",
+              settings?.require_approval === false || row.isDayOff
+                ? "approved"
+                : "submitted",
           };
 
           if (row.dbTimesheetId) {
