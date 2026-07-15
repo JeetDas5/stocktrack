@@ -997,7 +997,7 @@ export default function StaffDirectoryPage() {
   }
 
   return (
-    <div className="select-none bg-white min-h-0 flex flex-col w-full h-[calc(100vh-120px)] md:h-[85vh] pb-4 px-4 py-3 overflow-hidden">
+    <div className="bg-white min-h-0 flex flex-col w-full h-[calc(100vh-120px)] md:h-[85vh] pb-4 px-4 py-3 overflow-hidden">
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 border-b py-3 px-3 md:py-3 md:px-4 border border-[#E2E8F0] rounded-2xl shadow-sm">
         <div>
           <h1 className="text-xl md:text-2xl font-bold md:font-extrabold tracking-tight">

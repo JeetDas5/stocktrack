@@ -287,7 +287,7 @@ export default function TimesheetSettingsPage() {
   const roleOptions = ["Admin", "Manager"];
 
   return (
-    <div className="bg-white min-h-[85vh] select-none pb-12">
+    <div className="bg-white min-h-[85vh] pb-12">
       <form
         onSubmit={handleSave}
         className="max-w-6xl mx-auto space-y-6 px-4 md:px-6"

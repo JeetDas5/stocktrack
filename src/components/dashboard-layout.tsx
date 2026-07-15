@@ -1716,7 +1716,7 @@ export default function DashboardLayout({
           </div>
         </header>
 
-        <main className="flex-1 px-4 pt-4 max-w-[1600px] w-full mx-auto relative select-none bg-white overflow-y-auto">
+        <main className="flex-1 px-4 pt-4 max-w-[1600px] w-full mx-auto relative bg-white overflow-y-auto">
           {children}
         </main>
       </div>
