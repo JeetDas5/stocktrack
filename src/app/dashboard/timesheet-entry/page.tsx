@@ -735,7 +735,9 @@ export default function TimesheetEntryPage() {
             project: row.project.trim() || undefined,
             notes: row.notes.trim() || undefined,
             status:
-              settings?.require_approval === false ? "approved" : "submitted",
+              settings?.require_approval === false || row.isDayOff
+                ? "approved"
+                : "submitted",
           };
 
           if (row.dbTimesheetId) {
@@ -916,7 +918,7 @@ export default function TimesheetEntryPage() {
   const activeLocationName = activeLocation ? activeLocation.name : "Airport";
 
   return (
-    <div className="select-none bg-white min-h-0 flex flex-col w-full">
+    <div className="bg-white min-h-0 flex flex-col w-full">
       <div className="hidden md:flex flex-col bg-white h-[calc(100vh-120px)] md:h-[85vh] min-h-0 relative pb-4">
         <div className="flex-1 min-h-0 flex flex-col space-y-4 pr-0 lg:pr-4">
           <div className="bg-white border border-neutral-200 rounded-3xl py-4 px-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 shadow-sm">

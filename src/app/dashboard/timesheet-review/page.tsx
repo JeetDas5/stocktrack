@@ -413,6 +413,7 @@ export default function TimesheetReviewPage() {
 
   const filteredTimesheets = useMemo(() => {
     return timesheets.filter((ts) => {
+      if (ts.startTime === "00:00" && ts.endTime === "00:00") return false;
       if (ts.totalHours === 0) return false;
       if (filterBusiness !== "all" && ts.businessId !== filterBusiness)
         return false;
@@ -802,7 +803,7 @@ export default function TimesheetReviewPage() {
     selectableIds.every((id) => selectedIds.includes(id));
 
   return (
-    <div className="flex flex-col bg-white h-auto md:h-[85vh] min-h-0 relative select-none pb-4">
+    <div className="flex flex-col bg-white h-auto md:h-[85vh] min-h-0 relative pb-4">
       <div className="flex-1 min-h-0 flex flex-col space-y-4 pr-0 lg:pr-4">
         <div className="bg-white border border-neutral-200 rounded-3xl py-4 px-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 shadow-sm">
           <h1 className="text-[24px] font-bold text-neutral-900 tracking-tight">

@@ -265,8 +265,11 @@ def create_timesheet(
         data.start_time, data.end_time, data.unpaid_break
     )
 
+    is_day_off = (data.start_time.strip() in ("00:00", "00:00:00")) and (
+        data.end_time.strip() in ("00:00", "00:00:00")
+    )
     status_val = data.status or "submitted"
-    if not require_approval:
+    if not require_approval or is_day_off:
         status_val = "approved"
 
     ts = Timesheet(
@@ -546,8 +549,11 @@ def update_timesheet(
     ts.project = data.project
     ts.total_hours = total_h
 
+    is_day_off = (data.start_time.strip() in ("00:00", "00:00:00")) and (
+        data.end_time.strip() in ("00:00", "00:00:00")
+    )
     status_val = data.status or "edited"
-    if not require_approval:
+    if not require_approval or is_day_off:
         status_val = "approved"
     ts.status = status_val
     ts.updated_at = datetime.utcnow()
@@ -836,6 +842,11 @@ def get_timesheet_reports(
 
     out = []
     for ts in timesheets:
+        is_day_off = (ts.start_time.strip() in ("00:00", "00:00:00")) and (
+            ts.end_time.strip() in ("00:00", "00:00:00")
+        )
+        if is_day_off:
+            continue
         out.append(
             TimesheetReportOut(
                 id=ts.id,

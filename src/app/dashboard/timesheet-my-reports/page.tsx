@@ -123,7 +123,7 @@ export default function TimesheetMyReportsPage() {
   };
 
   const searchedReports = useMemo(() => {
-    let data = reports.filter((r) => r.totalHours > 0);
+    let data = reports.filter((r) => r.totalHours > 0 && !(r.startTime === "00:00" && r.endTime === "00:00"));
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       data = data.filter(
@@ -373,7 +373,7 @@ export default function TimesheetMyReportsPage() {
   }
 
   return (
-    <div className="p-6 bg-white min-h-[85vh] relative select-none">
+    <div className="p-6 bg-white min-h-[85vh] relative">
       <div className="max-w-7xl mx-auto space-y-6">
         <div className="bg-white border border-neutral-200 rounded-3xl py-4 px-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 shadow-sm">
           <div>
