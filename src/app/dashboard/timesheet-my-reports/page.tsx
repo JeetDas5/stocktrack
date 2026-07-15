@@ -123,7 +123,7 @@ export default function TimesheetMyReportsPage() {
   };
 
   const searchedReports = useMemo(() => {
-    let data = [...reports];
+    let data = reports.filter((r) => r.totalHours > 0);
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       data = data.filter(

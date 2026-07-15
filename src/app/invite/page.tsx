@@ -15,7 +15,8 @@ export default function InvitePendingPage() {
     if (user) {
       refreshProfile();
     }
-  }, [user, refreshProfile]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
 
   useEffect(() => {
     if (!loading) {

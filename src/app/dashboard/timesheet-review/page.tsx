@@ -63,22 +63,17 @@ export default function TimesheetReviewPage() {
 
   const [startDate, setStartDate] = useState(() => {
     const now = new Date();
-    const day = now.getDay();
-    const diff = now.getDate() - day + (day === 0 ? -6 : 1);
-    const start = new Date(now.getFullYear(), now.getMonth(), diff);
-    const pad = (n: number) => String(n).padStart(2, "0");
-    return `${start.getFullYear()}-${pad(start.getMonth() + 1)}-${pad(start.getDate())}`;
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, "0");
+    return `${year}-${month}-01`;
   });
 
   const [endDate, setEndDate] = useState(() => {
     const now = new Date();
-    const day = now.getDay();
-    const diff = now.getDate() - day + (day === 0 ? -6 : 1);
-    const start = new Date(now.getFullYear(), now.getMonth(), diff);
-    const end = new Date(start);
-    end.setDate(start.getDate() + 6);
-    const pad = (num: number) => String(num).padStart(2, "0");
-    return `${end.getFullYear()}-${pad(end.getMonth() + 1)}-${pad(end.getDate())}`;
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, "0");
+    const endDay = String(now.getDate()).padStart(2, "0");
+    return `${year}-${month}-${endDay}`;
   });
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -159,7 +154,9 @@ export default function TimesheetReviewPage() {
       setAllLocations(locationResults.flat());
 
       if (activeBusinessId) {
-        const settingsData = await getTimesheetSettings(activeBusinessId).catch(() => null);
+        const settingsData = await getTimesheetSettings(activeBusinessId).catch(
+          () => null,
+        );
         setSettings(settingsData);
       }
     } catch {
@@ -285,8 +282,11 @@ export default function TimesheetReviewPage() {
     setFilterLocation("all");
     setFilterStaff("all");
     setFilterStatus("all");
-    setStartDate("");
-    setEndDate("");
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, "0");
+    setStartDate(`${year}-${month}-01`);
+    setEndDate(`${year}-${month}-${String(now.getDate()).padStart(2, "0")}`);
     setSearchQuery("");
     setSelectedIds([]);
     toast.success("Filters cleared.");
@@ -413,8 +413,11 @@ export default function TimesheetReviewPage() {
 
   const filteredTimesheets = useMemo(() => {
     return timesheets.filter((ts) => {
-      if (filterBusiness !== "all" && ts.businessId !== filterBusiness) return false;
-      if (filterLocation !== "all" && ts.locationId !== filterLocation) return false;
+      if (ts.totalHours === 0) return false;
+      if (filterBusiness !== "all" && ts.businessId !== filterBusiness)
+        return false;
+      if (filterLocation !== "all" && ts.locationId !== filterLocation)
+        return false;
       if (filterStaff !== "all" && ts.staffId !== filterStaff) return false;
       if (filterStatus !== "all" && ts.status !== filterStatus) return false;
       if (startDate && ts.workDate < startDate) return false;
@@ -470,7 +473,8 @@ export default function TimesheetReviewPage() {
 
     const rows = filteredTimesheets.map((ts) => [
       ts.staffName,
-      businesses.find((b) => b.id === ts.businessId)?.name || "Unknown Business",
+      businesses.find((b) => b.id === ts.businessId)?.name ||
+        "Unknown Business",
       ts.locationName,
       ts.workDate,
       ts.startTime,
@@ -523,7 +527,8 @@ export default function TimesheetReviewPage() {
 
     const rows = filteredTimesheets.map((ts) => [
       ts.staffName,
-      businesses.find((b) => b.id === ts.businessId)?.name || "Unknown Business",
+      businesses.find((b) => b.id === ts.businessId)?.name ||
+        "Unknown Business",
       ts.locationName,
       ts.workDate,
       ts.startTime,
@@ -830,7 +835,10 @@ export default function TimesheetReviewPage() {
           <div className="flex flex-col sm:flex-row gap-3 items-center w-full sm:w-auto relative">
             {/* Business Dropdown */}
             <div className="w-full sm:w-44">
-              <Select value={filterBusiness} onValueChange={handleBusinessFilterChange}>
+              <Select
+                value={filterBusiness}
+                onValueChange={handleBusinessFilterChange}
+              >
                 <SelectTrigger className="w-full h-10 rounded-xl border border-neutral-200 bg-white px-3.5 py-2 text-left focus:outline-none focus:border-neutral-900 focus:ring-4 focus:ring-neutral-900/5 transition cursor-pointer font-semibold text-xs text-neutral-900 hover:bg-neutral-50">
                   <SelectValue placeholder="All Businesses" />
                 </SelectTrigger>
@@ -854,7 +862,6 @@ export default function TimesheetReviewPage() {
               </Select>
             </div>
 
-            {/* Location Dropdown */}
             <div className="w-full sm:w-44">
               <Select value={filterLocation} onValueChange={setFilterLocation}>
                 <SelectTrigger className="w-full h-10 rounded-xl border border-neutral-200 bg-white px-3.5 py-2 text-left focus:outline-none focus:border-neutral-900 focus:ring-4 focus:ring-neutral-900/5 transition cursor-pointer font-semibold text-xs text-neutral-900 hover:bg-neutral-50">
@@ -920,18 +927,18 @@ export default function TimesheetReviewPage() {
               </Select>
             </div>
 
-            <DateRangePicker
-              className="w-full sm:w-64"
-              triggerClassName="!rounded-xl !border-neutral-200 !text-neutral-900 !font-semibold focus:!border-neutral-900 focus:!ring-4 focus:!ring-neutral-900/5 !h-10"
-              startDate={startDate}
-              endDate={endDate}
-              onChange={(range) => {
-                setStartDate(range.startDate);
-                setEndDate(range.endDate);
-              }}
-            />
+            <div className="w-full sm:w-64">
+              <DateRangePicker
+                startDate={startDate}
+                endDate={endDate}
+                onChange={(range) => {
+                  setStartDate(range.startDate);
+                  setEndDate(range.endDate);
+                }}
+                focusClassName="focus:border-neutral-900 focus:ring-4 focus:ring-neutral-900/5"
+              />
+            </div>
 
-            {/* Clear Button */}
             <button
               type="button"
               onClick={handleClearFilters}
@@ -942,7 +949,6 @@ export default function TimesheetReviewPage() {
           </div>
         </div>
 
-        {/* Batch Selection Action Bar */}
         <div className="flex items-center gap-3 text-xs font-semibold text-neutral-600 px-1 py-0.5">
           <input
             type="checkbox"
