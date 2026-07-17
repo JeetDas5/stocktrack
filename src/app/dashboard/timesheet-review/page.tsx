@@ -23,7 +23,6 @@ import { Business } from "@/types/business";
 import { Timesheet } from "@/types/timesheet";
 import { useAuth } from "@/providers/auth-provider";
 import { useBusinessStore } from "@/stores/business-store";
-import { useLocationStore } from "@/stores/location-store";
 import { getLocations } from "@/lib/repositories/location.repository";
 import { getStaffMembers } from "@/lib/repositories/staff.repository";
 import { getUserBusinesses } from "@/lib/repositories/business.repository";
@@ -52,7 +51,6 @@ export default function TimesheetReviewPage() {
 
   const { activeBusinessId } = useBusinessStore();
   const { profile, loading: authLoading } = useAuth();
-  const { locations, fetchLocations, activeLocationId } = useLocationStore();
 
   const [staffList, setStaffList] = useState<Staff[]>([]);
   const [businesses, setBusinesses] = useState<Business[]>([]);
@@ -819,8 +817,8 @@ export default function TimesheetReviewPage() {
           </button>
         </div>
 
-        <div className="flex flex-col sm:flex-row gap-3 items-center justify-between">
-          <div className="relative w-full sm:w-80">
+        <div className="flex flex-col xl:flex-row gap-2.5 items-center justify-between flex-wrap">
+          <div className="relative w-full sm:w-44">
             <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-neutral-400">
               <Search className="h-4 w-4" />
             </span>
@@ -833,9 +831,9 @@ export default function TimesheetReviewPage() {
             />
           </div>
 
-          <div className="flex flex-col sm:flex-row gap-3 items-center w-full sm:w-auto relative">
+          <div className="flex flex-col sm:flex-row gap-2.5 items-center w-full sm:w-auto relative flex-wrap">
             {/* Business Dropdown */}
-            <div className="w-full sm:w-44">
+            <div className="w-full sm:w-36">
               <Select
                 value={filterBusiness}
                 onValueChange={handleBusinessFilterChange}
@@ -863,7 +861,7 @@ export default function TimesheetReviewPage() {
               </Select>
             </div>
 
-            <div className="w-full sm:w-44">
+            <div className="w-full sm:w-36">
               <Select value={filterLocation} onValueChange={setFilterLocation}>
                 <SelectTrigger className="w-full h-10 rounded-xl border border-neutral-200 bg-white px-3.5 py-2 text-left focus:outline-none focus:border-neutral-900 focus:ring-4 focus:ring-neutral-900/5 transition cursor-pointer font-semibold text-xs text-neutral-900 hover:bg-neutral-50">
                   <SelectValue placeholder="All Locations" />
@@ -888,7 +886,7 @@ export default function TimesheetReviewPage() {
               </Select>
             </div>
 
-            <div className="w-full sm:w-44">
+            <div className="w-full sm:w-32">
               <Select value={filterStatus} onValueChange={setFilterStatus}>
                 <SelectTrigger className="w-full h-10 rounded-xl border border-neutral-200 bg-white px-3.5 py-2 text-left focus:outline-none focus:border-neutral-900 focus:ring-4 focus:ring-neutral-900/5 transition cursor-pointer font-semibold text-xs text-neutral-900 hover:bg-neutral-50">
                   <SelectValue placeholder="All Statuses" />
@@ -928,7 +926,7 @@ export default function TimesheetReviewPage() {
               </Select>
             </div>
 
-            <div className="w-full sm:w-64">
+            <div className="w-full sm:w-56">
               <DateRangePicker
                 startDate={startDate}
                 endDate={endDate}
