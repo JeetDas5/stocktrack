@@ -1049,6 +1049,7 @@ export default function TimesheetEntryPage() {
                         currentWeekStart.toISOString().split("T")[0]
                       }
                       onChange={handleCalendarChange}
+                      weekStartsOn={settings?.week_starts_on}
                       className="shadow-xl border border-neutral-200 rounded-2xl bg-white"
                     />
                   </div>
@@ -1595,6 +1596,7 @@ export default function TimesheetEntryPage() {
                 <Calendar
                   selectedDate={currentWeekStart.toISOString().split("T")[0]}
                   onChange={handleCalendarChange}
+                  weekStartsOn={settings?.week_starts_on}
                   className="shadow-xl border border-neutral-200 rounded-2xl bg-white"
                 />
               </div>
