@@ -9,7 +9,21 @@ interface CalendarProps {
   className?: string;
   maxDate?: string;
   minDate?: string;
+  weekStartsOn?: string;
 }
+
+const getDayIndex = (dayName?: string) => {
+  switch (dayName?.toLowerCase()) {
+    case "sunday": return 0;
+    case "monday": return 1;
+    case "tuesday": return 2;
+    case "wednesday": return 3;
+    case "thursday": return 4;
+    case "friday": return 5;
+    case "saturday": return 6;
+    default: return 0;
+  }
+};
 
 export default function Calendar({
   selectedDate,
@@ -17,7 +31,9 @@ export default function Calendar({
   className = "",
   maxDate,
   minDate,
+  weekStartsOn,
 }: CalendarProps) {
+  const W = getDayIndex(weekStartsOn);
   const [currentDate, setCurrentDate] = useState(() => {
     return selectedDate ? new Date(selectedDate + "T00:00:00") : new Date();
   });
@@ -26,7 +42,7 @@ export default function Calendar({
   const month = currentDate.getMonth();
 
   const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const firstDayIndex = new Date(year, month, 1).getDay();
+  const firstDayIndex = (new Date(year, month, 1).getDay() - W + 7) % 7;
   const prevMonthDays = new Date(year, month, 0).getDate();
 
   const cells: { dateStr: string; dayNum: number; isCurrentMonth: boolean }[] =
@@ -143,14 +159,18 @@ export default function Calendar({
       </div>
 
       <div className="grid grid-cols-7 gap-1 text-center mb-2">
-        {["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map((day) => (
-          <span
-            key={day}
-            className="text-[10px] font-bold text-black/40 uppercase"
-          >
-            {day}
-          </span>
-        ))}
+        {(() => {
+          const DAYS_OF_WEEK = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
+          const headers = [...DAYS_OF_WEEK.slice(W), ...DAYS_OF_WEEK.slice(0, W)];
+          return headers.map((day) => (
+            <span
+              key={day}
+              className="text-[10px] font-bold text-black/40 uppercase"
+            >
+              {day}
+            </span>
+          ));
+        })()}
       </div>
 
       <div className="grid grid-cols-7 gap-1 text-center">

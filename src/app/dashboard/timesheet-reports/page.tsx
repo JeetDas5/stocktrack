@@ -612,6 +612,7 @@ export default function TimesheetReportsPage() {
                   setDisplayLimit(30);
                 }}
                 focusClassName="focus:border-neutral-900 focus:ring-4 focus:ring-neutral-900/5"
+                weekStartsOn={settings?.week_starts_on}
               />
             </div>
 

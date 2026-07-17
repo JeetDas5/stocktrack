@@ -1084,6 +1084,7 @@ export default function TimesheetSettingsPage() {
                             setLockPayrollPeriodDate(dateStr);
                             setShowCalendar(false);
                           }}
+                          weekStartsOn={weekStartsOn}
                           className="right-0 top-full mt-1.5"
                         />
                       )}

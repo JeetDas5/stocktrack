@@ -15,7 +15,21 @@ interface DateRangePickerProps {
   className?: string;
   triggerClassName?: string;
   focusClassName?: string;
+  weekStartsOn?: string;
 }
+
+const getDayIndex = (dayName?: string) => {
+  switch (dayName?.toLowerCase()) {
+    case "sunday": return 0;
+    case "monday": return 1;
+    case "tuesday": return 2;
+    case "wednesday": return 3;
+    case "thursday": return 4;
+    case "friday": return 5;
+    case "saturday": return 6;
+    default: return 0;
+  }
+};
 
 export default function DateRangePicker({
   startDate,
@@ -24,7 +38,9 @@ export default function DateRangePicker({
   className = "",
   triggerClassName = "",
   focusClassName = "focus:ring-[#16A34A]/20 focus:border-[#16A34A]",
+  weekStartsOn,
 }: DateRangePickerProps) {
+  const W = getDayIndex(weekStartsOn);
   const [isOpen, setIsOpen] = useState(false);
   const [currentDate, setCurrentDate] = useState(() => {
     return startDate ? new Date(startDate + "T00:00:00") : new Date();
@@ -49,7 +65,7 @@ export default function DateRangePicker({
   const month = currentDate.getMonth();
 
   const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const firstDayIndex = new Date(year, month, 1).getDay();
+  const firstDayIndex = (new Date(year, month, 1).getDay() - W + 7) % 7;
   const prevMonthDays = new Date(year, month, 0).getDate();
 
   const cells: { dateStr: string; dayNum: number; isCurrentMonth: boolean }[] =
@@ -127,7 +143,7 @@ export default function DateRangePicker({
     if (startDate && endDate) {
       const today = new Date();
       const day = today.getDay();
-      const diff = today.getDate() - day + (day === 0 ? -6 : 1);
+      const diff = today.getDate() - ((day - W + 7) % 7);
       const thisWeekStart = new Date(today.getFullYear(), today.getMonth(), diff);
       thisWeekStart.setHours(0, 0, 0, 0);
       const thisWeekEnd = new Date(thisWeekStart);
@@ -279,14 +295,18 @@ export default function DateRangePicker({
           </div>
 
           <div className="grid grid-cols-7 gap-1 text-center mb-2">
-            {["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map((day) => (
-              <span
-                key={day}
-                className="text-[10px] font-bold text-neutral-400 uppercase"
-              >
-                {day}
-              </span>
-            ))}
+            {(() => {
+              const DAYS_OF_WEEK = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
+              const headers = [...DAYS_OF_WEEK.slice(W), ...DAYS_OF_WEEK.slice(0, W)];
+              return headers.map((day) => (
+                <span
+                  key={day}
+                  className="text-[10px] font-bold text-neutral-400 uppercase"
+                >
+                  {day}
+                </span>
+              ));
+            })()}
           </div>
 
           <div className="grid grid-cols-7 gap-1 text-center">
