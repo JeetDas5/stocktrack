@@ -515,9 +515,9 @@ export default function TimesheetReportsPage() {
           </div>
         </div>
 
-        <div className="flex flex-col sm:flex-row gap-3 items-center justify-between">
-          <div className="flex flex-col sm:flex-row gap-3 items-center w-full sm:w-auto flex-1">
-            <div className="relative w-full sm:w-80">
+        <div className="flex flex-col xl:flex-row gap-2.5 items-center justify-between flex-wrap">
+          <div className="flex flex-col sm:flex-row gap-2.5 items-center w-full sm:w-auto flex-1 flex-wrap">
+            <div className="relative w-full sm:w-44">
               <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-neutral-450">
                 <Search className="h-4 w-4" />
               </span>
@@ -533,8 +533,7 @@ export default function TimesheetReportsPage() {
               />
             </div>
 
-            {/* Business Dropdown */}
-            <div className="w-full sm:w-44">
+            <div className="w-full sm:w-36">
               <Select value={filters.businessId} onValueChange={handleBusinessFilterChange}>
                 <SelectTrigger className="w-full h-10 rounded-xl border border-neutral-200 bg-white px-3.5 py-2 text-left focus:outline-none focus:border-neutral-900 focus:ring-4 focus:ring-neutral-900/5 transition cursor-pointer font-semibold text-xs text-neutral-900 hover:bg-neutral-50">
                   <SelectValue placeholder="All Businesses" />
@@ -560,7 +559,7 @@ export default function TimesheetReportsPage() {
             </div>
 
             {/* Location Dropdown */}
-            <div className="w-full sm:w-44">
+            <div className="w-full sm:w-36">
               <Select value={filters.locationId} onValueChange={(val) => {
                 setFilters({ locationId: val });
                 setDisplayLimit(30);
@@ -588,7 +587,7 @@ export default function TimesheetReportsPage() {
               </Select>
             </div>
 
-            <div className="w-full sm:w-44">
+            <div className="w-full sm:w-32">
               <Dropdown
                 value={filters.status}
                 onChange={(val) => {
@@ -603,7 +602,7 @@ export default function TimesheetReportsPage() {
 
           <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
             {/* Date Range Picker */}
-            <div className="w-full sm:w-64">
+            <div className="w-full sm:w-56">
               <DateRangePicker
                 startDate={filters.startDate}
                 endDate={filters.endDate}

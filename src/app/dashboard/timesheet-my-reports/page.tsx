@@ -396,9 +396,9 @@ export default function TimesheetMyReportsPage() {
           </div>
         </div>
 
-        <div className="flex flex-col sm:flex-row gap-3 items-center justify-between">
-          <div className="flex flex-col sm:flex-row gap-3 items-center w-full sm:w-auto flex-1">
-            <div className="relative w-full sm:w-80">
+        <div className="flex flex-col xl:flex-row gap-2.5 items-center justify-between flex-wrap">
+          <div className="flex flex-col sm:flex-row gap-2.5 items-center w-full sm:w-auto flex-1 flex-wrap">
+            <div className="relative w-full sm:w-44">
               <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-neutral-450">
                 <Search className="h-4 w-4" />
               </span>
@@ -414,7 +414,7 @@ export default function TimesheetMyReportsPage() {
               />
             </div>
 
-            <div className="w-full sm:w-48">
+            <div className="w-full sm:w-32">
               <Dropdown
                 value={filters.status}
                 onChange={(val) => {
@@ -427,8 +427,8 @@ export default function TimesheetMyReportsPage() {
             </div>
           </div>
 
-          <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
-            <div className="w-full sm:w-64">
+          <div className="flex items-center gap-2.5 w-full sm:w-auto justify-end">
+            <div className="w-full sm:w-56">
               <DateRangePicker
                 startDate={filters.startDate}
                 endDate={filters.endDate}
