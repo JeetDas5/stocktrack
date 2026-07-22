@@ -20,6 +20,8 @@ import { useAuth } from "@/providers/auth-provider";
 import TimePicker from "@/components/ui/time-picker";
 import { useBusinessStore } from "@/stores/business-store";
 import { useLocationStore } from "@/stores/location-store";
+import { Location } from "@/types/inventory";
+import { getLocations } from "@/lib/repositories/location.repository";
 import { getStaffMembers } from "@/lib/repositories/staff.repository";
 import {
   getTimesheets,
@@ -58,6 +60,8 @@ interface WeekRowState {
   dayName: string;
   dateStr: string;
   displayDate: string;
+  businessId: string;
+  locationId: string;
   startTime: string;
   endTime: string;
   unpaidBreak: string;
@@ -68,9 +72,10 @@ interface WeekRowState {
   status: string;
   isDayOff: boolean;
 }
+
 export default function TimesheetEntryPage() {
   const { activeBusinessId } = useBusinessStore();
-  const { locations, activeLocationId } = useLocationStore();
+  const { activeLocationId } = useLocationStore();
   const { profile, loading: authLoading } = useAuth();
 
   const isStaff = profile?.role === "staff";
@@ -83,6 +88,7 @@ export default function TimesheetEntryPage() {
   const [searchQuery, setSearchQuery] = useState("");
 
   const [businesses, setBusinesses] = useState<Business[]>([]);
+  const [locationsMap, setLocationsMap] = useState<Record<string, Location[]>>({});
   const [lastSavedTime, setLastSavedTime] = useState<string | null>(null);
   const [expandedDayIdx, setExpandedDayIdx] = useState<number | null>(0);
 
@@ -110,6 +116,22 @@ export default function TimesheetEntryPage() {
     dayIndex: number;
     type: "start" | "end";
   } | null>(null);
+
+  const defaultBusinessId = useMemo(() => {
+    if (activeBusinessId && businesses.some((b) => b.id === activeBusinessId)) {
+      return activeBusinessId;
+    }
+    return businesses.length > 0 ? businesses[0].id : "";
+  }, [activeBusinessId, businesses]);
+
+  const defaultLocationId = useMemo(() => {
+    if (!defaultBusinessId) return "";
+    const bizLocs = locationsMap[defaultBusinessId] || [];
+    if (activeLocationId && bizLocs.some((l) => l.id === activeLocationId)) {
+      return activeLocationId;
+    }
+    return bizLocs.length > 0 ? bizLocs[0].id : "";
+  }, [defaultBusinessId, activeLocationId, locationsMap]);
 
   const getWeekStart = useCallback((d: Date, startDay: string = "Monday") => {
     const date = new Date(d);
@@ -212,16 +234,17 @@ export default function TimesheetEntryPage() {
 
   useEffect(() => {
     async function loadSettings() {
-      if (!activeBusinessId) return;
+      const targetBizId = defaultBusinessId || activeBusinessId;
+      if (!targetBizId) return;
       try {
-        const data = await getTimesheetSettings(activeBusinessId);
+        const data = await getTimesheetSettings(targetBizId);
         setSettings(data);
       } catch (err) {
         console.error("Failed to load timesheet settings:", err);
       }
     }
     loadSettings();
-  }, [activeBusinessId]);
+  }, [defaultBusinessId, activeBusinessId]);
 
   useEffect(() => {
     if (settings) {
@@ -232,30 +255,50 @@ export default function TimesheetEntryPage() {
   }, [settings, getWeekStart]);
 
   useEffect(() => {
-    if (profile) {
-      if (profile.role === "staff") {
-        setStaffId(profile.uid);
-        setLoadingContext(false);
+    async function loadBusinessesAndLocations() {
+      try {
+        const list = await getUserBusinesses();
+        setBusinesses(list);
+        const locResults = await Promise.all(
+          list.map((b) => getLocations(b.id).catch(() => []))
+        );
+        const map: Record<string, Location[]> = {};
+        list.forEach((b, idx) => {
+          map[b.id] = locResults[idx] || [];
+        });
+        setLocationsMap(map);
+      } catch (err) {
+        console.error("Failed to load businesses & locations:", err);
       }
     }
-  }, [profile]);
+    loadBusinessesAndLocations();
+  }, []);
 
   useEffect(() => {
-    const currentBusinessId = activeBusinessId;
-    if (!currentBusinessId || isStaff) {
-      setStaffList([]);
-      if (isStaff) setLoadingContext(false);
+    if (isStaff) {
+      if (profile) setStaffId(profile.uid);
+      setLoadingContext(false);
       return;
     }
 
     async function loadStaffList() {
+      if (businesses.length === 0) return;
       try {
         setLoadingContext(true);
-        const sList = await getStaffMembers(currentBusinessId!);
-        setStaffList(sList);
-
-        if (sList.length > 0) {
-          setStaffId(sList[0].id);
+        const staffResults = await Promise.all(
+          businesses.map((b) => getStaffMembers(b.id).catch(() => []))
+        );
+        const combined = staffResults.flat();
+        const uniqueStaffMap = new Map<string, Staff>();
+        combined.forEach((s) => {
+          if (!uniqueStaffMap.has(s.id)) {
+            uniqueStaffMap.set(s.id, s);
+          }
+        });
+        const allStaff = Array.from(uniqueStaffMap.values());
+        setStaffList(allStaff);
+        if (allStaff.length > 0 && !staffId) {
+          setStaffId(allStaff[0].id);
         }
       } catch (err) {
         console.error(err);
@@ -265,7 +308,7 @@ export default function TimesheetEntryPage() {
       }
     }
     loadStaffList();
-  }, [activeBusinessId, isStaff]);
+  }, [businesses, isStaff, profile, staffId]);
 
   const formatLastSavedTime = useCallback((dateStr: string) => {
     const d = new Date(dateStr);
@@ -282,9 +325,8 @@ export default function TimesheetEntryPage() {
   }, []);
 
   const loadTimesheets = useCallback(async () => {
-    if (!activeBusinessId) return;
     try {
-      const data = await getTimesheets(activeBusinessId);
+      const data = await getTimesheets("all");
       setTimesheets(data);
       if (data && data.length > 0) {
         let latestDate = 0;
@@ -305,29 +347,15 @@ export default function TimesheetEntryPage() {
     } catch (err) {
       console.error("Failed to fetch timesheets:", err);
     }
-  }, [activeBusinessId, formatLastSavedTime]);
-
-  useEffect(() => {
-    async function loadBusinesses() {
-      try {
-        const list = await getUserBusinesses();
-        setBusinesses(list);
-      } catch (err) {
-        console.error("Failed to load businesses:", err);
-      }
-    }
-    loadBusinesses();
-  }, []);
+  }, [formatLastSavedTime]);
 
   useEffect(() => {
     loadTimesheets();
   }, [loadTimesheets]);
 
   const staffTimesheets = useMemo(() => {
-    return timesheets.filter(
-      (ts) => ts.staffId === staffId && ts.locationId === activeLocationId,
-    );
-  }, [timesheets, staffId, activeLocationId]);
+    return timesheets.filter((ts) => ts.staffId === staffId);
+  }, [timesheets, staffId]);
 
   const checkIsDateEditable = useCallback(
     (dateStr: string, status: string) => {
@@ -397,10 +425,18 @@ export default function TimesheetEntryPage() {
           ? settings.default_break_minutes.toString()
           : "30";
 
+      const bId = existing?.businessId || defaultBusinessId;
+      const bizLocs = locationsMap[bId] || [];
+      const lId =
+        existing?.locationId ||
+        (bizLocs.length > 0 ? bizLocs[0].id : defaultLocationId);
+
       return {
         dayName: day.dayName,
         dateStr: day.dateStr,
         displayDate: day.displayDate,
+        businessId: bId,
+        locationId: lId,
         startTime: existing?.startTime || "",
         endTime: existing?.endTime || "",
         unpaidBreak: existing ? existing.unpaidBreak.toString() : defaultBreak,
@@ -414,7 +450,16 @@ export default function TimesheetEntryPage() {
     });
 
     setWeekRows(rows);
-  }, [currentWeekStart, staffId, staffTimesheets, settings, getWeekDays]);
+  }, [
+    currentWeekStart,
+    staffId,
+    staffTimesheets,
+    settings,
+    getWeekDays,
+    defaultBusinessId,
+    defaultLocationId,
+    locationsMap,
+  ]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -457,12 +502,8 @@ export default function TimesheetEntryPage() {
 
   const filteredStaffList = useMemo(() => {
     if (isStaff) return [];
-    return staffList.filter((s) => {
-      if (s.businessId !== activeBusinessId) return false;
-      if (!activeLocationId) return true;
-      return s.locations?.some((loc) => loc.id === activeLocationId);
-    });
-  }, [staffList, activeBusinessId, activeLocationId, isStaff]);
+    return staffList;
+  }, [staffList, isStaff]);
 
   const calculateRowHours = (
     start: string,
@@ -513,6 +554,33 @@ export default function TimesheetEntryPage() {
 
   const isStandardProject = (project: string) => {
     return !project || PROJECT_OPTIONS.includes(project);
+  };
+
+  const handleBusinessChange = (dayIndex: number, newBusinessId: string) => {
+    const bizLocs = locationsMap[newBusinessId] || [];
+    const firstLocId = bizLocs.length > 0 ? bizLocs[0].id : "";
+    setWeekRows((prev) =>
+      prev.map((row, idx) => {
+        if (idx !== dayIndex) return row;
+        return {
+          ...row,
+          businessId: newBusinessId,
+          locationId: firstLocId,
+        };
+      }),
+    );
+  };
+
+  const handleLocationChange = (dayIndex: number, newLocationId: string) => {
+    setWeekRows((prev) =>
+      prev.map((row, idx) => {
+        if (idx !== dayIndex) return row;
+        return {
+          ...row,
+          locationId: newLocationId,
+        };
+      }),
+    );
   };
 
   const handleTimeChange = (
@@ -640,6 +708,8 @@ export default function TimesheetEntryPage() {
           prevTimesheet.endTime === "00:00";
         return {
           ...row,
+          businessId: prevTimesheet.businessId || row.businessId,
+          locationId: prevTimesheet.locationId || row.locationId,
           startTime: prevTimesheet.startTime,
           endTime: prevTimesheet.endTime,
           unpaidBreak: prevTimesheet.unpaidBreak.toString(),
@@ -677,6 +747,8 @@ export default function TimesheetEntryPage() {
         if (original) {
           return {
             ...row,
+            businessId: original.businessId || row.businessId,
+            locationId: original.locationId || row.locationId,
             startTime: original.startTime,
             endTime: original.endTime,
             unpaidBreak: original.unpaidBreak.toString(),
@@ -703,16 +775,6 @@ export default function TimesheetEntryPage() {
 
   const executeSubmit = async (rowsToSubmit: WeekRowState[]) => {
     setShowConfirmModal(false);
-    if (!activeBusinessId) {
-      toast.error("Active business not found. Please select a business.");
-      return;
-    }
-    if (!activeLocationId) {
-      toast.error("Active location not found. Please select a location.");
-      return;
-    }
-    const businessId = activeBusinessId;
-    const locationId = activeLocationId;
     setSubmitting(true);
 
     try {
@@ -725,8 +787,15 @@ export default function TimesheetEntryPage() {
         const hasTimeSet = row.startTime && row.endTime;
 
         if (hasTimeSet) {
+          if (!row.businessId) {
+            throw new Error(`Please select a business for ${row.dayName} (${row.displayDate}).`);
+          }
+          if (!row.locationId) {
+            throw new Error(`Please select a location for ${row.dayName} (${row.displayDate}).`);
+          }
+
           const payload = {
-            locationId,
+            locationId: row.locationId,
             staffId,
             workDate: row.dateStr,
             startTime: row.startTime,
@@ -745,6 +814,8 @@ export default function TimesheetEntryPage() {
               (ts) => ts.id === row.dbTimesheetId,
             );
             const changed =
+              original?.businessId !== row.businessId ||
+              original?.locationId !== row.locationId ||
               original?.startTime !== row.startTime ||
               original?.endTime !== row.endTime ||
               original?.unpaidBreak !== (parseInt(row.unpaidBreak, 10) || 0) ||
@@ -752,14 +823,14 @@ export default function TimesheetEntryPage() {
               (original?.notes || "") !== row.notes.trim();
 
             if (changed) {
-              return updateTimesheet(businessId, row.dbTimesheetId, payload);
+              return updateTimesheet(row.businessId, row.dbTimesheetId, payload);
             }
           } else {
-            return createTimesheet(businessId, payload);
+            return createTimesheet(row.businessId, payload);
           }
         } else {
-          if (row.dbTimesheetId) {
-            return deleteTimesheet(businessId, row.dbTimesheetId);
+          if (row.dbTimesheetId && row.businessId) {
+            return deleteTimesheet(row.businessId, row.dbTimesheetId);
           }
         }
 
@@ -780,20 +851,11 @@ export default function TimesheetEntryPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!activeBusinessId) {
-      toast.error("Active business not found. Please select a business.");
-      return;
-    }
-    if (!activeLocationId) {
-      toast.error("Active location not found. Please select a location.");
-      return;
-    }
     if (!staffId) {
       toast.error("Please select a staff member.");
       return;
     }
 
-    // Process rows to map unentered timesheets to day-off if selected week is current week
     const processed = weekRows.map((row) => {
       const isEditable = checkIsDateEditable(row.dateStr, row.status);
       if (
@@ -813,7 +875,6 @@ export default function TimesheetEntryPage() {
       return row;
     });
 
-    // Validate times for non-day-off entries
     try {
       processed.forEach((row) => {
         const isEditable = checkIsDateEditable(row.dateStr, row.status);
@@ -824,6 +885,13 @@ export default function TimesheetEntryPage() {
           row.isDayOff ||
           (row.startTime === "00:00" && row.endTime === "00:00");
         if (hasTimeSet && !isOff) {
+          if (!row.businessId) {
+            throw new Error(`On ${row.dayName} (${row.displayDate}), please select a business.`);
+          }
+          if (!row.locationId) {
+            throw new Error(`On ${row.dayName} (${row.displayDate}), please select a location.`);
+          }
+
           if (row.startTime > row.endTime) {
             throw new Error(
               `On ${row.dayName} (${row.displayDate}), Start Time cannot be after End Time.`,
@@ -835,7 +903,6 @@ export default function TimesheetEntryPage() {
             );
           }
 
-          // Break rules verification
           const breakMins = parseInt(row.unpaidBreak, 10) || 0;
           if (
             settings?.require_break_entry &&
@@ -910,12 +977,6 @@ export default function TimesheetEntryPage() {
       </div>
     );
   }
-
-  const activeBusiness = businesses.find((b) => b.id === activeBusinessId);
-  const activeBusinessName = activeBusiness ? activeBusiness.name : "Pizza Hut";
-
-  const activeLocation = locations.find((l) => l.id === activeLocationId);
-  const activeLocationName = activeLocation ? activeLocation.name : "Airport";
 
   return (
     <div className="bg-white min-h-0 flex flex-col w-full">
@@ -1065,7 +1126,7 @@ export default function TimesheetEntryPage() {
             {/* Table Container Card */}
             <div className="bg-white border border-neutral-200 rounded-3xl shadow-2xs overflow-hidden flex-1 min-h-0 flex flex-col">
               <div className="overflow-auto flex-1 min-h-0">
-                <table className="w-full text-left border-collapse min-w-[1000px]">
+                <table className="w-full text-left border-collapse min-w-[1200px]">
                   <thead>
                     <tr className="border-b border-neutral-200 text-[11px] font-semibold uppercase tracking-wider text-neutral-500 bg-white sticky top-0 z-10 text-center">
                       <th className="py-4 px-6 text-left font-semibold min-w-[80px]">
@@ -1076,6 +1137,12 @@ export default function TimesheetEntryPage() {
                       </th>
                       <th className="py-4 px-3 text-center font-semibold text-xs min-w-[75px]">
                         Day Off
+                      </th>
+                      <th className="py-4 px-3 text-left font-semibold min-w-[160px]">
+                        Business
+                      </th>
+                      <th className="py-4 px-3 text-left font-semibold min-w-[160px]">
+                        Location
                       </th>
                       <th className="py-4 px-3 text-center font-semibold min-w-[125px]">
                         Start Time
@@ -1108,6 +1175,7 @@ export default function TimesheetEntryPage() {
                         row.endTime,
                         row.unpaidBreak,
                       );
+                      const availableLocations = locationsMap[row.businessId] || [];
 
                       return (
                         <tr
@@ -1136,6 +1204,66 @@ export default function TimesheetEntryPage() {
                               }
                               className="h-4 w-4 rounded border-neutral-300 text-[#0A2924] focus:ring-[#0A2924] cursor-pointer disabled:opacity-50"
                             />
+                          </td>
+
+                          {/* Business Dropdown Column */}
+                          <td className="py-4 px-3 text-left">
+                            {!isEditable || row.isDayOff ? (
+                              <div className="w-full font-semibold text-xs text-neutral-600 border border-neutral-200/60 rounded-xl bg-neutral-100 px-3 h-10 flex items-center truncate">
+                                {businesses.find((b) => b.id === row.businessId)?.name || "—"}
+                              </div>
+                            ) : (
+                              <Select
+                                value={row.businessId || ""}
+                                onValueChange={(val) => handleBusinessChange(idx, val)}
+                                disabled={!isEditable || submitting}
+                              >
+                                <SelectTrigger className="w-full h-10 rounded-xl border border-neutral-200 bg-white px-3 py-2 text-left focus:outline-none focus:border-neutral-900 focus:ring-4 focus:ring-neutral-900/5 transition cursor-pointer font-semibold text-xs text-neutral-900 hover:bg-neutral-50 flex items-center justify-between">
+                                  <SelectValue placeholder="Select Business" />
+                                </SelectTrigger>
+                                <SelectContent className="rounded-xl border border-neutral-200 bg-white p-1 max-h-56 z-50">
+                                  {businesses.map((b) => (
+                                    <SelectItem
+                                      key={b.id}
+                                      value={b.id}
+                                      className="rounded-lg px-3 py-2 text-xs font-semibold cursor-pointer"
+                                    >
+                                      {b.name}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            )}
+                          </td>
+
+                          {/* Location Dropdown Column */}
+                          <td className="py-4 px-3 text-left">
+                            {!isEditable || row.isDayOff ? (
+                              <div className="w-full font-semibold text-xs text-neutral-600 border border-neutral-200/60 rounded-xl bg-neutral-100 px-3 h-10 flex items-center truncate">
+                                {availableLocations.find((l) => l.id === row.locationId)?.name || "—"}
+                              </div>
+                            ) : (
+                              <Select
+                                value={row.locationId || ""}
+                                onValueChange={(val) => handleLocationChange(idx, val)}
+                                disabled={!isEditable || submitting || availableLocations.length === 0}
+                              >
+                                <SelectTrigger className="w-full h-10 rounded-xl border border-neutral-200 bg-white px-3 py-2 text-left focus:outline-none focus:border-neutral-900 focus:ring-4 focus:ring-neutral-900/5 transition cursor-pointer font-semibold text-xs text-neutral-900 hover:bg-neutral-50 flex items-center justify-between">
+                                  <SelectValue placeholder="Select Location" />
+                                </SelectTrigger>
+                                <SelectContent className="rounded-xl border border-neutral-200 bg-white p-1 max-h-56 z-50">
+                                  {availableLocations.map((l) => (
+                                    <SelectItem
+                                      key={l.id}
+                                      value={l.id}
+                                      className="rounded-lg px-3 py-2 text-xs font-semibold cursor-pointer"
+                                    >
+                                      {l.name}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            )}
                           </td>
 
                           <td
@@ -1399,7 +1527,7 @@ export default function TimesheetEntryPage() {
                                         }}
                                         className="absolute right-2.5 text-neutral-400 hover:text-neutral-600 cursor-pointer animate-fade-in"
                                       >
-                                        <X className="w-4 h-4" />
+                                        <X className="w-3.5 h-3.5" />
                                       </button>
                                     </div>
                                   )}
@@ -1411,7 +1539,7 @@ export default function TimesheetEntryPage() {
                           {/* Notes */}
                           <td className="py-4 px-3 text-left">
                             {!isEditable || row.isDayOff ? (
-                              <div className="w-full border border-neutral-200/60 rounded-xl bg-neutral-100 px-3 py-2 text-left font-medium text-[13px] text-neutral-400 h-10 flex items-center truncate">
+                              <div className="w-full font-medium text-[13px] text-neutral-400 border border-neutral-200/60 rounded-xl bg-neutral-100 px-3 h-10 flex items-center truncate">
                                 {row.notes || "—"}
                               </div>
                             ) : (
@@ -1426,7 +1554,7 @@ export default function TimesheetEntryPage() {
                                 onChange={(e) =>
                                   handleNotesChange(idx, e.target.value)
                                 }
-                                placeholder="Add Notes..."
+                                placeholder="Add notes..."
                                 className="w-full border border-neutral-200 rounded-xl bg-white px-3 py-2 text-[13px] font-medium text-neutral-900 placeholder-neutral-400 focus:outline-none focus:border-neutral-900 focus:ring-4 focus:ring-neutral-900/5 transition disabled:opacity-50 disabled:bg-neutral-50 disabled:cursor-not-allowed h-10"
                               />
                             )}
@@ -1434,35 +1562,70 @@ export default function TimesheetEntryPage() {
                         </tr>
                       );
                     })}
+
+                    {filteredWeekRows.length === 0 && (
+                      <tr>
+                        <td
+                          colSpan={11}
+                          className="py-12 text-center text-neutral-400 font-medium text-xs"
+                        >
+                          No matching timesheet entries found for this week.
+                        </td>
+                      </tr>
+                    )}
                   </tbody>
                 </table>
               </div>
-            </div>
 
-            <div className="flex items-center justify-between bg-white">
-              <button
-                type="button"
-                onClick={handleClearAll}
-                disabled={submitting}
-                className="inline-flex items-center bg-white text-neutral-700 px-5 py-2 rounded-full text-[14px] font-semibold border border-neutral-200 hover:border-neutral-300 transition-colors duration-200 cursor-pointer disabled:opacity-50 shadow-xs animate-fade-in"
-              >
-                Clear All
-              </button>
+              {/* Table Footer */}
+              <div className="border-t border-neutral-200 px-6 py-4 bg-white flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div className="flex items-center gap-2">
+                  {lastSavedTime && (
+                    <div className="flex items-center gap-1.5 text-neutral-500 text-xs font-medium select-none">
+                      <svg
+                        className="w-4 h-4 text-emerald-600 shrink-0"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        strokeWidth={2.5}
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M5 13l4 4L19 7"
+                        />
+                      </svg>
+                      <span>Saved on {lastSavedTime}</span>
+                    </div>
+                  )}
+                </div>
 
-              <button
-                type="submit"
-                disabled={submitting}
-                className="inline-flex items-center bg-[#0A2924] hover:bg-[#0A2924]/90 border border-[#0A2924] text-white px-5 py-2 rounded-full text-[14px] font-semibold transition-colors duration-200 cursor-pointer disabled:opacity-50 shadow-sm animate-fade-in"
-              >
-                {submitting ? (
-                  <div className="flex items-center gap-2">
-                    <Loader2 className="h-4 w-4 animate-spin text-white" />
-                    <span>Submitting...</span>
-                  </div>
-                ) : (
-                  <span>Submit Timesheet</span>
-                )}
-              </button>
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={handleClearAll}
+                    disabled={submitting}
+                    className="inline-flex items-center bg-white hover:bg-neutral-50 border border-neutral-200 text-neutral-700 px-5 py-2 rounded-full text-[14px] font-semibold transition-colors duration-200 cursor-pointer disabled:opacity-50 shadow-2xs"
+                  >
+                    Clear All
+                  </button>
+
+                  <button
+                    type="submit"
+                    disabled={submitting}
+                    className="inline-flex items-center bg-[#0A2924] hover:bg-[#0A2924]/90 border border-[#0A2924] text-white px-5 py-2 rounded-full text-[14px] font-semibold transition-colors duration-200 cursor-pointer disabled:opacity-50 shadow-sm animate-fade-in"
+                  >
+                    {submitting ? (
+                      <div className="flex items-center gap-2">
+                        <Loader2 className="h-4 w-4 animate-spin text-white" />
+                        <span>Submitting...</span>
+                      </div>
+                    ) : (
+                      <span>Submit Timesheet</span>
+                    )}
+                  </button>
+                </div>
+              </div>
             </div>
           </form>
         </div>
@@ -1614,6 +1777,9 @@ export default function TimesheetEntryPage() {
                 row.unpaidBreak,
               );
               const isExpanded = expandedDayIdx === idx;
+              const rowBizName = businesses.find((b) => b.id === row.businessId)?.name || "";
+              const availableLocations = locationsMap[row.businessId] || [];
+              const rowLocName = availableLocations.find((l) => l.id === row.locationId)?.name || "";
 
               return (
                 <div
@@ -1639,7 +1805,7 @@ export default function TimesheetEntryPage() {
                         </span>
                         <span className="text-neutral-500 text-[11px] leading-tight mt-0.5 font-medium">
                           {row.project ||
-                            `${activeBusinessName} | ${activeLocationName}`}
+                            `${rowBizName || "Select Business"} ${rowLocName ? `| ${rowLocName}` : ""}`}
                         </span>
                       </div>
                     </div>
@@ -1692,24 +1858,62 @@ export default function TimesheetEntryPage() {
                     </div>
 
                     <div className="grid grid-cols-2 gap-3">
-                      {/* Business */}
+                      {/* Business Dropdown */}
                       <div className="flex flex-col gap-1.5">
                         <label className="text-neutral-400 font-bold text-[9px] uppercase tracking-wider pl-0.5">
                           Business
                         </label>
-                        <div className="w-full bg-neutral-50/50 border border-neutral-100 rounded-xl px-3 py-2 text-xs font-semibold text-neutral-800 h-10 flex items-center">
-                          {activeBusinessName}
-                        </div>
+                        {!isEditable || row.isDayOff ? (
+                          <div className="w-full bg-neutral-50/50 border border-neutral-100 rounded-xl px-3 py-2 text-xs font-semibold text-neutral-800 h-10 flex items-center truncate">
+                            {rowBizName || "—"}
+                          </div>
+                        ) : (
+                          <Select
+                            value={row.businessId || ""}
+                            onValueChange={(val) => handleBusinessChange(idx, val)}
+                            disabled={!isEditable || submitting}
+                          >
+                            <SelectTrigger className="w-full h-10 rounded-xl border border-neutral-200 bg-white px-3 py-2 text-left font-semibold text-xs text-neutral-900 flex items-center justify-between">
+                              <SelectValue placeholder="Select Business" />
+                            </SelectTrigger>
+                            <SelectContent className="rounded-xl border border-neutral-200 bg-white p-1 max-h-56 z-50">
+                              {businesses.map((b) => (
+                                <SelectItem key={b.id} value={b.id} className="rounded-lg px-3 py-2 text-xs font-semibold">
+                                  {b.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
                       </div>
 
-                      {/* Location */}
+                      {/* Location Dropdown */}
                       <div className="flex flex-col gap-1.5">
                         <label className="text-neutral-400 font-bold text-[9px] uppercase tracking-wider pl-0.5">
                           Location
                         </label>
-                        <div className="w-full bg-neutral-50/50 border border-neutral-100 rounded-xl px-3 py-2 text-xs font-semibold text-neutral-800 h-10 flex items-center">
-                          {activeLocationName}
-                        </div>
+                        {!isEditable || row.isDayOff ? (
+                          <div className="w-full bg-neutral-50/50 border border-neutral-100 rounded-xl px-3 py-2 text-xs font-semibold text-neutral-800 h-10 flex items-center truncate">
+                            {rowLocName || "—"}
+                          </div>
+                        ) : (
+                          <Select
+                            value={row.locationId || ""}
+                            onValueChange={(val) => handleLocationChange(idx, val)}
+                            disabled={!isEditable || submitting || availableLocations.length === 0}
+                          >
+                            <SelectTrigger className="w-full h-10 rounded-xl border border-neutral-200 bg-white px-3 py-2 text-left font-semibold text-xs text-neutral-900 flex items-center justify-between">
+                              <SelectValue placeholder="Select Location" />
+                            </SelectTrigger>
+                            <SelectContent className="rounded-xl border border-neutral-200 bg-white p-1 max-h-56 z-50">
+                              {availableLocations.map((l) => (
+                                <SelectItem key={l.id} value={l.id} className="rounded-lg px-3 py-2 text-xs font-semibold">
+                                  {l.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
                       </div>
 
                       {/* Start Time */}
@@ -1823,181 +2027,180 @@ export default function TimesheetEntryPage() {
                           )}
                         </div>
                       </div>
+                    </div>
 
-                      {/* Unpaid Break */}
-                      <div className="flex flex-col gap-1.5">
-                        <label className="text-neutral-400 font-bold text-[9px] uppercase tracking-wider pl-0.5">
-                          Unpaid Break (Mins)
-                        </label>
-                        {!isEditable || row.isDayOff ? (
-                          <div className="w-full bg-neutral-50 border border-neutral-100 rounded-xl px-3 py-2 text-xs font-semibold text-neutral-400 h-10 flex items-center justify-center">
-                            {row.unpaidBreak}
-                          </div>
-                        ) : (
-                          <div className="relative w-full">
-                            <input
-                              type="text"
-                              inputMode="numeric"
-                              pattern="[0-9]*"
+                    {/* Unpaid Break */}
+                    <div className="flex flex-col gap-1.5 mt-3">
+                      <label className="text-neutral-400 font-bold text-[9px] uppercase tracking-wider pl-0.5">
+                        Unpaid Break (Minutes)
+                      </label>
+                      {!isEditable || row.isDayOff ? (
+                        <div className="w-full border border-neutral-200/60 rounded-xl bg-neutral-50 px-3 py-2 font-medium text-[13px] text-neutral-400 h-10 flex items-center">
+                          {row.unpaidBreak} mins
+                        </div>
+                      ) : (
+                        <div className="relative w-full">
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            pattern="[0-9]*"
+                            disabled={
+                              !isEditable ||
+                              submitting ||
+                              (!row.startTime && !row.endTime) ||
+                              settings?.require_break_entry === false
+                            }
+                            value={row.unpaidBreak}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              if (val === "" || /^\d*$/.test(val)) {
+                                handleBreakChange(idx, val);
+                              }
+                            }}
+                            className="w-full border border-neutral-200 rounded-xl bg-white pl-3 pr-10 py-2 focus:outline-none focus:border-neutral-900 transition disabled:opacity-50 disabled:bg-neutral-50 disabled:cursor-not-allowed font-medium text-[13px] text-neutral-900 h-10"
+                          />
+                          <div className="absolute right-1 top-1/2 -translate-y-1/2 flex flex-col gap-0.5 pr-1">
+                            <button
+                              type="button"
                               disabled={
                                 !isEditable ||
                                 submitting ||
                                 (!row.startTime && !row.endTime) ||
                                 settings?.require_break_entry === false
                               }
-                              value={row.unpaidBreak}
-                              onChange={(e) => {
-                                const val = e.target.value;
-                                if (val === "" || /^\d*$/.test(val)) {
-                                  handleBreakChange(idx, val);
-                                }
+                              onClick={() => {
+                                const currentVal =
+                                  parseInt(row.unpaidBreak, 10) || 0;
+                                handleBreakChange(
+                                  idx,
+                                  (currentVal + 5).toString(),
+                                );
                               }}
-                              className="w-full border border-neutral-200 rounded-xl bg-white pl-3 pr-8 py-2 text-center focus:outline-none focus:border-neutral-900 focus:ring-4 focus:ring-neutral-900/5 transition disabled:opacity-50 disabled:bg-neutral-50 disabled:cursor-not-allowed font-medium text-[13px] text-neutral-900 h-10 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                            />
-                            <div className="absolute right-1 top-1/2 -translate-y-1/2 flex flex-col gap-0.5 pr-1.5">
-                              <button
-                                type="button"
-                                disabled={
-                                  !isEditable ||
-                                  submitting ||
-                                  (!row.startTime && !row.endTime) ||
-                                  settings?.require_break_entry === false
-                                }
-                                onClick={() => {
-                                  const currentVal =
-                                    parseInt(row.unpaidBreak, 10) || 0;
-                                  handleBreakChange(
-                                    idx,
-                                    (currentVal + 5).toString(),
-                                  );
-                                }}
-                                className="text-neutral-400 hover:text-neutral-800 disabled:opacity-40 cursor-pointer"
-                              >
-                                <ChevronDown className="w-3.5 h-3.5 rotate-180" />
-                              </button>
-                              <button
-                                type="button"
-                                disabled={
-                                  !isEditable ||
-                                  submitting ||
-                                  (!row.startTime && !row.endTime) ||
-                                  settings?.require_break_entry === false
-                                }
-                                onClick={() => {
-                                  const currentVal =
-                                    parseInt(row.unpaidBreak, 10) || 0;
-                                  handleBreakChange(
-                                    idx,
-                                    Math.max(0, currentVal - 5).toString(),
-                                  );
-                                }}
-                                className="text-neutral-400 hover:text-neutral-800 disabled:opacity-40 cursor-pointer"
-                              >
-                                <ChevronDown className="w-3.5 h-3.5" />
-                              </button>
-                            </div>
+                              className="text-neutral-400 hover:text-neutral-800 disabled:opacity-40"
+                            >
+                              <ChevronDown className="w-3.5 h-3.5 rotate-180" />
+                            </button>
+                            <button
+                              type="button"
+                              disabled={
+                                !isEditable ||
+                                submitting ||
+                                (!row.startTime && !row.endTime) ||
+                                settings?.require_break_entry === false
+                              }
+                              onClick={() => {
+                                const currentVal =
+                                  parseInt(row.unpaidBreak, 10) || 0;
+                                handleBreakChange(
+                                  idx,
+                                  Math.max(0, currentVal - 5).toString(),
+                                );
+                              }}
+                              className="text-neutral-400 hover:text-neutral-800 disabled:opacity-40"
+                            >
+                              <ChevronDown className="w-3.5 h-3.5" />
+                            </button>
                           </div>
-                        )}
-                      </div>
-
-                      {/* Project */}
-                      <div className="flex flex-col gap-1.5">
-                        <label className="text-neutral-400 font-bold text-[9px] uppercase tracking-wider pl-0.5">
-                          Project
-                        </label>
-                        <div className="relative">
-                          {!isEditable || row.isDayOff ? (
-                            <div className="w-full font-semibold text-xs text-emerald-700/60 py-2 truncate bg-neutral-50 px-3 border border-neutral-100 rounded-xl h-10 flex items-center">
-                              {row.project || "—"}
-                            </div>
-                          ) : (
-                            <>
-                              {isStandardProject(row.project) ? (
-                                <Select
-                                  value={row.project || ""}
-                                  onValueChange={(val) =>
-                                    handleProjectSelect(idx, val)
-                                  }
-                                  disabled={
-                                    submitting ||
-                                    (!row.startTime && !row.endTime)
-                                  }
-                                >
-                                  <SelectTrigger
-                                    className={cn(
-                                      "flex items-center justify-between w-full border border-neutral-200 rounded-xl bg-white px-3 py-2 text-left focus:outline-none transition hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed font-semibold text-xs h-10 cursor-pointer",
-                                      row.project
-                                        ? "text-emerald-700"
-                                        : "text-neutral-400 font-medium",
-                                    )}
-                                  >
-                                    <SelectValue placeholder="Select Project" />
-                                  </SelectTrigger>
-                                  <SelectContent className="rounded-xl border border-neutral-200 bg-white p-1 max-h-56 z-50">
-                                    {PROJECT_OPTIONS.map((opt) => (
-                                      <SelectItem
-                                        value={opt}
-                                        key={opt}
-                                        className="rounded-lg px-3 py-2 text-xs font-semibold text-emerald-700 focus:bg-emerald-50 focus:text-emerald-800 hover:bg-emerald-50 hover:text-emerald-800 cursor-pointer"
-                                      >
-                                        {opt}
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                              ) : (
-                                <div className="relative flex items-center">
-                                  <input
-                                    type="text"
-                                    disabled={submitting}
-                                    value={row.project}
-                                    onChange={(e) => {
-                                      const val = e.target.value;
-                                      setWeekRows((prev) =>
-                                        prev.map((r, i) =>
-                                          i === idx
-                                            ? { ...r, project: val }
-                                            : r,
-                                        ),
-                                      );
-                                    }}
-                                    placeholder="Project Name..."
-                                    className="w-full border border-neutral-200 rounded-xl bg-white pl-3 pr-8 py-2 text-xs font-semibold text-emerald-700 focus:outline-none focus:border-neutral-900 transition h-10 placeholder-neutral-400"
-                                  />
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setWeekRows((prev) =>
-                                        prev.map((r, i) =>
-                                          i === idx ? { ...r, project: "" } : r,
-                                        ),
-                                      );
-                                    }}
-                                    className="absolute right-2.5 text-neutral-400 hover:text-neutral-600 cursor-pointer animate-fade-in"
-                                  >
-                                    <X className="w-4 h-4" />
-                                  </button>
-                                </div>
-                              )}
-                            </>
-                          )}
                         </div>
-                      </div>
+                      )}
+                    </div>
+
+                    {/* Project */}
+                    <div className="flex flex-col gap-1.5 mt-3">
+                      <label className="text-neutral-400 font-bold text-[9px] uppercase tracking-wider pl-0.5">
+                        Project
+                      </label>
+                      {!isEditable || row.isDayOff ? (
+                        <div className="w-full font-semibold text-[13px] text-emerald-700/60 border border-neutral-200/60 rounded-xl bg-neutral-50 px-3 h-10 flex items-center truncate">
+                          {row.project || "—"}
+                        </div>
+                      ) : (
+                        <>
+                          {isStandardProject(row.project) ? (
+                            <Select
+                              value={row.project || ""}
+                              onValueChange={(val) =>
+                                handleProjectSelect(idx, val)
+                              }
+                              disabled={
+                                !isEditable ||
+                                submitting ||
+                                (!row.startTime && !row.endTime)
+                              }
+                            >
+                              <SelectTrigger
+                                className={cn(
+                                  "flex items-center justify-between w-full border border-neutral-200 rounded-xl bg-white px-3 py-2 text-left focus:outline-none focus:border-neutral-900 transition hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed font-semibold text-[13px] h-10 cursor-pointer",
+                                  row.project
+                                    ? "text-emerald-700"
+                                    : "text-neutral-400 font-medium",
+                                )}
+                              >
+                                <SelectValue placeholder="Select Project" />
+                              </SelectTrigger>
+                              <SelectContent className="rounded-xl border border-neutral-200 bg-white p-1 max-h-56 z-50">
+                                {PROJECT_OPTIONS.map((opt) => (
+                                  <SelectItem
+                                    value={opt}
+                                    key={opt}
+                                    className="rounded-lg px-3 py-2 text-[13px] font-semibold text-emerald-700 focus:bg-emerald-50 focus:text-emerald-800 cursor-pointer"
+                                  >
+                                    {opt}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          ) : (
+                            <div className="relative flex items-center">
+                              <input
+                                type="text"
+                                disabled={!isEditable || submitting}
+                                value={row.project}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  setWeekRows((prev) =>
+                                    prev.map((r, i) =>
+                                      i === idx ? { ...r, project: val } : r,
+                                    ),
+                                  );
+                                }}
+                                placeholder="Project Name..."
+                                className="w-full border border-neutral-200 rounded-xl bg-white pl-3 pr-8 py-2 text-[13px] font-semibold text-emerald-700 focus:outline-none focus:border-neutral-900 transition h-10 placeholder-neutral-400"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setWeekRows((prev) =>
+                                    prev.map((r, i) =>
+                                      i === idx ? { ...r, project: "" } : r,
+                                    ),
+                                  );
+                                }}
+                                className="absolute right-2.5 text-neutral-400 hover:text-neutral-600"
+                              >
+                                <X className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          )}
+                        </>
+                      )}
                     </div>
 
                     {/* Notes */}
-                    <div className="mt-3 flex flex-col gap-1.5">
+                    <div className="flex flex-col gap-1.5 mt-3">
                       <label className="text-neutral-400 font-bold text-[9px] uppercase tracking-wider pl-0.5">
                         Notes
                       </label>
                       {!isEditable || row.isDayOff ? (
-                        <div className="w-full border border-neutral-200/60 rounded-xl bg-neutral-50 px-3 py-2 text-left font-medium text-xs text-neutral-400 min-h-[80px]">
+                        <div className="w-full font-medium text-xs text-neutral-400 border border-neutral-200/60 rounded-xl bg-neutral-50 px-3 py-2 min-h-[60px] flex items-start">
                           {row.notes || "—"}
                         </div>
                       ) : (
                         <textarea
                           disabled={
-                            submitting || (!row.startTime && !row.endTime)
+                            !isEditable ||
+                            submitting ||
+                            (!row.startTime && !row.endTime)
                           }
                           value={row.notes}
                           onChange={(e) =>
@@ -2005,7 +2208,7 @@ export default function TimesheetEntryPage() {
                           }
                           placeholder="Add Notes..."
                           rows={3}
-                          className="w-full border border-neutral-200 rounded-xl bg-white px-3 py-2 text-xs font-medium text-neutral-900 placeholder-neutral-400 focus:outline-none focus:border-neutral-900 focus:ring-4 focus:ring-neutral-900/5 transition disabled:opacity-50 disabled:bg-neutral-50 disabled:cursor-not-allowed resize-none"
+                          className="w-full border border-neutral-200 rounded-xl bg-white px-3 py-2 text-xs font-medium text-neutral-900 placeholder-neutral-400 focus:outline-none focus:border-neutral-900 transition disabled:opacity-50 disabled:bg-neutral-50 disabled:cursor-not-allowed resize-none"
                         />
                       )}
                     </div>
@@ -2107,14 +2310,6 @@ export default function TimesheetEntryPage() {
                 </div>
                 <div className="flex justify-between items-center mt-1">
                   <span className="text-neutral-500 font-semibold">
-                    Location
-                  </span>
-                  <span className="font-bold text-neutral-900">
-                    {activeLocationName}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center mt-1">
-                  <span className="text-neutral-500 font-semibold">
                     Selected Week
                   </span>
                   <span className="font-bold text-emerald-800">
@@ -2133,6 +2328,8 @@ export default function TimesheetEntryPage() {
                   const isOff =
                     row.isDayOff ||
                     (row.startTime === "00:00" && row.endTime === "00:00");
+                  const rowBizName = businesses.find((b) => b.id === row.businessId)?.name || "";
+                  const rowLocName = (locationsMap[row.businessId] || []).find((l) => l.id === row.locationId)?.name || "";
 
                   return (
                     <div
@@ -2144,7 +2341,7 @@ export default function TimesheetEntryPage() {
                           {row.dayName}
                         </span>
                         <span className="text-[10px] font-medium text-neutral-500">
-                          {row.displayDate}
+                          {row.displayDate} {rowBizName && `• ${rowBizName}`} {rowLocName && `(${rowLocName})`}
                         </span>
                       </div>
 
