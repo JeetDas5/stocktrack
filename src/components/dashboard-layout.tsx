@@ -102,6 +102,7 @@ export default function DashboardLayout({
   const [isReadOnly, setIsReadOnly] = useState<boolean>(true);
   const [userSearch, setUserSearch] = useState("");
   const [showSuperAdminDropdown, setShowSuperAdminDropdown] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [allUsers, setAllUsers] = useState<any[]>([]);
 
   const businessDropdownRef = useRef<HTMLDivElement>(null);
@@ -1491,7 +1492,7 @@ export default function DashboardLayout({
               >
                 <HugeiconsIcon icon={Menu01Icon} size={18} />
               </button>
-              {profile?.role !== "super_admin" && pathname !== "/dashboard/timesheet-review" && pathname !== "/dashboard/timesheet-reports" && (
+              {profile?.role !== "super_admin" && pathname !== "/dashboard/timesheet-review" && pathname !== "/dashboard/timesheet-reports" && pathname !== "/dashboard/timesheet-entry" && (
                 <>
                   <div className="flex items-center gap-1 sm:gap-2 min-w-0">
                     <div className="flex flex-col">
