@@ -3,7 +3,6 @@ import re
 import time
 import random
 import string
-from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import SQLModel
 import boto3
@@ -130,3 +129,25 @@ def get_download_presigned_url(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to generate presigned download URL: {str(e)}",
         )
+
+
+def delete_s3_file(key_or_url: str):
+    bucket_name = os.getenv("AWS_BUCKET_NAME")
+    if not bucket_name or not key_or_url:
+        return
+
+    key = key_or_url
+    if key_or_url.startswith("http://") or key_or_url.startswith("https://"):
+        try:
+            from urllib.parse import urlparse, unquote
+            parsed = urlparse(key_or_url)
+            key = unquote(parsed.path.lstrip("/"))
+        except Exception:
+            pass
+
+    try:
+        s3_client = get_s3_client()
+        s3_client.delete_object(Bucket=bucket_name, Key=key)
+    except Exception as e:
+        print(f"Warning: Failed to delete S3 object '{key}': {e}")
+
