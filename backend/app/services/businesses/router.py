@@ -6,6 +6,7 @@ from sqlmodel import Session, select, SQLModel, func
 from app.database import get_session
 from app.models import User, Business, UserAssignment
 from app.services.auth.dependencies import get_current_user, verify_user_permission
+from app.services.s3.router import delete_s3_file
 
 router = APIRouter(tags=["Businesses"])
 
@@ -226,7 +227,10 @@ def update_business(
         business.is_active = data.is_active
 
     if data.terms_url is not None:
-        business.terms_url = data.terms_url if data.terms_url != "" else None
+        new_terms_url = data.terms_url if data.terms_url != "" else None
+        if business.terms_url and business.terms_url != new_terms_url:
+            delete_s3_file(business.terms_url)
+        business.terms_url = new_terms_url
 
     if data.terms_name is not None:
         business.terms_name = data.terms_name if data.terms_name != "" else None

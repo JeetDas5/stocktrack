@@ -32,7 +32,7 @@ import { toast } from "sonner";
 import { Dropdown } from "@/components/ui/dropdown";
 
 const ALLOWED_EXTENSIONS = [".pdf", ".doc", ".docx"];
-const MAX_FILE_SIZE_MB = 15;
+const MAX_FILE_SIZE_MB = 10;
 
 export default function DashboardBusinessPage() {
   const router = useRouter();
@@ -242,7 +242,6 @@ export default function DashboardBusinessPage() {
 
   const handleViewTerms = async (keyOrUrl: string) => {
     try {
-      toast.info("Preparing terms document...");
       const downloadUrl = await getPresignedDownloadUrl(keyOrUrl);
       window.open(downloadUrl, "_blank", "noopener,noreferrer");
     } catch (err) {
@@ -654,7 +653,6 @@ export default function DashboardBusinessPage() {
                   </div>
                 )}
 
-                {/* File Upload Selector */}
                 {(!editTermsUrl || editTermsFile) && (
                   <label className="flex items-center justify-center gap-2 w-full p-3 border-2 border-dashed border-zinc-200 hover:border-black rounded-xl cursor-pointer bg-zinc-50 hover:bg-zinc-100/80 transition-all group">
                     <Upload className="h-4 w-4 text-zinc-400 group-hover:text-black transition-colors" />
