@@ -112,6 +112,20 @@ def init_db():
                     ass_mutated = True
             if ass_mutated:
                 session.commit()
+
+            # Check and add new columns dynamically to the businesses table
+            bus_columns = [col['name'] for col in inspector.get_columns('businesses')]
+            new_bus_columns = {
+                "terms_url": "VARCHAR",
+                "terms_name": "VARCHAR"
+            }
+            bus_mutated = False
+            for col_name, col_type in new_bus_columns.items():
+                if col_name not in bus_columns:
+                    session.execute(text(f"ALTER TABLE businesses ADD COLUMN {col_name} {col_type}"))
+                    bus_mutated = True
+            if bus_mutated:
+                session.commit()
     except Exception as e:
         print(f"Database migration note: {e}")
 
