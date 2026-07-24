@@ -7,20 +7,32 @@ import { useBusinessStore } from "@/stores/business-store";
 import {
   getUserBusinesses,
   createBusinessAndLink,
+  updateBusiness,
 } from "@/lib/repositories/business.repository";
+import {
+  uploadFileToS3,
+  getPresignedDownloadUrl,
+} from "@/lib/repositories/s3.repository";
 import {
   Building2,
   Plus,
-  ChevronRight,
+  Pencil,
   Loader2,
   Search,
   Lock,
   MapPin,
   Package,
+  FileText,
+  Upload,
+  X,
+  ExternalLink,
 } from "lucide-react";
 import { Business } from "@/types/business";
 import { toast } from "sonner";
 import { Dropdown } from "@/components/ui/dropdown";
+
+const ALLOWED_EXTENSIONS = [".pdf", ".doc", ".docx"];
+const MAX_FILE_SIZE_MB = 15;
 
 export default function DashboardBusinessPage() {
   const router = useRouter();
@@ -31,8 +43,20 @@ export default function DashboardBusinessPage() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [newBusinessName, setNewBusinessName] = useState("");
+  const [addTermsFile, setAddTermsFile] = useState<File | null>(null);
   const [creating, setCreating] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
+
+  // Edit Modal State
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingBusiness, setEditingBusiness] = useState<Business | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editIsActive, setEditIsActive] = useState(true);
+  const [editTermsUrl, setEditTermsUrl] = useState<string | null>(null);
+  const [editTermsName, setEditTermsName] = useState<string | null>(null);
+  const [editTermsFile, setEditTermsFile] = useState<File | null>(null);
+  const [updating, setUpdating] = useState(false);
+
   const [statusFilter, setStatusFilter] = useState<
     "all" | "active" | "inactive"
   >("active");
@@ -69,6 +93,19 @@ export default function DashboardBusinessPage() {
     loadBusinesses();
   }, [user, profile, authLoading, setActiveBusiness]);
 
+  const validateFile = (file: File): boolean => {
+    const ext = "." + file.name.split(".").pop()?.toLowerCase();
+    if (!ALLOWED_EXTENSIONS.includes(ext)) {
+      toast.error("Only PDF and Word documents (.pdf, .doc, .docx) are allowed.");
+      return false;
+    }
+    if (file.size > MAX_FILE_SIZE_MB * 1024 * 1024) {
+      toast.error(`File size exceeds the limit of ${MAX_FILE_SIZE_MB}MB.`);
+      return false;
+    }
+    return true;
+  };
+
   const handleSelect = (businessId: string) => {
     setActiveBusiness(businessId);
     localStorage.setItem("nexbrix_active_business_id", businessId);
@@ -93,7 +130,20 @@ export default function DashboardBusinessPage() {
     try {
       setCreating(true);
 
-      const created = await createBusinessAndLink(user.uid, trimmedName);
+      let termsUrl: string | undefined;
+      let termsName: string | undefined;
+
+      if (addTermsFile) {
+        toast.info("Uploading terms document...");
+        const uploadResult = await uploadFileToS3(addTermsFile);
+        termsUrl = uploadResult.url;
+        termsName = uploadResult.name;
+      }
+
+      const created = await createBusinessAndLink(user.uid, trimmedName, {
+        termsUrl,
+        termsName,
+      });
       await refreshProfile();
 
       const newBusiness: Business = {
@@ -104,10 +154,13 @@ export default function DashboardBusinessPage() {
         isActive: true,
         locationsCount: 0,
         itemsCount: 0,
+        termsUrl,
+        termsName,
       };
 
       setBusinesses([...businesses, newBusiness]);
       setNewBusinessName("");
+      setAddTermsFile(null);
       setShowAddModal(false);
       toast.success("Business profile created successfully!");
 
@@ -116,10 +169,85 @@ export default function DashboardBusinessPage() {
       console.error("Failed to create business:", err);
       toast.error(
         (err as Error).message ||
-          "Failed to create business. Please try again.",
+          "Failed to create business. Please try again."
       );
     } finally {
       setCreating(false);
+    }
+  };
+
+  const openEditModal = (bus: Business, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent business selection redirect when clicking edit icon
+    setEditingBusiness(bus);
+    setEditName(bus.name);
+    setEditIsActive(bus.isActive !== false);
+    setEditTermsUrl(bus.termsUrl || null);
+    setEditTermsName(bus.termsName || null);
+    setEditTermsFile(null);
+    setShowEditModal(true);
+  };
+
+  const handleUpdate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingBusiness) return;
+
+    const trimmedName = editName.trim();
+    if (!trimmedName) {
+      toast.error("Business name is required.");
+      return;
+    }
+
+    if (trimmedName.length > 100) {
+      toast.error("Business name must be 100 characters or less.");
+      return;
+    }
+
+    try {
+      setUpdating(true);
+
+      let finalTermsUrl = editTermsUrl;
+      let finalTermsName = editTermsName;
+
+      if (editTermsFile) {
+        toast.info("Uploading new terms document...");
+        const uploadResult = await uploadFileToS3(editTermsFile);
+        finalTermsUrl = uploadResult.url;
+        finalTermsName = uploadResult.name;
+      }
+
+      const updated = await updateBusiness(editingBusiness.id, {
+        name: trimmedName,
+        isActive: editIsActive,
+        termsUrl: finalTermsUrl,
+        termsName: finalTermsName,
+      });
+
+      setBusinesses((prev) =>
+        prev.map((b) => (b.id === updated.id ? { ...b, ...updated } : b))
+      );
+
+      setShowEditModal(false);
+      setEditingBusiness(null);
+      setEditTermsFile(null);
+      toast.success("Business profile updated successfully!");
+    } catch (err: unknown) {
+      console.error("Failed to update business:", err);
+      toast.error(
+        (err as Error).message || "Failed to update business profile."
+      );
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  const handleViewTerms = async (keyOrUrl: string) => {
+    try {
+      toast.info("Preparing terms document...");
+      const downloadUrl = await getPresignedDownloadUrl(keyOrUrl);
+      window.open(downloadUrl, "_blank", "noopener,noreferrer");
+    } catch (err) {
+      console.error("Failed to open terms document:", err);
+      toast.error("Could not open terms document.");
     }
   };
 
@@ -161,6 +289,8 @@ export default function DashboardBusinessPage() {
         {(profile?.role === "admin" || profile?.role === "super_admin") && (
           <button
             onClick={() => {
+              setNewBusinessName("");
+              setAddTermsFile(null);
               setShowAddModal(true);
             }}
             className="bg-black hover:bg-neutral-800 text-white rounded-full px-5 py-2.5 text-xs font-bold uppercase tracking-wider shadow-sm flex items-center gap-2 cursor-pointer transition-all duration-200"
@@ -259,11 +389,20 @@ export default function DashboardBusinessPage() {
                         {bus.itemsCount || 0} stock{" "}
                         {bus.itemsCount === 1 ? "item" : "items"}
                       </span>
+                      {bus.termsName && (
+                        <>
+                          <span className="text-zinc-300">•</span>
+                          <span className="flex items-center gap-1 text-zinc-600 truncate max-w-[180px]">
+                            <FileText className="h-3.5 w-3.5 text-zinc-500 shrink-0" />
+                            <span className="truncate">{bus.termsName}</span>
+                          </span>
+                        </>
+                      )}
                     </div>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-4 shrink-0">
+                <div className="flex items-center gap-3 shrink-0">
                   {isBusActive ? (
                     <span className="text-[11px] uppercase font-bold px-3 py-1 flex items-center gap-1.5 leading-none text-[#16A34A]">
                       <span className="h-1.5 w-1.5 rounded-full bg-[#16A34A]" />
@@ -275,7 +414,15 @@ export default function DashboardBusinessPage() {
                       Inactive
                     </span>
                   )}
-                  <ChevronRight className="h-5 w-5 text-zinc-400 group-hover:text-black transition-colors" />
+
+                  <button
+                    type="button"
+                    title="Edit Business"
+                    onClick={(e) => openEditModal(bus, e)}
+                    className="p-2 rounded-xl text-zinc-400 hover:text-black hover:bg-zinc-100 border border-transparent hover:border-zinc-200 transition-all cursor-pointer"
+                  >
+                    <Pencil className="h-4 w-4 stroke-[2.2px]" />
+                  </button>
                 </div>
               </div>
             );
@@ -288,6 +435,7 @@ export default function DashboardBusinessPage() {
         <span>Only businesses you have access to are shown.</span>
       </div>
 
+      {/* CREATE BUSINESS MODAL */}
       {showAddModal && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center z-50 animate-fade-in">
           <div className="bg-white border border-zinc-200 rounded-2xl p-6 shadow-2xl max-w-md w-full mx-4 animate-scale-up">
@@ -300,22 +448,72 @@ export default function DashboardBusinessPage() {
             </p>
 
             <form onSubmit={handleCreate} className="space-y-4">
-              <input
-                type="text"
-                placeholder="e.g. Starbucks"
-                required
-                maxLength={100}
-                className="w-full bg-white border border-zinc-300 focus:border-black rounded-xl py-3 px-4 text-sm text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-black transition-all"
-                value={newBusinessName}
-                onChange={(e) => setNewBusinessName(e.target.value)}
-                disabled={creating}
-              />
+              <div>
+                <label className="block text-xs font-bold text-zinc-700 uppercase tracking-wider mb-1.5">
+                  Business Name *
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Starbucks"
+                  required
+                  maxLength={100}
+                  className="w-full bg-white border border-zinc-300 focus:border-black rounded-xl py-2.5 px-4 text-sm text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-black transition-all"
+                  value={newBusinessName}
+                  onChange={(e) => setNewBusinessName(e.target.value)}
+                  disabled={creating}
+                />
+              </div>
 
-              <div className="flex justify-end gap-3 pt-2">
+              <div>
+                <label className="block text-xs font-bold text-zinc-700 uppercase tracking-wider mb-1.5">
+                  Terms Document (PDF / Word)
+                </label>
+                {!addTermsFile ? (
+                  <label className="flex items-center justify-center gap-2 w-full p-3 border-2 border-dashed border-zinc-200 hover:border-black rounded-xl cursor-pointer bg-zinc-50 hover:bg-zinc-100/80 transition-all group">
+                    <Upload className="h-4 w-4 text-zinc-400 group-hover:text-black transition-colors" />
+                    <span className="text-xs font-semibold text-zinc-600 group-hover:text-black">
+                      Upload PDF or Word document
+                    </span>
+                    <input
+                      type="file"
+                      accept=".pdf,.doc,.docx"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file && validateFile(file)) {
+                          setAddTermsFile(file);
+                        }
+                      }}
+                      disabled={creating}
+                    />
+                  </label>
+                ) : (
+                  <div className="flex items-center justify-between p-3 bg-zinc-50 border border-zinc-200 rounded-xl text-xs font-semibold text-zinc-800">
+                    <div className="flex items-center gap-2 truncate">
+                      <FileText className="h-4 w-4 text-black shrink-0" />
+                      <span className="truncate">{addTermsFile.name}</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setAddTermsFile(null)}
+                      className="p-1 hover:bg-zinc-200 rounded-lg text-zinc-500 hover:text-red-600 transition-colors"
+                      disabled={creating}
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                )}
+                <p className="text-[11px] text-zinc-400 mt-1 font-medium">
+                  This document will be displayed during staff onboarding.
+                </p>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-3">
                 <button
                   type="button"
                   onClick={() => {
                     setShowAddModal(false);
+                    setAddTermsFile(null);
                   }}
                   className="bg-[#F1F5F9] hover:bg-zinc-200 text-zinc-700 rounded-xl px-4 py-2.5 text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer"
                   disabled={creating}
@@ -334,6 +532,193 @@ export default function DashboardBusinessPage() {
                     </>
                   ) : (
                     "Add business"
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* EDIT BUSINESS MODAL */}
+      {showEditModal && editingBusiness && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center z-50 animate-fade-in">
+          <div className="bg-white border border-zinc-200 rounded-2xl p-6 shadow-2xl max-w-md w-full mx-4 animate-scale-up">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-lg font-extrabold text-[#0F172A]">
+                Edit business profile
+              </h3>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowEditModal(false);
+                  setEditingBusiness(null);
+                }}
+                className="p-1 rounded-lg text-zinc-400 hover:text-black hover:bg-zinc-100 transition-colors"
+                disabled={updating}
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <p className="text-[#64748B] text-xs mb-5 font-semibold leading-relaxed">
+              Update business details, status, and onboarding terms document.
+            </p>
+
+            <form onSubmit={handleUpdate} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-zinc-700 uppercase tracking-wider mb-1.5">
+                  Business Name *
+                </label>
+                <input
+                  type="text"
+                  required
+                  maxLength={100}
+                  className="w-full bg-white border border-zinc-300 focus:border-black rounded-xl py-2.5 px-4 text-sm text-zinc-950 focus:outline-none focus:ring-1 focus:ring-black transition-all"
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  disabled={updating}
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-zinc-700 uppercase tracking-wider mb-1.5">
+                  Status
+                </label>
+                <Dropdown
+                  value={editIsActive ? "active" : "inactive"}
+                  onChange={(val) => setEditIsActive(val === "active")}
+                  options={
+                    [
+                      { value: "active", label: "Active" },
+                      { value: "inactive", label: "Inactive" },
+                    ] as const
+                  }
+                  className="w-full"
+                  triggerClassName="w-full rounded-xl py-2.5 px-3 font-semibold text-zinc-950 border-zinc-300 focus:ring-black focus:border-black"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-zinc-700 uppercase tracking-wider mb-1.5">
+                  Terms Document
+                </label>
+
+                {/* Existing Document Banner */}
+                {editTermsUrl && editTermsName && !editTermsFile && (
+                  <div className="flex items-center justify-between p-3 bg-zinc-50 border border-zinc-200 rounded-xl text-xs font-semibold text-zinc-800 mb-2">
+                    <div className="flex items-center gap-2 truncate">
+                      <FileText className="h-4 w-4 text-black shrink-0" />
+                      <span className="truncate">{editTermsName}</span>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => handleViewTerms(editTermsUrl)}
+                        className="p-1 hover:bg-zinc-200 rounded-lg text-zinc-600 hover:text-black flex items-center gap-1 transition-colors"
+                        title="View Document"
+                      >
+                        <ExternalLink className="h-3.5 w-3.5" />
+                        <span className="text-[10px] uppercase font-bold">View</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditTermsUrl(null);
+                          setEditTermsName(null);
+                        }}
+                        className="p-1 hover:bg-zinc-200 rounded-lg text-zinc-500 hover:text-red-600 transition-colors"
+                        title="Remove Document"
+                        disabled={updating}
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* New file selected preview */}
+                {editTermsFile && (
+                  <div className="flex items-center justify-between p-3 bg-zinc-50 border border-zinc-200 rounded-xl text-xs font-semibold text-zinc-800 mb-2">
+                    <div className="flex items-center gap-2 truncate">
+                      <FileText className="h-4 w-4 text-black shrink-0" />
+                      <span className="truncate">{editTermsFile.name}</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setEditTermsFile(null)}
+                      className="p-1 hover:bg-zinc-200 rounded-lg text-zinc-500 hover:text-red-600 transition-colors"
+                      disabled={updating}
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                )}
+
+                {/* File Upload Selector */}
+                {(!editTermsUrl || editTermsFile) && (
+                  <label className="flex items-center justify-center gap-2 w-full p-3 border-2 border-dashed border-zinc-200 hover:border-black rounded-xl cursor-pointer bg-zinc-50 hover:bg-zinc-100/80 transition-all group">
+                    <Upload className="h-4 w-4 text-zinc-400 group-hover:text-black transition-colors" />
+                    <span className="text-xs font-semibold text-zinc-600 group-hover:text-black">
+                      {editTermsFile ? "Change replacement file" : "Upload PDF or Word document"}
+                    </span>
+                    <input
+                      type="file"
+                      accept=".pdf,.doc,.docx"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file && validateFile(file)) {
+                          setEditTermsFile(file);
+                        }
+                      }}
+                      disabled={updating}
+                    />
+                  </label>
+                )}
+
+                {editTermsUrl && !editTermsFile && (
+                  <label className="inline-block mt-1 text-[11px] font-bold text-black hover:underline cursor-pointer">
+                    + Replace with new document
+                    <input
+                      type="file"
+                      accept=".pdf,.doc,.docx"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file && validateFile(file)) {
+                          setEditTermsFile(file);
+                        }
+                      }}
+                      disabled={updating}
+                    />
+                  </label>
+                )}
+              </div>
+
+              <div className="flex justify-end gap-3 pt-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowEditModal(false);
+                    setEditingBusiness(null);
+                  }}
+                  className="bg-[#F1F5F9] hover:bg-zinc-200 text-zinc-700 rounded-xl px-4 py-2.5 text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer"
+                  disabled={updating}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={updating || !editName.trim()}
+                  className="bg-black hover:bg-neutral-800 text-white rounded-xl px-4 py-2.5 text-xs font-bold uppercase tracking-wider shadow-sm flex items-center gap-2 cursor-pointer transition-colors disabled:opacity-50 animate-fade-in"
+                >
+                  {updating ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin text-white" />
+                      Saving...
+                    </>
+                  ) : (
+                    "Save changes"
                   )}
                 </button>
               </div>

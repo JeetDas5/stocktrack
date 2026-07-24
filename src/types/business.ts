@@ -8,6 +8,8 @@ export interface Business {
   ownerName?: string;
   locationsCount?: number;
   itemsCount?: number;
+  termsUrl?: string;
+  termsName?: string;
 }
 
 export interface BusinessUser {

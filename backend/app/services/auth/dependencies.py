@@ -96,6 +96,7 @@ def get_current_user(
             path == "/api/users/me" or 
             (path == "/api/users" and request.method == "POST") or
             path.startswith("/api/auth/") or
+            path.startswith("/api/s3/") or
             (path.startswith("/api/staff/invitations/") and path.endswith("/register"))
         )
         if not is_public_backend_route:
@@ -120,6 +121,7 @@ def get_current_user(
             path == "/api/users" or
             path.startswith("/api/users/") or
             path.startswith("/api/auth/") or
+            path.startswith("/api/s3/") or
             (path.startswith("/api/staff/invitations/") and path.endswith("/register"))
         )
         

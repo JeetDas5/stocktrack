@@ -160,6 +160,8 @@ class Business(SQLModel, table=True):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
     name: str
     is_active: bool = Field(default=True)
+    terms_url: Optional[str] = Field(default=None)
+    terms_name: Optional[str] = Field(default=None)
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
     created_by_id: str = Field(foreign_key="users.id")

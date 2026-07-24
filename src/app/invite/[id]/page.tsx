@@ -12,6 +12,7 @@ import {
   getStaffInvitation,
   registerStaffInvitation,
 } from "@/lib/repositories/staff.repository";
+import { getPresignedDownloadUrl } from "@/lib/repositories/s3.repository";
 import { authClient } from "@/lib/auth/auth-client";
 import { sendOtp, verifyOtp } from "@/lib/services/auth.service";
 import {
@@ -155,6 +156,17 @@ export default function InvitePage({
   const [phone, setPhone] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [registered, setRegistered] = useState(false);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+
+  const handleOpenBusinessTerms = async (keyOrUrl: string) => {
+    try {
+      const downloadUrl = await getPresignedDownloadUrl(keyOrUrl);
+      window.open(downloadUrl, "_blank", "noopener,noreferrer");
+    } catch (err) {
+      console.error("Failed to open business terms:", err);
+      toast.error("Could not open business terms document.");
+    }
+  };
 
   const [countries, setCountries] = useState<Country[]>(POPULAR_COUNTRIES);
   const [selectedCountry, setSelectedCountry] = useState<Country>(
@@ -397,6 +409,10 @@ export default function InvitePage({
       toast.error("Please enter your phone number.");
       return;
     }
+    if (!acceptedTerms) {
+      toast.error("You must accept the terms and privacy policy to complete registration.");
+      return;
+    }
 
     try {
       setSubmitting(true);
@@ -408,6 +424,7 @@ export default function InvitePage({
         phone: combinedPhone,
         first_name: firstName.trim(),
         last_name: lastName.trim(),
+        accepted_terms_version: "v1.0",
       });
       toast.success("Profile submitted successfully!");
       setRegistered(true);
@@ -955,6 +972,69 @@ export default function InvitePage({
                 </div>
               </div>
 
+              {/* Terms and Privacy Policy Acceptance Checkbox */}
+              {(() => {
+                const businessWithTerms = invitation?.businesses?.find(
+                  (b) => b.terms_url
+                );
+                return (
+                  <div className="pt-1 pb-1 text-left">
+                    <label className="flex items-start gap-3 cursor-pointer group">
+                      <input
+                        type="checkbox"
+                        required
+                        checked={acceptedTerms}
+                        onChange={(e) => setAcceptedTerms(e.target.checked)}
+                        className="mt-0.5 h-4 w-4 rounded border-neutral-300 text-neutral-900 focus:ring-neutral-900 cursor-pointer shrink-0"
+                        disabled={submitting}
+                      />
+                      <span className="text-[12px] text-neutral-600 font-medium leading-relaxed select-none">
+                        I agree to the{" "}
+                        <a
+                          href="/terms"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-semibold text-neutral-900 underline hover:text-black"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          Terms of Service
+                        </a>
+                        ,{" "}
+                        <a
+                          href="/privacy-policy"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-semibold text-neutral-900 underline hover:text-black"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          Privacy Policy
+                        </a>
+                        , and{" "}
+                        {businessWithTerms?.terms_url ? (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleOpenBusinessTerms(
+                                businessWithTerms.terms_url!
+                              );
+                            }}
+                            className="font-semibold text-neutral-900 underline hover:text-black cursor-pointer bg-transparent border-none p-0 inline"
+                          >
+                            Business Terms
+                          </button>
+                        ) : (
+                          <span className="font-semibold text-neutral-900">
+                            Business Terms
+                          </span>
+                        )}
+                        .
+                      </span>
+                    </label>
+                  </div>
+                );
+              })()}
+
               <button
                 type="submit"
                 disabled={
@@ -962,7 +1042,8 @@ export default function InvitePage({
                   !firstName.trim() ||
                   !lastName.trim() ||
                   !name.trim() ||
-                  !phone.trim()
+                  !phone.trim() ||
+                  !acceptedTerms
                 }
                 className="w-full bg-neutral-900 hover:bg-neutral-800 text-white rounded-full py-3.5 text-[14px] font-medium transition-all hover:gap-3 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
               >
