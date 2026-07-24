@@ -63,6 +63,8 @@ export interface StaffInvitationPublic {
   businesses: {
     id: string;
     name: string;
+    terms_url?: string | null;
+    terms_name?: string | null;
     locations: { id: string; name: string }[];
   }[];
 }

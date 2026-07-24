@@ -434,7 +434,7 @@ def update_staff(
             stmt = select(UserAssignment).where(
                 UserAssignment.user_id == current_user.id,
                 UserAssignment.business_id == business_id,
-                UserAssignment.is_active == True
+                UserAssignment.is_active
             )
             assignment = session.exec(stmt).first()
             user_role = assignment.role if assignment else current_user.role
@@ -688,6 +688,7 @@ class StaffInvitationRegister(SQLModel):
     phone: str
     first_name: Optional[str] = None
     last_name: Optional[str] = None
+    accepted_terms_version: Optional[str] = "v1.0"
 
 
 class PendingStaffAssignmentOut(SQLModel):
@@ -784,6 +785,8 @@ def get_staff_invitation(
         businesses_out.append({
             "id": business.id,
             "name": business.name,
+            "terms_url": business.terms_url,
+            "terms_name": business.terms_name,
             "locations": locs
         })
 
@@ -823,11 +826,23 @@ def register_staff_invitation(
     if invite.status == "completed":
         raise HTTPException(status_code=400, detail="Invitation has already been used")
 
+    # Extract client IP address
+    client_ip = request.headers.get("x-forwarded-for")
+    if client_ip:
+        client_ip = client_ip.split(",")[0].strip()
+    else:
+        client_ip = request.client.host if request.client else None
+
     current_user.name = data.name.strip()
     current_user.phone = data.phone.strip()
     current_user.role = invite.role
     current_user.is_internal = True
     current_user.modules = invite.modules or []
+
+    # Record terms acceptance audit info
+    current_user.ip_address = client_ip
+    current_user.accepted_terms_version = data.accepted_terms_version or "v1.0"
+    current_user.accepted_terms_at = datetime.utcnow()
     
     # Set first_name and last_name on backend from input data
     if data.first_name and data.first_name.strip():

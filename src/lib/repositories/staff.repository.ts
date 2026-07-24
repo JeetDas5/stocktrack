@@ -204,6 +204,7 @@ export const registerStaffInvitation = async (
     phone: string;
     first_name?: string;
     last_name?: string;
+    accepted_terms_version?: string;
   },
 ): Promise<{ message: string }> => {
   const response = await api.post(
