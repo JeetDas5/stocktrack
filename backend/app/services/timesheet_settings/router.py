@@ -37,6 +37,8 @@ class TimesheetSettingsUpdate(SQLModel):
     lock_payroll_period_date: Optional[str]
     lock_timesheets_before_date: bool
 
+    projects: List[str] = []
+
 
 def verify_timesheet_admin(user: User, business_id: str, session: Session):
     """
@@ -134,6 +136,7 @@ def get_timesheet_settings(
                 payroll_export_format=other_settings.payroll_export_format,
                 lock_payroll_period_date=other_settings.lock_payroll_period_date,
                 lock_timesheets_before_date=other_settings.lock_timesheets_before_date,
+                projects=other_settings.projects or [],
             )
         else:
             settings = TimesheetSettings(
@@ -159,6 +162,7 @@ def get_timesheet_settings(
                 payroll_export_format="CSV",
                 lock_payroll_period_date=None,
                 lock_timesheets_before_date=True,
+                projects=[],
             )
         session.add(settings)
         session.commit()
@@ -240,6 +244,9 @@ def save_timesheet_settings(
         settings.lock_payroll_period_date = data.lock_payroll_period_date
         settings.lock_timesheets_before_date = data.lock_timesheets_before_date
 
+        # 7. Project Settings
+        settings.projects = data.projects
+
         session.add(settings)
         if bid == business_id:
             saved_settings = settings
@@ -247,3 +254,4 @@ def save_timesheet_settings(
     session.commit()
     session.refresh(saved_settings)
     return saved_settings
+

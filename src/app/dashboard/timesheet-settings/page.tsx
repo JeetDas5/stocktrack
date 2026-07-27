@@ -8,6 +8,8 @@ import {
   Loader2,
   Info,
   Calendar as CalendarIcon,
+  Plus,
+  Trash2,
 } from "lucide-react";
 
 import Calendar from "@/components/ui/calendar";
@@ -102,6 +104,7 @@ export default function TimesheetSettingsPage() {
     overtime: true,
     notifications: true,
     payroll: true,
+    projects: true,
   });
 
   const [requireApproval, setRequireApproval] = useState(true);
@@ -138,6 +141,9 @@ export default function TimesheetSettingsPage() {
   const [lockPayrollPeriodDate, setLockPayrollPeriodDate] = useState("");
   const [lockTimesheetsBeforeDate, setLockTimesheetsBeforeDate] =
     useState(true);
+
+  const [projects, setProjects] = useState<string[]>([]);
+  const [newProjectName, setNewProjectName] = useState("");
 
   const [originalSettings, setOriginalSettings] =
     useState<TimesheetSettings | null>(null);
@@ -182,6 +188,7 @@ export default function TimesheetSettingsPage() {
     setPayrollExportFormat(data.payroll_export_format);
     setLockPayrollPeriodDate(data.lock_payroll_period_date || "");
     setLockTimesheetsBeforeDate(data.lock_timesheets_before_date);
+    setProjects(data.projects || []);
   };
 
   useEffect(() => {
@@ -225,6 +232,27 @@ export default function TimesheetSettingsPage() {
     }
   };
 
+  const handleAddProject = () => {
+    const trimmed = newProjectName.trim();
+    if (!trimmed) {
+      toast.error("Please enter a project name.");
+      return;
+    }
+    if (projects.some((p) => p.toLowerCase() === trimmed.toLowerCase())) {
+      toast.error("A project with this name already exists.");
+      return;
+    }
+    setProjects((prev) => [...prev, trimmed]);
+    setNewProjectName("");
+    toast.success(`Project "${trimmed}" added.`);
+  };
+
+  const handleRemoveProject = (index: number) => {
+    const removedName = projects[index];
+    setProjects((prev) => prev.filter((_, idx) => idx !== index));
+    toast.info(`Project "${removedName}" removed.`);
+  };
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!activeBusinessId) return;
@@ -253,6 +281,7 @@ export default function TimesheetSettingsPage() {
         payroll_export_format: payrollExportFormat,
         lock_payroll_period_date: lockPayrollPeriodDate || null,
         lock_timesheets_before_date: lockTimesheetsBeforeDate,
+        projects: projects,
       };
 
       const updated = await saveTimesheetSettings(activeBusinessId, payload);
@@ -1112,6 +1141,111 @@ export default function TimesheetSettingsPage() {
                       </p>
                     </div>
                   </label>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* 7. Project Settings */}
+        <div className="bg-white border border-zinc-200 rounded-2xl shadow-xs">
+          <button
+            type="button"
+            onClick={() => toggleSection("projects")}
+            className={`w-full flex justify-between items-center px-6 py-4.5 bg-zinc-50/50 border-b border-zinc-100 hover:bg-zinc-50/80 transition-colors text-left rounded-t-2xl ${
+              !openSections.projects ? "rounded-b-2xl" : ""
+            }`}
+          >
+            <div className="flex items-center gap-3">
+              <span className="text-sm font-extrabold text-zinc-900 tracking-wide uppercase">
+                7. Project Settings
+              </span>
+            </div>
+            <ChevronDown
+              className={`h-4.5 w-4.5 text-zinc-400 transition-transform duration-350 ease-out ${
+                openSections.projects ? "rotate-180" : ""
+              }`}
+            />
+          </button>
+
+          <div
+            className={`accordion-grid ${openSections.projects ? "accordion-grid-open" : ""}`}
+          >
+            <div className="accordion-grid-inner rounded-b-2xl">
+              <div className="p-6 space-y-6">
+                <div>
+                  <h3 className="text-xs font-extrabold text-zinc-700 uppercase tracking-wide mb-1">
+                    Create & Manage Projects
+                  </h3>
+                  <p className="text-[11px] text-zinc-400 font-medium">
+                    Only owner-created projects will be available as options during timesheet entry.
+                  </p>
+                </div>
+
+                {/* Add Project Form */}
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 max-w-xl">
+                  <div className="relative flex-1">
+                    <input
+                      type="text"
+                      value={newProjectName}
+                      onChange={(e) => setNewProjectName(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          handleAddProject();
+                        }
+                      }}
+                      placeholder="Enter project name..."
+                      className="w-full bg-white border border-zinc-200 text-xs text-zinc-950 rounded-xl py-2.5 px-3.5 focus:outline-none focus:ring-1 focus:ring-[#0a2924] focus:border-[#0a2924] font-semibold placeholder:text-zinc-400 placeholder:font-normal shadow-xs transition-all"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleAddProject()}
+                    className="flex items-center justify-center gap-2 bg-[#0a2924] hover:bg-[#08211d] text-white text-xs font-bold py-2.5 px-4 rounded-xl transition-all shadow-xs cursor-pointer shrink-0"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>Add Project</span>
+                  </button>
+                </div>
+
+                {/* Existing Projects List */}
+                <div className="space-y-3 pt-2 border-t border-zinc-100">
+                  <label className="text-xs font-extrabold text-zinc-700 uppercase tracking-wide block">
+                    Existing Projects ({projects.length})
+                  </label>
+
+                  {projects.length === 0 ? (
+                    <div className="bg-zinc-50/70 border border-dashed border-zinc-200 rounded-xl p-5 text-center flex flex-col items-center justify-center gap-1.5">
+                      <p className="text-xs font-bold text-zinc-600">
+                        No projects created yet
+                      </p>
+                      <p className="text-[10px] text-zinc-400 max-w-md">
+                        If no options exist, default value will be &apos;N/A&apos; in timesheet entry and that field will be disabled.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                      {projects.map((proj, idx) => (
+                        <div
+                          key={idx}
+                          className="flex items-center justify-between gap-2 bg-zinc-50 border border-zinc-200 rounded-xl p-3 shadow-2xs hover:border-zinc-300 transition-all group"
+                        >
+                          <span className="text-xs font-bold text-zinc-900 truncate">
+                            {proj}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveProject(idx)}
+                            title="Remove Project"
+                            className="text-zinc-400 hover:text-red-600 p-1 rounded-lg hover:bg-red-50 transition-colors cursor-pointer shrink-0"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

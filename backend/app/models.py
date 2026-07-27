@@ -741,6 +741,9 @@ class TimesheetSettings(SQLModel, table=True):
     lock_payroll_period_date: Optional[str] = Field(default=None)
     lock_timesheets_before_date: bool = Field(default=True)
 
+    # 7. Project Settings
+    projects: List[str] = Field(default=[], sa_column=Column(JSON))
+
 
 
 class RosterShift(SQLModel, table=True):

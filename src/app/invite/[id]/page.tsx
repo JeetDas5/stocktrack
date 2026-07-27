@@ -974,9 +974,11 @@ export default function InvitePage({
 
               {/* Terms and Privacy Policy Acceptance Checkbox */}
               {(() => {
+                /* Business terms commented out for now:
                 const businessWithTerms = invitation?.businesses?.find(
                   (b) => b.terms_url
                 );
+                */
                 return (
                   <div className="pt-1 pb-1 text-left">
                     <label className="flex items-start gap-3 cursor-pointer group">
@@ -998,8 +1000,8 @@ export default function InvitePage({
                           onClick={(e) => e.stopPropagation()}
                         >
                           Terms of Service
-                        </a>
-                        ,{" "}
+                        </a>{" "}
+                        and{" "}
                         <a
                           href="/privacy-policy"
                           target="_blank"
@@ -1009,7 +1011,7 @@ export default function InvitePage({
                         >
                           Privacy Policy
                         </a>
-                        , and{" "}
+                        {/* , and{" "}
                         {businessWithTerms?.terms_url ? (
                           <button
                             type="button"
@@ -1027,7 +1029,7 @@ export default function InvitePage({
                           <span className="font-semibold text-neutral-900">
                             Business Terms
                           </span>
-                        )}
+                        )} */}
                         .
                       </span>
                     </label>
