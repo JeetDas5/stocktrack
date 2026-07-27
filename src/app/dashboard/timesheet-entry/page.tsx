@@ -45,17 +45,6 @@ import {
 } from "@/lib/repositories/timesheet-settings.repository";
 import { cn } from "@/lib/utils";
 
-const PROJECT_OPTIONS = [
-  "Inventory Check",
-  "Customer Service",
-  "Bar Operations",
-  "Weekend Service",
-  "Events Setup",
-  "Kitchen Help",
-  "General Operations",
-  "Other",
-];
-
 interface WeekRowState {
   dayName: string;
   dateStr: string;
@@ -98,6 +87,11 @@ export default function TimesheetEntryPage() {
   const [confirmRows, setConfirmRows] = useState<WeekRowState[]>([]);
 
   const [settings, setSettings] = useState<TimesheetSettings | null>(null);
+
+  const projectOptions = useMemo(() => {
+    return settings?.projects || [];
+  }, [settings]);
+
 
   const [currentWeekStart, setCurrentWeekStart] = useState<Date>(() => {
     const today = new Date();
@@ -552,10 +546,6 @@ export default function TimesheetEntryPage() {
     return `${zeroPaddedHour}:${minStr} ${ampm}`;
   };
 
-  const isStandardProject = (project: string) => {
-    return !project || PROJECT_OPTIONS.includes(project);
-  };
-
   const handleBusinessChange = (dayIndex: number, newBusinessId: string) => {
     const bizLocs = locationsMap[newBusinessId] || [];
     const firstLocId = bizLocs.length > 0 ? bizLocs[0].id : "";
@@ -644,7 +634,7 @@ export default function TimesheetEntryPage() {
         if (idx !== dayIndex) return row;
         return {
           ...row,
-          project: option === "Other" ? "Custom Project" : option,
+          project: option,
         };
       }),
     );
@@ -1457,81 +1447,47 @@ export default function TimesheetEntryPage() {
                             <div className="relative">
                               {!isEditable || row.isDayOff ? (
                                 <div className="w-full font-semibold text-[13px] text-emerald-700/60 border border-neutral-200/60 rounded-xl bg-neutral-100 px-3 h-10 flex items-center truncate">
-                                  {row.project || "—"}
+                                  {projectOptions.length === 0 ? "N/A" : (row.project || "—")}
+                                </div>
+                              ) : projectOptions.length === 0 ? (
+                                <div className="w-full font-semibold text-[13px] text-neutral-400 border border-neutral-200/80 rounded-xl bg-neutral-100/70 px-3 h-10 flex items-center justify-between cursor-not-allowed select-none opacity-60">
+                                  <span>N/A</span>
+                                  <ChevronDown className="w-4 h-4 text-neutral-300" />
                                 </div>
                               ) : (
-                                <>
-                                  {isStandardProject(row.project) ? (
-                                    <Select
-                                      value={row.project || ""}
-                                      onValueChange={(val) =>
-                                        handleProjectSelect(idx, val)
-                                      }
-                                      disabled={
-                                        !isEditable ||
-                                        submitting ||
-                                        (!row.startTime && !row.endTime)
-                                      }
-                                    >
-                                      <SelectTrigger
-                                        className={cn(
-                                          "flex items-center justify-between w-full border border-neutral-200 rounded-xl bg-white px-3 py-2 text-left focus:outline-none focus:border-neutral-900 focus:ring-4 focus:ring-neutral-900/5 transition hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed font-semibold text-[13px] h-10 cursor-pointer",
-                                          row.project
-                                            ? "text-emerald-700"
-                                            : "text-neutral-400 font-medium",
-                                        )}
+                                <Select
+                                  value={row.project || ""}
+                                  onValueChange={(val) =>
+                                    handleProjectSelect(idx, val)
+                                  }
+                                  disabled={
+                                    !isEditable ||
+                                    submitting ||
+                                    (!row.startTime && !row.endTime)
+                                  }
+                                >
+                                  <SelectTrigger
+                                    className={cn(
+                                      "flex items-center justify-between w-full border border-neutral-200 rounded-xl bg-white px-3 py-2 text-left focus:outline-none focus:border-neutral-900 focus:ring-4 focus:ring-neutral-900/5 transition hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed font-semibold text-[13px] h-10 cursor-pointer",
+                                      row.project
+                                        ? "text-emerald-700"
+                                        : "text-neutral-400 font-medium",
+                                    )}
+                                  >
+                                    <SelectValue placeholder="Select Project" />
+                                  </SelectTrigger>
+                                  <SelectContent className="rounded-xl border border-neutral-200 bg-white p-1 max-h-56 z-50">
+                                    {projectOptions.map((opt) => (
+                                      <SelectItem
+                                        value={opt}
+                                        key={opt}
+                                        className="rounded-lg px-3 py-2 text-[13px] font-semibold text-emerald-700 focus:bg-emerald-50 focus:text-emerald-800 hover:bg-emerald-50 hover:text-emerald-800 cursor-pointer"
                                       >
-                                        <SelectValue placeholder="Select Project" />
-                                      </SelectTrigger>
-                                      <SelectContent className="rounded-xl border border-neutral-200 bg-white p-1 max-h-56 z-50">
-                                        {PROJECT_OPTIONS.map((opt) => (
-                                          <SelectItem
-                                            value={opt}
-                                            key={opt}
-                                            className="rounded-lg px-3 py-2 text-[13px] font-semibold text-emerald-700 focus:bg-emerald-50 focus:text-emerald-800 hover:bg-emerald-50 hover:text-emerald-800 cursor-pointer"
-                                          >
-                                            {opt}
-                                          </SelectItem>
-                                        ))}
-                                      </SelectContent>
-                                    </Select>
-                                  ) : (
-                                    <div className="relative flex items-center">
-                                      <input
-                                        type="text"
-                                        disabled={!isEditable || submitting}
-                                        value={row.project}
-                                        onChange={(e) => {
-                                          const val = e.target.value;
-                                          setWeekRows((prev) =>
-                                            prev.map((r, i) =>
-                                              i === idx
-                                                ? { ...r, project: val }
-                                                : r,
-                                            ),
-                                          );
-                                        }}
-                                        placeholder="Project Name..."
-                                        className="w-full border border-neutral-200 rounded-xl bg-white pl-3 pr-8 py-2 text-[13px] font-semibold text-emerald-700 focus:outline-none focus:border-neutral-900 focus:ring-4 focus:ring-neutral-900/5 transition h-10 placeholder-neutral-400"
-                                      />
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          setWeekRows((prev) =>
-                                            prev.map((r, i) =>
-                                              i === idx
-                                                ? { ...r, project: "" }
-                                                : r,
-                                            ),
-                                          );
-                                        }}
-                                        className="absolute right-2.5 text-neutral-400 hover:text-neutral-600 cursor-pointer animate-fade-in"
-                                      >
-                                        <X className="w-3.5 h-3.5" />
-                                      </button>
-                                    </div>
-                                  )}
-                                </>
+                                        {opt}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
                               )}
                             </div>
                           </td>
@@ -2112,77 +2068,47 @@ export default function TimesheetEntryPage() {
                       </label>
                       {!isEditable || row.isDayOff ? (
                         <div className="w-full font-semibold text-[13px] text-emerald-700/60 border border-neutral-200/60 rounded-xl bg-neutral-50 px-3 h-10 flex items-center truncate">
-                          {row.project || "—"}
+                          {projectOptions.length === 0 ? "N/A" : (row.project || "—")}
+                        </div>
+                      ) : projectOptions.length === 0 ? (
+                        <div className="w-full font-semibold text-[13px] text-neutral-400 border border-neutral-200/80 rounded-xl bg-neutral-100/70 px-3 h-10 flex items-center justify-between cursor-not-allowed select-none opacity-60">
+                          <span>N/A</span>
+                          <ChevronDown className="w-4 h-4 text-neutral-300" />
                         </div>
                       ) : (
-                        <>
-                          {isStandardProject(row.project) ? (
-                            <Select
-                              value={row.project || ""}
-                              onValueChange={(val) =>
-                                handleProjectSelect(idx, val)
-                              }
-                              disabled={
-                                !isEditable ||
-                                submitting ||
-                                (!row.startTime && !row.endTime)
-                              }
-                            >
-                              <SelectTrigger
-                                className={cn(
-                                  "flex items-center justify-between w-full border border-neutral-200 rounded-xl bg-white px-3 py-2 text-left focus:outline-none focus:border-neutral-900 transition hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed font-semibold text-[13px] h-10 cursor-pointer",
-                                  row.project
-                                    ? "text-emerald-700"
-                                    : "text-neutral-400 font-medium",
-                                )}
+                        <Select
+                          value={row.project || ""}
+                          onValueChange={(val) =>
+                            handleProjectSelect(idx, val)
+                          }
+                          disabled={
+                            !isEditable ||
+                            submitting ||
+                            (!row.startTime && !row.endTime)
+                          }
+                        >
+                          <SelectTrigger
+                            className={cn(
+                              "flex items-center justify-between w-full border border-neutral-200 rounded-xl bg-white px-3 py-2 text-left focus:outline-none focus:border-neutral-900 transition hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed font-semibold text-[13px] h-10 cursor-pointer",
+                              row.project
+                                ? "text-emerald-700"
+                                : "text-neutral-400 font-medium",
+                            )}
+                          >
+                            <SelectValue placeholder="Select Project" />
+                          </SelectTrigger>
+                          <SelectContent className="rounded-xl border border-neutral-200 bg-white p-1 max-h-56 z-50">
+                            {projectOptions.map((opt) => (
+                              <SelectItem
+                                value={opt}
+                                key={opt}
+                                className="rounded-lg px-3 py-2 text-[13px] font-semibold text-emerald-700 focus:bg-emerald-50 focus:text-emerald-800 cursor-pointer"
                               >
-                                <SelectValue placeholder="Select Project" />
-                              </SelectTrigger>
-                              <SelectContent className="rounded-xl border border-neutral-200 bg-white p-1 max-h-56 z-50">
-                                {PROJECT_OPTIONS.map((opt) => (
-                                  <SelectItem
-                                    value={opt}
-                                    key={opt}
-                                    className="rounded-lg px-3 py-2 text-[13px] font-semibold text-emerald-700 focus:bg-emerald-50 focus:text-emerald-800 cursor-pointer"
-                                  >
-                                    {opt}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          ) : (
-                            <div className="relative flex items-center">
-                              <input
-                                type="text"
-                                disabled={!isEditable || submitting}
-                                value={row.project}
-                                onChange={(e) => {
-                                  const val = e.target.value;
-                                  setWeekRows((prev) =>
-                                    prev.map((r, i) =>
-                                      i === idx ? { ...r, project: val } : r,
-                                    ),
-                                  );
-                                }}
-                                placeholder="Project Name..."
-                                className="w-full border border-neutral-200 rounded-xl bg-white pl-3 pr-8 py-2 text-[13px] font-semibold text-emerald-700 focus:outline-none focus:border-neutral-900 transition h-10 placeholder-neutral-400"
-                              />
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setWeekRows((prev) =>
-                                    prev.map((r, i) =>
-                                      i === idx ? { ...r, project: "" } : r,
-                                    ),
-                                  );
-                                }}
-                                className="absolute right-2.5 text-neutral-400 hover:text-neutral-600"
-                              >
-                                <X className="w-3.5 h-3.5" />
-                              </button>
-                            </div>
-                          )}
-                        </>
+                                {opt}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       )}
                     </div>
 

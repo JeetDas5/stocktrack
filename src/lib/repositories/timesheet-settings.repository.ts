@@ -36,6 +36,9 @@ export interface TimesheetSettings {
   payroll_export_format: string;
   lock_payroll_period_date: string | null;
   lock_timesheets_before_date: boolean;
+
+  // 7. Project Management
+  projects: string[];
 }
 
 export const getTimesheetSettings = async (
