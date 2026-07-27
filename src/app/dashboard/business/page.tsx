@@ -463,6 +463,7 @@ export default function DashboardBusinessPage() {
                 />
               </div>
 
+              {/* Terms Document Upload (Disabled for now)
               <div>
                 <label className="block text-xs font-bold text-zinc-700 uppercase tracking-wider mb-1.5">
                   Terms Document (PDF / Word)
@@ -506,6 +507,7 @@ export default function DashboardBusinessPage() {
                   This document will be displayed during staff onboarding.
                 </p>
               </div>
+              */}
 
               <div className="flex justify-end gap-3 pt-3">
                 <button
@@ -597,12 +599,12 @@ export default function DashboardBusinessPage() {
                 />
               </div>
 
+              {/* Terms Document Upload
               <div>
                 <label className="block text-xs font-bold text-zinc-700 uppercase tracking-wider mb-1.5">
                   Terms Document
                 </label>
 
-                {/* Existing Document Banner */}
                 {editTermsUrl && editTermsName && !editTermsFile && (
                   <div className="flex items-center justify-between p-3 bg-zinc-50 border border-zinc-200 rounded-xl text-xs font-semibold text-zinc-800 mb-2">
                     <div className="flex items-center gap-2 truncate">
@@ -635,7 +637,6 @@ export default function DashboardBusinessPage() {
                   </div>
                 )}
 
-                {/* New file selected preview */}
                 {editTermsFile && (
                   <div className="flex items-center justify-between p-3 bg-zinc-50 border border-zinc-200 rounded-xl text-xs font-semibold text-zinc-800 mb-2">
                     <div className="flex items-center gap-2 truncate">
@@ -692,6 +693,7 @@ export default function DashboardBusinessPage() {
                   </label>
                 )}
               </div>
+              */}
 
               <div className="flex justify-end gap-3 pt-3">
                 <button
