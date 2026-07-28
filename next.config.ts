@@ -5,7 +5,6 @@ const nextConfig: NextConfig = {
   reactCompiler: true,
   serverExternalPackages: ["better-auth", "pg"],
   images: {
-    unoptimized: true,
     remotePatterns: [
       {
         protocol: "https",

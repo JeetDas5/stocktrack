@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { motion, useScroll, useTransform } from "framer-motion";
@@ -11,12 +11,23 @@ const HERO_IMG = "/images/hero.jpg";
 
 export default function Hero() {
   const ref = useRef(null);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 767px)");
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setIsMobile(mq.matches);
+    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
+
   const { scrollYProgress } = useScroll({
     target: ref,
     offset: ["start start", "end start"],
   });
-  const y = useTransform(scrollYProgress, [0, 1], [0, 160]);
-  const scale = useTransform(scrollYProgress, [0, 1], [1, 1.08]);
+  const y = useTransform(scrollYProgress, [0, 1], isMobile ? [0, 0] : [0, 160]);
+  const scale = useTransform(scrollYProgress, [0, 1], isMobile ? [1, 1] : [1, 1.08]);
   const opacity = useTransform(scrollYProgress, [0, 0.8], [1, 0.3]);
 
   return (
@@ -74,7 +85,7 @@ export default function Hero() {
 
       <motion.div
         style={{ y, scale }}
-        className="relative mt-10 max-w-7xl mx-auto px-6 lg:px-10"
+        className="relative mt-10 max-w-7xl mx-auto px-6 lg:px-10 will-change-transform"
       >
         <Reveal delay={0.3}>
           <div className="relative aspect-video rounded-3xl overflow-hidden border border-neutral-200/80 shadow-[0_30px_80px_-20px_rgba(0,0,0,0.15)]">
@@ -84,7 +95,7 @@ export default function Hero() {
               fill
               priority
               className="object-cover"
-              sizes="100vw"
+              sizes="(max-width: 640px) 100vw, (max-width: 1024px) 90vw, 1280px"
             />
             <div className="absolute inset-0 bg-linear-to-t from-white/40 via-transparent to-transparent" />
             <div className="absolute bottom-6 left-6 right-6 sm:bottom-10 sm:left-10 sm:right-10 flex items-end justify-between">
