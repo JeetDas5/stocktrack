@@ -1336,7 +1336,6 @@ export default function TimesheetEntryPage() {
                             />
                           </td>
 
-                          {/* Business Dropdown Column */}
                           <td className="py-4 px-3 text-left">
                             {!isEditable || row.isDayOff ? (
                               <div className="w-full font-semibold text-xs text-neutral-600 border border-neutral-200/60 rounded-xl bg-neutral-100 px-3 h-10 flex items-center truncate">
@@ -1511,7 +1510,6 @@ export default function TimesheetEntryPage() {
                             </div>
                           </td>
 
-                          {/* Unpaid Break with spinner */}
                           <td className="py-4 px-3 text-center">
                             {!isEditable || row.isDayOff ? (
                               <div className="w-24 mx-auto border border-neutral-200/60 rounded-xl bg-neutral-100 px-2 py-2 text-center font-medium text-[13px] text-neutral-400 h-10 flex items-center justify-center">
@@ -1584,7 +1582,6 @@ export default function TimesheetEntryPage() {
                             )}
                           </td>
 
-                          {/* Total Hours */}
                           <td className="py-4 px-3 text-center">
                             <span className="text-[14px] font-semibold text-neutral-900">
                               {hours > 0 ? hours.toFixed(1) : "0.0"}
@@ -1645,7 +1642,6 @@ export default function TimesheetEntryPage() {
                             </div>
                           </td>
 
-                          {/* Notes */}
                           <td className="py-4 px-3 text-left">
                             {!isEditable || row.isDayOff ? (
                               <div className="w-full font-medium text-[13px] text-neutral-400 border border-neutral-200/60 rounded-xl bg-neutral-100 px-3 h-10 flex items-center truncate">
@@ -1686,7 +1682,6 @@ export default function TimesheetEntryPage() {
                 </table>
               </div>
 
-              {/* Table Footer */}
               <div className="border-t border-neutral-200 px-6 py-4 bg-white flex flex-col sm:flex-row items-center justify-between gap-4">
                 <div className="flex items-center gap-2">
                   {lastSavedTime && (
@@ -1763,7 +1758,6 @@ export default function TimesheetEntryPage() {
           </div>
         </div>
 
-        {/* Admin Staff Selector */}
         {!isStaff && (
           <div className="w-full mb-3">
             <Select
@@ -1902,13 +1896,12 @@ export default function TimesheetEntryPage() {
                       "opacity-60 bg-neutral-50/20",
                   )}
                 >
-                  {/* Card Header */}
                   <div
                     className="flex items-center justify-between p-4 cursor-pointer select-none"
                     onClick={() => setExpandedDayIdx(isExpanded ? null : idx)}
                   >
                     <div className="flex items-center gap-3">
-                      <div className="bg-neutral-100 text-neutral-600 font-bold px-2.5 py-1 rounded-lg text-xs leading-none">
+                      <div className="w-11 shrink-0 text-center bg-neutral-100 text-neutral-600 font-bold px-1.5 py-1 rounded-lg text-xs leading-none">
                         {row.dayName}
                       </div>
                       <div className="flex flex-col">
