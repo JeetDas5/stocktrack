@@ -19,7 +19,6 @@ import Calendar from "@/components/ui/calendar";
 import { useAuth } from "@/providers/auth-provider";
 import TimePicker from "@/components/ui/time-picker";
 import { useBusinessStore } from "@/stores/business-store";
-import { useLocationStore } from "@/stores/location-store";
 import { Location } from "@/types/inventory";
 import { getLocations } from "@/lib/repositories/location.repository";
 import { getStaffMembers } from "@/lib/repositories/staff.repository";
@@ -64,7 +63,6 @@ interface WeekRowState {
 
 export default function TimesheetEntryPage() {
   const { activeBusinessId } = useBusinessStore();
-  const { activeLocationId } = useLocationStore();
   const { profile, loading: authLoading } = useAuth();
 
   const isStaff = profile?.role === "staff";
@@ -77,7 +75,9 @@ export default function TimesheetEntryPage() {
   const [searchQuery, setSearchQuery] = useState("");
 
   const [businesses, setBusinesses] = useState<Business[]>([]);
-  const [locationsMap, setLocationsMap] = useState<Record<string, Location[]>>({});
+  const [locationsMap, setLocationsMap] = useState<Record<string, Location[]>>(
+    {},
+  );
   const [lastSavedTime, setLastSavedTime] = useState<string | null>(null);
   const [expandedDayIdx, setExpandedDayIdx] = useState<number | null>(0);
 
@@ -91,7 +91,6 @@ export default function TimesheetEntryPage() {
   const projectOptions = useMemo(() => {
     return settings?.projects || [];
   }, [settings]);
-
 
   const [currentWeekStart, setCurrentWeekStart] = useState<Date>(() => {
     const today = new Date();
@@ -112,20 +111,24 @@ export default function TimesheetEntryPage() {
   } | null>(null);
 
   const defaultBusinessId = useMemo(() => {
-    if (activeBusinessId && businesses.some((b) => b.id === activeBusinessId)) {
-      return activeBusinessId;
+    if (businesses.length === 1) {
+      return businesses[0].id;
     }
-    return businesses.length > 0 ? businesses[0].id : "";
-  }, [activeBusinessId, businesses]);
+    return "";
+  }, [businesses]);
 
-  const defaultLocationId = useMemo(() => {
-    if (!defaultBusinessId) return "";
-    const bizLocs = locationsMap[defaultBusinessId] || [];
-    if (activeLocationId && bizLocs.some((l) => l.id === activeLocationId)) {
-      return activeLocationId;
-    }
-    return bizLocs.length > 0 ? bizLocs[0].id : "";
-  }, [defaultBusinessId, activeLocationId, locationsMap]);
+  const weekStartDateStr = useMemo(() => {
+    if (!currentWeekStart) return "";
+    const year = currentWeekStart.getFullYear();
+    const month = (currentWeekStart.getMonth() + 1).toString().padStart(2, "0");
+    const date = currentWeekStart.getDate().toString().padStart(2, "0");
+    return `${year}-${month}-${date}`;
+  }, [currentWeekStart]);
+
+  const draftKey = useMemo(() => {
+    if (!staffId || !weekStartDateStr) return "";
+    return `timesheet_draft_${staffId}_${weekStartDateStr}`;
+  }, [staffId, weekStartDateStr]);
 
   const getWeekStart = useCallback((d: Date, startDay: string = "Monday") => {
     const date = new Date(d);
@@ -228,7 +231,10 @@ export default function TimesheetEntryPage() {
 
   useEffect(() => {
     async function loadSettings() {
-      const targetBizId = defaultBusinessId || activeBusinessId;
+      const targetBizId =
+        defaultBusinessId ||
+        activeBusinessId ||
+        (businesses.length > 0 ? businesses[0].id : "");
       if (!targetBizId) return;
       try {
         const data = await getTimesheetSettings(targetBizId);
@@ -238,7 +244,7 @@ export default function TimesheetEntryPage() {
       }
     }
     loadSettings();
-  }, [defaultBusinessId, activeBusinessId]);
+  }, [defaultBusinessId, activeBusinessId, businesses]);
 
   useEffect(() => {
     if (settings) {
@@ -254,7 +260,7 @@ export default function TimesheetEntryPage() {
         const list = await getUserBusinesses();
         setBusinesses(list);
         const locResults = await Promise.all(
-          list.map((b) => getLocations(b.id).catch(() => []))
+          list.map((b) => getLocations(b.id).catch(() => [])),
         );
         const map: Record<string, Location[]> = {};
         list.forEach((b, idx) => {
@@ -280,7 +286,7 @@ export default function TimesheetEntryPage() {
       try {
         setLoadingContext(true);
         const staffResults = await Promise.all(
-          businesses.map((b) => getStaffMembers(b.id).catch(() => []))
+          businesses.map((b) => getStaffMembers(b.id).catch(() => [])),
         );
         const combined = staffResults.flat();
         const uniqueStaffMap = new Map<string, Staff>();
@@ -318,30 +324,63 @@ export default function TimesheetEntryPage() {
     return `${day}/${month}/${year} ${hours.toString().padStart(2, "0")}:${minutes} ${ampm}`;
   }, []);
 
+  const saveDraft = useCallback(
+    (rows: WeekRowState[]) => {
+      if (!draftKey) return;
+      const now = new Date().toISOString();
+      const draftData = {
+        savedAt: now,
+        rows: rows.map((r) => ({
+          dateStr: r.dateStr,
+          businessId: r.businessId,
+          locationId: r.locationId,
+          startTime: r.startTime,
+          endTime: r.endTime,
+          unpaidBreak: r.unpaidBreak,
+          project: r.project,
+          notes: r.notes,
+          isDayOff: r.isDayOff,
+        })),
+      };
+      try {
+        localStorage.setItem(draftKey, JSON.stringify(draftData));
+        setLastSavedTime(formatLastSavedTime(now));
+      } catch (e) {
+        console.error("Failed to save draft to localStorage:", e);
+      }
+    },
+    [draftKey, formatLastSavedTime],
+  );
+
+  const clearDraft = useCallback(() => {
+    if (!draftKey) return;
+    try {
+      localStorage.removeItem(draftKey);
+    } catch (e) {
+      console.error("Failed to clear draft from localStorage:", e);
+    }
+    setLastSavedTime(null);
+  }, [draftKey]);
+
+  const updateAndSaveWeekRows = useCallback(
+    (updater: WeekRowState[] | ((prev: WeekRowState[]) => WeekRowState[])) => {
+      setWeekRows((prev) => {
+        const next = typeof updater === "function" ? updater(prev) : updater;
+        saveDraft(next);
+        return next;
+      });
+    },
+    [saveDraft],
+  );
+
   const loadTimesheets = useCallback(async () => {
     try {
       const data = await getTimesheets("all");
       setTimesheets(data);
-      if (data && data.length > 0) {
-        let latestDate = 0;
-        data.forEach((ts) => {
-          const t = ts.updatedAt
-            ? new Date(ts.updatedAt).getTime()
-            : ts.createdAt
-              ? new Date(ts.createdAt).getTime()
-              : 0;
-          if (t > latestDate) latestDate = t;
-        });
-        if (latestDate > 0) {
-          setLastSavedTime(
-            formatLastSavedTime(new Date(latestDate).toISOString()),
-          );
-        }
-      }
     } catch (err) {
       console.error("Failed to fetch timesheets:", err);
     }
-  }, [formatLastSavedTime]);
+  }, []);
 
   useEffect(() => {
     loadTimesheets();
@@ -405,13 +444,39 @@ export default function TimesheetEntryPage() {
   useEffect(() => {
     if (!currentWeekStart || !staffId) return;
 
+    let savedDraft: {
+      savedAt: string;
+      rows: Array<{
+        dateStr: string;
+        businessId: string;
+        locationId: string;
+        startTime: string;
+        endTime: string;
+        unpaidBreak: string;
+        project: string;
+        notes: string;
+        isDayOff: boolean;
+      }>;
+    } | null = null;
+
+    if (draftKey) {
+      try {
+        const raw = localStorage.getItem(draftKey);
+        if (raw) {
+          savedDraft = JSON.parse(raw);
+        }
+      } catch (e) {
+        console.error("Error reading draft from localStorage", e);
+      }
+    }
+
     const days = getWeekDays(currentWeekStart);
     const rows = days.map((day) => {
       const existing = staffTimesheets.find(
         (ts) => ts.workDate === day.dateStr,
       );
       const isFuture = isFutureDate(day.dateStr);
-      const isDayOff = existing
+      const isDayOffDB = existing
         ? existing.startTime === "00:00" && existing.endTime === "00:00"
         : false;
       const defaultBreak =
@@ -419,11 +484,16 @@ export default function TimesheetEntryPage() {
           ? settings.default_break_minutes.toString()
           : "30";
 
-      const bId = existing?.businessId || defaultBusinessId;
+      const defaultBiz = businesses.length === 1 ? businesses[0].id : "";
+      const dbBizId = existing?.businessId || defaultBiz;
+
+      const draftRow = savedDraft?.rows?.find((r) => r.dateStr === day.dateStr);
+
+      const bId = draftRow ? draftRow.businessId : dbBizId;
       const bizLocs = locationsMap[bId] || [];
-      const lId =
-        existing?.locationId ||
-        (bizLocs.length > 0 ? bizLocs[0].id : defaultLocationId);
+      const lId = draftRow
+        ? draftRow.locationId
+        : existing?.locationId || (bizLocs.length === 1 ? bizLocs[0].id : "");
 
       return {
         dayName: day.dayName,
@@ -431,28 +501,39 @@ export default function TimesheetEntryPage() {
         displayDate: day.displayDate,
         businessId: bId,
         locationId: lId,
-        startTime: existing?.startTime || "",
-        endTime: existing?.endTime || "",
-        unpaidBreak: existing ? existing.unpaidBreak.toString() : defaultBreak,
-        project: existing?.project || "",
-        notes: existing?.notes || "",
+        startTime: draftRow ? draftRow.startTime : existing?.startTime || "",
+        endTime: draftRow ? draftRow.endTime : existing?.endTime || "",
+        unpaidBreak: draftRow
+          ? draftRow.unpaidBreak
+          : existing
+            ? existing.unpaidBreak.toString()
+            : defaultBreak,
+        project: draftRow ? draftRow.project : existing?.project || "",
+        notes: draftRow ? draftRow.notes : existing?.notes || "",
         dbTimesheetId: existing?.id || null,
         isFuture,
         status: existing?.status || "",
-        isDayOff,
+        isDayOff: draftRow ? draftRow.isDayOff : isDayOffDB,
       };
     });
 
     setWeekRows(rows);
+
+    if (savedDraft?.savedAt) {
+      setLastSavedTime(formatLastSavedTime(savedDraft.savedAt));
+    } else {
+      setLastSavedTime(null);
+    }
   }, [
     currentWeekStart,
     staffId,
     staffTimesheets,
     settings,
     getWeekDays,
-    defaultBusinessId,
-    defaultLocationId,
+    businesses,
     locationsMap,
+    draftKey,
+    formatLastSavedTime,
   ]);
 
   useEffect(() => {
@@ -548,21 +629,21 @@ export default function TimesheetEntryPage() {
 
   const handleBusinessChange = (dayIndex: number, newBusinessId: string) => {
     const bizLocs = locationsMap[newBusinessId] || [];
-    const firstLocId = bizLocs.length > 0 ? bizLocs[0].id : "";
-    setWeekRows((prev) =>
+    const defaultLocId = bizLocs.length === 1 ? bizLocs[0].id : "";
+    updateAndSaveWeekRows((prev) =>
       prev.map((row, idx) => {
         if (idx !== dayIndex) return row;
         return {
           ...row,
           businessId: newBusinessId,
-          locationId: firstLocId,
+          locationId: defaultLocId,
         };
       }),
     );
   };
 
   const handleLocationChange = (dayIndex: number, newLocationId: string) => {
-    setWeekRows((prev) =>
+    updateAndSaveWeekRows((prev) =>
       prev.map((row, idx) => {
         if (idx !== dayIndex) return row;
         return {
@@ -578,7 +659,7 @@ export default function TimesheetEntryPage() {
     type: "start" | "end",
     value: string,
   ) => {
-    setWeekRows((prev) =>
+    updateAndSaveWeekRows((prev) =>
       prev.map((row, idx) => {
         if (idx !== dayIndex) return row;
         return {
@@ -591,7 +672,7 @@ export default function TimesheetEntryPage() {
   };
 
   const handleDayOffChange = (dayIndex: number, checked: boolean) => {
-    setWeekRows((prev) =>
+    updateAndSaveWeekRows((prev) =>
       prev.map((row, idx) => {
         if (idx !== dayIndex) return row;
         if (checked) {
@@ -620,7 +701,7 @@ export default function TimesheetEntryPage() {
   };
 
   const handleBreakChange = (dayIndex: number, value: string) => {
-    setWeekRows((prev) =>
+    updateAndSaveWeekRows((prev) =>
       prev.map((row, idx) => {
         if (idx !== dayIndex) return row;
         return { ...row, unpaidBreak: value };
@@ -629,7 +710,7 @@ export default function TimesheetEntryPage() {
   };
 
   const handleProjectSelect = (dayIndex: number, option: string) => {
-    setWeekRows((prev) =>
+    updateAndSaveWeekRows((prev) =>
       prev.map((row, idx) => {
         if (idx !== dayIndex) return row;
         return {
@@ -641,7 +722,7 @@ export default function TimesheetEntryPage() {
   };
 
   const handleNotesChange = (dayIndex: number, value: string) => {
-    setWeekRows((prev) =>
+    updateAndSaveWeekRows((prev) =>
       prev.map((row, idx) => {
         if (idx !== dayIndex) return row;
         return { ...row, notes: value };
@@ -712,7 +793,7 @@ export default function TimesheetEntryPage() {
     });
 
     if (copiedCount > 0) {
-      setWeekRows(newRows);
+      updateAndSaveWeekRows(newRows);
       toast.success(
         `Copied ${copiedCount} timesheet entries from the previous week!`,
       );
@@ -726,6 +807,9 @@ export default function TimesheetEntryPage() {
       settings?.default_break_minutes !== undefined
         ? settings.default_break_minutes.toString()
         : "30";
+
+    const defaultBiz = businesses.length === 1 ? businesses[0].id : "";
+
     const newRows = weekRows.map((row) => {
       if (row.isFuture || row.status === "approved") {
         return row;
@@ -735,10 +819,16 @@ export default function TimesheetEntryPage() {
           (ts) => ts.id === row.dbTimesheetId,
         );
         if (original) {
+          const origBizId = original.businessId || defaultBiz;
+          const origBizLocs = locationsMap[origBizId] || [];
+          const origLocId =
+            original.locationId ||
+            (origBizLocs.length === 1 ? origBizLocs[0].id : "");
+
           return {
             ...row,
-            businessId: original.businessId || row.businessId,
-            locationId: original.locationId || row.locationId,
+            businessId: origBizId,
+            locationId: origLocId,
             startTime: original.startTime,
             endTime: original.endTime,
             unpaidBreak: original.unpaidBreak.toString(),
@@ -749,8 +839,14 @@ export default function TimesheetEntryPage() {
           };
         }
       }
+      const bId = defaultBiz;
+      const bizLocs = locationsMap[bId] || [];
+      const lId = bizLocs.length === 1 ? bizLocs[0].id : "";
+
       return {
         ...row,
+        businessId: bId,
+        locationId: lId,
         startTime: "",
         endTime: "",
         unpaidBreak: defaultBreak,
@@ -759,6 +855,8 @@ export default function TimesheetEntryPage() {
         isDayOff: false,
       };
     });
+
+    clearDraft();
     setWeekRows(newRows);
     toast.success("Unsaved changes cleared.");
   };
@@ -774,14 +872,23 @@ export default function TimesheetEntryPage() {
           return Promise.resolve();
         }
 
+        const isOff =
+          row.isDayOff ||
+          (row.startTime === "00:00" && row.endTime === "00:00") ||
+          (!row.startTime && !row.endTime);
+
         const hasTimeSet = row.startTime && row.endTime;
 
-        if (hasTimeSet) {
+        if (hasTimeSet && !isOff) {
           if (!row.businessId) {
-            throw new Error(`Please select a business for ${row.dayName} (${row.displayDate}).`);
+            throw new Error(
+              `Please select a business for ${row.dayName} (${row.displayDate}).`,
+            );
           }
           if (!row.locationId) {
-            throw new Error(`Please select a location for ${row.dayName} (${row.displayDate}).`);
+            throw new Error(
+              `Please select a location for ${row.dayName} (${row.displayDate}).`,
+            );
           }
 
           const payload = {
@@ -813,13 +920,41 @@ export default function TimesheetEntryPage() {
               (original?.notes || "") !== row.notes.trim();
 
             if (changed) {
-              return updateTimesheet(row.businessId, row.dbTimesheetId, payload);
+              return updateTimesheet(
+                row.businessId,
+                row.dbTimesheetId,
+                payload,
+              );
             }
           } else {
             return createTimesheet(row.businessId, payload);
           }
-        } else {
-          if (row.dbTimesheetId && row.businessId) {
+        } else if (isOff) {
+          const bizId =
+            row.businessId || (businesses.length === 1 ? businesses[0].id : "");
+          const bizLocs = locationsMap[bizId] || [];
+          const locId =
+            row.locationId || (bizLocs.length > 0 ? bizLocs[0].id : "");
+
+          if (bizId && locId) {
+            const payload = {
+              locationId: locId,
+              staffId,
+              workDate: row.dateStr,
+              startTime: "00:00",
+              endTime: "00:00",
+              unpaidBreak: 0,
+              project: undefined,
+              notes: undefined,
+              status: "approved",
+            };
+
+            if (row.dbTimesheetId) {
+              return updateTimesheet(bizId, row.dbTimesheetId, payload);
+            } else {
+              return createTimesheet(bizId, payload);
+            }
+          } else if (row.dbTimesheetId && row.businessId) {
             return deleteTimesheet(row.businessId, row.dbTimesheetId);
           }
         }
@@ -829,7 +964,7 @@ export default function TimesheetEntryPage() {
 
       await Promise.all(promises);
       toast.success("Timesheets submitted successfully!");
-      setLastSavedTime(formatLastSavedTime(new Date().toISOString()));
+      clearDraft();
       await loadTimesheets();
     } catch (err: unknown) {
       toast.error((err as Error).message || "Failed to submit timesheets.");
@@ -876,10 +1011,14 @@ export default function TimesheetEntryPage() {
           (row.startTime === "00:00" && row.endTime === "00:00");
         if (hasTimeSet && !isOff) {
           if (!row.businessId) {
-            throw new Error(`On ${row.dayName} (${row.displayDate}), please select a business.`);
+            throw new Error(
+              `On ${row.dayName} (${row.displayDate}), please select a business.`,
+            );
           }
           if (!row.locationId) {
-            throw new Error(`On ${row.dayName} (${row.displayDate}), please select a location.`);
+            throw new Error(
+              `On ${row.dayName} (${row.displayDate}), please select a location.`,
+            );
           }
 
           if (row.startTime > row.endTime) {
@@ -1165,7 +1304,8 @@ export default function TimesheetEntryPage() {
                         row.endTime,
                         row.unpaidBreak,
                       );
-                      const availableLocations = locationsMap[row.businessId] || [];
+                      const availableLocations =
+                        locationsMap[row.businessId] || [];
 
                       return (
                         <tr
@@ -1196,16 +1336,18 @@ export default function TimesheetEntryPage() {
                             />
                           </td>
 
-                          {/* Business Dropdown Column */}
                           <td className="py-4 px-3 text-left">
                             {!isEditable || row.isDayOff ? (
                               <div className="w-full font-semibold text-xs text-neutral-600 border border-neutral-200/60 rounded-xl bg-neutral-100 px-3 h-10 flex items-center truncate">
-                                {businesses.find((b) => b.id === row.businessId)?.name || "—"}
+                                {businesses.find((b) => b.id === row.businessId)
+                                  ?.name || "—"}
                               </div>
                             ) : (
                               <Select
                                 value={row.businessId || ""}
-                                onValueChange={(val) => handleBusinessChange(idx, val)}
+                                onValueChange={(val) =>
+                                  handleBusinessChange(idx, val)
+                                }
                                 disabled={!isEditable || submitting}
                               >
                                 <SelectTrigger className="w-full h-10 rounded-xl border border-neutral-200 bg-white px-3 py-2 text-left focus:outline-none focus:border-neutral-900 focus:ring-4 focus:ring-neutral-900/5 transition cursor-pointer font-semibold text-xs text-neutral-900 hover:bg-neutral-50 flex items-center justify-between">
@@ -1230,13 +1372,21 @@ export default function TimesheetEntryPage() {
                           <td className="py-4 px-3 text-left">
                             {!isEditable || row.isDayOff ? (
                               <div className="w-full font-semibold text-xs text-neutral-600 border border-neutral-200/60 rounded-xl bg-neutral-100 px-3 h-10 flex items-center truncate">
-                                {availableLocations.find((l) => l.id === row.locationId)?.name || "—"}
+                                {availableLocations.find(
+                                  (l) => l.id === row.locationId,
+                                )?.name || "—"}
                               </div>
                             ) : (
                               <Select
                                 value={row.locationId || ""}
-                                onValueChange={(val) => handleLocationChange(idx, val)}
-                                disabled={!isEditable || submitting || availableLocations.length === 0}
+                                onValueChange={(val) =>
+                                  handleLocationChange(idx, val)
+                                }
+                                disabled={
+                                  !isEditable ||
+                                  submitting ||
+                                  availableLocations.length === 0
+                                }
                               >
                                 <SelectTrigger className="w-full h-10 rounded-xl border border-neutral-200 bg-white px-3 py-2 text-left focus:outline-none focus:border-neutral-900 focus:ring-4 focus:ring-neutral-900/5 transition cursor-pointer font-semibold text-xs text-neutral-900 hover:bg-neutral-50 flex items-center justify-between">
                                   <SelectValue placeholder="Select Location" />
@@ -1360,7 +1510,6 @@ export default function TimesheetEntryPage() {
                             </div>
                           </td>
 
-                          {/* Unpaid Break with spinner */}
                           <td className="py-4 px-3 text-center">
                             {!isEditable || row.isDayOff ? (
                               <div className="w-24 mx-auto border border-neutral-200/60 rounded-xl bg-neutral-100 px-2 py-2 text-center font-medium text-[13px] text-neutral-400 h-10 flex items-center justify-center">
@@ -1433,7 +1582,6 @@ export default function TimesheetEntryPage() {
                             )}
                           </td>
 
-                          {/* Total Hours */}
                           <td className="py-4 px-3 text-center">
                             <span className="text-[14px] font-semibold text-neutral-900">
                               {hours > 0 ? hours.toFixed(1) : "0.0"}
@@ -1447,7 +1595,9 @@ export default function TimesheetEntryPage() {
                             <div className="relative">
                               {!isEditable || row.isDayOff ? (
                                 <div className="w-full font-semibold text-[13px] text-emerald-700/60 border border-neutral-200/60 rounded-xl bg-neutral-100 px-3 h-10 flex items-center truncate">
-                                  {projectOptions.length === 0 ? "N/A" : (row.project || "—")}
+                                  {projectOptions.length === 0
+                                    ? "N/A"
+                                    : row.project || "—"}
                                 </div>
                               ) : projectOptions.length === 0 ? (
                                 <div className="w-full font-semibold text-[13px] text-neutral-400 border border-neutral-200/80 rounded-xl bg-neutral-100/70 px-3 h-10 flex items-center justify-between cursor-not-allowed select-none opacity-60">
@@ -1492,7 +1642,6 @@ export default function TimesheetEntryPage() {
                             </div>
                           </td>
 
-                          {/* Notes */}
                           <td className="py-4 px-3 text-left">
                             {!isEditable || row.isDayOff ? (
                               <div className="w-full font-medium text-[13px] text-neutral-400 border border-neutral-200/60 rounded-xl bg-neutral-100 px-3 h-10 flex items-center truncate">
@@ -1533,7 +1682,6 @@ export default function TimesheetEntryPage() {
                 </table>
               </div>
 
-              {/* Table Footer */}
               <div className="border-t border-neutral-200 px-6 py-4 bg-white flex flex-col sm:flex-row items-center justify-between gap-4">
                 <div className="flex items-center gap-2">
                   {lastSavedTime && (
@@ -1610,7 +1758,6 @@ export default function TimesheetEntryPage() {
           </div>
         </div>
 
-        {/* Admin Staff Selector */}
         {!isStaff && (
           <div className="w-full mb-3">
             <Select
@@ -1733,9 +1880,12 @@ export default function TimesheetEntryPage() {
                 row.unpaidBreak,
               );
               const isExpanded = expandedDayIdx === idx;
-              const rowBizName = businesses.find((b) => b.id === row.businessId)?.name || "";
+              const rowBizName =
+                businesses.find((b) => b.id === row.businessId)?.name || "";
               const availableLocations = locationsMap[row.businessId] || [];
-              const rowLocName = availableLocations.find((l) => l.id === row.locationId)?.name || "";
+              const rowLocName =
+                availableLocations.find((l) => l.id === row.locationId)?.name ||
+                "";
 
               return (
                 <div
@@ -1746,13 +1896,12 @@ export default function TimesheetEntryPage() {
                       "opacity-60 bg-neutral-50/20",
                   )}
                 >
-                  {/* Card Header */}
                   <div
                     className="flex items-center justify-between p-4 cursor-pointer select-none"
                     onClick={() => setExpandedDayIdx(isExpanded ? null : idx)}
                   >
                     <div className="flex items-center gap-3">
-                      <div className="bg-neutral-100 text-neutral-600 font-bold px-2.5 py-1 rounded-lg text-xs leading-none">
+                      <div className="w-11 shrink-0 text-center bg-neutral-100 text-neutral-600 font-bold px-1.5 py-1 rounded-lg text-xs leading-none">
                         {row.dayName}
                       </div>
                       <div className="flex flex-col">
@@ -1826,7 +1975,9 @@ export default function TimesheetEntryPage() {
                         ) : (
                           <Select
                             value={row.businessId || ""}
-                            onValueChange={(val) => handleBusinessChange(idx, val)}
+                            onValueChange={(val) =>
+                              handleBusinessChange(idx, val)
+                            }
                             disabled={!isEditable || submitting}
                           >
                             <SelectTrigger className="w-full h-10 rounded-xl border border-neutral-200 bg-white px-3 py-2 text-left font-semibold text-xs text-neutral-900 flex items-center justify-between">
@@ -1834,7 +1985,11 @@ export default function TimesheetEntryPage() {
                             </SelectTrigger>
                             <SelectContent className="rounded-xl border border-neutral-200 bg-white p-1 max-h-56 z-50">
                               {businesses.map((b) => (
-                                <SelectItem key={b.id} value={b.id} className="rounded-lg px-3 py-2 text-xs font-semibold">
+                                <SelectItem
+                                  key={b.id}
+                                  value={b.id}
+                                  className="rounded-lg px-3 py-2 text-xs font-semibold"
+                                >
                                   {b.name}
                                 </SelectItem>
                               ))}
@@ -1855,15 +2010,25 @@ export default function TimesheetEntryPage() {
                         ) : (
                           <Select
                             value={row.locationId || ""}
-                            onValueChange={(val) => handleLocationChange(idx, val)}
-                            disabled={!isEditable || submitting || availableLocations.length === 0}
+                            onValueChange={(val) =>
+                              handleLocationChange(idx, val)
+                            }
+                            disabled={
+                              !isEditable ||
+                              submitting ||
+                              availableLocations.length === 0
+                            }
                           >
                             <SelectTrigger className="w-full h-10 rounded-xl border border-neutral-200 bg-white px-3 py-2 text-left font-semibold text-xs text-neutral-900 flex items-center justify-between">
                               <SelectValue placeholder="Select Location" />
                             </SelectTrigger>
                             <SelectContent className="rounded-xl border border-neutral-200 bg-white p-1 max-h-56 z-50">
                               {availableLocations.map((l) => (
-                                <SelectItem key={l.id} value={l.id} className="rounded-lg px-3 py-2 text-xs font-semibold">
+                                <SelectItem
+                                  key={l.id}
+                                  value={l.id}
+                                  className="rounded-lg px-3 py-2 text-xs font-semibold"
+                                >
                                   {l.name}
                                 </SelectItem>
                               ))}
@@ -2068,7 +2233,9 @@ export default function TimesheetEntryPage() {
                       </label>
                       {!isEditable || row.isDayOff ? (
                         <div className="w-full font-semibold text-[13px] text-emerald-700/60 border border-neutral-200/60 rounded-xl bg-neutral-50 px-3 h-10 flex items-center truncate">
-                          {projectOptions.length === 0 ? "N/A" : (row.project || "—")}
+                          {projectOptions.length === 0
+                            ? "N/A"
+                            : row.project || "—"}
                         </div>
                       ) : projectOptions.length === 0 ? (
                         <div className="w-full font-semibold text-[13px] text-neutral-400 border border-neutral-200/80 rounded-xl bg-neutral-100/70 px-3 h-10 flex items-center justify-between cursor-not-allowed select-none opacity-60">
@@ -2078,9 +2245,7 @@ export default function TimesheetEntryPage() {
                       ) : (
                         <Select
                           value={row.project || ""}
-                          onValueChange={(val) =>
-                            handleProjectSelect(idx, val)
-                          }
+                          onValueChange={(val) => handleProjectSelect(idx, val)}
                           disabled={
                             !isEditable ||
                             submitting ||
@@ -2254,8 +2419,12 @@ export default function TimesheetEntryPage() {
                   const isOff =
                     row.isDayOff ||
                     (row.startTime === "00:00" && row.endTime === "00:00");
-                  const rowBizName = businesses.find((b) => b.id === row.businessId)?.name || "";
-                  const rowLocName = (locationsMap[row.businessId] || []).find((l) => l.id === row.locationId)?.name || "";
+                  const rowBizName =
+                    businesses.find((b) => b.id === row.businessId)?.name || "";
+                  const rowLocName =
+                    (locationsMap[row.businessId] || []).find(
+                      (l) => l.id === row.locationId,
+                    )?.name || "";
 
                   return (
                     <div
@@ -2267,7 +2436,8 @@ export default function TimesheetEntryPage() {
                           {row.dayName}
                         </span>
                         <span className="text-[10px] font-medium text-neutral-500">
-                          {row.displayDate} {rowBizName && `• ${rowBizName}`} {rowLocName && `(${rowLocName})`}
+                          {row.displayDate} {rowBizName && `• ${rowBizName}`}{" "}
+                          {rowLocName && `(${rowLocName})`}
                         </span>
                       </div>
 
