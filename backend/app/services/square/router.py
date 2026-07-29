@@ -12,7 +12,7 @@ from app.services.square.service import (
     exchange_code_for_tokens,
     refresh_square_tokens,
     fetch_square_catalog,
-    SQUARE_ENVIRONMENT,
+    get_square_environment,
 )
 
 router = APIRouter(prefix="/api/square", tags=["Square Integration"])
@@ -33,9 +33,12 @@ def get_authorize_url(
     """
     if not business_id:
         raise HTTPException(status_code=400, detail="business_id is required")
-    state = f"{business_id}:{current_user.id}"
-    url = get_square_authorize_url(state)
-    return {"authorize_url": url}
+    try:
+        state = f"{business_id}:{current_user.id}"
+        url = get_square_authorize_url(state)
+        return {"authorize_url": url}
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
 
 
 @router.post("/callback")
@@ -81,7 +84,7 @@ def handle_callback(
             refresh_token=refresh_token,
             token_type=token_type,
             expires_at=expires_at,
-            environment=SQUARE_ENVIRONMENT,
+            environment=get_square_environment(),
             created_at=datetime.now(timezone.utc),
             updated_at=datetime.now(timezone.utc),
         )
@@ -94,7 +97,7 @@ def handle_callback(
             token_record.refresh_token = refresh_token
         token_record.token_type = token_type
         token_record.expires_at = expires_at
-        token_record.environment = SQUARE_ENVIRONMENT
+        token_record.environment = get_square_environment()
         token_record.updated_at = datetime.now(timezone.utc)
 
     session.commit()
@@ -104,7 +107,7 @@ def handle_callback(
         "status": "success",
         "message": "Square account connected successfully!",
         "merchant_id": merchant_id,
-        "environment": SQUARE_ENVIRONMENT,
+        "environment": get_square_environment(),
     }
 
 
