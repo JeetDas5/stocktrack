@@ -122,6 +122,7 @@ def get_current_user(
             path.startswith("/api/users/") or
             path.startswith("/api/auth/") or
             path.startswith("/api/s3/") or
+            path.startswith("/api/square") or
             (path.startswith("/api/staff/invitations/") and path.endswith("/register"))
         )
         

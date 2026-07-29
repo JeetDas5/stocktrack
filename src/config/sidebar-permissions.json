@@ -19,7 +19,8 @@
     "/dashboard/timesheet-review",
     "/dashboard/timesheet-reports",
     "/dashboard/availablity-entry",
-    "/dashboard/availability-overview"
+    "/dashboard/availability-overview",
+    "/dashboard/square"
   ],
   "staff": [
     "/dashboard/profile",

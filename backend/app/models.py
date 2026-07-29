@@ -790,3 +790,20 @@ class ExternalUserLead(SQLModel, table=True):
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
+class SquareToken(SQLModel, table=True):
+    __tablename__ = "square_tokens"
+
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
+    business_id: Optional[str] = Field(default=None, foreign_key="businesses.id", ondelete="CASCADE", index=True)
+    user_id: str = Field(foreign_key="users.id", ondelete="CASCADE")
+    merchant_id: Optional[str] = Field(default=None)
+    access_token: str
+    refresh_token: Optional[str] = Field(default=None)
+    token_type: Optional[str] = Field(default="bearer")
+    expires_at: Optional[datetime] = Field(default=None)
+    environment: str = Field(default="sandbox")
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+
