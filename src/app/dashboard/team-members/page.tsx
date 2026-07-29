@@ -1927,8 +1927,17 @@ export default function StaffDirectoryPage() {
       )}
 
       {isEditModalOpen && staffToEdit && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-50 animate-fade-in p-4">
-          <div className="bg-white border border-zinc-200 rounded-3xl p-6 w-full max-w-xl shadow-2xl relative animate-scale-in max-h-[90vh] overflow-y-auto">
+        <div
+          onClick={() => {
+            setIsEditModalOpen(false);
+            setStaffToEdit(null);
+          }}
+          className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-50 animate-fade-in p-4"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white border border-zinc-200 rounded-3xl p-6 w-full max-w-xl shadow-2xl relative animate-scale-in max-h-[90vh] overflow-y-auto"
+          >
             <div className="flex justify-between items-start border-b border-zinc-200 pb-4 mb-4">
               <div>
                 <h3 className="text-xl font-extrabold text-[#0F172A]">
