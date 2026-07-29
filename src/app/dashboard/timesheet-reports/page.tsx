@@ -566,63 +566,6 @@ export default function TimesheetReportsPage() {
               <Download className="h-3.5 w-3.5" />
               Export {settings?.payroll_export_format || "Excel"}
             </button>
-
-            <div className="relative" ref={columnMenuRef}>
-              <button
-                type="button"
-                onClick={() => setIsColumnMenuOpen((prev) => !prev)}
-                title="Customize Columns"
-                className="p-2.5 rounded-full border border-neutral-200 bg-white hover:bg-neutral-50 text-neutral-700 transition-colors cursor-pointer shadow-xs flex items-center justify-center h-10 w-10"
-              >
-                <MoreVertical className="h-4 w-4" />
-              </button>
-
-              {isColumnMenuOpen && (
-                <div className="absolute right-0 mt-2 w-56 bg-white border border-neutral-200 rounded-2xl shadow-xl z-50 p-3 text-xs animate-scale-in">
-                  <div className="flex items-center justify-between font-bold text-neutral-900 border-b border-neutral-100 pb-2 mb-2">
-                    <span>Columns</span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const allSelected =
-                          Object.values(visibleColumns).every(Boolean);
-                        const updated: Record<string, boolean> = {};
-                        ALL_COLUMNS.forEach((col) => {
-                          updated[col.key] = !allSelected;
-                        });
-                        setVisibleColumns(updated);
-                      }}
-                      className="text-[11px] font-semibold text-emerald-700 hover:text-emerald-900 cursor-pointer"
-                    >
-                      {Object.values(visibleColumns).every(Boolean)
-                        ? "Deselect All"
-                        : "Select All"}
-                    </button>
-                  </div>
-                  <div className="flex flex-col gap-1 max-h-60 overflow-y-auto pr-1">
-                    {ALL_COLUMNS.map((col) => (
-                      <label
-                        key={col.key}
-                        className="flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg hover:bg-neutral-50 cursor-pointer font-semibold text-neutral-800 transition-colors select-none"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={visibleColumns[col.key] ?? true}
-                          onChange={(e) => {
-                            setVisibleColumns((prev) => ({
-                              ...prev,
-                              [col.key]: e.target.checked,
-                            }));
-                          }}
-                          className="h-4 w-4 rounded border-neutral-300 text-[#0A2924] focus:ring-[#0A2924] cursor-pointer"
-                        />
-                        <span>{col.label}</span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
           </div>
         </div>
 
@@ -736,6 +679,63 @@ export default function TimesheetReportsPage() {
             >
               Clear
             </button>
+
+            <div className="relative" ref={columnMenuRef}>
+              <button
+                type="button"
+                onClick={() => setIsColumnMenuOpen((prev) => !prev)}
+                title="Customize Columns"
+                className="p-2.5 rounded-full border border-neutral-200 bg-white hover:bg-neutral-50 text-neutral-700 transition-colors cursor-pointer shadow-xs flex items-center justify-center h-10 w-10 shrink-0"
+              >
+                <MoreVertical className="h-4 w-4" />
+              </button>
+
+              {isColumnMenuOpen && (
+                <div className="absolute right-0 mt-2 w-56 bg-white border border-neutral-200 rounded-2xl shadow-xl z-50 p-3 text-xs animate-scale-in">
+                  <div className="flex items-center justify-between font-bold text-neutral-900 border-b border-neutral-100 pb-2 mb-2">
+                    <span>Columns</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const allSelected =
+                          Object.values(visibleColumns).every(Boolean);
+                        const updated: Record<string, boolean> = {};
+                        ALL_COLUMNS.forEach((col) => {
+                          updated[col.key] = !allSelected;
+                        });
+                        setVisibleColumns(updated);
+                      }}
+                      className="text-[11px] font-semibold text-emerald-700 hover:text-emerald-900 cursor-pointer"
+                    >
+                      {Object.values(visibleColumns).every(Boolean)
+                        ? "Deselect All"
+                        : "Select All"}
+                    </button>
+                  </div>
+                  <div className="flex flex-col gap-1 max-h-60 overflow-y-auto pr-1">
+                    {ALL_COLUMNS.map((col) => (
+                      <label
+                        key={col.key}
+                        className="flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg hover:bg-neutral-50 cursor-pointer font-semibold text-neutral-800 transition-colors select-none"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={visibleColumns[col.key] ?? true}
+                          onChange={(e) => {
+                            setVisibleColumns((prev) => ({
+                              ...prev,
+                              [col.key]: e.target.checked,
+                            }));
+                          }}
+                          className="h-4 w-4 rounded border-neutral-300 text-[#0A2924] focus:ring-[#0A2924] cursor-pointer"
+                        />
+                        <span>{col.label}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 

@@ -1,8 +1,8 @@
 "use client";
 
 import { toast } from "sonner";
-import { useEffect, useState, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { useEffect, useState, useMemo, useRef } from "react";
 import {
   Calendar,
   MapPin,
@@ -12,17 +12,27 @@ import {
   MoreVertical,
 } from "lucide-react";
 
-import { TimesheetReport } from "@/types/timesheet-report";
+import { Location } from "@/types/inventory";
+import { Business } from "@/types/business";
 import { useAuth } from "@/providers/auth-provider";
-import { useBusinessStore } from "@/stores/business-store";
-import { useLocationStore } from "@/stores/location-store";
-import DateRangePicker from "@/components/ui/date-range-picker";
 import { Dropdown } from "@/components/ui/dropdown";
+import { TimesheetReport } from "@/types/timesheet-report";
+import { useBusinessStore } from "@/stores/business-store";
+import DateRangePicker from "@/components/ui/date-range-picker";
 import { useTimesheetReportStore } from "@/stores/timesheet-report-store";
+import { getLocations } from "@/lib/repositories/location.repository";
+import { getUserBusinesses } from "@/lib/repositories/business.repository";
 import {
   getTimesheetSettings,
   TimesheetSettings,
 } from "@/lib/repositories/timesheet-settings.repository";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 const STATUS_OPTIONS = [
   { value: "all", label: "All Statuses" },
@@ -49,7 +59,6 @@ export default function TimesheetMyReportsPage() {
   const router = useRouter();
 
   const { activeBusinessId } = useBusinessStore();
-  const { activeLocationId } = useLocationStore();
   const { reports, loading, filters, setFilters, fetchReports, clearFilters } =
     useTimesheetReportStore();
 
@@ -62,6 +71,9 @@ export default function TimesheetMyReportsPage() {
     null,
   );
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
+
+  const [businesses, setBusinesses] = useState<Business[]>([]);
+  const [allLocations, setAllLocations] = useState<Location[]>([]);
 
   const [visibleColumns, setVisibleColumns] = useState<Record<string, boolean>>(
     {
@@ -101,35 +113,47 @@ export default function TimesheetMyReportsPage() {
 
   useEffect(() => {
     setFilters({
-      businessId: activeBusinessId || "all",
-      locationId: activeLocationId || "all",
+      businessId: "all",
+      locationId: "all",
     });
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setDisplayLimit(30);
-  }, [activeBusinessId, activeLocationId, setFilters]);
+  }, [setFilters]);
 
   useEffect(() => {
     const init = async () => {
       setInitLoading(true);
-      if (activeBusinessId) {
-        try {
-          const [, settingsData] = await Promise.all([
-            fetchReports(activeBusinessId),
-            getTimesheetSettings(activeBusinessId).catch(() => null),
-          ]);
+      try {
+        const bizList = await getUserBusinesses().catch(() => []);
+        setBusinesses(bizList);
+
+        const locationResults = await Promise.all(
+          bizList.map((b) => getLocations(b.id).catch(() => [])),
+        );
+        setAllLocations(locationResults.flat());
+
+        const targetSettingsBizId =
+          activeBusinessId || (bizList.length > 0 ? bizList[0].id : null);
+        if (targetSettingsBizId) {
+          const settingsData = await getTimesheetSettings(
+            targetSettingsBizId,
+          ).catch(() => null);
           setSettings(settingsData);
-        } catch (err) {
-          console.error("Failed to load settings in reports:", err);
         }
+
+        await fetchReports("all");
+      } catch (err) {
+        console.error("Failed to load init data in reports:", err);
+      } finally {
+        setInitLoading(false);
       }
-      setInitLoading(false);
     };
     init();
   }, [activeBusinessId, fetchReports]);
 
   useEffect(() => {
-    if (!initLoading && activeBusinessId) {
-      fetchReports(activeBusinessId);
+    if (!initLoading) {
+      fetchReports(filters.businessId);
     }
   }, [
     filters.startDate,
@@ -140,13 +164,32 @@ export default function TimesheetMyReportsPage() {
     filters.status,
     initLoading,
     fetchReports,
-    activeBusinessId,
   ]);
 
+  const visibleLocations = useMemo(() => {
+    if (filters.businessId === "all") {
+      return allLocations;
+    }
+    return allLocations.filter((loc) => loc.businessId === filters.businessId);
+  }, [allLocations, filters.businessId]);
+
+  const handleBusinessFilterChange = (val: string) => {
+    const updates: Partial<typeof filters> = { businessId: val };
+    if (val !== "all" && filters.locationId !== "all") {
+      const loc = allLocations.find((l) => l.id === filters.locationId);
+      if (!loc || loc.businessId !== val) {
+        updates.locationId = "all";
+      }
+    }
+    setFilters(updates);
+    setDisplayLimit(30);
+  };
+
   const handleClear = () => {
-    clearFilters(activeBusinessId || "all");
+    clearFilters("all");
     setFilters({
-      locationId: activeLocationId || "all",
+      businessId: "all",
+      locationId: "all",
       staffId: "all",
       status: "all",
     });
@@ -418,14 +461,14 @@ export default function TimesheetMyReportsPage() {
   }
 
   return (
-    <div className="p-6 bg-white min-h-[85vh] relative">
+    <div className="pb-6 bg-white min-h-[85vh] relative">
       <div className="max-w-7xl mx-auto space-y-6">
-        <div className="bg-white border border-neutral-200 rounded-3xl py-4 px-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 shadow-sm">
+        <div className="bg-white border border-neutral-200 rounded-3xl py-2 px-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 shadow-sm">
           <div>
             <h1 className="text-[24px] font-bold text-neutral-900 tracking-tight">
               My Reports
             </h1>
-            <p className="text-xs text-neutral-500 mt-1">
+            <p className="text-xs font-medium text-neutral-500 mt-1">
               View and download your timesheet reports.
             </p>
           </div>
@@ -438,6 +481,119 @@ export default function TimesheetMyReportsPage() {
               <Download className="h-3.5 w-3.5" />
               Export {settings?.payroll_export_format || "Excel"}
             </button>
+          </div>
+        </div>
+
+        <div className="flex flex-col xl:flex-row gap-2.5 items-center justify-between flex-wrap">
+          <div className="flex flex-col sm:flex-row gap-2.5 items-center w-full sm:w-auto flex-1 flex-wrap">
+            <div className="relative w-full sm:w-44">
+              <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-neutral-450">
+                <Search className="h-4 w-4" />
+              </span>
+              <input
+                type="text"
+                placeholder="Search Timesheet"
+                className="w-full bg-[#FAFAFA] border border-neutral-200 focus:border-neutral-900 focus:ring-4 focus:ring-neutral-900/5 rounded-xl py-2.5 pl-10 pr-4 text-xs font-medium text-neutral-900 placeholder-neutral-400 focus:outline-none transition shadow-2xs h-10"
+                value={searchQuery}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setDisplayLimit(30);
+                }}
+              />
+            </div>
+
+            <div className="w-full sm:w-36">
+              <Select
+                value={filters.businessId}
+                onValueChange={handleBusinessFilterChange}
+              >
+                <SelectTrigger className="w-full h-10 rounded-xl border border-neutral-200 bg-white px-3.5 py-2 text-left focus:outline-none focus:border-neutral-900 focus:ring-4 focus:ring-neutral-900/5 transition cursor-pointer font-semibold text-xs text-neutral-900 hover:bg-neutral-50">
+                  <SelectValue placeholder="All Businesses" />
+                </SelectTrigger>
+                <SelectContent className="rounded-xl border border-neutral-200 bg-white p-1 max-h-56">
+                  <SelectItem
+                    value="all"
+                    className="rounded-lg px-3 py-2 text-xs font-semibold hover:bg-neutral-50 hover:text-neutral-900 text-neutral-900 cursor-pointer"
+                  >
+                    All Businesses
+                  </SelectItem>
+                  {businesses.map((b) => (
+                    <SelectItem
+                      key={b.id}
+                      value={b.id}
+                      className="rounded-lg px-3 py-2 text-xs font-semibold hover:bg-neutral-50 hover:text-neutral-900 text-neutral-900 cursor-pointer"
+                    >
+                      {b.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="w-full sm:w-36">
+              <Select
+                value={filters.locationId}
+                onValueChange={(val) => {
+                  setFilters({ locationId: val });
+                  setDisplayLimit(30);
+                }}
+              >
+                <SelectTrigger className="w-full h-10 rounded-xl border border-neutral-200 bg-white px-3.5 py-2 text-left focus:outline-none focus:border-neutral-900 focus:ring-4 focus:ring-neutral-900/5 transition cursor-pointer font-semibold text-xs text-neutral-900 hover:bg-neutral-50">
+                  <SelectValue placeholder="All Locations" />
+                </SelectTrigger>
+                <SelectContent className="rounded-xl border border-neutral-200 bg-white p-1 max-h-56">
+                  <SelectItem
+                    value="all"
+                    className="rounded-lg px-3 py-2 text-xs font-semibold hover:bg-neutral-50 hover:text-neutral-900 text-neutral-900 cursor-pointer"
+                  >
+                    All Locations
+                  </SelectItem>
+                  {visibleLocations.map((l) => (
+                    <SelectItem
+                      key={l.id}
+                      value={l.id}
+                      className="rounded-lg px-3 py-2 text-xs font-semibold hover:bg-neutral-50 hover:text-neutral-900 text-neutral-900 cursor-pointer"
+                    >
+                      {l.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="w-full sm:w-32">
+              <Dropdown
+                value={filters.status}
+                onChange={(val) => {
+                  setFilters({ status: val });
+                  setDisplayLimit(30);
+                }}
+                options={STATUS_OPTIONS}
+                triggerClassName="rounded-xl px-3.5 py-2.5 h-10 border-neutral-200 font-semibold text-neutral-900"
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2.5 w-full sm:w-auto justify-end">
+            <div className="w-full sm:w-56">
+              <DateRangePicker
+                startDate={filters.startDate}
+                endDate={filters.endDate}
+                onChange={(range) => {
+                  setFilters(range);
+                  setDisplayLimit(30);
+                }}
+                focusClassName="focus:border-neutral-900 focus:ring-4 focus:ring-neutral-900/5"
+                weekStartsOn={settings?.week_starts_on}
+              />
+            </div>
+
+            <button
+              onClick={handleClear}
+              className="inline-flex items-center bg-white text-neutral-700 px-5 py-2.5 rounded-full text-xs font-semibold border border-neutral-200 hover:border-neutral-300 transition-colors duration-200 cursor-pointer shadow-xs h-10 shrink-0"
+            >
+              Clear
+            </button>
 
             {/* 3-Dots Column Visibility Dropdown */}
             <div className="relative" ref={columnMenuRef}>
@@ -445,7 +601,7 @@ export default function TimesheetMyReportsPage() {
                 type="button"
                 onClick={() => setIsColumnMenuOpen((prev) => !prev)}
                 title="Customize Columns"
-                className="p-2.5 rounded-full border border-neutral-200 bg-white hover:bg-neutral-50 text-neutral-700 transition-colors cursor-pointer shadow-xs flex items-center justify-center h-10 w-10"
+                className="p-2.5 rounded-full border border-neutral-200 bg-white hover:bg-neutral-50 text-neutral-700 transition-colors cursor-pointer shadow-xs flex items-center justify-center h-10 w-10 shrink-0"
               >
                 <MoreVertical className="h-4 w-4" />
               </button>
@@ -496,60 +652,6 @@ export default function TimesheetMyReportsPage() {
                 </div>
               )}
             </div>
-          </div>
-        </div>
-
-        <div className="flex flex-col xl:flex-row gap-2.5 items-center justify-between flex-wrap">
-          <div className="flex flex-col sm:flex-row gap-2.5 items-center w-full sm:w-auto flex-1 flex-wrap">
-            <div className="relative w-full sm:w-44">
-              <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-neutral-450">
-                <Search className="h-4 w-4" />
-              </span>
-              <input
-                type="text"
-                placeholder="Search Timesheet"
-                className="w-full bg-[#FAFAFA] border border-neutral-200 focus:border-neutral-900 focus:ring-4 focus:ring-neutral-900/5 rounded-xl py-2.5 pl-10 pr-4 text-xs font-medium text-neutral-900 placeholder-neutral-400 focus:outline-none transition shadow-2xs h-10"
-                value={searchQuery}
-                onChange={(e) => {
-                  setSearchQuery(e.target.value);
-                  setDisplayLimit(30);
-                }}
-              />
-            </div>
-
-            <div className="w-full sm:w-32">
-              <Dropdown
-                value={filters.status}
-                onChange={(val) => {
-                  setFilters({ status: val });
-                  setDisplayLimit(30);
-                }}
-                options={STATUS_OPTIONS}
-                triggerClassName="rounded-xl px-3.5 py-2.5 h-10 border-neutral-200 font-semibold text-neutral-900"
-              />
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2.5 w-full sm:w-auto justify-end">
-            <div className="w-full sm:w-56">
-              <DateRangePicker
-                startDate={filters.startDate}
-                endDate={filters.endDate}
-                onChange={(range) => {
-                  setFilters(range);
-                  setDisplayLimit(30);
-                }}
-                focusClassName="focus:border-neutral-900 focus:ring-4 focus:ring-neutral-900/5"
-                weekStartsOn={settings?.week_starts_on}
-              />
-            </div>
-
-            <button
-              onClick={handleClear}
-              className="inline-flex items-center bg-white text-neutral-700 px-5 py-2.5 rounded-full text-xs font-semibold border border-neutral-200 hover:border-neutral-300 transition-colors duration-200 cursor-pointer shadow-xs h-10 shrink-0"
-            >
-              Clear
-            </button>
           </div>
         </div>
 

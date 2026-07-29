@@ -1750,10 +1750,10 @@ export default function TimesheetEntryPage() {
               type="button"
               onClick={handleCopyPreviousWeek}
               disabled={submitting}
-              className="flex-1 bg-[#0A2924] hover:bg-[#0A2924]/90 border border-[#0A2924] text-white px-4 py-2.5 rounded-full text-xs font-semibold transition duration-200 flex items-center justify-center gap-1.5 disabled:opacity-50"
+              className="flex-1 bg-[#0A2924] hover:bg-[#0A2924]/90 border border-[#0A2924] text-white px-2.5 py-2.5 rounded-full text-xs font-semibold transition duration-200 flex items-center justify-center gap-1 disabled:opacity-50"
             >
               <Copy className="w-3.5 h-3.5" />
-              Copy Previous Week
+              Previous Week
             </button>
           </div>
         </div>

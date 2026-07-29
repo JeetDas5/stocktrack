@@ -3,13 +3,13 @@
 
 import Link from "next/link";
 import Image from "next/image";
+import { toast } from "sonner";
 import { useRouter, usePathname } from "next/navigation";
 import React, { useEffect, useState, useRef } from "react";
 import { HugeiconsIcon, IconSvgElement } from "@hugeicons/react";
 
 import { Business } from "@/types/business";
 import { useAuth } from "@/providers/auth-provider";
-import { toast } from "sonner";
 
 import api from "@/lib/services/api";
 import { useLocationStore } from "@/stores/location-store";
@@ -627,7 +627,8 @@ export default function DashboardLayout({
   };
 
   const isLinkAllowed = (href: string) => {
-    if (href === "/dashboard/timesheet-my-reports" && profile?.role !== "staff") return false;
+    if (href === "/dashboard/timesheet-my-reports" && profile?.role !== "staff")
+      return false;
     if (profile?.role === "super_admin") return true;
     if (href === "/dashboard/super-admin") return false;
 
@@ -1492,116 +1493,37 @@ export default function DashboardLayout({
               >
                 <HugeiconsIcon icon={Menu01Icon} size={18} />
               </button>
-              {profile?.role !== "super_admin" && pathname !== "/dashboard/timesheet-review" && pathname !== "/dashboard/timesheet-reports" && pathname !== "/dashboard/timesheet-entry" && (
-                <>
-                  <div className="flex items-center gap-1 sm:gap-2 min-w-0">
-                    <div className="flex flex-col">
-                      <span className="text-[10px] font-bold text-gray-muted uppercase tracking-wider">
-                        Business
-                      </span>
-                      <div className="relative" ref={businessDropdownRef}>
-                        <button
-                          onClick={() =>
-                            setShowHeaderBusinessDropdown(
-                              !showHeaderBusinessDropdown,
-                            )
-                          }
-                          className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1.5 bg-white hover:bg-gray-soft/20 border border-gray-soft rounded-md text-xs font-bold text-black transition duration-200 cursor-pointer shadow-2xs mt-1"
-                        >
-                          <HugeiconsIcon
-                            icon={Briefcase01Icon}
-                            size={16}
-                            className="text-gray-dark shrink-0"
-                          />
-                          <span className="truncate max-w-[70px] sm:max-w-[150px]">
-                            {activeBusiness?.name
-                              ? activeBusiness.name.length > 20
-                                ? activeBusiness.name.substring(0, 20) + "..."
-                                : activeBusiness.name
-                              : "Select Business"}
-                          </span>
-                          <HugeiconsIcon
-                            icon={ChevronDownIcon}
-                            size={14}
-                            className="text-gray-muted shrink-0"
-                          />
-                        </button>
-
-                        {showHeaderBusinessDropdown && (
-                          <div className="absolute left-0 mt-1.5 w-52 bg-white border border-gray-soft rounded-xl shadow-xl overflow-hidden z-30 animate-fade-in">
-                            <div className="max-h-56 overflow-y-auto py-1">
-                              {businesses.map((b) => {
-                                const isSelected = b.id === activeBusinessId;
-                                return (
-                                  <button
-                                    key={b.id}
-                                    onClick={() => {
-                                      handleBusinessChange(b.id);
-                                      setShowHeaderBusinessDropdown(false);
-                                    }}
-                                    className={`w-full flex items-center justify-between px-4 py-2.5 text-xs font-bold transition-colors truncate cursor-pointer ${
-                                      isSelected
-                                        ? "bg-gray-soft/60 text-black"
-                                        : "text-gray-dark hover:bg-gray-soft/30 hover:text-black"
-                                    }`}
-                                  >
-                                    <span>{b.name}</span>
-                                    {isSelected && (
-                                      <HugeiconsIcon
-                                        icon={CheckIcon}
-                                        size={14}
-                                        className="text-black"
-                                      />
-                                    )}
-                                  </button>
-                                );
-                              })}
-                            </div>
-                            <div className="border-t border-gray-soft p-1.5 bg-white">
-                              <a
-                                href="/dashboard/business"
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  router.push("/dashboard/business");
-                                  setShowHeaderBusinessDropdown(false);
-                                }}
-                                className="w-full text-center py-2 text-[10px] uppercase font-bold tracking-wider text-black hover:text-black block hover:bg-gray-soft/30 rounded-lg transition-colors cursor-pointer"
-                              >
-                                Manage Business
-                              </a>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  {activeBusinessId && (
+              {profile?.role !== "super_admin" &&
+                pathname !== "/dashboard/timesheet-review" &&
+                pathname !== "/dashboard/timesheet-reports" &&
+                pathname !== "/dashboard/timesheet-my-reports" &&
+                pathname !== "/dashboard/timesheet-entry" && (
+                  <>
                     <div className="flex items-center gap-1 sm:gap-2 min-w-0">
                       <div className="flex flex-col">
                         <span className="text-[10px] font-bold text-gray-muted uppercase tracking-wider">
-                          Location
+                          Business
                         </span>
-                        <div className="relative" ref={locationDropdownRef}>
+                        <div className="relative" ref={businessDropdownRef}>
                           <button
                             onClick={() =>
-                              setShowHeaderLocationDropdown(
-                                !showHeaderLocationDropdown,
+                              setShowHeaderBusinessDropdown(
+                                !showHeaderBusinessDropdown,
                               )
                             }
                             className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1.5 bg-white hover:bg-gray-soft/20 border border-gray-soft rounded-md text-xs font-bold text-black transition duration-200 cursor-pointer shadow-2xs mt-1"
                           >
                             <HugeiconsIcon
-                              icon={Location03Icon}
+                              icon={Briefcase01Icon}
                               size={16}
                               className="text-gray-dark shrink-0"
                             />
                             <span className="truncate max-w-[70px] sm:max-w-[150px]">
-                              {activeLocation?.name
-                                ? activeLocation.name.length > 20
-                                  ? activeLocation.name.substring(0, 20) + "..."
-                                  : activeLocation.name
-                                : "Select Location"}
+                              {activeBusiness?.name
+                                ? activeBusiness.name.length > 20
+                                  ? activeBusiness.name.substring(0, 20) + "..."
+                                  : activeBusiness.name
+                                : "Select Business"}
                             </span>
                             <HugeiconsIcon
                               icon={ChevronDownIcon}
@@ -1610,18 +1532,17 @@ export default function DashboardLayout({
                             />
                           </button>
 
-                          {showHeaderLocationDropdown && (
+                          {showHeaderBusinessDropdown && (
                             <div className="absolute left-0 mt-1.5 w-52 bg-white border border-gray-soft rounded-xl shadow-xl overflow-hidden z-30 animate-fade-in">
                               <div className="max-h-56 overflow-y-auto py-1">
-                                {locations.map((loc) => {
-                                  const isSelected =
-                                    loc.id === activeLocationId;
+                                {businesses.map((b) => {
+                                  const isSelected = b.id === activeBusinessId;
                                   return (
                                     <button
-                                      key={loc.id}
+                                      key={b.id}
                                       onClick={() => {
-                                        setActiveLocation(loc.id);
-                                        setShowHeaderLocationDropdown(false);
+                                        handleBusinessChange(b.id);
+                                        setShowHeaderBusinessDropdown(false);
                                       }}
                                       className={`w-full flex items-center justify-between px-4 py-2.5 text-xs font-bold transition-colors truncate cursor-pointer ${
                                         isSelected
@@ -1629,7 +1550,7 @@ export default function DashboardLayout({
                                           : "text-gray-dark hover:bg-gray-soft/30 hover:text-black"
                                       }`}
                                     >
-                                      <span>{loc.name}</span>
+                                      <span>{b.name}</span>
                                       {isSelected && (
                                         <HugeiconsIcon
                                           icon={CheckIcon}
@@ -1643,15 +1564,15 @@ export default function DashboardLayout({
                               </div>
                               <div className="border-t border-gray-soft p-1.5 bg-white">
                                 <a
-                                  href="/dashboard/locations"
+                                  href="/dashboard/business"
                                   onClick={(e) => {
                                     e.preventDefault();
-                                    router.push("/dashboard/locations");
-                                    setShowHeaderLocationDropdown(false);
+                                    router.push("/dashboard/business");
+                                    setShowHeaderBusinessDropdown(false);
                                   }}
                                   className="w-full text-center py-2 text-[10px] uppercase font-bold tracking-wider text-black hover:text-black block hover:bg-gray-soft/30 rounded-lg transition-colors cursor-pointer"
                                 >
-                                  Manage Locations
+                                  Manage Business
                                 </a>
                               </div>
                             </div>
@@ -1659,9 +1580,94 @@ export default function DashboardLayout({
                         </div>
                       </div>
                     </div>
-                  )}
-                </>
-              )}
+
+                    {activeBusinessId && (
+                      <div className="flex items-center gap-1 sm:gap-2 min-w-0">
+                        <div className="flex flex-col">
+                          <span className="text-[10px] font-bold text-gray-muted uppercase tracking-wider">
+                            Location
+                          </span>
+                          <div className="relative" ref={locationDropdownRef}>
+                            <button
+                              onClick={() =>
+                                setShowHeaderLocationDropdown(
+                                  !showHeaderLocationDropdown,
+                                )
+                              }
+                              className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1.5 bg-white hover:bg-gray-soft/20 border border-gray-soft rounded-md text-xs font-bold text-black transition duration-200 cursor-pointer shadow-2xs mt-1"
+                            >
+                              <HugeiconsIcon
+                                icon={Location03Icon}
+                                size={16}
+                                className="text-gray-dark shrink-0"
+                              />
+                              <span className="truncate max-w-[70px] sm:max-w-[150px]">
+                                {activeLocation?.name
+                                  ? activeLocation.name.length > 20
+                                    ? activeLocation.name.substring(0, 20) +
+                                      "..."
+                                    : activeLocation.name
+                                  : "Select Location"}
+                              </span>
+                              <HugeiconsIcon
+                                icon={ChevronDownIcon}
+                                size={14}
+                                className="text-gray-muted shrink-0"
+                              />
+                            </button>
+
+                            {showHeaderLocationDropdown && (
+                              <div className="absolute left-0 mt-1.5 w-52 bg-white border border-gray-soft rounded-xl shadow-xl overflow-hidden z-30 animate-fade-in">
+                                <div className="max-h-56 overflow-y-auto py-1">
+                                  {locations.map((loc) => {
+                                    const isSelected =
+                                      loc.id === activeLocationId;
+                                    return (
+                                      <button
+                                        key={loc.id}
+                                        onClick={() => {
+                                          setActiveLocation(loc.id);
+                                          setShowHeaderLocationDropdown(false);
+                                        }}
+                                        className={`w-full flex items-center justify-between px-4 py-2.5 text-xs font-bold transition-colors truncate cursor-pointer ${
+                                          isSelected
+                                            ? "bg-gray-soft/60 text-black"
+                                            : "text-gray-dark hover:bg-gray-soft/30 hover:text-black"
+                                        }`}
+                                      >
+                                        <span>{loc.name}</span>
+                                        {isSelected && (
+                                          <HugeiconsIcon
+                                            icon={CheckIcon}
+                                            size={14}
+                                            className="text-black"
+                                          />
+                                        )}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                                <div className="border-t border-gray-soft p-1.5 bg-white">
+                                  <a
+                                    href="/dashboard/locations"
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      router.push("/dashboard/locations");
+                                      setShowHeaderLocationDropdown(false);
+                                    }}
+                                    className="w-full text-center py-2 text-[10px] uppercase font-bold tracking-wider text-black hover:text-black block hover:bg-gray-soft/30 rounded-lg transition-colors cursor-pointer"
+                                  >
+                                    Manage Locations
+                                  </a>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
             </div>
 
             <div className="flex items-center gap-2 sm:gap-5 shrink-0">
