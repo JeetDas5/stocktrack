@@ -484,6 +484,11 @@ export default function DashboardLayout({
       href: "/dashboard/sales-imports",
       icon: FileImportIcon,
     },
+    {
+      name: "Square POS",
+      href: "/dashboard/square",
+      icon: Building01Icon,
+    },
   ];
 
   const reportsLinks: SidebarLink[] = [
@@ -593,7 +598,9 @@ export default function DashboardLayout({
     "/dashboard/business",
     "/dashboard/locations",
     "/dashboard/profile",
+    "/dashboard/square",
   ];
+
 
   const MODULE_ROUTES_SIDEBAR: Record<string, string[]> = {
     timesheet: [
@@ -634,11 +641,13 @@ export default function DashboardLayout({
 
     // Enforce role-based permission
     const hasRolePermission =
-      allowedHrefs.includes("*") || allowedHrefs.includes(href);
+      allowedHrefs.includes("*") ||
+      allowedHrefs.some((h) => href === h || href.startsWith(h + "/"));
     if (!hasRolePermission) return false;
 
     // Common routes are always accessible (no module needed)
-    if (COMMON_ROUTES.includes(href)) return true;
+    if (COMMON_ROUTES.some((r) => href === r || href.startsWith(r + "/")))
+      return true;
 
     // Module routes require the corresponding module to be enabled
     const modules = profile?.modules || [];

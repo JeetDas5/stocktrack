@@ -3,6 +3,8 @@ from pathlib import Path
 from dotenv import load_dotenv
 from sqlalchemy import text, inspect
 from sqlmodel import create_engine, SQLModel, Session
+import app.models  # Ensure models are loaded into SQLModel metadata
+
 
 env_path = Path(__file__).resolve().parent.parent.parent / ".env"
 load_dotenv(dotenv_path=env_path)

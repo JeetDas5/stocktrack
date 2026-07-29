@@ -65,7 +65,8 @@ function isPathAllowed(
     sidebarPermissions[role as keyof typeof sidebarPermissions] || [];
 
   const hasRolePermission =
-    allowedHrefs.includes("*") || allowedHrefs.includes(pathname);
+    allowedHrefs.includes("*") ||
+    allowedHrefs.some((h) => pathname === h || pathname.startsWith(h + "/"));
 
   if (!hasRolePermission) return false;
 
@@ -166,18 +167,23 @@ export default function ProtectedRoute({
         "/dashboard/business",
         "/dashboard/locations",
         "/dashboard/profile",
+        "/dashboard/square",
       ];
 
       const userRole = profile.role || "staff";
       const allowedHrefs =
         sidebarPermissions[userRole as keyof typeof sidebarPermissions] || [];
       const hasRolePermission =
-        allowedHrefs.includes("*") || allowedHrefs.includes(pathname);
+        allowedHrefs.includes("*") ||
+        allowedHrefs.some((h) => pathname === h || pathname.startsWith(h + "/"));
 
       const modules = profile.modules || [];
+      const isCommonRoute = COMMON_ROUTES.some(
+        (r) => pathname === r || pathname.startsWith(r + "/")
+      );
       const isAllowed =
         hasRolePermission &&
-        (COMMON_ROUTES.includes(pathname) ||
+        (isCommonRoute ||
           modules.some((mod) =>
             (MODULE_ROUTES[mod] || []).includes(pathname)
           ));
