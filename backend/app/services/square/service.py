@@ -2,18 +2,34 @@ import os
 import json
 import urllib.request
 import urllib.parse
+from pathlib import Path
 from typing import Optional, Dict, Any
+from dotenv import load_dotenv
 
-SQUARE_CLIENT_ID = os.getenv("SQUARE_CLIENT_ID", "")
-SQUARE_CLIENT_SECRET = os.getenv("SQUARE_CLIENT_SECRET", "")
-SQUARE_ENVIRONMENT = os.getenv("SQUARE_ENVIRONMENT", "sandbox").lower()
-SQUARE_REDIRECT_URI = os.getenv(
-    "SQUARE_REDIRECT_URI", "http://localhost:3000/dashboard/square/callback"
-)
+env_path = Path(__file__).resolve().parent.parent.parent.parent / ".env"
+load_dotenv(dotenv_path=env_path)
+
+
+def get_square_client_id() -> str:
+    return os.getenv("SQUARE_CLIENT_ID", "")
+
+
+def get_square_client_secret() -> str:
+    return os.getenv("SQUARE_CLIENT_SECRET", "")
+
+
+def get_square_environment() -> str:
+    return os.getenv("SQUARE_ENVIRONMENT", "sandbox").lower()
+
+
+def get_square_redirect_uri() -> str:
+    return os.getenv(
+        "SQUARE_REDIRECT_URI", "http://localhost:3000/dashboard/square/callback"
+    )
 
 
 def get_square_base_url(env: Optional[str] = None) -> str:
-    environment = (env or SQUARE_ENVIRONMENT).lower()
+    environment = (env or get_square_environment()).lower()
     if environment == "production":
         return "https://connect.squareup.com"
     return "https://connect.squareupsandbox.com"
@@ -21,12 +37,18 @@ def get_square_base_url(env: Optional[str] = None) -> str:
 
 def get_square_authorize_url(state: str) -> str:
     base_url = get_square_base_url()
+    client_id = get_square_client_id()
+    if not client_id:
+        raise ValueError(
+            "SQUARE_CLIENT_ID environment variable is missing or empty in .env"
+        )
+
     scopes = [
         "ITEMS_READ",
         "MERCHANT_PROFILE_READ",
     ]
     params = {
-        "client_id": SQUARE_CLIENT_ID,
+        "client_id": client_id,
         "scope": " ".join(scopes),
         "session": "false",
         "state": state,
@@ -37,13 +59,16 @@ def get_square_authorize_url(state: str) -> str:
 def exchange_code_for_tokens(code: str) -> Dict[str, Any]:
     base_url = get_square_base_url()
     url = f"{base_url}/oauth2/token"
+    client_id = get_square_client_id()
+    client_secret = get_square_client_secret()
+    redirect_uri = get_square_redirect_uri()
 
     payload = {
-        "client_id": SQUARE_CLIENT_ID,
-        "client_secret": SQUARE_CLIENT_SECRET,
+        "client_id": client_id,
+        "client_secret": client_secret,
         "code": code,
         "grant_type": "authorization_code",
-        "redirect_uri": SQUARE_REDIRECT_URI,
+        "redirect_uri": redirect_uri,
     }
 
     data = json.dumps(payload).encode("utf-8")
@@ -74,10 +99,12 @@ def exchange_code_for_tokens(code: str) -> Dict[str, Any]:
 def refresh_square_tokens(refresh_token: str) -> Dict[str, Any]:
     base_url = get_square_base_url()
     url = f"{base_url}/oauth2/token"
+    client_id = get_square_client_id()
+    client_secret = get_square_client_secret()
 
     payload = {
-        "client_id": SQUARE_CLIENT_ID,
-        "client_secret": SQUARE_CLIENT_SECRET,
+        "client_id": client_id,
+        "client_secret": client_secret,
         "refresh_token": refresh_token,
         "grant_type": "refresh_token",
     }
