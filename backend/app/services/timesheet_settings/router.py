@@ -103,7 +103,7 @@ def get_timesheet_settings(
                             select(UserAssignment.business_id).where(
                                 UserAssignment.user_id == current_user.id,
                                 UserAssignment.role == "admin",
-                                UserAssignment.is_active == True,
+                                UserAssignment.is_active,
                             )
                         )
                     )
@@ -182,76 +182,48 @@ def save_timesheet_settings(
 ):
     verify_timesheet_admin(current_user, business_id, session)
 
-    # Find all businesses the current user owns or manages to keep settings synchronized
-    if current_user.role == "super_admin":
-        stmt_businesses = select(Business)
-    else:
-        stmt_businesses = select(Business).where(
-            (Business.created_by_id == current_user.id)
-            | (
-                Business.id.in_(
-                    select(UserAssignment.business_id).where(
-                        UserAssignment.user_id == current_user.id,
-                        UserAssignment.role == "admin",
-                        UserAssignment.is_active == True,
-                    )
-                )
-            )
-        )
-    businesses = session.exec(stmt_businesses).all()
-    business_ids = [b.id for b in businesses]
+    stmt = select(TimesheetSettings).where(TimesheetSettings.business_id == business_id)
+    settings = session.exec(stmt).first()
+    if not settings:
+        settings = TimesheetSettings(business_id=business_id)
 
-    if business_id not in business_ids:
-        business_ids.append(business_id)
+    # 1. Approval Workflow
+    settings.require_approval = data.require_approval
+    settings.approval_roles = data.approval_roles
+    settings.auto_approve_after_days = data.auto_approve_after_days
 
-    saved_settings = None
-    for bid in business_ids:
-        stmt = select(TimesheetSettings).where(TimesheetSettings.business_id == bid)
-        settings = session.exec(stmt).first()
-        if not settings:
-            settings = TimesheetSettings(business_id=bid)
+    # 2. Timesheet Entry Rules
+    settings.allow_past_entry = data.allow_past_entry
+    settings.max_past_days = data.max_past_days
+    settings.lock_submitted = data.lock_submitted
+    settings.allow_staff_edit_pending = data.allow_staff_edit_pending
+    settings.allow_managers_edit_approved = data.allow_managers_edit_approved
 
-        # 1. Approval Workflow
-        settings.require_approval = data.require_approval
-        settings.approval_roles = data.approval_roles
-        settings.auto_approve_after_days = data.auto_approve_after_days
+    # 3. Break Rules
+    settings.require_break_entry = data.require_break_entry
+    settings.default_break_minutes = data.default_break_minutes
+    settings.require_reason_no_break = data.require_reason_no_break
 
-        # 2. Timesheet Entry Rules
-        settings.allow_past_entry = data.allow_past_entry
-        settings.max_past_days = data.max_past_days
-        settings.lock_submitted = data.lock_submitted
-        settings.allow_staff_edit_pending = data.allow_staff_edit_pending
-        settings.allow_managers_edit_approved = data.allow_managers_edit_approved
+    # 4. Overtime Rules
+    settings.show_overtime_warnings = data.show_overtime_warnings
+    settings.weekly_hours_warning = data.weekly_hours_warning
+    settings.daily_hours_warning = data.daily_hours_warning
 
-        # 3. Break Rules
-        settings.require_break_entry = data.require_break_entry
-        settings.default_break_minutes = data.default_break_minutes
-        settings.require_reason_no_break = data.require_reason_no_break
+    # 5. Notifications
+    settings.notify_manager_on_submission = data.notify_manager_on_submission
+    settings.notify_staff_on_approval = data.notify_staff_on_approval
+    settings.notify_staff_on_rejection = data.notify_staff_on_rejection
 
-        # 4. Overtime Rules
-        settings.show_overtime_warnings = data.show_overtime_warnings
-        settings.weekly_hours_warning = data.weekly_hours_warning
-        settings.daily_hours_warning = data.daily_hours_warning
+    # 6. Payroll Settings
+    settings.week_starts_on = data.week_starts_on
+    settings.payroll_export_format = data.payroll_export_format
+    settings.lock_payroll_period_date = data.lock_payroll_period_date
+    settings.lock_timesheets_before_date = data.lock_timesheets_before_date
 
-        # 5. Notifications
-        settings.notify_manager_on_submission = data.notify_manager_on_submission
-        settings.notify_staff_on_approval = data.notify_staff_on_approval
-        settings.notify_staff_on_rejection = data.notify_staff_on_rejection
+    # 7. Project Settings
+    settings.projects = data.projects
 
-        # 6. Payroll Settings
-        settings.week_starts_on = data.week_starts_on
-        settings.payroll_export_format = data.payroll_export_format
-        settings.lock_payroll_period_date = data.lock_payroll_period_date
-        settings.lock_timesheets_before_date = data.lock_timesheets_before_date
-
-        # 7. Project Settings
-        settings.projects = data.projects
-
-        session.add(settings)
-        if bid == business_id:
-            saved_settings = settings
-
+    session.add(settings)
     session.commit()
-    session.refresh(saved_settings)
-    return saved_settings
-
+    session.refresh(settings)
+    return settings

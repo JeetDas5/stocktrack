@@ -96,6 +96,10 @@ export default function TimesheetSettingsPage() {
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [lastSavedTime, setLastSavedTime] = useState<string | null>(null);
+
+  const isInitialLoaded = useRef(false);
+  const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const [openSections, setOpenSections] = useState({
     approval: true,
@@ -151,6 +155,21 @@ export default function TimesheetSettingsPage() {
   const [showCalendar, setShowCalendar] = useState(false);
   const calendarContainerRef = useRef<HTMLDivElement>(null);
 
+  const formatLastSavedTime = (isoString: string | null) => {
+    if (!isoString) return "";
+    const d = new Date(isoString);
+    if (isNaN(d.getTime())) return "";
+    const day = String(d.getDate()).padStart(2, "0");
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const year = d.getFullYear();
+    let hours = d.getHours();
+    const minutes = String(d.getMinutes()).padStart(2, "0");
+    const ampm = hours >= 12 ? "PM" : "AM";
+    hours = hours % 12 || 12;
+    const strHours = String(hours).padStart(2, "0");
+    return `Saved on ${day}/${month}/${year} ${strHours}:${minutes} ${ampm}`;
+  };
+
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (
@@ -202,11 +221,19 @@ export default function TimesheetSettingsPage() {
   useEffect(() => {
     async function loadSettings() {
       if (!activeBusinessId) return;
+      if (autoSaveTimerRef.current) {
+        clearTimeout(autoSaveTimerRef.current);
+      }
+      isInitialLoaded.current = false;
       try {
         setLoading(true);
         const data = await getTimesheetSettings(activeBusinessId);
         setOriginalSettings(data);
         applySettings(data);
+        setLastSavedTime(new Date().toISOString());
+        setTimeout(() => {
+          isInitialLoaded.current = true;
+        }, 300);
       } catch (err) {
         console.error("Error loading timesheet settings:", err);
         toast.error("Failed to load timesheet settings.");
@@ -216,6 +243,83 @@ export default function TimesheetSettingsPage() {
     }
     loadSettings();
   }, [activeBusinessId]);
+
+  // Auto save effect
+  useEffect(() => {
+    if (!isInitialLoaded.current || !activeBusinessId) return;
+
+    if (autoSaveTimerRef.current) {
+      clearTimeout(autoSaveTimerRef.current);
+    }
+
+    autoSaveTimerRef.current = setTimeout(async () => {
+      try {
+        setSaving(true);
+        const payload = {
+          require_approval: requireApproval,
+          approval_roles: approvalRoles,
+          auto_approve_after_days: autoApproveAfterDays,
+          allow_past_entry: allowPastEntry,
+          max_past_days: maxPastDays,
+          lock_submitted: lockSubmitted,
+          allow_staff_edit_pending: allowStaffEditPending,
+          allow_managers_edit_approved: allowManagersEditApproved,
+          require_break_entry: requireBreakEntry,
+          default_break_minutes: defaultBreakMinutes,
+          require_reason_no_break: requireReasonNoBreak,
+          show_overtime_warnings: showOvertimeWarnings,
+          weekly_hours_warning: weeklyHoursWarning,
+          daily_hours_warning: dailyHoursWarning,
+          notify_manager_on_submission: notifyManagerOnSubmission,
+          notify_staff_on_approval: notifyStaffOnApproval,
+          notify_staff_on_rejection: notifyStaffOnRejection,
+          week_starts_on: weekStartsOn,
+          payroll_export_format: payrollExportFormat,
+          lock_payroll_period_date: lockPayrollPeriodDate || null,
+          lock_timesheets_before_date: lockTimesheetsBeforeDate,
+          projects: projects,
+        };
+
+        const updated = await saveTimesheetSettings(activeBusinessId, payload);
+        setOriginalSettings(updated);
+        setLastSavedTime(new Date().toISOString());
+      } catch (err) {
+        console.error("Error auto-saving timesheet settings:", err);
+      } finally {
+        setSaving(false);
+      }
+    }, 400);
+
+    return () => {
+      if (autoSaveTimerRef.current) {
+        clearTimeout(autoSaveTimerRef.current);
+      }
+    };
+  }, [
+    activeBusinessId,
+    requireApproval,
+    approvalRoles,
+    autoApproveAfterDays,
+    allowPastEntry,
+    maxPastDays,
+    lockSubmitted,
+    allowStaffEditPending,
+    allowManagersEditApproved,
+    requireBreakEntry,
+    defaultBreakMinutes,
+    requireReasonNoBreak,
+    showOvertimeWarnings,
+    weeklyHoursWarning,
+    dailyHoursWarning,
+    notifyManagerOnSubmission,
+    notifyStaffOnApproval,
+    notifyStaffOnRejection,
+    weekStartsOn,
+    payrollExportFormat,
+    lockPayrollPeriodDate,
+    lockTimesheetsBeforeDate,
+    projects,
+  ]);
 
   const toggleSection = (section: keyof typeof openSections) => {
     setOpenSections((prev) => ({
@@ -244,62 +348,10 @@ export default function TimesheetSettingsPage() {
     }
     setProjects((prev) => [...prev, trimmed]);
     setNewProjectName("");
-    toast.success(`Project "${trimmed}" added.`);
   };
 
   const handleRemoveProject = (index: number) => {
-    const removedName = projects[index];
     setProjects((prev) => prev.filter((_, idx) => idx !== index));
-    toast.info(`Project "${removedName}" removed.`);
-  };
-
-  const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!activeBusinessId) return;
-
-    try {
-      setSaving(true);
-      const payload = {
-        require_approval: requireApproval,
-        approval_roles: approvalRoles,
-        auto_approve_after_days: autoApproveAfterDays,
-        allow_past_entry: allowPastEntry,
-        max_past_days: maxPastDays,
-        lock_submitted: lockSubmitted,
-        allow_staff_edit_pending: allowStaffEditPending,
-        allow_managers_edit_approved: allowManagersEditApproved,
-        require_break_entry: requireBreakEntry,
-        default_break_minutes: defaultBreakMinutes,
-        require_reason_no_break: requireReasonNoBreak,
-        show_overtime_warnings: showOvertimeWarnings,
-        weekly_hours_warning: weeklyHoursWarning,
-        daily_hours_warning: dailyHoursWarning,
-        notify_manager_on_submission: notifyManagerOnSubmission,
-        notify_staff_on_approval: notifyStaffOnApproval,
-        notify_staff_on_rejection: notifyStaffOnRejection,
-        week_starts_on: weekStartsOn,
-        payroll_export_format: payrollExportFormat,
-        lock_payroll_period_date: lockPayrollPeriodDate || null,
-        lock_timesheets_before_date: lockTimesheetsBeforeDate,
-        projects: projects,
-      };
-
-      const updated = await saveTimesheetSettings(activeBusinessId, payload);
-      setOriginalSettings(updated);
-      toast.success("Timesheet settings saved successfully!");
-    } catch (err) {
-      console.error("Error saving timesheet settings:", err);
-      toast.error("Failed to save timesheet settings.");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleCancel = () => {
-    if (originalSettings) {
-      applySettings(originalSettings);
-      toast.info("Changes discarded.");
-    }
   };
 
   if (authLoading || loading) {
@@ -317,10 +369,7 @@ export default function TimesheetSettingsPage() {
 
   return (
     <div className="bg-white min-h-[85vh] pb-12">
-      <form
-        onSubmit={handleSave}
-        className="max-w-6xl mx-auto space-y-6 px-4 md:px-6"
-      >
+      <div className="max-w-6xl mx-auto space-y-6 px-4 md:px-6">
         <div className="bg-white border border-[#E2E8F0] rounded-2xl py-5 px-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 shadow-xs">
           <div>
             <h1 className="text-xl md:text-2xl font-extrabold text-zinc-900 tracking-tight">
@@ -1252,23 +1301,21 @@ export default function TimesheetSettingsPage() {
           </div>
         </div>
 
-        <div className="flex justify-end gap-3 pt-4 border-t border-zinc-100">
-          <button
-            type="button"
-            onClick={handleCancel}
-            className="flex items-center gap-2 px-5 py-2.5 text-xs font-bold text-zinc-600 hover:text-zinc-900 border border-zinc-200 hover:bg-zinc-50 rounded-4xl transition-all cursor-pointer"
-          >
-            Discard Changes
-          </button>
-          <button
-            type="submit"
-            disabled={saving}
-            className="flex items-center gap-2 bg-[#0a2924] hover:bg-[#08211d] text-white px-6 py-2.5 text-xs font-bold rounded-4xl transition-all shadow-sm disabled:opacity-70 disabled:cursor-not-allowed cursor-pointer"
-          >
-            {saving ? "Saving..." : "Save Settings"}
-          </button>
+        <div className="flex items-center justify-between pt-4 border-t border-zinc-100 min-h-[40px]">
+          <div className="flex items-center gap-2 text-xs font-semibold text-zinc-500">
+            {saving ? (
+              <>
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-[#0a2924]" />
+                <span className="text-zinc-600 font-bold">Saving settings...</span>
+              </>
+            ) : lastSavedTime ? (
+              <span className="text-zinc-500 font-medium">
+                {formatLastSavedTime(lastSavedTime)}
+              </span>
+            ) : null}
+          </div>
         </div>
-      </form>
+      </div>
     </div>
   );
 }
