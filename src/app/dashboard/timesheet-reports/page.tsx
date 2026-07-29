@@ -1,8 +1,15 @@
 "use client";
 
 import { toast } from "sonner";
-import { useEffect, useState, useMemo } from "react";
-import { Calendar, MapPin, Download, Loader2, Search } from "lucide-react";
+import { useEffect, useState, useMemo, useRef } from "react";
+import {
+  Calendar,
+  MapPin,
+  Download,
+  Loader2,
+  Search,
+  MoreVertical,
+} from "lucide-react";
 
 import { Location } from "@/types/inventory";
 import { Business } from "@/types/business";
@@ -33,6 +40,18 @@ const STATUS_OPTIONS = [
   { value: "rejected", label: "Rejected" },
 ] as const;
 
+const ALL_COLUMNS = [
+  { key: "staffName", label: "Staff Name" },
+  { key: "businessName", label: "Business" },
+  { key: "locationName", label: "Location" },
+  { key: "workDate", label: "Date" },
+  { key: "shiftTime", label: "Shift Time" },
+  { key: "unpaidBreak", label: "Break" },
+  { key: "project", label: "Project" },
+  { key: "totalHours", label: "Total Hours" },
+  { key: "status", label: "Status" },
+] as const;
+
 export default function TimesheetReportsPage() {
   const { activeBusinessId } = useBusinessStore();
   const { reports, loading, filters, setFilters, fetchReports, clearFilters } =
@@ -51,6 +70,35 @@ export default function TimesheetReportsPage() {
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [allLocations, setAllLocations] = useState<Location[]>([]);
 
+  const [visibleColumns, setVisibleColumns] = useState<Record<string, boolean>>(
+    {
+      staffName: true,
+      businessName: true,
+      locationName: true,
+      workDate: true,
+      shiftTime: true,
+      unpaidBreak: true,
+      project: true,
+      totalHours: true,
+      status: true,
+    },
+  );
+  const [isColumnMenuOpen, setIsColumnMenuOpen] = useState(false);
+  const columnMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        columnMenuRef.current &&
+        !columnMenuRef.current.contains(event.target as Node)
+      ) {
+        setIsColumnMenuOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
   useEffect(() => {
     setFilters({
       businessId: "all",
@@ -68,13 +116,16 @@ export default function TimesheetReportsPage() {
         setBusinesses(bizList);
 
         const locationResults = await Promise.all(
-          bizList.map((b) => getLocations(b.id).catch(() => []))
+          bizList.map((b) => getLocations(b.id).catch(() => [])),
         );
         setAllLocations(locationResults.flat());
 
-        const targetSettingsBizId = activeBusinessId || (bizList.length > 0 ? bizList[0].id : null);
+        const targetSettingsBizId =
+          activeBusinessId || (bizList.length > 0 ? bizList[0].id : null);
         if (targetSettingsBizId) {
-          const settingsData = await getTimesheetSettings(targetSettingsBizId).catch(() => null);
+          const settingsData = await getTimesheetSettings(
+            targetSettingsBizId,
+          ).catch(() => null);
           setSettings(settingsData);
         }
 
@@ -146,7 +197,10 @@ export default function TimesheetReportsPage() {
   };
 
   const searchedReports = useMemo(() => {
-    let data = reports.filter((r) => r.totalHours > 0 && !(r.startTime === "00:00" && r.endTime === "00:00"));
+    let data = reports.filter(
+      (r) =>
+        r.totalHours > 0 && !(r.startTime === "00:00" && r.endTime === "00:00"),
+    );
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       data = data.filter(
@@ -512,6 +566,63 @@ export default function TimesheetReportsPage() {
               <Download className="h-3.5 w-3.5" />
               Export {settings?.payroll_export_format || "Excel"}
             </button>
+
+            <div className="relative" ref={columnMenuRef}>
+              <button
+                type="button"
+                onClick={() => setIsColumnMenuOpen((prev) => !prev)}
+                title="Customize Columns"
+                className="p-2.5 rounded-full border border-neutral-200 bg-white hover:bg-neutral-50 text-neutral-700 transition-colors cursor-pointer shadow-xs flex items-center justify-center h-10 w-10"
+              >
+                <MoreVertical className="h-4 w-4" />
+              </button>
+
+              {isColumnMenuOpen && (
+                <div className="absolute right-0 mt-2 w-56 bg-white border border-neutral-200 rounded-2xl shadow-xl z-50 p-3 text-xs animate-scale-in">
+                  <div className="flex items-center justify-between font-bold text-neutral-900 border-b border-neutral-100 pb-2 mb-2">
+                    <span>Columns</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const allSelected =
+                          Object.values(visibleColumns).every(Boolean);
+                        const updated: Record<string, boolean> = {};
+                        ALL_COLUMNS.forEach((col) => {
+                          updated[col.key] = !allSelected;
+                        });
+                        setVisibleColumns(updated);
+                      }}
+                      className="text-[11px] font-semibold text-emerald-700 hover:text-emerald-900 cursor-pointer"
+                    >
+                      {Object.values(visibleColumns).every(Boolean)
+                        ? "Deselect All"
+                        : "Select All"}
+                    </button>
+                  </div>
+                  <div className="flex flex-col gap-1 max-h-60 overflow-y-auto pr-1">
+                    {ALL_COLUMNS.map((col) => (
+                      <label
+                        key={col.key}
+                        className="flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg hover:bg-neutral-50 cursor-pointer font-semibold text-neutral-800 transition-colors select-none"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={visibleColumns[col.key] ?? true}
+                          onChange={(e) => {
+                            setVisibleColumns((prev) => ({
+                              ...prev,
+                              [col.key]: e.target.checked,
+                            }));
+                          }}
+                          className="h-4 w-4 rounded border-neutral-300 text-[#0A2924] focus:ring-[#0A2924] cursor-pointer"
+                        />
+                        <span>{col.label}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
@@ -534,7 +645,10 @@ export default function TimesheetReportsPage() {
             </div>
 
             <div className="w-full sm:w-36">
-              <Select value={filters.businessId} onValueChange={handleBusinessFilterChange}>
+              <Select
+                value={filters.businessId}
+                onValueChange={handleBusinessFilterChange}
+              >
                 <SelectTrigger className="w-full h-10 rounded-xl border border-neutral-200 bg-white px-3.5 py-2 text-left focus:outline-none focus:border-neutral-900 focus:ring-4 focus:ring-neutral-900/5 transition cursor-pointer font-semibold text-xs text-neutral-900 hover:bg-neutral-50">
                   <SelectValue placeholder="All Businesses" />
                 </SelectTrigger>
@@ -558,12 +672,14 @@ export default function TimesheetReportsPage() {
               </Select>
             </div>
 
-            {/* Location Dropdown */}
             <div className="w-full sm:w-36">
-              <Select value={filters.locationId} onValueChange={(val) => {
-                setFilters({ locationId: val });
-                setDisplayLimit(30);
-              }}>
+              <Select
+                value={filters.locationId}
+                onValueChange={(val) => {
+                  setFilters({ locationId: val });
+                  setDisplayLimit(30);
+                }}
+              >
                 <SelectTrigger className="w-full h-10 rounded-xl border border-neutral-200 bg-white px-3.5 py-2 text-left focus:outline-none focus:border-neutral-900 focus:ring-4 focus:ring-neutral-900/5 transition cursor-pointer font-semibold text-xs text-neutral-900 hover:bg-neutral-50">
                   <SelectValue placeholder="All Locations" />
                 </SelectTrigger>
@@ -601,7 +717,6 @@ export default function TimesheetReportsPage() {
           </div>
 
           <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
-            {/* Date Range Picker */}
             <div className="w-full sm:w-56">
               <DateRangePicker
                 startDate={filters.startDate}
@@ -615,7 +730,6 @@ export default function TimesheetReportsPage() {
               />
             </div>
 
-            {/* Clear Filters */}
             <button
               onClick={handleClear}
               className="inline-flex items-center bg-white text-neutral-700 px-5 py-2.5 rounded-full text-xs font-semibold border border-neutral-200 hover:border-neutral-300 transition-colors duration-200 cursor-pointer shadow-xs h-10 shrink-0"
@@ -625,7 +739,6 @@ export default function TimesheetReportsPage() {
           </div>
         </div>
 
-        {/* Table Container Card */}
         <div className="bg-white border border-neutral-200 rounded-3xl overflow-hidden shadow-2xs flex flex-col">
           <div
             className="overflow-auto max-h-[600px]"
@@ -663,60 +776,78 @@ export default function TimesheetReportsPage() {
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="border-b border-neutral-200 text-[11px] uppercase font-semibold tracking-wider text-neutral-500 bg-white sticky top-0 z-10 text-center">
-                    <th
-                      onClick={() => handleSort("staffName")}
-                      className="py-4 px-6 font-semibold cursor-pointer hover:bg-neutral-50/80 transition duration-150 select-none text-left"
-                    >
-                      Staff Name
-                    </th>
-                    <th
-                      onClick={() => handleSort("businessName")}
-                      className="py-4 px-6 font-semibold cursor-pointer hover:bg-neutral-50/80 transition duration-150 select-none text-left"
-                    >
-                      Business
-                    </th>
-                    <th
-                      onClick={() => handleSort("locationName")}
-                      className="py-4 px-6 font-semibold cursor-pointer hover:bg-neutral-50/80 transition duration-150 select-none text-left"
-                    >
-                      Location
-                    </th>
-                    <th
-                      onClick={() => handleSort("workDate")}
-                      className="py-4 px-6 font-semibold cursor-pointer hover:bg-neutral-50/80 transition duration-150 select-none text-left"
-                    >
-                      Date
-                    </th>
-                    <th
-                      onClick={() => handleSort("startTime")}
-                      className="py-4 px-6 font-semibold cursor-pointer hover:bg-neutral-50/80 transition duration-150 select-none text-center"
-                    >
-                      Shift Time
-                    </th>
-                    <th
-                      onClick={() => handleSort("unpaidBreak")}
-                      className="py-4 px-6 font-semibold cursor-pointer hover:bg-neutral-50/80 transition duration-150 select-none text-center"
-                    >
-                      Break
-                    </th>
-                    <th
-                      onClick={() => handleSort("project")}
-                      className="py-4 px-6 font-semibold cursor-pointer hover:bg-neutral-50/80 transition duration-150 select-none text-left"
-                    >
-                      Project
-                    </th>
-                    <th
-                      onClick={() => handleSort("totalHours")}
-                      className="py-4 px-6 font-semibold cursor-pointer hover:bg-neutral-50/80 transition duration-150 select-none text-center"
-                    >
-                      Total Hours
-                    </th>
-                    <th
-                      onClick={() => handleSort("status")}
-                      className="py-4 px-6 font-semibold cursor-pointer hover:bg-neutral-50/80 transition duration-150 select-none text-center"
-                    >
-                      Status
-                    </th>
+                    {visibleColumns.staffName && (
+                      <th
+                        onClick={() => handleSort("staffName")}
+                        className="py-4 px-6 font-semibold cursor-pointer hover:bg-neutral-50/80 transition duration-150 select-none text-left"
+                      >
+                        Staff Name
+                      </th>
+                    )}
+                    {visibleColumns.businessName && (
+                      <th
+                        onClick={() => handleSort("businessName")}
+                        className="py-4 px-6 font-semibold cursor-pointer hover:bg-neutral-50/80 transition duration-150 select-none text-left"
+                      >
+                        Business
+                      </th>
+                    )}
+                    {visibleColumns.locationName && (
+                      <th
+                        onClick={() => handleSort("locationName")}
+                        className="py-4 px-6 font-semibold cursor-pointer hover:bg-neutral-50/80 transition duration-150 select-none text-left"
+                      >
+                        Location
+                      </th>
+                    )}
+                    {visibleColumns.workDate && (
+                      <th
+                        onClick={() => handleSort("workDate")}
+                        className="py-4 px-6 font-semibold cursor-pointer hover:bg-neutral-50/80 transition duration-150 select-none text-left"
+                      >
+                        Date
+                      </th>
+                    )}
+                    {visibleColumns.shiftTime && (
+                      <th
+                        onClick={() => handleSort("startTime")}
+                        className="py-4 px-6 font-semibold cursor-pointer hover:bg-neutral-50/80 transition duration-150 select-none text-center"
+                      >
+                        Shift Time
+                      </th>
+                    )}
+                    {visibleColumns.unpaidBreak && (
+                      <th
+                        onClick={() => handleSort("unpaidBreak")}
+                        className="py-4 px-6 font-semibold cursor-pointer hover:bg-neutral-50/80 transition duration-150 select-none text-center"
+                      >
+                        Break
+                      </th>
+                    )}
+                    {visibleColumns.project && (
+                      <th
+                        onClick={() => handleSort("project")}
+                        className="py-4 px-6 font-semibold cursor-pointer hover:bg-neutral-50/80 transition duration-150 select-none text-left"
+                      >
+                        Project
+                      </th>
+                    )}
+                    {visibleColumns.totalHours && (
+                      <th
+                        onClick={() => handleSort("totalHours")}
+                        className="py-4 px-6 font-semibold cursor-pointer hover:bg-neutral-50/80 transition duration-150 select-none text-center"
+                      >
+                        Total Hours
+                      </th>
+                    )}
+                    {visibleColumns.status && (
+                      <th
+                        onClick={() => handleSort("status")}
+                        className="py-4 px-6 font-semibold cursor-pointer hover:bg-neutral-50/80 transition duration-150 select-none text-center"
+                      >
+                        Status
+                      </th>
+                    )}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-neutral-200 text-xs text-neutral-800 bg-white">
@@ -725,56 +856,74 @@ export default function TimesheetReportsPage() {
                       key={r.id}
                       className="hover:bg-neutral-50/30 transition-colors text-center"
                     >
-                      <td className="py-4 px-6 whitespace-nowrap text-left font-semibold text-neutral-900">
-                        {r.staffName}
-                      </td>
-                      <td className="py-4 px-6 text-neutral-550 font-semibold text-left">
-                        {r.businessName}
-                      </td>
-                      <td className="py-4 px-6 text-neutral-550 font-medium text-left">
-                        <span className="inline-flex items-center gap-1">
-                          <MapPin className="h-3.5 w-3.5 text-neutral-450" />
-                          {r.locationName}
-                        </span>
-                      </td>
-                      <td className="py-4 px-6 text-neutral-550 font-medium text-left whitespace-nowrap">
-                        {formatDateToDisplay(r.workDate)}
-                      </td>
-                      <td className="py-4 px-6 text-neutral-700 font-semibold text-center whitespace-nowrap">
-                        {formatTimeToAMPM(r.startTime)} -{" "}
-                        {formatTimeToAMPM(r.endTime)}
-                      </td>
-                      <td className="py-4 px-6 text-neutral-700 font-semibold text-center whitespace-nowrap">
-                        {r.unpaidBreak} min
-                      </td>
-                      <td className="py-4 px-6 text-neutral-550 font-semibold text-left whitespace-nowrap">
-                        {r.project || "—"}
-                      </td>
-                      <td className="py-4 px-6 font-bold text-neutral-900 text-center whitespace-nowrap">
-                        {formatHours(r.totalHours)}
-                      </td>
-                      <td className="py-4 px-6 text-center">
-                        <span
-                          className={`text-[10px] uppercase font-semibold px-3 py-1.5 rounded-full inline-flex items-center gap-1.5 border shadow-3xs leading-none w-fit ${getStatusBadgeClass(r.status)}`}
-                        >
+                      {visibleColumns.staffName && (
+                        <td className="py-4 px-6 whitespace-nowrap text-left font-semibold text-neutral-900">
+                          {r.staffName}
+                        </td>
+                      )}
+                      {visibleColumns.businessName && (
+                        <td className="py-4 px-6 text-neutral-550 font-semibold text-left">
+                          {r.businessName}
+                        </td>
+                      )}
+                      {visibleColumns.locationName && (
+                        <td className="py-4 px-6 text-neutral-550 font-medium text-left">
+                          <span className="inline-flex items-center gap-1">
+                            <MapPin className="h-3.5 w-3.5 text-neutral-450" />
+                            {r.locationName}
+                          </span>
+                        </td>
+                      )}
+                      {visibleColumns.workDate && (
+                        <td className="py-4 px-6 text-neutral-550 font-medium text-left whitespace-nowrap">
+                          {formatDateToDisplay(r.workDate)}
+                        </td>
+                      )}
+                      {visibleColumns.shiftTime && (
+                        <td className="py-4 px-6 text-neutral-700 font-semibold text-center whitespace-nowrap">
+                          {formatTimeToAMPM(r.startTime)} -{" "}
+                          {formatTimeToAMPM(r.endTime)}
+                        </td>
+                      )}
+                      {visibleColumns.unpaidBreak && (
+                        <td className="py-4 px-6 text-neutral-700 font-semibold text-center whitespace-nowrap">
+                          {r.unpaidBreak} min
+                        </td>
+                      )}
+                      {visibleColumns.project && (
+                        <td className="py-4 px-6 text-neutral-550 font-semibold text-left whitespace-nowrap">
+                          {r.project || "—"}
+                        </td>
+                      )}
+                      {visibleColumns.totalHours && (
+                        <td className="py-4 px-6 font-bold text-neutral-900 text-center whitespace-nowrap">
+                          {formatHours(r.totalHours)}
+                        </td>
+                      )}
+                      {visibleColumns.status && (
+                        <td className="py-4 px-6 text-center">
                           <span
-                            className={`h-1.5 w-1.5 rounded-full shrink-0 ${
-                              r.status.toLowerCase() === "approved"
-                                ? "bg-[#16A34A]"
-                                : r.status.toLowerCase() === "rejected"
-                                  ? "bg-red-500"
-                                  : r.status.toLowerCase() === "edited"
-                                    ? "bg-amber-500"
-                                    : "bg-blue-500"
-                            }`}
-                          />
-                          {r.status.toLowerCase() === "submitted"
-                            ? "Pending"
-                            : r.status.toLowerCase() === "edited"
-                              ? "Resubmitted"
-                              : r.status}
-                        </span>
-                      </td>
+                            className={`text-[10px] uppercase font-semibold px-3 py-1.5 rounded-full inline-flex items-center gap-1.5 border shadow-3xs leading-none w-fit ${getStatusBadgeClass(r.status)}`}
+                          >
+                            <span
+                              className={`h-1.5 w-1.5 rounded-full shrink-0 ${
+                                r.status.toLowerCase() === "approved"
+                                  ? "bg-[#16A34A]"
+                                  : r.status.toLowerCase() === "rejected"
+                                    ? "bg-red-500"
+                                    : r.status.toLowerCase() === "edited"
+                                      ? "bg-amber-500"
+                                      : "bg-blue-500"
+                              }`}
+                            />
+                            {r.status.toLowerCase() === "submitted"
+                              ? "Pending"
+                              : r.status.toLowerCase() === "edited"
+                                ? "Resubmitted"
+                                : r.status}
+                          </span>
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>
@@ -782,7 +931,6 @@ export default function TimesheetReportsPage() {
             )}
           </div>
 
-          {/* Pagination Footer */}
           {!loading && sortedReports.length > 0 && (
             <div className="bg-neutral-50/10 border-t border-neutral-200 py-3.5 px-6 flex flex-col sm:flex-row justify-between items-center gap-4 text-xs text-neutral-500 font-semibold">
               <span>
@@ -793,7 +941,6 @@ export default function TimesheetReportsPage() {
           )}
         </div>
 
-        {/* Total Hours Summary */}
         {!loading && sortedReports.length > 0 && (
           <div className="text-[#0F172A] font-bold text-lg mt-6 pl-4 select-none">
             Total Hours: {totalHoursDecimal.toFixed(2).replace(".00", "")}
