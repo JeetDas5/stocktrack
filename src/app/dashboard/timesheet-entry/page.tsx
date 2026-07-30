@@ -50,6 +50,7 @@ interface WeekRowState {
   displayDate: string;
   businessId: string;
   locationId: string;
+  locationName?: string;
   startTime: string;
   endTime: string;
   unpaidBreak: string;
@@ -409,7 +410,7 @@ export default function TimesheetEntryPage() {
       if (isStaff) {
         // Pending locks
         if (status === "submitted" || status === "edited") {
-          if (settings?.lock_submitted || !settings?.allow_staff_edit_pending) {
+          if (!settings?.allow_staff_edit_pending) {
             return false;
           }
         }
@@ -485,15 +486,21 @@ export default function TimesheetEntryPage() {
           : "30";
 
       const defaultBiz = businesses.length === 1 ? businesses[0].id : "";
-      const dbBizId = existing?.businessId || defaultBiz;
-
       const draftRow = savedDraft?.rows?.find((r) => r.dateStr === day.dateStr);
 
-      const bId = draftRow ? draftRow.businessId : dbBizId;
+      const bId = existing
+        ? existing.businessId
+        : draftRow?.businessId
+          ? draftRow.businessId
+          : defaultBiz;
       const bizLocs = locationsMap[bId] || [];
-      const lId = draftRow
-        ? draftRow.locationId
-        : existing?.locationId || (bizLocs.length === 1 ? bizLocs[0].id : "");
+      const lId = existing
+        ? existing.locationId
+        : draftRow?.locationId
+          ? draftRow.locationId
+          : bizLocs.length === 1
+            ? bizLocs[0].id
+            : "";
 
       return {
         dayName: day.dayName,
@@ -501,19 +508,20 @@ export default function TimesheetEntryPage() {
         displayDate: day.displayDate,
         businessId: bId,
         locationId: lId,
-        startTime: draftRow ? draftRow.startTime : existing?.startTime || "",
-        endTime: draftRow ? draftRow.endTime : existing?.endTime || "",
-        unpaidBreak: draftRow
-          ? draftRow.unpaidBreak
-          : existing
-            ? existing.unpaidBreak.toString()
+        locationName: existing?.locationName || "",
+        startTime: existing ? existing.startTime : draftRow ? draftRow.startTime : "",
+        endTime: existing ? existing.endTime : draftRow ? draftRow.endTime : "",
+        unpaidBreak: existing
+          ? existing.unpaidBreak.toString()
+          : draftRow
+            ? draftRow.unpaidBreak
             : defaultBreak,
-        project: draftRow ? draftRow.project : existing?.project || "",
-        notes: draftRow ? draftRow.notes : existing?.notes || "",
+        project: existing ? existing.project || "" : draftRow ? draftRow.project : "",
+        notes: existing ? existing.notes || "" : draftRow ? draftRow.notes : "",
         dbTimesheetId: existing?.id || null,
         isFuture,
         status: existing?.status || "",
-        isDayOff: draftRow ? draftRow.isDayOff : isDayOffDB,
+        isDayOff: existing ? isDayOffDB : draftRow ? draftRow.isDayOff : isDayOffDB,
       };
     });
 
@@ -1374,7 +1382,9 @@ export default function TimesheetEntryPage() {
                               <div className="w-full font-semibold text-xs text-neutral-600 border border-neutral-200/60 rounded-xl bg-neutral-100 px-3 h-10 flex items-center truncate">
                                 {availableLocations.find(
                                   (l) => l.id === row.locationId,
-                                )?.name || "—"}
+                                )?.name ||
+                                  row.locationName ||
+                                  "—"}
                               </div>
                             ) : (
                               <Select
@@ -1885,6 +1895,7 @@ export default function TimesheetEntryPage() {
               const availableLocations = locationsMap[row.businessId] || [];
               const rowLocName =
                 availableLocations.find((l) => l.id === row.locationId)?.name ||
+                row.locationName ||
                 "";
 
               return (

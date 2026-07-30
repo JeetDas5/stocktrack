@@ -47,6 +47,7 @@ const MAX_PAST_DAYS_OPTIONS = [
 ] as const;
 
 const DEFAULT_BREAK_OPTIONS = [
+  { value: "0", label: "0 minutes" },
   { value: "15", label: "15 minutes" },
   { value: "30", label: "30 minutes" },
   { value: "45", label: "45 minutes" },
@@ -122,7 +123,6 @@ export default function TimesheetSettingsPage() {
 
   const [allowPastEntry, setAllowPastEntry] = useState(true);
   const [maxPastDays, setMaxPastDays] = useState(1);
-  const [lockSubmitted, setLockSubmitted] = useState(true);
   const [allowStaffEditPending, setAllowStaffEditPending] = useState(false);
   const [allowManagersEditApproved, setAllowManagersEditApproved] =
     useState(true);
@@ -191,7 +191,6 @@ export default function TimesheetSettingsPage() {
     setAutoApproveAfterDays(data.auto_approve_after_days);
     setAllowPastEntry(data.allow_past_entry);
     setMaxPastDays(data.max_past_days);
-    setLockSubmitted(data.lock_submitted);
     setAllowStaffEditPending(data.allow_staff_edit_pending);
     setAllowManagersEditApproved(data.allow_managers_edit_approved);
     setRequireBreakEntry(data.require_break_entry);
@@ -261,7 +260,7 @@ export default function TimesheetSettingsPage() {
           auto_approve_after_days: autoApproveAfterDays,
           allow_past_entry: allowPastEntry,
           max_past_days: maxPastDays,
-          lock_submitted: lockSubmitted,
+          lock_submitted: !allowStaffEditPending,
           allow_staff_edit_pending: allowStaffEditPending,
           allow_managers_edit_approved: allowManagersEditApproved,
           require_break_entry: requireBreakEntry,
@@ -302,7 +301,6 @@ export default function TimesheetSettingsPage() {
     autoApproveAfterDays,
     allowPastEntry,
     maxPastDays,
-    lockSubmitted,
     allowStaffEditPending,
     allowManagersEditApproved,
     requireBreakEntry,
@@ -632,24 +630,7 @@ export default function TimesheetSettingsPage() {
                   </div>
                 </div>
 
-                <div className="border-t border-zinc-100 pt-5 grid grid-cols-1 md:grid-cols-3 gap-5">
-                  <label className="flex items-start gap-2.5 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={lockSubmitted}
-                      onChange={(e) => setLockSubmitted(e.target.checked)}
-                      className="mt-0.5 h-3.5 w-3.5 accent-[#0C830C] text-[#0C830C] border-zinc-300 rounded focus:ring-[#0C830C]"
-                    />
-                    <div className="flex flex-col gap-1">
-                      <span className="text-xs font-bold text-zinc-950">
-                        Lock Submitted Timesheets
-                      </span>
-                      <p className="text-[10px] text-zinc-400 mt-0.5">
-                        Staff cannot edit timesheets after they are submitted
-                      </p>
-                    </div>
-                  </label>
-
+                <div className="border-t border-zinc-100 pt-5 grid grid-cols-1 md:grid-cols-2 gap-5">
                   <label className="flex items-start gap-2.5 cursor-pointer">
                     <input
                       type="checkbox"

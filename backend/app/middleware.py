@@ -15,7 +15,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
     def __init__(self, app):
         super().__init__(app)
-        self.limit = int(os.getenv("RATE_LIMIT_MAX_REQUESTS", "100"))
+        self.limit = int(os.getenv("RATE_LIMIT_MAX_REQUESTS", "200"))
         self.window = int(os.getenv("RATE_LIMIT_WINDOW_SECONDS", "60"))
         self.requests = defaultdict(list)
 

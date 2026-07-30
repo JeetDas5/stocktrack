@@ -492,7 +492,7 @@ def update_timesheet(
             )
         # 2. Check pending/approval edit lock for staff
         if ts.status in ("submitted", "edited"):
-            if lock_submitted or not allow_staff_edit_pending:
+            if not allow_staff_edit_pending:
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
                     detail="Pending timesheets are locked and cannot be edited by staff.",
@@ -646,7 +646,7 @@ def delete_timesheet(
             )
         # 2. Check pending/approval delete lock for staff
         if ts.status in ("submitted", "edited"):
-            if lock_submitted or not allow_staff_edit_pending:
+            if not allow_staff_edit_pending:
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
                     detail="Pending timesheets are locked and cannot be deleted by staff.",
