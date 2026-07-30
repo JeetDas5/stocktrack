@@ -129,10 +129,13 @@ def init_db():
             if bus_mutated:
                 session.commit()
 
-            # Check and add projects column dynamically to timesheet_settings table
+            # Check and add projects and enable_projects columns dynamically to timesheet_settings table
             ts_columns = [col['name'] for col in inspector.get_columns('timesheet_settings')]
             if "projects" not in ts_columns:
                 session.execute(text("ALTER TABLE timesheet_settings ADD COLUMN projects JSON DEFAULT '[]'"))
+                session.commit()
+            if "enable_projects" not in ts_columns:
+                session.execute(text("ALTER TABLE timesheet_settings ADD COLUMN enable_projects BOOLEAN DEFAULT TRUE"))
                 session.commit()
 
     except Exception as e:

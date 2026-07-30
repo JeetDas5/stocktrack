@@ -12,6 +12,8 @@ import {
   Loader2,
   Copy,
   Search,
+  Plus,
+  Trash2,
 } from "lucide-react";
 
 import { Staff } from "@/types/staff";
@@ -44,10 +46,8 @@ import {
 } from "@/lib/repositories/timesheet-settings.repository";
 import { cn } from "@/lib/utils";
 
-interface WeekRowState {
-  dayName: string;
-  dateStr: string;
-  displayDate: string;
+interface ShiftRow {
+  shiftId: string;
   businessId: string;
   locationId: string;
   locationName?: string;
@@ -57,9 +57,21 @@ interface WeekRowState {
   project: string;
   notes: string;
   dbTimesheetId: string | null;
-  isFuture: boolean;
   status: string;
+}
+
+interface DayGroup {
+  dayName: string;
+  dateStr: string;
+  displayDate: string;
+  isFuture: boolean;
   isDayOff: boolean;
+  shifts: ShiftRow[];
+}
+
+let shiftCounter = 0;
+function makeShiftId() {
+  return `shift_${Date.now()}_${shiftCounter++}`;
 }
 
 export default function TimesheetEntryPage() {
@@ -72,7 +84,7 @@ export default function TimesheetEntryPage() {
   const [staffId, setStaffId] = useState("");
 
   const [timesheets, setTimesheets] = useState<Timesheet[]>([]);
-  const [weekRows, setWeekRows] = useState<WeekRowState[]>([]);
+  const [weekDays, setWeekDays] = useState<DayGroup[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
 
   const [businesses, setBusinesses] = useState<Business[]>([]);
@@ -85,13 +97,17 @@ export default function TimesheetEntryPage() {
   const [loadingContext, setLoadingContext] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
-  const [confirmRows, setConfirmRows] = useState<WeekRowState[]>([]);
+  const [confirmDays, setConfirmDays] = useState<DayGroup[]>([]);
 
   const [settings, setSettings] = useState<TimesheetSettings | null>(null);
 
   const projectOptions = useMemo(() => {
     return settings?.projects || [];
   }, [settings]);
+
+  const showProjectColumn = useMemo(() => {
+    return settings?.enable_projects !== false && projectOptions.length > 0;
+  }, [settings, projectOptions]);
 
   const [currentWeekStart, setCurrentWeekStart] = useState<Date>(() => {
     const today = new Date();
@@ -108,6 +124,7 @@ export default function TimesheetEntryPage() {
 
   const [openTimePicker, setOpenTimePicker] = useState<{
     dayIndex: number;
+    shiftIndex: number;
     type: "start" | "end";
   } | null>(null);
 
@@ -128,7 +145,7 @@ export default function TimesheetEntryPage() {
 
   const draftKey = useMemo(() => {
     if (!staffId || !weekStartDateStr) return "";
-    return `timesheet_draft_${staffId}_${weekStartDateStr}`;
+    return `timesheet_draft_v2_${staffId}_${weekStartDateStr}`;
   }, [staffId, weekStartDateStr]);
 
   const getWeekStart = useCallback((d: Date, startDay: string = "Monday") => {
@@ -326,21 +343,24 @@ export default function TimesheetEntryPage() {
   }, []);
 
   const saveDraft = useCallback(
-    (rows: WeekRowState[]) => {
+    (days: DayGroup[]) => {
       if (!draftKey) return;
       const now = new Date().toISOString();
       const draftData = {
         savedAt: now,
-        rows: rows.map((r) => ({
-          dateStr: r.dateStr,
-          businessId: r.businessId,
-          locationId: r.locationId,
-          startTime: r.startTime,
-          endTime: r.endTime,
-          unpaidBreak: r.unpaidBreak,
-          project: r.project,
-          notes: r.notes,
-          isDayOff: r.isDayOff,
+        days: days.map((d) => ({
+          dateStr: d.dateStr,
+          isDayOff: d.isDayOff,
+          shifts: d.shifts.map((s) => ({
+            shiftId: s.shiftId,
+            businessId: s.businessId,
+            locationId: s.locationId,
+            startTime: s.startTime,
+            endTime: s.endTime,
+            unpaidBreak: s.unpaidBreak,
+            project: s.project,
+            notes: s.notes,
+          })),
         })),
       };
       try {
@@ -363,9 +383,9 @@ export default function TimesheetEntryPage() {
     setLastSavedTime(null);
   }, [draftKey]);
 
-  const updateAndSaveWeekRows = useCallback(
-    (updater: WeekRowState[] | ((prev: WeekRowState[]) => WeekRowState[])) => {
-      setWeekRows((prev) => {
+  const updateAndSaveWeekDays = useCallback(
+    (updater: DayGroup[] | ((prev: DayGroup[]) => DayGroup[])) => {
+      setWeekDays((prev) => {
         const next = typeof updater === "function" ? updater(prev) : updater;
         saveDraft(next);
         return next;
@@ -396,7 +416,6 @@ export default function TimesheetEntryPage() {
       if (isFutureDate(dateStr)) return false;
       if (status === "approved") return false;
 
-      // 1. Payroll lock (all users)
       if (
         settings?.lock_timesheets_before_date &&
         settings?.lock_payroll_period_date
@@ -406,16 +425,13 @@ export default function TimesheetEntryPage() {
         }
       }
 
-      // 2. Staff restrictions
       if (isStaff) {
-        // Pending locks
         if (status === "submitted" || status === "edited") {
           if (!settings?.allow_staff_edit_pending) {
             return false;
           }
         }
 
-        // Past entry restrictions
         const today = new Date();
         const todayStr = `${today.getFullYear()}-${(today.getMonth() + 1).toString().padStart(2, "0")}-${today.getDate().toString().padStart(2, "0")}`;
         if (dateStr < todayStr) {
@@ -442,21 +458,50 @@ export default function TimesheetEntryPage() {
     [isStaff, settings],
   );
 
+  // Build a default blank shift
+  const makeBlankShift = useCallback(
+    (defaultBiz: string, defaultLoc: string): ShiftRow => {
+      const defaultBreak =
+        settings?.default_break_minutes !== undefined
+          ? settings.default_break_minutes.toString()
+          : "30";
+      return {
+        shiftId: makeShiftId(),
+        businessId: defaultBiz,
+        locationId: defaultLoc,
+        locationName: "",
+        startTime: "",
+        endTime: "",
+        unpaidBreak: defaultBreak,
+        project: "",
+        notes: "",
+        dbTimesheetId: null,
+        status: "",
+      };
+    },
+    [settings],
+  );
+
   useEffect(() => {
     if (!currentWeekStart || !staffId) return;
 
+    type DraftShift = {
+      shiftId: string;
+      businessId: string;
+      locationId: string;
+      startTime: string;
+      endTime: string;
+      unpaidBreak: string;
+      project: string;
+      notes: string;
+    };
+
     let savedDraft: {
       savedAt: string;
-      rows: Array<{
+      days: Array<{
         dateStr: string;
-        businessId: string;
-        locationId: string;
-        startTime: string;
-        endTime: string;
-        unpaidBreak: string;
-        project: string;
-        notes: string;
         isDayOff: boolean;
+        shifts: DraftShift[];
       }>;
     } | null = null;
 
@@ -471,61 +516,78 @@ export default function TimesheetEntryPage() {
       }
     }
 
+    const defaultBiz = businesses.length === 1 ? businesses[0].id : "";
+    const defaultBreak =
+      settings?.default_break_minutes !== undefined
+        ? settings.default_break_minutes.toString()
+        : "30";
+
     const days = getWeekDays(currentWeekStart);
-    const rows = days.map((day) => {
-      const existing = staffTimesheets.find(
+
+    const newWeekDays: DayGroup[] = days.map((day) => {
+      const isFuture = isFutureDate(day.dateStr);
+      const dayTimesheets = staffTimesheets.filter(
         (ts) => ts.workDate === day.dateStr,
       );
-      const isFuture = isFutureDate(day.dateStr);
-      const isDayOffDB = existing
-        ? existing.startTime === "00:00" && existing.endTime === "00:00"
-        : false;
-      const defaultBreak =
-        settings?.default_break_minutes !== undefined
-          ? settings.default_break_minutes.toString()
-          : "30";
+      const draftDay = savedDraft?.days?.find((d) => d.dateStr === day.dateStr);
 
-      const defaultBiz = businesses.length === 1 ? businesses[0].id : "";
-      const draftRow = savedDraft?.rows?.find((r) => r.dateStr === day.dateStr);
+      // Build shifts from DB records
+      let shifts: ShiftRow[] = [];
 
-      const bId = existing
-        ? existing.businessId
-        : draftRow?.businessId
-          ? draftRow.businessId
-          : defaultBiz;
-      const bizLocs = locationsMap[bId] || [];
-      const lId = existing
-        ? existing.locationId
-        : draftRow?.locationId
-          ? draftRow.locationId
-          : bizLocs.length === 1
-            ? bizLocs[0].id
-            : "";
+      if (dayTimesheets.length > 0) {
+        shifts = dayTimesheets.map((ts) => {
+          const isDayOff = ts.startTime === "00:00" && ts.endTime === "00:00";
+          const bId = ts.businessId || defaultBiz;
+          const bizLocs = locationsMap[bId] || [];
+          const lId =
+            ts.locationId || (bizLocs.length === 1 ? bizLocs[0].id : "");
+          return {
+            shiftId: makeShiftId(),
+            businessId: bId,
+            locationId: lId,
+            locationName: ts.locationName || "",
+            startTime: isDayOff ? "" : ts.startTime,
+            endTime: isDayOff ? "" : ts.endTime,
+            unpaidBreak: ts.unpaidBreak.toString(),
+            project: ts.project || "",
+            notes: ts.notes || "",
+            dbTimesheetId: ts.id || null,
+            status: ts.status || "",
+          };
+        });
+      } else if (draftDay && draftDay.shifts.length > 0) {
+        shifts = draftDay.shifts.map((ds) => ({
+          shiftId: ds.shiftId || makeShiftId(),
+          businessId: ds.businessId,
+          locationId: ds.locationId,
+          locationName: "",
+          startTime: ds.startTime,
+          endTime: ds.endTime,
+          unpaidBreak: ds.unpaidBreak || defaultBreak,
+          project: ds.project,
+          notes: ds.notes,
+          dbTimesheetId: null,
+          status: "",
+        }));
+      }
+      // else: no shifts — empty state
+
+      const isDayOff =
+        dayTimesheets.length === 1 &&
+        dayTimesheets[0].startTime === "00:00" &&
+        dayTimesheets[0].endTime === "00:00";
 
       return {
         dayName: day.dayName,
         dateStr: day.dateStr,
         displayDate: day.displayDate,
-        businessId: bId,
-        locationId: lId,
-        locationName: existing?.locationName || "",
-        startTime: existing ? existing.startTime : draftRow ? draftRow.startTime : "",
-        endTime: existing ? existing.endTime : draftRow ? draftRow.endTime : "",
-        unpaidBreak: existing
-          ? existing.unpaidBreak.toString()
-          : draftRow
-            ? draftRow.unpaidBreak
-            : defaultBreak,
-        project: existing ? existing.project || "" : draftRow ? draftRow.project : "",
-        notes: existing ? existing.notes || "" : draftRow ? draftRow.notes : "",
-        dbTimesheetId: existing?.id || null,
         isFuture,
-        status: existing?.status || "",
-        isDayOff: existing ? isDayOffDB : draftRow ? draftRow.isDayOff : isDayOffDB,
+        isDayOff,
+        shifts,
       };
     });
 
-    setWeekRows(rows);
+    setWeekDays(newWeekDays);
 
     if (savedDraft?.savedAt) {
       setLastSavedTime(formatLastSavedTime(savedDraft.savedAt));
@@ -555,16 +617,14 @@ export default function TimesheetEntryPage() {
       }
 
       if (openTimePicker) {
+        const { dayIndex, shiftIndex, type } = openTimePicker;
         const desktopCell = document.getElementById(
-          `timecell-${openTimePicker.dayIndex}-${openTimePicker.type}`,
+          `timecell-${dayIndex}-${shiftIndex}-${type}`,
         );
         const mobileCell = document.getElementById(
-          `timecell-mobile-${openTimePicker.dayIndex}-${openTimePicker.type}`,
+          `timecell-mobile-${dayIndex}-${shiftIndex}-${type}`,
         );
-        const insideDesktop = desktopCell?.contains(target);
-        const insideMobile = mobileCell?.contains(target);
-
-        if (!insideDesktop && !insideMobile) {
+        if (!desktopCell?.contains(target) && !mobileCell?.contains(target)) {
           setOpenTimePicker(null);
         }
       }
@@ -575,6 +635,8 @@ export default function TimesheetEntryPage() {
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, [openTimePicker]);
+
+  // ─── Computed values ──────────────────────────────────────────────────────
 
   const selectedStaffName = useMemo(() => {
     if (isStaff && profile) {
@@ -588,7 +650,7 @@ export default function TimesheetEntryPage() {
     return staffList;
   }, [staffList, isStaff]);
 
-  const calculateRowHours = (
+  const calculateShiftHours = (
     start: string,
     end: string,
     breakMinsStr: string,
@@ -606,24 +668,31 @@ export default function TimesheetEntryPage() {
   };
 
   const totalWeeklyHours = useMemo(() => {
-    return weekRows.reduce((sum, row) => {
-      return (
-        sum + calculateRowHours(row.startTime, row.endTime, row.unpaidBreak)
-      );
+    return weekDays.reduce((daySum, day) => {
+      const dayHours = day.shifts.reduce((shiftSum, shift) => {
+        return (
+          shiftSum +
+          calculateShiftHours(shift.startTime, shift.endTime, shift.unpaidBreak)
+        );
+      }, 0);
+      return daySum + dayHours;
     }, 0);
-  }, [weekRows]);
+  }, [weekDays]);
 
-  const filteredWeekRows = useMemo(() => {
-    const rowsWithIndex = weekRows.map((row, index) => ({ row, index }));
-    if (!searchQuery.trim()) return rowsWithIndex;
+  const filteredWeekDays = useMemo(() => {
+    const daysWithIndex = weekDays.map((day, index) => ({ day, index }));
+    if (!searchQuery.trim()) return daysWithIndex;
     const query = searchQuery.toLowerCase();
-    return rowsWithIndex.filter(
-      ({ row }) =>
-        row.dayName.toLowerCase().includes(query) ||
-        row.project.toLowerCase().includes(query) ||
-        row.notes.toLowerCase().includes(query),
+    return daysWithIndex.filter(
+      ({ day }) =>
+        day.dayName.toLowerCase().includes(query) ||
+        day.shifts.some(
+          (s) =>
+            s.project.toLowerCase().includes(query) ||
+            s.notes.toLowerCase().includes(query),
+        ),
     );
-  }, [weekRows, searchQuery]);
+  }, [weekDays, searchQuery]);
 
   const formatTimeToAMPM = (timeStr: string) => {
     if (!timeStr) return "";
@@ -635,28 +704,76 @@ export default function TimesheetEntryPage() {
     return `${zeroPaddedHour}:${minStr} ${ampm}`;
   };
 
-  const handleBusinessChange = (dayIndex: number, newBusinessId: string) => {
+  // ─── Shift Handlers ────────────────────────────────────────────────────────
+
+  const handleAddShift = useCallback(
+    (dayIndex: number) => {
+      const defaultBiz = businesses.length === 1 ? businesses[0].id : "";
+      const bizLocs = locationsMap[defaultBiz] || [];
+      const defaultLoc = bizLocs.length === 1 ? bizLocs[0].id : "";
+      const newShift = makeBlankShift(defaultBiz, defaultLoc);
+      updateAndSaveWeekDays((prev) =>
+        prev.map((day, idx) => {
+          if (idx !== dayIndex) return day;
+          return { ...day, shifts: [...day.shifts, newShift] };
+        }),
+      );
+    },
+    [businesses, locationsMap, makeBlankShift, updateAndSaveWeekDays],
+  );
+
+  const handleDeleteShift = useCallback(
+    (dayIndex: number, shiftIndex: number) => {
+      updateAndSaveWeekDays((prev) =>
+        prev.map((day, idx) => {
+          if (idx !== dayIndex) return day;
+          const newShifts = day.shifts.filter((_, sIdx) => sIdx !== shiftIndex);
+          return { ...day, shifts: newShifts };
+        }),
+      );
+    },
+    [updateAndSaveWeekDays],
+  );
+
+  const handleBusinessChange = (
+    dayIndex: number,
+    shiftIndex: number,
+    newBusinessId: string,
+  ) => {
     const bizLocs = locationsMap[newBusinessId] || [];
     const defaultLocId = bizLocs.length === 1 ? bizLocs[0].id : "";
-    updateAndSaveWeekRows((prev) =>
-      prev.map((row, idx) => {
-        if (idx !== dayIndex) return row;
+    updateAndSaveWeekDays((prev) =>
+      prev.map((day, dIdx) => {
+        if (dIdx !== dayIndex) return day;
         return {
-          ...row,
-          businessId: newBusinessId,
-          locationId: defaultLocId,
+          ...day,
+          shifts: day.shifts.map((s, sIdx) => {
+            if (sIdx !== shiftIndex) return s;
+            return {
+              ...s,
+              businessId: newBusinessId,
+              locationId: defaultLocId,
+            };
+          }),
         };
       }),
     );
   };
 
-  const handleLocationChange = (dayIndex: number, newLocationId: string) => {
-    updateAndSaveWeekRows((prev) =>
-      prev.map((row, idx) => {
-        if (idx !== dayIndex) return row;
+  const handleLocationChange = (
+    dayIndex: number,
+    shiftIndex: number,
+    newLocationId: string,
+  ) => {
+    updateAndSaveWeekDays((prev) =>
+      prev.map((day, dIdx) => {
+        if (dIdx !== dayIndex) return day;
         return {
-          ...row,
-          locationId: newLocationId,
+          ...day,
+          shifts: day.shifts.map((s, sIdx) => {
+            if (sIdx !== shiftIndex) return s;
+            return { ...s, locationId: newLocationId };
+          }),
         };
       }),
     );
@@ -664,79 +781,86 @@ export default function TimesheetEntryPage() {
 
   const handleTimeChange = (
     dayIndex: number,
+    shiftIndex: number,
     type: "start" | "end",
     value: string,
   ) => {
-    updateAndSaveWeekRows((prev) =>
-      prev.map((row, idx) => {
-        if (idx !== dayIndex) return row;
+    updateAndSaveWeekDays((prev) =>
+      prev.map((day, dIdx) => {
+        if (dIdx !== dayIndex) return day;
         return {
-          ...row,
-          startTime: type === "start" ? value : row.startTime,
-          endTime: type === "end" ? value : row.endTime,
+          ...day,
+          shifts: day.shifts.map((s, sIdx) => {
+            if (sIdx !== shiftIndex) return s;
+            return {
+              ...s,
+              startTime: type === "start" ? value : s.startTime,
+              endTime: type === "end" ? value : s.endTime,
+            };
+          }),
         };
       }),
     );
   };
 
-  const handleDayOffChange = (dayIndex: number, checked: boolean) => {
-    updateAndSaveWeekRows((prev) =>
-      prev.map((row, idx) => {
-        if (idx !== dayIndex) return row;
-        if (checked) {
-          return {
-            ...row,
-            isDayOff: true,
-            startTime: "00:00",
-            endTime: "00:00",
-            unpaidBreak: "0",
-            project: "",
-            notes: "",
-          };
-        } else {
-          return {
-            ...row,
-            isDayOff: false,
-            startTime: "",
-            endTime: "",
-            unpaidBreak: "30",
-            project: "",
-            notes: "",
-          };
-        }
-      }),
-    );
-  };
-
-  const handleBreakChange = (dayIndex: number, value: string) => {
-    updateAndSaveWeekRows((prev) =>
-      prev.map((row, idx) => {
-        if (idx !== dayIndex) return row;
-        return { ...row, unpaidBreak: value };
-      }),
-    );
-  };
-
-  const handleProjectSelect = (dayIndex: number, option: string) => {
-    updateAndSaveWeekRows((prev) =>
-      prev.map((row, idx) => {
-        if (idx !== dayIndex) return row;
+  const handleBreakChange = (
+    dayIndex: number,
+    shiftIndex: number,
+    value: string,
+  ) => {
+    updateAndSaveWeekDays((prev) =>
+      prev.map((day, dIdx) => {
+        if (dIdx !== dayIndex) return day;
         return {
-          ...row,
-          project: option,
+          ...day,
+          shifts: day.shifts.map((s, sIdx) => {
+            if (sIdx !== shiftIndex) return s;
+            return { ...s, unpaidBreak: value };
+          }),
         };
       }),
     );
   };
 
-  const handleNotesChange = (dayIndex: number, value: string) => {
-    updateAndSaveWeekRows((prev) =>
-      prev.map((row, idx) => {
-        if (idx !== dayIndex) return row;
-        return { ...row, notes: value };
+  const handleProjectSelect = (
+    dayIndex: number,
+    shiftIndex: number,
+    option: string,
+  ) => {
+    updateAndSaveWeekDays((prev) =>
+      prev.map((day, dIdx) => {
+        if (dIdx !== dayIndex) return day;
+        return {
+          ...day,
+          shifts: day.shifts.map((s, sIdx) => {
+            if (sIdx !== shiftIndex) return s;
+            return { ...s, project: option };
+          }),
+        };
       }),
     );
   };
+
+  const handleNotesChange = (
+    dayIndex: number,
+    shiftIndex: number,
+    value: string,
+  ) => {
+    updateAndSaveWeekDays((prev) =>
+      prev.map((day, dIdx) => {
+        if (dIdx !== dayIndex) return day;
+        return {
+          ...day,
+          shifts: day.shifts.map((s, sIdx) => {
+            if (sIdx !== shiftIndex) return s;
+            return { ...s, notes: value };
+          }),
+        };
+      }),
+    );
+  };
+
+  // ─── Week Navigation ──────────────────────────────────────────────────────
 
   const handlePrevWeek = () => {
     setCurrentWeekStart((prev) => {
@@ -761,6 +885,8 @@ export default function TimesheetEntryPage() {
     setIsCalendarOpen(false);
   };
 
+  // ─── Copy Previous Week ───────────────────────────────────────────────────
+
   const handleCopyPreviousWeek = () => {
     if (!currentWeekStart) return;
 
@@ -770,38 +896,47 @@ export default function TimesheetEntryPage() {
     const prevDays = getWeekDays(prevMonday);
     let copiedCount = 0;
 
-    const newRows = weekRows.map((row, idx) => {
-      if (row.isFuture || row.dbTimesheetId || row.status === "approved") {
-        return row;
-      }
+    const newDays = weekDays.map((day, idx) => {
+      const isEditable = checkIsDateEditable(
+        day.dateStr,
+        day.shifts[0]?.status || "",
+      );
+      if (!isEditable || day.isFuture) return day;
 
       const prevDayDateStr = prevDays[idx].dateStr;
-      const prevTimesheet = timesheets.find(
+      const prevTimesheets = timesheets.filter(
         (ts) => ts.staffId === staffId && ts.workDate === prevDayDateStr,
       );
 
-      if (prevTimesheet) {
+      if (prevTimesheets.length > 0) {
         copiedCount++;
-        const isDayOff =
-          prevTimesheet.startTime === "00:00" &&
-          prevTimesheet.endTime === "00:00";
-        return {
-          ...row,
-          businessId: prevTimesheet.businessId || row.businessId,
-          locationId: prevTimesheet.locationId || row.locationId,
-          startTime: prevTimesheet.startTime,
-          endTime: prevTimesheet.endTime,
-          unpaidBreak: prevTimesheet.unpaidBreak.toString(),
-          project: prevTimesheet.project || "",
-          notes: prevTimesheet.notes || "",
-          isDayOff,
-        };
+        const defaultBiz = businesses.length === 1 ? businesses[0].id : "";
+        const newShifts: ShiftRow[] = prevTimesheets.map((ts) => {
+          const bId = ts.businessId || defaultBiz;
+          const bizLocs = locationsMap[bId] || [];
+          const lId =
+            ts.locationId || (bizLocs.length === 1 ? bizLocs[0].id : "");
+          return {
+            shiftId: makeShiftId(),
+            businessId: bId,
+            locationId: lId,
+            locationName: ts.locationName || "",
+            startTime: ts.startTime,
+            endTime: ts.endTime,
+            unpaidBreak: ts.unpaidBreak.toString(),
+            project: ts.project || "",
+            notes: ts.notes || "",
+            dbTimesheetId: null,
+            status: "",
+          };
+        });
+        return { ...day, shifts: newShifts };
       }
-      return row;
+      return day;
     });
 
     if (copiedCount > 0) {
-      updateAndSaveWeekRows(newRows);
+      updateAndSaveWeekDays(newDays);
       toast.success(
         `Copied ${copiedCount} timesheet entries from the previous week!`,
       );
@@ -811,164 +946,140 @@ export default function TimesheetEntryPage() {
   };
 
   const handleClearAll = () => {
-    const defaultBreak =
-      settings?.default_break_minutes !== undefined
-        ? settings.default_break_minutes.toString()
-        : "30";
-
     const defaultBiz = businesses.length === 1 ? businesses[0].id : "";
 
-    const newRows = weekRows.map((row) => {
-      if (row.isFuture || row.status === "approved") {
-        return row;
-      }
-      if (row.dbTimesheetId) {
-        const original = staffTimesheets.find(
-          (ts) => ts.id === row.dbTimesheetId,
-        );
-        if (original) {
-          const origBizId = original.businessId || defaultBiz;
-          const origBizLocs = locationsMap[origBizId] || [];
-          const origLocId =
-            original.locationId ||
-            (origBizLocs.length === 1 ? origBizLocs[0].id : "");
+    const newDays = weekDays.map((day) => {
+      const isEditable = checkIsDateEditable(
+        day.dateStr,
+        day.shifts[0]?.status || "",
+      );
+      if (!isEditable || day.isFuture) return day;
 
+      const dayTimesheets = staffTimesheets.filter(
+        (ts) => ts.workDate === day.dateStr,
+      );
+
+      let shifts: ShiftRow[] = [];
+
+      if (dayTimesheets.length > 0) {
+        shifts = dayTimesheets.map((ts) => {
+          const isDayOff = ts.startTime === "00:00" && ts.endTime === "00:00";
+          const bId = ts.businessId || defaultBiz;
+          const bizLocs = locationsMap[bId] || [];
+          const lId =
+            ts.locationId || (bizLocs.length === 1 ? bizLocs[0].id : "");
           return {
-            ...row,
-            businessId: origBizId,
-            locationId: origLocId,
-            startTime: original.startTime,
-            endTime: original.endTime,
-            unpaidBreak: original.unpaidBreak.toString(),
-            project: original.project || "",
-            notes: original.notes || "",
-            isDayOff:
-              original.startTime === "00:00" && original.endTime === "00:00",
+            shiftId: makeShiftId(),
+            businessId: bId,
+            locationId: lId,
+            locationName: ts.locationName || "",
+            startTime: isDayOff ? "" : ts.startTime,
+            endTime: isDayOff ? "" : ts.endTime,
+            unpaidBreak: ts.unpaidBreak.toString(),
+            project: ts.project || "",
+            notes: ts.notes || "",
+            dbTimesheetId: ts.id || null,
+            status: ts.status || "",
           };
-        }
+        });
       }
-      const bId = defaultBiz;
-      const bizLocs = locationsMap[bId] || [];
-      const lId = bizLocs.length === 1 ? bizLocs[0].id : "";
+
+      const isDayOff =
+        dayTimesheets.length === 1 &&
+        dayTimesheets[0].startTime === "00:00" &&
+        dayTimesheets[0].endTime === "00:00";
 
       return {
-        ...row,
-        businessId: bId,
-        locationId: lId,
-        startTime: "",
-        endTime: "",
-        unpaidBreak: defaultBreak,
-        project: "",
-        notes: "",
-        isDayOff: false,
+        ...day,
+        isDayOff,
+        shifts,
       };
     });
 
     clearDraft();
-    setWeekRows(newRows);
+    setWeekDays(newDays);
     toast.success("Unsaved changes cleared.");
   };
 
-  const executeSubmit = async (rowsToSubmit: WeekRowState[]) => {
+  const executeSubmit = async (daysToSubmit: DayGroup[]) => {
     setShowConfirmModal(false);
     setSubmitting(true);
 
     try {
-      const promises = rowsToSubmit.map((row) => {
-        const isEditable = checkIsDateEditable(row.dateStr, row.status);
-        if (!isEditable) {
-          return Promise.resolve();
+      const promises: Promise<unknown>[] = [];
+
+      for (const day of daysToSubmit) {
+        const anyShiftStatus = day.shifts[0]?.status || "";
+        const isEditable = checkIsDateEditable(day.dateStr, anyShiftStatus);
+        if (!isEditable) continue;
+
+        if (day.shifts.length === 0) {
+          // Delete any existing DB records for this day
+          const existingForDay = staffTimesheets.filter(
+            (ts) => ts.workDate === day.dateStr,
+          );
+          for (const ts of existingForDay) {
+            if (ts.id && ts.businessId) {
+              promises.push(deleteTimesheet(ts.businessId, ts.id));
+            }
+          }
+          continue;
         }
 
-        const isOff =
-          row.isDayOff ||
-          (row.startTime === "00:00" && row.endTime === "00:00") ||
-          (!row.startTime && !row.endTime);
-
-        const hasTimeSet = row.startTime && row.endTime;
-
-        if (hasTimeSet && !isOff) {
-          if (!row.businessId) {
-            throw new Error(
-              `Please select a business for ${row.dayName} (${row.displayDate}).`,
-            );
-          }
-          if (!row.locationId) {
-            throw new Error(
-              `Please select a location for ${row.dayName} (${row.displayDate}).`,
-            );
-          }
+        for (const shift of day.shifts) {
+          const hasTimeSet = shift.startTime && shift.endTime;
+          if (!hasTimeSet) continue;
 
           const payload = {
-            locationId: row.locationId,
+            locationId: shift.locationId,
             staffId,
-            workDate: row.dateStr,
-            startTime: row.startTime,
-            endTime: row.endTime,
-            unpaidBreak: parseInt(row.unpaidBreak, 10) || 0,
-            project: row.project.trim() || undefined,
-            notes: row.notes.trim() || undefined,
+            workDate: day.dateStr,
+            startTime: shift.startTime,
+            endTime: shift.endTime,
+            unpaidBreak: parseInt(shift.unpaidBreak, 10) || 0,
+            project: shift.project.trim() || undefined,
+            notes: shift.notes.trim() || undefined,
             status:
-              settings?.require_approval === false || row.isDayOff
-                ? "approved"
-                : "submitted",
+              settings?.require_approval === false ? "approved" : "submitted",
           };
 
-          if (row.dbTimesheetId) {
+          if (shift.dbTimesheetId) {
             const original = timesheets.find(
-              (ts) => ts.id === row.dbTimesheetId,
+              (ts) => ts.id === shift.dbTimesheetId,
             );
             const changed =
-              original?.businessId !== row.businessId ||
-              original?.locationId !== row.locationId ||
-              original?.startTime !== row.startTime ||
-              original?.endTime !== row.endTime ||
-              original?.unpaidBreak !== (parseInt(row.unpaidBreak, 10) || 0) ||
-              (original?.project || "") !== row.project.trim() ||
-              (original?.notes || "") !== row.notes.trim();
+              original?.businessId !== shift.businessId ||
+              original?.locationId !== shift.locationId ||
+              original?.startTime !== shift.startTime ||
+              original?.endTime !== shift.endTime ||
+              original?.unpaidBreak !==
+                (parseInt(shift.unpaidBreak, 10) || 0) ||
+              (original?.project || "") !== shift.project.trim() ||
+              (original?.notes || "") !== shift.notes.trim();
 
             if (changed) {
-              return updateTimesheet(
-                row.businessId,
-                row.dbTimesheetId,
-                payload,
+              promises.push(
+                updateTimesheet(shift.businessId, shift.dbTimesheetId, payload),
               );
             }
           } else {
-            return createTimesheet(row.businessId, payload);
-          }
-        } else if (isOff) {
-          const bizId =
-            row.businessId || (businesses.length === 1 ? businesses[0].id : "");
-          const bizLocs = locationsMap[bizId] || [];
-          const locId =
-            row.locationId || (bizLocs.length > 0 ? bizLocs[0].id : "");
-
-          if (bizId && locId) {
-            const payload = {
-              locationId: locId,
-              staffId,
-              workDate: row.dateStr,
-              startTime: "00:00",
-              endTime: "00:00",
-              unpaidBreak: 0,
-              project: undefined,
-              notes: undefined,
-              status: "approved",
-            };
-
-            if (row.dbTimesheetId) {
-              return updateTimesheet(bizId, row.dbTimesheetId, payload);
-            } else {
-              return createTimesheet(bizId, payload);
-            }
-          } else if (row.dbTimesheetId && row.businessId) {
-            return deleteTimesheet(row.businessId, row.dbTimesheetId);
+            promises.push(createTimesheet(shift.businessId, payload));
           }
         }
 
-        return Promise.resolve();
-      });
+        // Delete DB records that no longer have a corresponding shift
+        const dbIds = day.shifts
+          .filter((s) => s.dbTimesheetId)
+          .map((s) => s.dbTimesheetId);
+        const existingForDay = staffTimesheets.filter(
+          (ts) => ts.workDate === day.dateStr,
+        );
+        for (const ts of existingForDay) {
+          if (ts.id && !dbIds.includes(ts.id) && ts.businessId) {
+            promises.push(deleteTimesheet(ts.businessId, ts.id));
+          }
+        }
+      }
 
       await Promise.all(promises);
       toast.success("Timesheets submitted successfully!");
@@ -989,81 +1100,60 @@ export default function TimesheetEntryPage() {
       return;
     }
 
-    const processed = weekRows.map((row) => {
-      const isEditable = checkIsDateEditable(row.dateStr, row.status);
-      if (
-        isEditable &&
-        isCurrentWeek(currentWeekStart) &&
-        !row.startTime &&
-        !row.endTime
-      ) {
-        return {
-          ...row,
-          startTime: "00:00",
-          endTime: "00:00",
-          unpaidBreak: "0",
-          isDayOff: true,
-        };
-      }
-      return row;
-    });
-
     try {
-      processed.forEach((row) => {
-        const isEditable = checkIsDateEditable(row.dateStr, row.status);
-        if (!isEditable) return;
+      for (const day of weekDays) {
+        const anyShiftStatus = day.shifts[0]?.status || "";
+        const isEditable = checkIsDateEditable(day.dateStr, anyShiftStatus);
+        if (!isEditable) continue;
 
-        const hasTimeSet = row.startTime && row.endTime;
-        const isOff =
-          row.isDayOff ||
-          (row.startTime === "00:00" && row.endTime === "00:00");
-        if (hasTimeSet && !isOff) {
-          if (!row.businessId) {
+        for (const shift of day.shifts) {
+          const hasTimeSet = shift.startTime && shift.endTime;
+          if (!hasTimeSet) continue;
+
+          if (!shift.businessId) {
             throw new Error(
-              `On ${row.dayName} (${row.displayDate}), please select a business.`,
+              `On ${day.dayName} (${day.displayDate}), please select a business.`,
             );
           }
-          if (!row.locationId) {
+          if (!shift.locationId) {
             throw new Error(
-              `On ${row.dayName} (${row.displayDate}), please select a location.`,
+              `On ${day.dayName} (${day.displayDate}), please select a location.`,
+            );
+          }
+          if (shift.startTime > shift.endTime) {
+            throw new Error(
+              `On ${day.dayName} (${day.displayDate}), Start Time cannot be after End Time.`,
+            );
+          }
+          if (shift.startTime === shift.endTime) {
+            throw new Error(
+              `On ${day.dayName} (${day.displayDate}), Start and End times cannot be identical.`,
             );
           }
 
-          if (row.startTime > row.endTime) {
-            throw new Error(
-              `On ${row.dayName} (${row.displayDate}), Start Time cannot be after End Time.`,
-            );
-          }
-          if (row.startTime === row.endTime) {
-            throw new Error(
-              `On ${row.dayName} (${row.displayDate}), Start and End times cannot be identical.`,
-            );
-          }
-
-          const breakMins = parseInt(row.unpaidBreak, 10) || 0;
+          const breakMins = parseInt(shift.unpaidBreak, 10) || 0;
           if (
             settings?.require_break_entry &&
             (isNaN(breakMins) || breakMins < 0)
           ) {
             throw new Error(
-              `On ${row.dayName} (${row.displayDate}), a valid unpaid break is required.`,
+              `On ${day.dayName} (${day.displayDate}), a valid unpaid break is required.`,
             );
           }
 
-          const [startH, startM] = row.startTime.split(":").map(Number);
-          const [endH, endM] = row.endTime.split(":").map(Number);
+          const [startH, startM] = shift.startTime.split(":").map(Number);
+          const [endH, endM] = shift.endTime.split(":").map(Number);
           let diffMins = endH * 60 + endM - (startH * 60 + startM);
-          if (diffMins < 0) {
-            diffMins += 24 * 60;
-          }
+          if (diffMins < 0) diffMins += 24 * 60;
+
           if (breakMins >= diffMins) {
             throw new Error(
-              `On ${row.dayName} (${row.displayDate}), unpaid break must be less than the total shift duration.`,
+              `On ${day.dayName} (${day.displayDate}), unpaid break must be less than the total shift duration.`,
             );
           }
           if (breakMins >= 360) {
             throw new Error(
-              `On ${row.dayName} (${row.displayDate}), unpaid break must be less than 6 hours.`,
+              `On ${day.dayName} (${day.displayDate}), unpaid break must be less than 6 hours.`,
             );
           }
 
@@ -1072,25 +1162,25 @@ export default function TimesheetEntryPage() {
             settings?.require_reason_no_break &&
             breakMins === 0
           ) {
-            const shiftDuration = calculateRowHours(
-              row.startTime,
-              row.endTime,
+            const shiftDuration = calculateShiftHours(
+              shift.startTime,
+              shift.endTime,
               "0",
             );
-            if (shiftDuration > 5 && !row.notes.trim()) {
+            if (shiftDuration > 5 && !shift.notes.trim()) {
               throw new Error(
-                `On ${row.dayName} (${row.displayDate}), please provide a reason in the notes for not taking a break on this longer shift.`,
+                `On ${day.dayName} (${day.displayDate}), please provide a reason in the notes for not taking a break on this longer shift.`,
               );
             }
           }
         }
-      });
+      }
     } catch (err: unknown) {
       toast.error((err as Error).message || "Validation failed.");
       return;
     }
 
-    setConfirmRows(processed);
+    setConfirmDays(weekDays);
     setShowConfirmModal(true);
   };
 
@@ -1115,6 +1205,9 @@ export default function TimesheetEntryPage() {
     );
   }
 
+  const readonlyCell =
+    "w-full font-semibold text-xs text-neutral-600 border border-neutral-200/60 rounded-xl bg-neutral-100 px-3 h-10 flex items-center truncate";
+
   return (
     <div className="bg-white min-h-0 flex flex-col w-full">
       <div className="hidden md:flex flex-col bg-white h-[calc(100vh-120px)] md:h-[85vh] min-h-0 relative pb-4">
@@ -1127,7 +1220,6 @@ export default function TimesheetEntryPage() {
               <div className="inline-flex items-center bg-[#BAEBCE] text-[#0A2924] font-semibold px-4.5 py-2.5 rounded-full text-xs">
                 Total Hours This week: {totalWeeklyHours.toFixed(1)}
               </div>
-
               <button
                 type="button"
                 onClick={handleCopyPreviousWeek}
@@ -1260,20 +1352,16 @@ export default function TimesheetEntryPage() {
             onSubmit={handleSubmit}
             className="flex-1 min-h-0 flex flex-col space-y-6"
           >
-            {/* Table Container Card */}
             <div className="bg-white border border-neutral-200 rounded-3xl shadow-2xs overflow-hidden flex-1 min-h-0 flex flex-col">
               <div className="overflow-auto flex-1 min-h-0">
-                <table className="w-full text-left border-collapse min-w-[1200px]">
+                <table className="w-full text-left border-collapse min-w-[1300px]">
                   <thead>
-                    <tr className="border-b border-neutral-200 text-[11px] font-semibold uppercase tracking-wider text-neutral-500 bg-white sticky top-0 z-10 text-center">
-                      <th className="py-4 px-6 text-left font-semibold min-w-[80px]">
-                        Day
+                    <tr className="border-b border-neutral-200 text-[11px] font-semibold uppercase tracking-wider text-neutral-500 bg-white sticky top-0 z-10">
+                      <th className="py-4 px-6 text-left font-semibold min-w-[110px]">
+                        Day / Date
                       </th>
-                      <th className="py-4 px-6 text-left font-semibold min-w-[100px]">
-                        Date
-                      </th>
-                      <th className="py-4 px-3 text-center font-semibold text-xs min-w-[75px]">
-                        Day Off
+                      <th className="py-4 px-1 text-left font-semibold min-w-[50px]">
+                        Shift
                       </th>
                       <th className="py-4 px-3 text-left font-semibold min-w-[160px]">
                         Business
@@ -1287,398 +1375,527 @@ export default function TimesheetEntryPage() {
                       <th className="py-4 px-3 text-center font-semibold min-w-[125px]">
                         End Time
                       </th>
-                      <th className="py-4 px-3 text-center font-semibold min-w-[150px]">
-                        Unpaid Break (Mins)
-                      </th>
                       <th className="py-4 px-3 text-center font-semibold min-w-[100px]">
-                        Total Hours
+                        Break (Mins)
                       </th>
-                      <th className="py-4 px-3 text-left font-semibold min-w-[180px]">
-                        Project
+                      <th className="py-4 px-3 text-center font-semibold min-w-[60px]">
+                        Hours
                       </th>
-                      <th className="py-4 px-3 text-left font-semibold min-w-[240px]">
+                      {showProjectColumn && (
+                        <th className="py-4 px-3 text-left font-semibold min-w-[160px]">
+                          Project
+                        </th>
+                      )}
+                      <th className="py-4 px-3 text-left font-semibold w-[125px]">
                         Notes
+                      </th>
+                      <th className="py-4 px-3 text-center font-semibold min-w-[80px]">
+                        Actions
                       </th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-neutral-200 text-xs text-neutral-800 bg-white">
-                    {filteredWeekRows.map(({ row, index: idx }) => {
-                      const isEditable = checkIsDateEditable(
-                        row.dateStr,
-                        row.status,
-                      );
-                      const hours = calculateRowHours(
-                        row.startTime,
-                        row.endTime,
-                        row.unpaidBreak,
-                      );
-                      const availableLocations =
-                        locationsMap[row.businessId] || [];
+                  <tbody className="text-xs text-neutral-800 bg-white">
+                    {filteredWeekDays.map(({ day, index: dayIdx }) => {
+                      const dayEditable =
+                        !day.isFuture &&
+                        checkIsDateEditable(
+                          day.dateStr,
+                          day.shifts[0]?.status || "",
+                        );
 
-                      return (
-                        <tr
-                          key={row.dateStr}
-                          className={cn(
-                            "hover:bg-neutral-50/50 transition-colors text-center",
-                            (!isEditable || row.isFuture) &&
-                              "opacity-45 select-none bg-neutral-50/20",
-                          )}
-                        >
-                          <td className="py-4 px-6 font-semibold text-neutral-900 text-left">
-                            {row.dayName}
-                          </td>
-
-                          <td className="py-4 px-6 text-neutral-600 text-left">
-                            {row.displayDate}
-                          </td>
-
-                          <td className="py-4 px-3 text-center">
-                            <input
-                              type="checkbox"
-                              disabled={!isEditable || submitting}
-                              checked={row.isDayOff || false}
-                              onChange={(e) =>
-                                handleDayOffChange(idx, e.target.checked)
-                              }
-                              className="h-4 w-4 rounded border-neutral-300 text-[#0A2924] focus:ring-[#0A2924] cursor-pointer disabled:opacity-50"
-                            />
-                          </td>
-
-                          <td className="py-4 px-3 text-left">
-                            {!isEditable || row.isDayOff ? (
-                              <div className="w-full font-semibold text-xs text-neutral-600 border border-neutral-200/60 rounded-xl bg-neutral-100 px-3 h-10 flex items-center truncate">
-                                {businesses.find((b) => b.id === row.businessId)
-                                  ?.name || "—"}
-                              </div>
-                            ) : (
-                              <Select
-                                value={row.businessId || ""}
-                                onValueChange={(val) =>
-                                  handleBusinessChange(idx, val)
-                                }
-                                disabled={!isEditable || submitting}
-                              >
-                                <SelectTrigger className="w-full h-10 rounded-xl border border-neutral-200 bg-white px-3 py-2 text-left focus:outline-none focus:border-neutral-900 focus:ring-4 focus:ring-neutral-900/5 transition cursor-pointer font-semibold text-xs text-neutral-900 hover:bg-neutral-50 flex items-center justify-between">
-                                  <SelectValue placeholder="Select Business" />
-                                </SelectTrigger>
-                                <SelectContent className="rounded-xl border border-neutral-200 bg-white p-1 max-h-56 z-50">
-                                  {businesses.map((b) => (
-                                    <SelectItem
-                                      key={b.id}
-                                      value={b.id}
-                                      className="rounded-lg px-3 py-2 text-xs font-semibold cursor-pointer"
-                                    >
-                                      {b.name}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
+                      if (day.shifts.length === 0) {
+                        return (
+                          <tr
+                            key={day.dateStr}
+                            className={cn(
+                              "border-b border-neutral-100 hover:bg-neutral-50/40 transition-colors",
+                              (!dayEditable || day.isFuture) &&
+                                "opacity-50 select-none",
                             )}
-                          </td>
-
-                          {/* Location Dropdown Column */}
-                          <td className="py-4 px-3 text-left">
-                            {!isEditable || row.isDayOff ? (
-                              <div className="w-full font-semibold text-xs text-neutral-600 border border-neutral-200/60 rounded-xl bg-neutral-100 px-3 h-10 flex items-center truncate">
-                                {availableLocations.find(
-                                  (l) => l.id === row.locationId,
-                                )?.name ||
-                                  row.locationName ||
-                                  "—"}
-                              </div>
-                            ) : (
-                              <Select
-                                value={row.locationId || ""}
-                                onValueChange={(val) =>
-                                  handleLocationChange(idx, val)
-                                }
-                                disabled={
-                                  !isEditable ||
-                                  submitting ||
-                                  availableLocations.length === 0
-                                }
-                              >
-                                <SelectTrigger className="w-full h-10 rounded-xl border border-neutral-200 bg-white px-3 py-2 text-left focus:outline-none focus:border-neutral-900 focus:ring-4 focus:ring-neutral-900/5 transition cursor-pointer font-semibold text-xs text-neutral-900 hover:bg-neutral-50 flex items-center justify-between">
-                                  <SelectValue placeholder="Select Location" />
-                                </SelectTrigger>
-                                <SelectContent className="rounded-xl border border-neutral-200 bg-white p-1 max-h-56 z-50">
-                                  {availableLocations.map((l) => (
-                                    <SelectItem
-                                      key={l.id}
-                                      value={l.id}
-                                      className="rounded-lg px-3 py-2 text-xs font-semibold cursor-pointer"
-                                    >
-                                      {l.name}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            )}
-                          </td>
-
-                          <td
-                            className="py-4 px-3 text-center"
-                            id={`timecell-${idx}-start`}
                           >
-                            <div className="relative">
-                              {!isEditable || row.isDayOff ? (
-                                <div className="flex items-center justify-center w-full border border-neutral-200/60 rounded-xl bg-neutral-100 px-3 py-2 font-medium text-[13px] text-neutral-400 h-10">
-                                  {row.isDayOff
-                                    ? "N/A"
-                                    : row.startTime
-                                      ? formatTimeToAMPM(row.startTime)
-                                      : "—"}
-                                </div>
-                              ) : (
-                                <>
+                            <td className="py-4 px-6 align-middle">
+                              <div className="flex flex-col">
+                                <span className="font-bold text-neutral-900 text-sm leading-tight">
+                                  {day.dayName}
+                                </span>
+                                <span className="text-neutral-500 text-[11px] mt-0.5 font-medium leading-tight">
+                                  {day.displayDate}
+                                </span>
+                              </div>
+                            </td>
+                            <td
+                              colSpan={showProjectColumn ? 9 : 8}
+                              className="py-4 px-3 align-middle"
+                            >
+                              <div className="flex items-center gap-4">
+                                <span className="text-neutral-400 text-xs font-medium italic">
+                                  No shifts have been added
+                                </span>
+                                {dayEditable && (
                                   <button
                                     type="button"
                                     disabled={submitting}
-                                    onClick={() =>
-                                      setOpenTimePicker({
-                                        dayIndex: idx,
-                                        type: "start",
-                                      })
-                                    }
-                                    className="flex items-center justify-between w-full border border-neutral-200 rounded-xl bg-white hover:bg-neutral-50 px-3 py-2 text-left focus:outline-none focus:border-neutral-900 focus:ring-4 focus:ring-neutral-900/5 transition group cursor-pointer font-medium text-[13px] text-neutral-900 h-10 disabled:opacity-50"
+                                    onClick={() => handleAddShift(dayIdx)}
+                                    className="inline-flex items-center gap-1.5 text-[#0A2924] border border-[#0A2924]/30 hover:bg-[#0A2924]/5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer disabled:opacity-50"
                                   >
-                                    <span>
-                                      {row.startTime
-                                        ? formatTimeToAMPM(row.startTime)
-                                        : "—"}
-                                    </span>
-                                    <ChevronDown className="w-4 h-4 text-neutral-400 group-hover:text-neutral-600 shrink-0 transition-colors" />
+                                    <Plus className="w-3.5 h-3.5" />
+                                    Add Shift
                                   </button>
+                                )}
+                              </div>
+                            </td>
+                            <td className="py-4 px-3" />
+                          </tr>
+                        );
+                      }
 
-                                  {openTimePicker?.dayIndex === idx &&
-                                    openTimePicker?.type === "start" && (
-                                      <TimePicker
-                                        value={row.startTime}
-                                        onChange={(val, source) => {
-                                          handleTimeChange(idx, "start", val);
-                                          if (source === "period") {
-                                            setOpenTimePicker(null);
-                                          }
-                                        }}
-                                        className={`left-0 right-auto shadow-2xl border border-neutral-200 rounded-2xl ${idx >= 4 ? "bottom-full mb-2" : "top-full mt-2"}`}
-                                      />
-                                    )}
-                                </>
-                              )}
-                            </div>
-                          </td>
+                      return day.shifts.map((shift, shiftIdx) => {
+                        const isFirstShift = shiftIdx === 0;
+                        const isLastShift = shiftIdx === day.shifts.length - 1;
+                        const shiftEditable =
+                          dayEditable &&
+                          checkIsDateEditable(day.dateStr, shift.status);
+                        const hours = calculateShiftHours(
+                          shift.startTime,
+                          shift.endTime,
+                          shift.unpaidBreak,
+                        );
+                        const availableLocations =
+                          locationsMap[shift.businessId] || [];
 
-                          <td
-                            className="py-4 px-3 text-center"
-                            id={`timecell-${idx}-end`}
+                        return (
+                          <tr
+                            key={shift.shiftId}
+                            className={cn(
+                              "transition-colors hover:bg-neutral-50/50",
+                              isLastShift
+                                ? "border-b border-neutral-200"
+                                : "border-b border-neutral-100/70",
+                              (!shiftEditable || day.isFuture) &&
+                                "opacity-45 select-none bg-neutral-50/20",
+                            )}
                           >
-                            <div className="relative">
-                              {!isEditable || row.isDayOff ? (
-                                <div className="flex items-center justify-center w-full border border-neutral-200/60 rounded-xl bg-neutral-100 px-3 py-2 font-medium text-[13px] text-neutral-400 h-10">
-                                  {row.isDayOff
-                                    ? "N/A"
-                                    : row.endTime
-                                      ? formatTimeToAMPM(row.endTime)
-                                      : "—"}
+                            <td
+                              className={cn(
+                                "py-3 px-6 align-middle",
+                                !isFirstShift &&
+                                  "border-l-2 border-l-neutral-100",
+                              )}
+                            >
+                              {isFirstShift ? (
+                                <div className="flex flex-col">
+                                  <span className="font-bold text-neutral-900 text-sm leading-tight">
+                                    {day.dayName}
+                                  </span>
+                                  <span className="text-neutral-500 text-[11px] mt-0.5 font-medium leading-tight">
+                                    {day.displayDate}
+                                  </span>
                                 </div>
                               ) : (
-                                <>
-                                  <button
-                                    type="button"
-                                    disabled={submitting}
-                                    onClick={() =>
-                                      setOpenTimePicker({
-                                        dayIndex: idx,
-                                        type: "end",
-                                      })
-                                    }
-                                    className="flex items-center justify-between w-full border border-neutral-200 rounded-xl bg-white hover:bg-neutral-50 px-3 py-2 text-left focus:outline-none focus:border-neutral-900 focus:ring-4 focus:ring-neutral-900/5 transition group cursor-pointer font-medium text-[13px] text-neutral-900 h-10 disabled:opacity-50"
-                                  >
-                                    <span>
-                                      {row.endTime
-                                        ? formatTimeToAMPM(row.endTime)
-                                        : "—"}
-                                    </span>
-                                    <ChevronDown className="w-4 h-4 text-neutral-400 group-hover:text-neutral-600 shrink-0 transition-colors" />
-                                  </button>
-
-                                  {openTimePicker?.dayIndex === idx &&
-                                    openTimePicker?.type === "end" && (
-                                      <TimePicker
-                                        value={row.endTime}
-                                        onChange={(val, source) => {
-                                          handleTimeChange(idx, "end", val);
-                                          if (source === "period") {
-                                            setOpenTimePicker(null);
-                                          }
-                                        }}
-                                        className={`right-0! left-auto! shadow-2xl border border-neutral-200 rounded-2xl ${idx >= 4 ? "bottom-full mb-2" : "top-full mt-2"}`}
-                                      />
-                                    )}
-                                </>
+                                <div className="w-full" />
                               )}
-                            </div>
-                          </td>
+                            </td>
 
-                          <td className="py-4 px-3 text-center">
-                            {!isEditable || row.isDayOff ? (
-                              <div className="w-24 mx-auto border border-neutral-200/60 rounded-xl bg-neutral-100 px-2 py-2 text-center font-medium text-[13px] text-neutral-400 h-10 flex items-center justify-center">
-                                {row.unpaidBreak}
-                              </div>
-                            ) : (
-                              <div className="relative w-24 mx-auto">
-                                <input
-                                  type="text"
-                                  inputMode="numeric"
-                                  pattern="[0-9]*"
-                                  disabled={
-                                    !isEditable ||
-                                    submitting ||
-                                    (!row.startTime && !row.endTime) ||
-                                    settings?.require_break_entry === false
-                                  }
-                                  value={row.unpaidBreak}
-                                  onChange={(e) => {
-                                    const val = e.target.value;
-                                    if (val === "" || /^\d*$/.test(val)) {
-                                      handleBreakChange(idx, val);
-                                    }
-                                  }}
-                                  className="w-full border border-neutral-200 rounded-xl bg-white pl-3 pr-8 py-2 text-center focus:outline-none focus:border-neutral-900 focus:ring-4 focus:ring-neutral-900/5 transition disabled:opacity-50 disabled:bg-neutral-50 disabled:cursor-not-allowed font-medium text-[13px] text-neutral-900 h-10 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                                />
-                                <div className="absolute right-1 top-1/2 -translate-y-1/2 flex flex-col gap-0.5 pr-1.5">
-                                  <button
-                                    type="button"
-                                    disabled={
-                                      !isEditable ||
-                                      submitting ||
-                                      (!row.startTime && !row.endTime) ||
-                                      settings?.require_break_entry === false
-                                    }
-                                    onClick={() => {
-                                      const currentVal =
-                                        parseInt(row.unpaidBreak, 10) || 0;
-                                      handleBreakChange(
-                                        idx,
-                                        (currentVal + 5).toString(),
-                                      );
-                                    }}
-                                    className="text-neutral-400 hover:text-neutral-800 disabled:opacity-40 cursor-pointer"
-                                  >
-                                    <ChevronDown className="w-3.5 h-3.5 rotate-180" />
-                                  </button>
-                                  <button
-                                    type="button"
-                                    disabled={
-                                      !isEditable ||
-                                      submitting ||
-                                      (!row.startTime && !row.endTime) ||
-                                      settings?.require_break_entry === false
-                                    }
-                                    onClick={() => {
-                                      const currentVal =
-                                        parseInt(row.unpaidBreak, 10) || 0;
-                                      handleBreakChange(
-                                        idx,
-                                        Math.max(0, currentVal - 5).toString(),
-                                      );
-                                    }}
-                                    className="text-neutral-400 hover:text-neutral-800 disabled:opacity-40 cursor-pointer"
-                                  >
-                                    <ChevronDown className="w-3.5 h-3.5" />
-                                  </button>
-                                </div>
-                              </div>
-                            )}
-                          </td>
+                            <td className="py-3 px-1 align-middle">
+                              <span className="inline-flex items-center justify-center px-2 py-1 rounded-lg bg-neutral-100 text-neutral-600 font-bold text-[10px] leading-none whitespace-nowrap">
+                                {shiftIdx + 1}
+                              </span>
+                            </td>
 
-                          <td className="py-4 px-3 text-center">
-                            <span className="text-[14px] font-semibold text-neutral-900">
-                              {hours > 0 ? hours.toFixed(1) : "0.0"}
-                            </span>
-                          </td>
-
-                          <td
-                            className="py-4 px-3 text-left"
-                            id={`projectcell-${idx}`}
-                          >
-                            <div className="relative">
-                              {!isEditable || row.isDayOff ? (
-                                <div className="w-full font-semibold text-[13px] text-emerald-700/60 border border-neutral-200/60 rounded-xl bg-neutral-100 px-3 h-10 flex items-center truncate">
-                                  {projectOptions.length === 0
-                                    ? "N/A"
-                                    : row.project || "—"}
-                                </div>
-                              ) : projectOptions.length === 0 ? (
-                                <div className="w-full font-semibold text-[13px] text-neutral-400 border border-neutral-200/80 rounded-xl bg-neutral-100/70 px-3 h-10 flex items-center justify-between cursor-not-allowed select-none opacity-60">
-                                  <span>N/A</span>
-                                  <ChevronDown className="w-4 h-4 text-neutral-300" />
+                            <td className="py-3 px-3 align-middle">
+                              {!shiftEditable ? (
+                                <div className={readonlyCell}>
+                                  {businesses.find(
+                                    (b) => b.id === shift.businessId,
+                                  )?.name || "—"}
                                 </div>
                               ) : (
                                 <Select
-                                  value={row.project || ""}
+                                  value={shift.businessId || ""}
                                   onValueChange={(val) =>
-                                    handleProjectSelect(idx, val)
+                                    handleBusinessChange(dayIdx, shiftIdx, val)
                                   }
-                                  disabled={
-                                    !isEditable ||
-                                    submitting ||
-                                    (!row.startTime && !row.endTime)
-                                  }
+                                  disabled={!shiftEditable || submitting}
                                 >
-                                  <SelectTrigger
-                                    className={cn(
-                                      "flex items-center justify-between w-full border border-neutral-200 rounded-xl bg-white px-3 py-2 text-left focus:outline-none focus:border-neutral-900 focus:ring-4 focus:ring-neutral-900/5 transition hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed font-semibold text-[13px] h-10 cursor-pointer",
-                                      row.project
-                                        ? "text-emerald-700"
-                                        : "text-neutral-400 font-medium",
-                                    )}
-                                  >
-                                    <SelectValue placeholder="Select Project" />
+                                  <SelectTrigger className="w-full h-10 rounded-xl border border-neutral-200 bg-white px-3 py-2 text-left focus:outline-none focus:border-neutral-900 focus:ring-4 focus:ring-neutral-900/5 transition cursor-pointer font-semibold text-xs text-neutral-900 hover:bg-neutral-50 flex items-center justify-between">
+                                    <SelectValue placeholder="Select Business" />
                                   </SelectTrigger>
                                   <SelectContent className="rounded-xl border border-neutral-200 bg-white p-1 max-h-56 z-50">
-                                    {projectOptions.map((opt) => (
+                                    {businesses.map((b) => (
                                       <SelectItem
-                                        value={opt}
-                                        key={opt}
-                                        className="rounded-lg px-3 py-2 text-[13px] font-semibold text-emerald-700 focus:bg-emerald-50 focus:text-emerald-800 hover:bg-emerald-50 hover:text-emerald-800 cursor-pointer"
+                                        key={b.id}
+                                        value={b.id}
+                                        className="rounded-lg px-3 py-2 text-xs font-semibold cursor-pointer"
                                       >
-                                        {opt}
+                                        {b.name}
                                       </SelectItem>
                                     ))}
                                   </SelectContent>
                                 </Select>
                               )}
-                            </div>
-                          </td>
+                            </td>
 
-                          <td className="py-4 px-3 text-left">
-                            {!isEditable || row.isDayOff ? (
-                              <div className="w-full font-medium text-[13px] text-neutral-400 border border-neutral-200/60 rounded-xl bg-neutral-100 px-3 h-10 flex items-center truncate">
-                                {row.notes || "—"}
+                            <td className="py-3 px-3 align-middle">
+                              {!shiftEditable ? (
+                                <div className={readonlyCell}>
+                                  {availableLocations.find(
+                                    (l) => l.id === shift.locationId,
+                                  )?.name ||
+                                    shift.locationName ||
+                                    "—"}
+                                </div>
+                              ) : (
+                                <Select
+                                  value={shift.locationId || ""}
+                                  onValueChange={(val) =>
+                                    handleLocationChange(dayIdx, shiftIdx, val)
+                                  }
+                                  disabled={
+                                    !shiftEditable ||
+                                    submitting ||
+                                    availableLocations.length === 0
+                                  }
+                                >
+                                  <SelectTrigger className="w-full h-10 rounded-xl border border-neutral-200 bg-white px-3 py-2 text-left focus:outline-none focus:border-neutral-900 focus:ring-4 focus:ring-neutral-900/5 transition cursor-pointer font-semibold text-xs text-neutral-900 hover:bg-neutral-50 flex items-center justify-between">
+                                    <SelectValue placeholder="Select Location" />
+                                  </SelectTrigger>
+                                  <SelectContent className="rounded-xl border border-neutral-200 bg-white p-1 max-h-56 z-50">
+                                    {availableLocations.map((l) => (
+                                      <SelectItem
+                                        key={l.id}
+                                        value={l.id}
+                                        className="rounded-lg px-3 py-2 text-xs font-semibold cursor-pointer"
+                                      >
+                                        {l.name}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              )}
+                            </td>
+
+                            <td
+                              className="py-3 px-3 text-center align-middle"
+                              id={`timecell-${dayIdx}-${shiftIdx}-start`}
+                            >
+                              <div className="relative">
+                                {!shiftEditable ? (
+                                  <div className="flex items-center justify-center w-full border border-neutral-200/60 rounded-xl bg-neutral-100 px-3 py-2 font-medium text-[13px] text-neutral-400 h-10">
+                                    {shift.startTime
+                                      ? formatTimeToAMPM(shift.startTime)
+                                      : "—"}
+                                  </div>
+                                ) : (
+                                  <>
+                                    <button
+                                      type="button"
+                                      disabled={submitting}
+                                      onClick={() =>
+                                        setOpenTimePicker({
+                                          dayIndex: dayIdx,
+                                          shiftIndex: shiftIdx,
+                                          type: "start",
+                                        })
+                                      }
+                                      className="flex items-center justify-between w-full border border-neutral-200 rounded-xl bg-white hover:bg-neutral-50 px-1 py-2 text-left focus:outline-none focus:border-neutral-900 focus:ring-4 focus:ring-neutral-900/5 transition group cursor-pointer font-medium text-[13px] text-neutral-900 h-10 disabled:opacity-50"
+                                    >
+                                      <span>
+                                        {shift.startTime
+                                          ? formatTimeToAMPM(shift.startTime)
+                                          : "—"}
+                                      </span>
+                                      <ChevronDown className="w-4 h-4 text-neutral-400 group-hover:text-neutral-600 shrink-0 transition-colors" />
+                                    </button>
+                                    {openTimePicker?.dayIndex === dayIdx &&
+                                      openTimePicker?.shiftIndex === shiftIdx &&
+                                      openTimePicker?.type === "start" && (
+                                        <TimePicker
+                                          value={shift.startTime}
+                                          onChange={(val, source) => {
+                                            handleTimeChange(
+                                              dayIdx,
+                                              shiftIdx,
+                                              "start",
+                                              val,
+                                            );
+                                            if (source === "period") {
+                                              setOpenTimePicker(null);
+                                            }
+                                          }}
+                                          className={`left-0 right-auto shadow-2xl border border-neutral-200 rounded-2xl ${dayIdx >= 4 ? "bottom-full mb-2" : "top-full mt-2"}`}
+                                        />
+                                      )}
+                                  </>
+                                )}
                               </div>
-                            ) : (
-                              <input
-                                type="text"
-                                disabled={
-                                  !isEditable ||
-                                  submitting ||
-                                  (!row.startTime && !row.endTime)
-                                }
-                                value={row.notes}
-                                onChange={(e) =>
-                                  handleNotesChange(idx, e.target.value)
-                                }
-                                placeholder="Add notes..."
-                                className="w-full border border-neutral-200 rounded-xl bg-white px-3 py-2 text-[13px] font-medium text-neutral-900 placeholder-neutral-400 focus:outline-none focus:border-neutral-900 focus:ring-4 focus:ring-neutral-900/5 transition disabled:opacity-50 disabled:bg-neutral-50 disabled:cursor-not-allowed h-10"
-                              />
+                            </td>
+
+                            <td
+                              className="py-3 px-3 text-center align-middle"
+                              id={`timecell-${dayIdx}-${shiftIdx}-end`}
+                            >
+                              <div className="relative">
+                                {!shiftEditable ? (
+                                  <div className="flex items-center justify-center w-full border border-neutral-200/60 rounded-xl bg-neutral-100 px-1 py-2 font-medium text-[13px] text-neutral-400 h-10">
+                                    {shift.endTime
+                                      ? formatTimeToAMPM(shift.endTime)
+                                      : "—"}
+                                  </div>
+                                ) : (
+                                  <>
+                                    <button
+                                      type="button"
+                                      disabled={submitting}
+                                      onClick={() =>
+                                        setOpenTimePicker({
+                                          dayIndex: dayIdx,
+                                          shiftIndex: shiftIdx,
+                                          type: "end",
+                                        })
+                                      }
+                                      className="flex items-center justify-between w-full border border-neutral-200 rounded-xl bg-white hover:bg-neutral-50 px-1 py-2 text-left focus:outline-none focus:border-neutral-900 focus:ring-4 focus:ring-neutral-900/5 transition group cursor-pointer font-medium text-[13px] text-neutral-900 h-10 disabled:opacity-50"
+                                    >
+                                      <span>
+                                        {shift.endTime
+                                          ? formatTimeToAMPM(shift.endTime)
+                                          : "—"}
+                                      </span>
+                                      <ChevronDown className="w-4 h-4 text-neutral-400 group-hover:text-neutral-600 shrink-0 transition-colors" />
+                                    </button>
+                                    {openTimePicker?.dayIndex === dayIdx &&
+                                      openTimePicker?.shiftIndex === shiftIdx &&
+                                      openTimePicker?.type === "end" && (
+                                        <TimePicker
+                                          value={shift.endTime}
+                                          onChange={(val, source) => {
+                                            handleTimeChange(
+                                              dayIdx,
+                                              shiftIdx,
+                                              "end",
+                                              val,
+                                            );
+                                            if (source === "period") {
+                                              setOpenTimePicker(null);
+                                            }
+                                          }}
+                                          className={`right-0! left-auto! shadow-2xl border border-neutral-200 rounded-2xl ${dayIdx >= 4 ? "bottom-full mb-2" : "top-full mt-2"}`}
+                                        />
+                                      )}
+                                  </>
+                                )}
+                              </div>
+                            </td>
+
+                            <td className="py-3 px-3 text-center align-middle">
+                              {!shiftEditable ? (
+                                <div className="w-24 mx-auto border border-neutral-200/60 rounded-xl bg-neutral-100 px-2 py-2 text-center font-medium text-[13px] text-neutral-400 h-10 flex items-center justify-center">
+                                  {shift.unpaidBreak}
+                                </div>
+                              ) : (
+                                <div className="relative w-24 mx-auto">
+                                  <input
+                                    type="text"
+                                    inputMode="numeric"
+                                    pattern="[0-9]*"
+                                    disabled={
+                                      !shiftEditable ||
+                                      submitting ||
+                                      (!shift.startTime && !shift.endTime) ||
+                                      settings?.require_break_entry === false
+                                    }
+                                    value={shift.unpaidBreak}
+                                    onChange={(e) => {
+                                      const val = e.target.value;
+                                      if (val === "" || /^\d*$/.test(val)) {
+                                        handleBreakChange(
+                                          dayIdx,
+                                          shiftIdx,
+                                          val,
+                                        );
+                                      }
+                                    }}
+                                    className="w-full border border-neutral-200 rounded-xl bg-white pl-3 pr-8 py-2 text-center focus:outline-none focus:border-neutral-900 focus:ring-4 focus:ring-neutral-900/5 transition disabled:opacity-50 disabled:bg-neutral-50 disabled:cursor-not-allowed font-medium text-[13px] text-neutral-900 h-10 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                  />
+                                  <div className="absolute right-1 top-1/2 -translate-y-1/2 flex flex-col gap-0.5 pr-1.5">
+                                    <button
+                                      type="button"
+                                      disabled={
+                                        !shiftEditable ||
+                                        submitting ||
+                                        (!shift.startTime && !shift.endTime) ||
+                                        settings?.require_break_entry === false
+                                      }
+                                      onClick={() => {
+                                        const cur =
+                                          parseInt(shift.unpaidBreak, 10) || 0;
+                                        handleBreakChange(
+                                          dayIdx,
+                                          shiftIdx,
+                                          (cur + 5).toString(),
+                                        );
+                                      }}
+                                      className="text-neutral-400 hover:text-neutral-800 disabled:opacity-40 cursor-pointer"
+                                    >
+                                      <ChevronDown className="w-3.5 h-3.5 rotate-180" />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      disabled={
+                                        !shiftEditable ||
+                                        submitting ||
+                                        (!shift.startTime && !shift.endTime) ||
+                                        settings?.require_break_entry === false
+                                      }
+                                      onClick={() => {
+                                        const cur =
+                                          parseInt(shift.unpaidBreak, 10) || 0;
+                                        handleBreakChange(
+                                          dayIdx,
+                                          shiftIdx,
+                                          Math.max(0, cur - 5).toString(),
+                                        );
+                                      }}
+                                      className="text-neutral-400 hover:text-neutral-800 disabled:opacity-40 cursor-pointer"
+                                    >
+                                      <ChevronDown className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
+                            </td>
+
+                            <td className="py-3 px-3 text-center align-middle">
+                              <span className="text-[14px] font-semibold text-neutral-900">
+                                {hours > 0 ? hours.toFixed(1) : "0.0"}
+                              </span>
+                            </td>
+
+                            {showProjectColumn && (
+                              <td
+                                className="py-3 px-3 text-left align-middle"
+                                id={`projectcell-${dayIdx}-${shiftIdx}`}
+                              >
+                                <div className="relative">
+                                  {!shiftEditable ? (
+                                    <div className="w-full font-semibold text-[13px] text-emerald-700/60 border border-neutral-200/60 rounded-xl bg-neutral-100 px-3 h-10 flex items-center truncate">
+                                      {projectOptions.length === 0
+                                        ? "N/A"
+                                        : shift.project || "—"}
+                                    </div>
+                                  ) : projectOptions.length === 0 ? (
+                                    <div className="w-full font-semibold text-[13px] text-neutral-400 border border-neutral-200/80 rounded-xl bg-neutral-100/70 px-3 h-10 flex items-center justify-between cursor-not-allowed select-none opacity-60">
+                                      <span>N/A</span>
+                                      <ChevronDown className="w-4 h-4 text-neutral-300" />
+                                    </div>
+                                  ) : (
+                                    <Select
+                                      value={shift.project || ""}
+                                      onValueChange={(val) =>
+                                        handleProjectSelect(
+                                          dayIdx,
+                                          shiftIdx,
+                                          val,
+                                        )
+                                      }
+                                      disabled={
+                                        !shiftEditable ||
+                                        submitting ||
+                                        (!shift.startTime && !shift.endTime)
+                                      }
+                                    >
+                                      <SelectTrigger
+                                        className={cn(
+                                          "flex items-center justify-between w-full border border-neutral-200 rounded-xl bg-white px-3 py-2 text-left focus:outline-none focus:border-neutral-900 focus:ring-4 focus:ring-neutral-900/5 transition hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed font-semibold text-[13px] h-10 cursor-pointer",
+                                          shift.project
+                                            ? "text-emerald-700"
+                                            : "text-neutral-400 font-medium",
+                                        )}
+                                      >
+                                        <SelectValue placeholder="Select Project" />
+                                      </SelectTrigger>
+                                      <SelectContent className="rounded-xl border border-neutral-200 bg-white p-1 max-h-56 z-50">
+                                        {projectOptions.map((opt) => (
+                                          <SelectItem
+                                            value={opt}
+                                            key={opt}
+                                            className="rounded-lg px-3 py-2 text-[13px] font-semibold text-emerald-700 focus:bg-emerald-50 focus:text-emerald-800 hover:bg-emerald-50 hover:text-emerald-800 cursor-pointer"
+                                          >
+                                            {opt}
+                                          </SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                  )}
+                                </div>
+                              </td>
                             )}
-                          </td>
-                        </tr>
-                      );
+
+                            <td className="py-3 px-2 text-left align-middle">
+                              {!shiftEditable ? (
+                                <div className="w-full font-medium text-[13px] text-neutral-400 border border-neutral-200/60 rounded-xl bg-neutral-100 px-2 h-10 flex items-center truncate">
+                                  {shift.notes || "—"}
+                                </div>
+                              ) : (
+                                <input
+                                  type="text"
+                                  disabled={
+                                    !shiftEditable ||
+                                    submitting ||
+                                    (!shift.startTime && !shift.endTime)
+                                  }
+                                  value={shift.notes}
+                                  onChange={(e) =>
+                                    handleNotesChange(
+                                      dayIdx,
+                                      shiftIdx,
+                                      e.target.value,
+                                    )
+                                  }
+                                  placeholder="Add notes..."
+                                  className="w-full border border-neutral-200 rounded-xl bg-white px-2 py-2 text-[13px] font-medium text-neutral-900 placeholder-neutral-400 focus:outline-none focus:border-neutral-900 focus:ring-4 focus:ring-neutral-900/5 transition disabled:opacity-50 disabled:bg-neutral-50 disabled:cursor-not-allowed h-10"
+                                />
+                              )}
+                            </td>
+
+                            <td className="py-3 px-3 text-center align-middle">
+                              <div className="flex items-center justify-center gap-1">
+                                {/* Add shift: only on last shift of the day */}
+                                {isLastShift && dayEditable && (
+                                  <button
+                                    type="button"
+                                    disabled={submitting}
+                                    onClick={() => handleAddShift(dayIdx)}
+                                    title="Add another shift"
+                                    className="w-7 h-7 flex items-center justify-center rounded-lg text-[#0A2924] hover:bg-[#0A2924]/10 border border-[#0A2924]/25 transition-colors cursor-pointer disabled:opacity-40"
+                                  >
+                                    <Plus className="w-3.5 h-3.5" />
+                                  </button>
+                                )}
+                                {/* Spacer when not last shift so trash stays aligned */}
+                                {!isLastShift && <div className="w-7 h-7" />}
+
+                                {/* Delete shift */}
+                                {shiftEditable && (
+                                  <button
+                                    type="button"
+                                    disabled={submitting}
+                                    onClick={() =>
+                                      handleDeleteShift(dayIdx, shiftIdx)
+                                    }
+                                    title="Delete shift"
+                                    className="w-7 h-7 flex items-center justify-center rounded-lg text-red-400 hover:bg-red-50 hover:text-red-600 border border-red-200/60 transition-colors cursor-pointer disabled:opacity-40"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      });
                     })}
 
-                    {filteredWeekRows.length === 0 && (
+                    {filteredWeekDays.length === 0 && (
                       <tr>
                         <td
                           colSpan={11}
@@ -1692,6 +1909,7 @@ export default function TimesheetEntryPage() {
                 </table>
               </div>
 
+              {/* Footer */}
               <div className="border-t border-neutral-200 px-6 py-4 bg-white flex flex-col sm:flex-row items-center justify-between gap-4">
                 <div className="flex items-center gap-2">
                   {lastSavedTime && (
@@ -1745,8 +1963,9 @@ export default function TimesheetEntryPage() {
         </div>
       </div>
 
-      {/* Mobile View */}
+      {/* ═══ MOBILE VIEW ════════════════════════════════════════════════════ */}
       <div className="block md:hidden bg-white p-1">
+        {/* Mobile header card */}
         <div className="bg-white border border-neutral-200 rounded-[28px] p-5 shadow-xs flex flex-col gap-4 mb-4">
           <h1 className="text-[24px] font-bold text-neutral-900 leading-tight">
             Enter Timesheet
@@ -1755,7 +1974,6 @@ export default function TimesheetEntryPage() {
             <div className="flex-1 bg-[#BAEBCE] text-[#0A2924] font-semibold px-4 py-2.5 rounded-full text-xs text-center flex items-center justify-center">
               Total Hours: {totalWeeklyHours.toFixed(1).replace(".0", "")}
             </div>
-
             <button
               type="button"
               onClick={handleCopyPreviousWeek}
@@ -1768,6 +1986,7 @@ export default function TimesheetEntryPage() {
           </div>
         </div>
 
+        {/* Staff select */}
         {!isStaff && (
           <div className="w-full mb-3">
             <Select
@@ -1814,6 +2033,7 @@ export default function TimesheetEntryPage() {
           </div>
         )}
 
+        {/* Search + week nav */}
         <div className="flex gap-3 items-center justify-between relative">
           <div className="relative flex-1">
             <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-neutral-400">
@@ -1880,55 +2100,58 @@ export default function TimesheetEntryPage() {
           </div>
         </div>
 
+        {/* Day cards */}
         <form onSubmit={handleSubmit} className="flex flex-col space-y-4 mt-4">
           <div className="flex flex-col space-y-3">
-            {filteredWeekRows.map(({ row, index: idx }) => {
-              const isEditable = checkIsDateEditable(row.dateStr, row.status);
-              const hours = calculateRowHours(
-                row.startTime,
-                row.endTime,
-                row.unpaidBreak,
+            {filteredWeekDays.map(({ day, index: dayIdx }) => {
+              const isExpanded = expandedDayIdx === dayIdx;
+              const dayEditable =
+                !day.isFuture &&
+                checkIsDateEditable(day.dateStr, day.shifts[0]?.status || "");
+              const dayTotalHours = day.shifts.reduce(
+                (sum, s) =>
+                  sum +
+                  calculateShiftHours(s.startTime, s.endTime, s.unpaidBreak),
+                0,
               );
-              const isExpanded = expandedDayIdx === idx;
-              const rowBizName =
-                businesses.find((b) => b.id === row.businessId)?.name || "";
-              const availableLocations = locationsMap[row.businessId] || [];
-              const rowLocName =
-                availableLocations.find((l) => l.id === row.locationId)?.name ||
-                row.locationName ||
-                "";
 
               return (
                 <div
-                  key={row.dateStr}
+                  key={day.dateStr}
                   className={cn(
                     "bg-white border border-neutral-200 rounded-[24px] shadow-sm transition-all overflow-hidden",
-                    (!isEditable || row.isFuture) &&
+                    (!dayEditable || day.isFuture) &&
                       "opacity-60 bg-neutral-50/20",
                   )}
                 >
+                  {/* Card Header */}
                   <div
                     className="flex items-center justify-between p-4 cursor-pointer select-none"
-                    onClick={() => setExpandedDayIdx(isExpanded ? null : idx)}
+                    onClick={() =>
+                      setExpandedDayIdx(isExpanded ? null : dayIdx)
+                    }
                   >
                     <div className="flex items-center gap-3">
                       <div className="w-11 shrink-0 text-center bg-neutral-100 text-neutral-600 font-bold px-1.5 py-1 rounded-lg text-xs leading-none">
-                        {row.dayName}
+                        {day.dayName}
                       </div>
                       <div className="flex flex-col">
                         <span className="text-neutral-950 font-bold text-sm leading-tight">
-                          {row.displayDate}
+                          {day.displayDate}
                         </span>
                         <span className="text-neutral-500 text-[11px] leading-tight mt-0.5 font-medium">
-                          {row.project ||
-                            `${rowBizName || "Select Business"} ${rowLocName ? `| ${rowLocName}` : ""}`}
+                          {day.shifts.length === 0
+                            ? "No shifts added"
+                            : `${day.shifts.length} shift${day.shifts.length > 1 ? "s" : ""}`}
                         </span>
                       </div>
                     </div>
 
                     <div className="flex items-center gap-2">
                       <span className="text-emerald-700 font-bold text-sm">
-                        {hours > 0 ? `${hours.toFixed(1)}h` : "0.0h"}
+                        {dayTotalHours > 0
+                          ? `${dayTotalHours.toFixed(1)}h`
+                          : "0.0h"}
                       </span>
                       <ChevronDown
                         className={cn(
@@ -1942,394 +2165,499 @@ export default function TimesheetEntryPage() {
                   {/* Card Body */}
                   <div
                     className={cn(
-                      "px-4 pb-5 border-t border-neutral-100 pt-4 bg-white",
+                      "border-t border-neutral-100 bg-white",
                       isExpanded ? "block" : "hidden",
                     )}
                   >
-                    {/* Mark as Day Off Toggle */}
-                    <div className="flex items-center justify-between mb-4">
-                      <span className="text-neutral-700 font-semibold text-xs">
-                        Mark as Day Off
-                      </span>
-                      <button
-                        type="button"
-                        disabled={!isEditable || submitting}
-                        onClick={() => handleDayOffChange(idx, !row.isDayOff)}
-                        className={cn(
-                          "w-11 h-6 rounded-full transition-colors relative cursor-pointer focus:outline-none",
-                          row.isDayOff ? "bg-[#0A2924]" : "bg-neutral-200",
-                          (!isEditable || submitting) &&
-                            "opacity-50 cursor-not-allowed",
-                        )}
-                      >
-                        <div
-                          className={cn(
-                            "w-5 h-5 rounded-full bg-white absolute top-0.5 transition-transform shadow-xs",
-                            row.isDayOff
-                              ? "translate-x-[22px]"
-                              : "translate-x-0.5",
-                          )}
-                        />
-                      </button>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3">
-                      {/* Business Dropdown */}
-                      <div className="flex flex-col gap-1.5">
-                        <label className="text-neutral-400 font-bold text-[9px] uppercase tracking-wider pl-0.5">
-                          Business
-                        </label>
-                        {!isEditable || row.isDayOff ? (
-                          <div className="w-full bg-neutral-50/50 border border-neutral-100 rounded-xl px-3 py-2 text-xs font-semibold text-neutral-800 h-10 flex items-center truncate">
-                            {rowBizName || "—"}
-                          </div>
-                        ) : (
-                          <Select
-                            value={row.businessId || ""}
-                            onValueChange={(val) =>
-                              handleBusinessChange(idx, val)
-                            }
-                            disabled={!isEditable || submitting}
+                    {/* Empty state */}
+                    {day.shifts.length === 0 ? (
+                      <div className="px-4 py-6 flex flex-col items-center gap-3">
+                        <p className="text-neutral-400 text-xs font-medium">
+                          No shifts have been added for this day.
+                        </p>
+                        {dayEditable && (
+                          <button
+                            type="button"
+                            disabled={submitting}
+                            onClick={() => handleAddShift(dayIdx)}
+                            className="inline-flex items-center gap-2 bg-[#0A2924] text-white px-4 py-2 rounded-full text-xs font-semibold transition cursor-pointer disabled:opacity-50"
                           >
-                            <SelectTrigger className="w-full h-10 rounded-xl border border-neutral-200 bg-white px-3 py-2 text-left font-semibold text-xs text-neutral-900 flex items-center justify-between">
-                              <SelectValue placeholder="Select Business" />
-                            </SelectTrigger>
-                            <SelectContent className="rounded-xl border border-neutral-200 bg-white p-1 max-h-56 z-50">
-                              {businesses.map((b) => (
-                                <SelectItem
-                                  key={b.id}
-                                  value={b.id}
-                                  className="rounded-lg px-3 py-2 text-xs font-semibold"
-                                >
-                                  {b.name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                            <Plus className="w-3.5 h-3.5" />
+                            Add Shift
+                          </button>
                         )}
                       </div>
+                    ) : (
+                      <div>
+                        {day.shifts.map((shift, shiftIdx) => {
+                          const shiftEditable =
+                            dayEditable &&
+                            checkIsDateEditable(day.dateStr, shift.status);
+                          const availableLocations =
+                            locationsMap[shift.businessId] || [];
+                          const hours = calculateShiftHours(
+                            shift.startTime,
+                            shift.endTime,
+                            shift.unpaidBreak,
+                          );
 
-                      {/* Location Dropdown */}
-                      <div className="flex flex-col gap-1.5">
-                        <label className="text-neutral-400 font-bold text-[9px] uppercase tracking-wider pl-0.5">
-                          Location
-                        </label>
-                        {!isEditable || row.isDayOff ? (
-                          <div className="w-full bg-neutral-50/50 border border-neutral-100 rounded-xl px-3 py-2 text-xs font-semibold text-neutral-800 h-10 flex items-center truncate">
-                            {rowLocName || "—"}
-                          </div>
-                        ) : (
-                          <Select
-                            value={row.locationId || ""}
-                            onValueChange={(val) =>
-                              handleLocationChange(idx, val)
-                            }
-                            disabled={
-                              !isEditable ||
-                              submitting ||
-                              availableLocations.length === 0
-                            }
-                          >
-                            <SelectTrigger className="w-full h-10 rounded-xl border border-neutral-200 bg-white px-3 py-2 text-left font-semibold text-xs text-neutral-900 flex items-center justify-between">
-                              <SelectValue placeholder="Select Location" />
-                            </SelectTrigger>
-                            <SelectContent className="rounded-xl border border-neutral-200 bg-white p-1 max-h-56 z-50">
-                              {availableLocations.map((l) => (
-                                <SelectItem
-                                  key={l.id}
-                                  value={l.id}
-                                  className="rounded-lg px-3 py-2 text-xs font-semibold"
-                                >
-                                  {l.name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        )}
-                      </div>
-
-                      {/* Start Time */}
-                      <div className="flex flex-col gap-1.5">
-                        <label className="text-neutral-400 font-bold text-[9px] uppercase tracking-wider pl-0.5">
-                          Start Time
-                        </label>
-                        <div
-                          className="relative"
-                          id={`timecell-mobile-${idx}-start`}
-                        >
-                          {!isEditable || row.isDayOff ? (
-                            <div className="flex items-center justify-center w-full border border-neutral-200/60 rounded-xl bg-neutral-50 px-3 py-2 font-medium text-[13px] text-neutral-400 h-10">
-                              {row.isDayOff
-                                ? "N/A"
-                                : row.startTime
-                                  ? formatTimeToAMPM(row.startTime)
-                                  : "—"}
-                            </div>
-                          ) : (
-                            <>
-                              <button
-                                type="button"
-                                disabled={submitting}
-                                onClick={() =>
-                                  setOpenTimePicker({
-                                    dayIndex: idx,
-                                    type: "start",
-                                  })
-                                }
-                                className="flex items-center justify-between w-full border border-neutral-200 rounded-xl bg-white hover:bg-neutral-50 px-3 py-2 text-left focus:outline-none focus:border-neutral-900 transition group cursor-pointer font-medium text-[13px] text-neutral-900 h-10 disabled:opacity-50"
-                              >
-                                <span>
-                                  {row.startTime
-                                    ? formatTimeToAMPM(row.startTime)
-                                    : "—"}
+                          return (
+                            <div
+                              key={shift.shiftId}
+                              className={cn(
+                                "px-4 py-4",
+                                shiftIdx < day.shifts.length - 1 &&
+                                  "border-b border-neutral-100",
+                              )}
+                            >
+                              {/* Shift header */}
+                              <div className="flex items-center justify-between mb-3">
+                                <span className="inline-flex items-center px-2.5 py-1 rounded-lg bg-neutral-100 text-neutral-600 font-bold text-[10px]">
+                                  Shift {shiftIdx + 1}
                                 </span>
-                                <ChevronDown className="w-4 h-4 text-neutral-400 shrink-0" />
-                              </button>
+                                {shiftEditable && (
+                                  <button
+                                    type="button"
+                                    disabled={submitting}
+                                    onClick={() =>
+                                      handleDeleteShift(dayIdx, shiftIdx)
+                                    }
+                                    className="flex items-center gap-1 text-red-400 hover:text-red-600 text-[11px] font-semibold transition cursor-pointer"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                    Delete
+                                  </button>
+                                )}
+                              </div>
 
-                              {openTimePicker?.dayIndex === idx &&
-                                openTimePicker?.type === "start" && (
-                                  <TimePicker
-                                    value={row.startTime}
-                                    onChange={(val, source) => {
-                                      handleTimeChange(idx, "start", val);
-                                      if (source === "period") {
-                                        setOpenTimePicker(null);
+                              <div className="grid grid-cols-2 gap-3">
+                                {/* Business */}
+                                <div className="flex flex-col gap-1.5">
+                                  <label className="text-neutral-400 font-bold text-[9px] uppercase tracking-wider pl-0.5">
+                                    Business
+                                  </label>
+                                  {!shiftEditable ? (
+                                    <div className="w-full bg-neutral-50/50 border border-neutral-100 rounded-xl px-3 py-2 text-xs font-semibold text-neutral-800 h-10 flex items-center truncate">
+                                      {businesses.find(
+                                        (b) => b.id === shift.businessId,
+                                      )?.name || "—"}
+                                    </div>
+                                  ) : (
+                                    <Select
+                                      value={shift.businessId || ""}
+                                      onValueChange={(val) =>
+                                        handleBusinessChange(
+                                          dayIdx,
+                                          shiftIdx,
+                                          val,
+                                        )
                                       }
-                                    }}
-                                    className="left-0 right-auto mt-2 shadow-2xl border border-neutral-200 rounded-2xl z-50"
+                                      disabled={!shiftEditable || submitting}
+                                    >
+                                      <SelectTrigger className="w-full h-10 rounded-xl border border-neutral-200 bg-white px-3 py-2 text-left font-semibold text-xs text-neutral-900 flex items-center justify-between">
+                                        <SelectValue placeholder="Select Business" />
+                                      </SelectTrigger>
+                                      <SelectContent className="rounded-xl border border-neutral-200 bg-white p-1 max-h-56 z-50">
+                                        {businesses.map((b) => (
+                                          <SelectItem
+                                            key={b.id}
+                                            value={b.id}
+                                            className="rounded-lg px-3 py-2 text-xs font-semibold"
+                                          >
+                                            {b.name}
+                                          </SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                  )}
+                                </div>
+
+                                {/* Location */}
+                                <div className="flex flex-col gap-1.5">
+                                  <label className="text-neutral-400 font-bold text-[9px] uppercase tracking-wider pl-0.5">
+                                    Location
+                                  </label>
+                                  {!shiftEditable ? (
+                                    <div className="w-full bg-neutral-50/50 border border-neutral-100 rounded-xl px-3 py-2 text-xs font-semibold text-neutral-800 h-10 flex items-center truncate">
+                                      {availableLocations.find(
+                                        (l) => l.id === shift.locationId,
+                                      )?.name ||
+                                        shift.locationName ||
+                                        "—"}
+                                    </div>
+                                  ) : (
+                                    <Select
+                                      value={shift.locationId || ""}
+                                      onValueChange={(val) =>
+                                        handleLocationChange(
+                                          dayIdx,
+                                          shiftIdx,
+                                          val,
+                                        )
+                                      }
+                                      disabled={
+                                        !shiftEditable ||
+                                        submitting ||
+                                        availableLocations.length === 0
+                                      }
+                                    >
+                                      <SelectTrigger className="w-full h-10 rounded-xl border border-neutral-200 bg-white px-3 py-2 text-left font-semibold text-xs text-neutral-900 flex items-center justify-between">
+                                        <SelectValue placeholder="Select Location" />
+                                      </SelectTrigger>
+                                      <SelectContent className="rounded-xl border border-neutral-200 bg-white p-1 max-h-56 z-50">
+                                        {availableLocations.map((l) => (
+                                          <SelectItem
+                                            key={l.id}
+                                            value={l.id}
+                                            className="rounded-lg px-3 py-2 text-xs font-semibold"
+                                          >
+                                            {l.name}
+                                          </SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                  )}
+                                </div>
+
+                                {/* Start Time */}
+                                <div className="flex flex-col gap-1.5">
+                                  <label className="text-neutral-400 font-bold text-[9px] uppercase tracking-wider pl-0.5">
+                                    Start Time
+                                  </label>
+                                  <div
+                                    className="relative"
+                                    id={`timecell-mobile-${dayIdx}-${shiftIdx}-start`}
+                                  >
+                                    {!shiftEditable ? (
+                                      <div className="flex items-center justify-center w-full border border-neutral-200/60 rounded-xl bg-neutral-50 px-3 py-2 font-medium text-[13px] text-neutral-400 h-10">
+                                        {shift.startTime
+                                          ? formatTimeToAMPM(shift.startTime)
+                                          : "—"}
+                                      </div>
+                                    ) : (
+                                      <>
+                                        <button
+                                          type="button"
+                                          disabled={submitting}
+                                          onClick={() =>
+                                            setOpenTimePicker({
+                                              dayIndex: dayIdx,
+                                              shiftIndex: shiftIdx,
+                                              type: "start",
+                                            })
+                                          }
+                                          className="flex items-center justify-between w-full border border-neutral-200 rounded-xl bg-white hover:bg-neutral-50 px-3 py-2 text-left focus:outline-none focus:border-neutral-900 transition group cursor-pointer font-medium text-[13px] text-neutral-900 h-10 disabled:opacity-50"
+                                        >
+                                          <span>
+                                            {shift.startTime
+                                              ? formatTimeToAMPM(
+                                                  shift.startTime,
+                                                )
+                                              : "—"}
+                                          </span>
+                                          <ChevronDown className="w-4 h-4 text-neutral-400 shrink-0" />
+                                        </button>
+                                        {openTimePicker?.dayIndex === dayIdx &&
+                                          openTimePicker?.shiftIndex ===
+                                            shiftIdx &&
+                                          openTimePicker?.type === "start" && (
+                                            <TimePicker
+                                              value={shift.startTime}
+                                              onChange={(val, source) => {
+                                                handleTimeChange(
+                                                  dayIdx,
+                                                  shiftIdx,
+                                                  "start",
+                                                  val,
+                                                );
+                                                if (source === "period") {
+                                                  setOpenTimePicker(null);
+                                                }
+                                              }}
+                                              className="left-0 right-auto mt-2 shadow-2xl border border-neutral-200 rounded-2xl z-50"
+                                            />
+                                          )}
+                                      </>
+                                    )}
+                                  </div>
+                                </div>
+
+                                {/* End Time */}
+                                <div className="flex flex-col gap-1.5">
+                                  <label className="text-neutral-400 font-bold text-[9px] uppercase tracking-wider pl-0.5">
+                                    End Time
+                                  </label>
+                                  <div
+                                    className="relative"
+                                    id={`timecell-mobile-${dayIdx}-${shiftIdx}-end`}
+                                  >
+                                    {!shiftEditable ? (
+                                      <div className="flex items-center justify-center w-full border border-neutral-200/60 rounded-xl bg-neutral-50 px-3 py-2 font-medium text-[13px] text-neutral-400 h-10">
+                                        {shift.endTime
+                                          ? formatTimeToAMPM(shift.endTime)
+                                          : "—"}
+                                      </div>
+                                    ) : (
+                                      <>
+                                        <button
+                                          type="button"
+                                          disabled={submitting}
+                                          onClick={() =>
+                                            setOpenTimePicker({
+                                              dayIndex: dayIdx,
+                                              shiftIndex: shiftIdx,
+                                              type: "end",
+                                            })
+                                          }
+                                          className="flex items-center justify-between w-full border border-neutral-200 rounded-xl bg-white hover:bg-neutral-50 px-3 py-2 text-left focus:outline-none focus:border-neutral-900 transition group cursor-pointer font-medium text-[13px] text-neutral-900 h-10 disabled:opacity-50"
+                                        >
+                                          <span>
+                                            {shift.endTime
+                                              ? formatTimeToAMPM(shift.endTime)
+                                              : "—"}
+                                          </span>
+                                          <ChevronDown className="w-4 h-4 text-neutral-400 shrink-0" />
+                                        </button>
+                                        {openTimePicker?.dayIndex === dayIdx &&
+                                          openTimePicker?.shiftIndex ===
+                                            shiftIdx &&
+                                          openTimePicker?.type === "end" && (
+                                            <TimePicker
+                                              value={shift.endTime}
+                                              onChange={(val, source) => {
+                                                handleTimeChange(
+                                                  dayIdx,
+                                                  shiftIdx,
+                                                  "end",
+                                                  val,
+                                                );
+                                                if (source === "period") {
+                                                  setOpenTimePicker(null);
+                                                }
+                                              }}
+                                              className="right-0! left-auto! mt-2 shadow-2xl border border-neutral-200 rounded-2xl z-50"
+                                            />
+                                          )}
+                                      </>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Unpaid Break */}
+                              <div className="flex flex-col gap-1.5 mt-3">
+                                <label className="text-neutral-400 font-bold text-[9px] uppercase tracking-wider pl-0.5">
+                                  Unpaid Break (Minutes)
+                                </label>
+                                {!shiftEditable ? (
+                                  <div className="w-full border border-neutral-200/60 rounded-xl bg-neutral-50 px-3 py-2 font-medium text-[13px] text-neutral-400 h-10 flex items-center">
+                                    {shift.unpaidBreak} mins
+                                  </div>
+                                ) : (
+                                  <div className="relative w-full">
+                                    <input
+                                      type="text"
+                                      inputMode="numeric"
+                                      pattern="[0-9]*"
+                                      disabled={
+                                        !shiftEditable ||
+                                        submitting ||
+                                        (!shift.startTime && !shift.endTime) ||
+                                        settings?.require_break_entry === false
+                                      }
+                                      value={shift.unpaidBreak}
+                                      onChange={(e) => {
+                                        const val = e.target.value;
+                                        if (val === "" || /^\d*$/.test(val)) {
+                                          handleBreakChange(
+                                            dayIdx,
+                                            shiftIdx,
+                                            val,
+                                          );
+                                        }
+                                      }}
+                                      className="w-full border border-neutral-200 rounded-xl bg-white pl-3 pr-10 py-2 focus:outline-none focus:border-neutral-900 transition disabled:opacity-50 disabled:bg-neutral-50 disabled:cursor-not-allowed font-medium text-[13px] text-neutral-900 h-10"
+                                    />
+                                    <div className="absolute right-1 top-1/2 -translate-y-1/2 flex flex-col gap-0.5 pr-1">
+                                      <button
+                                        type="button"
+                                        disabled={
+                                          !shiftEditable ||
+                                          submitting ||
+                                          (!shift.startTime &&
+                                            !shift.endTime) ||
+                                          settings?.require_break_entry ===
+                                            false
+                                        }
+                                        onClick={() => {
+                                          const cur =
+                                            parseInt(shift.unpaidBreak, 10) ||
+                                            0;
+                                          handleBreakChange(
+                                            dayIdx,
+                                            shiftIdx,
+                                            (cur + 5).toString(),
+                                          );
+                                        }}
+                                        className="text-neutral-400 hover:text-neutral-800 disabled:opacity-40"
+                                      >
+                                        <ChevronDown className="w-3.5 h-3.5 rotate-180" />
+                                      </button>
+                                      <button
+                                        type="button"
+                                        disabled={
+                                          !shiftEditable ||
+                                          submitting ||
+                                          (!shift.startTime &&
+                                            !shift.endTime) ||
+                                          settings?.require_break_entry ===
+                                            false
+                                        }
+                                        onClick={() => {
+                                          const cur =
+                                            parseInt(shift.unpaidBreak, 10) ||
+                                            0;
+                                          handleBreakChange(
+                                            dayIdx,
+                                            shiftIdx,
+                                            Math.max(0, cur - 5).toString(),
+                                          );
+                                        }}
+                                        className="text-neutral-400 hover:text-neutral-800 disabled:opacity-40"
+                                      >
+                                        <ChevronDown className="w-3.5 h-3.5" />
+                                      </button>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Project */}
+                              {showProjectColumn && (
+                                <div className="flex flex-col gap-1.5 mt-3">
+                                  <label className="text-neutral-400 font-bold text-[9px] uppercase tracking-wider pl-0.5">
+                                    Project
+                                  </label>
+                                  {!shiftEditable ? (
+                                    <div className="w-full font-semibold text-[13px] text-emerald-700/60 border border-neutral-200/60 rounded-xl bg-neutral-50 px-3 h-10 flex items-center truncate">
+                                      {projectOptions.length === 0
+                                        ? "N/A"
+                                        : shift.project || "—"}
+                                    </div>
+                                  ) : projectOptions.length === 0 ? (
+                                    <div className="w-full font-semibold text-[13px] text-neutral-400 border border-neutral-200/80 rounded-xl bg-neutral-100/70 px-3 h-10 flex items-center justify-between cursor-not-allowed select-none opacity-60">
+                                      <span>N/A</span>
+                                      <ChevronDown className="w-4 h-4 text-neutral-300" />
+                                    </div>
+                                  ) : (
+                                    <Select
+                                      value={shift.project || ""}
+                                      onValueChange={(val) =>
+                                        handleProjectSelect(
+                                          dayIdx,
+                                          shiftIdx,
+                                          val,
+                                        )
+                                      }
+                                      disabled={
+                                        !shiftEditable ||
+                                        submitting ||
+                                        (!shift.startTime && !shift.endTime)
+                                      }
+                                    >
+                                      <SelectTrigger
+                                        className={cn(
+                                          "flex items-center justify-between w-full border border-neutral-200 rounded-xl bg-white px-3 py-2 text-left focus:outline-none focus:border-neutral-900 transition hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed font-semibold text-[13px] h-10 cursor-pointer",
+                                          shift.project
+                                            ? "text-emerald-700"
+                                            : "text-neutral-400 font-medium",
+                                        )}
+                                      >
+                                        <SelectValue placeholder="Select Project" />
+                                      </SelectTrigger>
+                                      <SelectContent className="rounded-xl border border-neutral-200 bg-white p-1 max-h-56 z-50">
+                                        {projectOptions.map((opt) => (
+                                          <SelectItem
+                                            value={opt}
+                                            key={opt}
+                                            className="rounded-lg px-3 py-2 text-[13px] font-semibold text-emerald-700 focus:bg-emerald-50 focus:text-emerald-800 cursor-pointer"
+                                          >
+                                            {opt}
+                                          </SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                  )}
+                                </div>
+                              )}
+
+                              {/* Notes */}
+                              <div className="flex flex-col gap-1.5 mt-3">
+                                <label className="text-neutral-400 font-bold text-[9px] uppercase tracking-wider pl-0.5">
+                                  Notes
+                                </label>
+                                {!shiftEditable ? (
+                                  <div className="w-full font-medium text-xs text-neutral-400 border border-neutral-200/60 rounded-xl bg-neutral-50 px-3 py-2 min-h-[60px] flex items-start">
+                                    {shift.notes || "—"}
+                                  </div>
+                                ) : (
+                                  <textarea
+                                    disabled={
+                                      !shiftEditable ||
+                                      submitting ||
+                                      (!shift.startTime && !shift.endTime)
+                                    }
+                                    value={shift.notes}
+                                    onChange={(e) =>
+                                      handleNotesChange(
+                                        dayIdx,
+                                        shiftIdx,
+                                        e.target.value,
+                                      )
+                                    }
+                                    placeholder="Add Notes..."
+                                    rows={3}
+                                    className="w-full border border-neutral-200 rounded-xl bg-white px-3 py-2 text-xs font-medium text-neutral-900 placeholder-neutral-400 focus:outline-none focus:border-neutral-900 transition disabled:opacity-50 disabled:bg-neutral-50 disabled:cursor-not-allowed resize-none"
                                   />
                                 )}
-                            </>
-                          )}
-                        </div>
-                      </div>
+                              </div>
 
-                      {/* End Time */}
-                      <div className="flex flex-col gap-1.5">
-                        <label className="text-neutral-400 font-bold text-[9px] uppercase tracking-wider pl-0.5">
-                          End Time
-                        </label>
-                        <div
-                          className="relative"
-                          id={`timecell-mobile-${idx}-end`}
-                        >
-                          {!isEditable || row.isDayOff ? (
-                            <div className="flex items-center justify-center w-full border border-neutral-200/60 rounded-xl bg-neutral-50 px-3 py-2 font-medium text-[13px] text-neutral-400 h-10">
-                              {row.isDayOff
-                                ? "N/A"
-                                : row.endTime
-                                  ? formatTimeToAMPM(row.endTime)
-                                  : "—"}
-                            </div>
-                          ) : (
-                            <>
-                              <button
-                                type="button"
-                                disabled={submitting}
-                                onClick={() =>
-                                  setOpenTimePicker({
-                                    dayIndex: idx,
-                                    type: "end",
-                                  })
-                                }
-                                className="flex items-center justify-between w-full border border-neutral-200 rounded-xl bg-white hover:bg-neutral-50 px-3 py-2 text-left focus:outline-none focus:border-neutral-900 transition group cursor-pointer font-medium text-[13px] text-neutral-900 h-10 disabled:opacity-50"
-                              >
-                                <span>
-                                  {row.endTime
-                                    ? formatTimeToAMPM(row.endTime)
-                                    : "—"}
+                              {/* Shift total hours */}
+                              <div className="flex items-center justify-between border-t border-neutral-100 mt-4 pt-3">
+                                <span className="text-neutral-500 text-xs font-semibold">
+                                  Shift Hours
                                 </span>
-                                <ChevronDown className="w-4 h-4 text-neutral-400 shrink-0" />
-                              </button>
+                                <span className="text-emerald-700 font-bold text-sm">
+                                  {hours > 0 ? `${hours.toFixed(1)}h` : "0.0h"}
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        })}
 
-                              {openTimePicker?.dayIndex === idx &&
-                                openTimePicker?.type === "end" && (
-                                  <TimePicker
-                                    value={row.endTime}
-                                    onChange={(val, source) => {
-                                      handleTimeChange(idx, "end", val);
-                                      if (source === "period") {
-                                        setOpenTimePicker(null);
-                                      }
-                                    }}
-                                    className="right-0! left-auto! mt-2 shadow-2xl border border-neutral-200 rounded-2xl z-50"
-                                  />
-                                )}
-                            </>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Unpaid Break */}
-                    <div className="flex flex-col gap-1.5 mt-3">
-                      <label className="text-neutral-400 font-bold text-[9px] uppercase tracking-wider pl-0.5">
-                        Unpaid Break (Minutes)
-                      </label>
-                      {!isEditable || row.isDayOff ? (
-                        <div className="w-full border border-neutral-200/60 rounded-xl bg-neutral-50 px-3 py-2 font-medium text-[13px] text-neutral-400 h-10 flex items-center">
-                          {row.unpaidBreak} mins
-                        </div>
-                      ) : (
-                        <div className="relative w-full">
-                          <input
-                            type="text"
-                            inputMode="numeric"
-                            pattern="[0-9]*"
-                            disabled={
-                              !isEditable ||
-                              submitting ||
-                              (!row.startTime && !row.endTime) ||
-                              settings?.require_break_entry === false
-                            }
-                            value={row.unpaidBreak}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              if (val === "" || /^\d*$/.test(val)) {
-                                handleBreakChange(idx, val);
-                              }
-                            }}
-                            className="w-full border border-neutral-200 rounded-xl bg-white pl-3 pr-10 py-2 focus:outline-none focus:border-neutral-900 transition disabled:opacity-50 disabled:bg-neutral-50 disabled:cursor-not-allowed font-medium text-[13px] text-neutral-900 h-10"
-                          />
-                          <div className="absolute right-1 top-1/2 -translate-y-1/2 flex flex-col gap-0.5 pr-1">
+                        {/* Add another shift button */}
+                        {dayEditable && (
+                          <div className="px-4 py-3 border-t border-neutral-100">
                             <button
                               type="button"
-                              disabled={
-                                !isEditable ||
-                                submitting ||
-                                (!row.startTime && !row.endTime) ||
-                                settings?.require_break_entry === false
-                              }
-                              onClick={() => {
-                                const currentVal =
-                                  parseInt(row.unpaidBreak, 10) || 0;
-                                handleBreakChange(
-                                  idx,
-                                  (currentVal + 5).toString(),
-                                );
-                              }}
-                              className="text-neutral-400 hover:text-neutral-800 disabled:opacity-40"
+                              disabled={submitting}
+                              onClick={() => handleAddShift(dayIdx)}
+                              className="w-full inline-flex items-center justify-center gap-2 border border-dashed border-neutral-300 hover:border-[#0A2924]/40 hover:bg-[#0A2924]/3 text-neutral-500 hover:text-[#0A2924] px-4 py-2.5 rounded-xl text-xs font-semibold transition-colors cursor-pointer disabled:opacity-50"
                             >
-                              <ChevronDown className="w-3.5 h-3.5 rotate-180" />
-                            </button>
-                            <button
-                              type="button"
-                              disabled={
-                                !isEditable ||
-                                submitting ||
-                                (!row.startTime && !row.endTime) ||
-                                settings?.require_break_entry === false
-                              }
-                              onClick={() => {
-                                const currentVal =
-                                  parseInt(row.unpaidBreak, 10) || 0;
-                                handleBreakChange(
-                                  idx,
-                                  Math.max(0, currentVal - 5).toString(),
-                                );
-                              }}
-                              className="text-neutral-400 hover:text-neutral-800 disabled:opacity-40"
-                            >
-                              <ChevronDown className="w-3.5 h-3.5" />
+                              <Plus className="w-3.5 h-3.5" />
+                              Add Another Shift
                             </button>
                           </div>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Project */}
-                    <div className="flex flex-col gap-1.5 mt-3">
-                      <label className="text-neutral-400 font-bold text-[9px] uppercase tracking-wider pl-0.5">
-                        Project
-                      </label>
-                      {!isEditable || row.isDayOff ? (
-                        <div className="w-full font-semibold text-[13px] text-emerald-700/60 border border-neutral-200/60 rounded-xl bg-neutral-50 px-3 h-10 flex items-center truncate">
-                          {projectOptions.length === 0
-                            ? "N/A"
-                            : row.project || "—"}
-                        </div>
-                      ) : projectOptions.length === 0 ? (
-                        <div className="w-full font-semibold text-[13px] text-neutral-400 border border-neutral-200/80 rounded-xl bg-neutral-100/70 px-3 h-10 flex items-center justify-between cursor-not-allowed select-none opacity-60">
-                          <span>N/A</span>
-                          <ChevronDown className="w-4 h-4 text-neutral-300" />
-                        </div>
-                      ) : (
-                        <Select
-                          value={row.project || ""}
-                          onValueChange={(val) => handleProjectSelect(idx, val)}
-                          disabled={
-                            !isEditable ||
-                            submitting ||
-                            (!row.startTime && !row.endTime)
-                          }
-                        >
-                          <SelectTrigger
-                            className={cn(
-                              "flex items-center justify-between w-full border border-neutral-200 rounded-xl bg-white px-3 py-2 text-left focus:outline-none focus:border-neutral-900 transition hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed font-semibold text-[13px] h-10 cursor-pointer",
-                              row.project
-                                ? "text-emerald-700"
-                                : "text-neutral-400 font-medium",
-                            )}
-                          >
-                            <SelectValue placeholder="Select Project" />
-                          </SelectTrigger>
-                          <SelectContent className="rounded-xl border border-neutral-200 bg-white p-1 max-h-56 z-50">
-                            {projectOptions.map((opt) => (
-                              <SelectItem
-                                value={opt}
-                                key={opt}
-                                className="rounded-lg px-3 py-2 text-[13px] font-semibold text-emerald-700 focus:bg-emerald-50 focus:text-emerald-800 cursor-pointer"
-                              >
-                                {opt}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      )}
-                    </div>
-
-                    {/* Notes */}
-                    <div className="flex flex-col gap-1.5 mt-3">
-                      <label className="text-neutral-400 font-bold text-[9px] uppercase tracking-wider pl-0.5">
-                        Notes
-                      </label>
-                      {!isEditable || row.isDayOff ? (
-                        <div className="w-full font-medium text-xs text-neutral-400 border border-neutral-200/60 rounded-xl bg-neutral-50 px-3 py-2 min-h-[60px] flex items-start">
-                          {row.notes || "—"}
-                        </div>
-                      ) : (
-                        <textarea
-                          disabled={
-                            !isEditable ||
-                            submitting ||
-                            (!row.startTime && !row.endTime)
-                          }
-                          value={row.notes}
-                          onChange={(e) =>
-                            handleNotesChange(idx, e.target.value)
-                          }
-                          placeholder="Add Notes..."
-                          rows={3}
-                          className="w-full border border-neutral-200 rounded-xl bg-white px-3 py-2 text-xs font-medium text-neutral-900 placeholder-neutral-400 focus:outline-none focus:border-neutral-900 transition disabled:opacity-50 disabled:bg-neutral-50 disabled:cursor-not-allowed resize-none"
-                        />
-                      )}
-                    </div>
-
-                    {/* Total Hours footer indicator */}
-                    <div className="flex items-center justify-between border-t border-neutral-100 mt-4 pt-3">
-                      <span className="text-neutral-500 text-xs font-semibold">
-                        Total Hours
-                      </span>
-                      <span className="text-emerald-700 font-bold text-sm">
-                        {hours > 0 ? `${hours.toFixed(1)}h` : "0.0h"}
-                      </span>
-                    </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
               );
             })}
           </div>
 
+          {/* Mobile submit footer */}
           <div className="flex flex-col gap-3 mt-6 bg-white pt-2 border-t border-neutral-100">
             {lastSavedTime && (
               <div className="flex items-center gap-1.5 text-neutral-500 text-xs pl-1 font-medium select-none">
@@ -2379,6 +2707,7 @@ export default function TimesheetEntryPage() {
         </form>
       </div>
 
+      {/* ═══ CONFIRM MODAL ══════════════════════════════════════════════════ */}
       {showConfirmModal && (
         <div className="fixed inset-0 bg-[#0A2924]/30 backdrop-blur-sm flex items-center justify-center z-100 p-4 select-none animate-fade-in">
           <div className="bg-white border border-neutral-200 rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden animate-scale-in flex flex-col max-h-[85vh]">
@@ -2421,54 +2750,80 @@ export default function TimesheetEntryPage() {
               </div>
 
               <div className="divide-y divide-neutral-100 pr-1">
-                {confirmRows.map((row) => {
-                  const hours = calculateRowHours(
-                    row.startTime,
-                    row.endTime,
-                    row.unpaidBreak,
+                {confirmDays.map((day) => {
+                  const dayHours = day.shifts.reduce(
+                    (sum, s) =>
+                      sum +
+                      calculateShiftHours(
+                        s.startTime,
+                        s.endTime,
+                        s.unpaidBreak,
+                      ),
+                    0,
                   );
-                  const isOff =
-                    row.isDayOff ||
-                    (row.startTime === "00:00" && row.endTime === "00:00");
-                  const rowBizName =
-                    businesses.find((b) => b.id === row.businessId)?.name || "";
-                  const rowLocName =
-                    (locationsMap[row.businessId] || []).find(
-                      (l) => l.id === row.locationId,
-                    )?.name || "";
+                  const hasShifts = day.shifts.length > 0;
 
                   return (
-                    <div
-                      key={row.dateStr}
-                      className="py-3 flex items-center justify-between gap-4"
-                    >
-                      <div className="flex flex-col">
-                        <span className="text-xs font-bold text-neutral-900">
-                          {row.dayName}
-                        </span>
-                        <span className="text-[10px] font-medium text-neutral-500">
-                          {row.displayDate} {rowBizName && `• ${rowBizName}`}{" "}
-                          {rowLocName && `(${rowLocName})`}
-                        </span>
+                    <div key={day.dateStr} className="py-3">
+                      <div className="flex items-center justify-between gap-4">
+                        <div className="flex flex-col">
+                          <span className="text-xs font-bold text-neutral-900">
+                            {day.dayName}
+                          </span>
+                          <span className="text-[10px] font-medium text-neutral-500">
+                            {day.displayDate}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {!hasShifts ? (
+                            <span className="inline-flex items-center justify-center px-3 py-1 rounded-full text-[10px] font-bold bg-neutral-100 text-neutral-500 border border-neutral-200">
+                              No shifts
+                            </span>
+                          ) : (
+                            <span className="text-xs font-bold text-emerald-800">
+                              {dayHours.toFixed(1)} hrs
+                            </span>
+                          )}
+                        </div>
                       </div>
 
-                      <div className="flex items-center gap-2">
-                        {isOff ? (
-                          <span className="inline-flex items-center justify-center px-3 py-1 rounded-full text-[10px] font-bold bg-neutral-100 text-neutral-500 border border-neutral-200">
-                            Day Off
-                          </span>
-                        ) : (
-                          <div className="flex flex-col items-end">
-                            <span className="text-xs font-bold text-emerald-800">
-                              {hours.toFixed(1)} hrs
+                      {/* Shifts breakdown */}
+                      {day.shifts.map((shift, sIdx) => {
+                        const hours = calculateShiftHours(
+                          shift.startTime,
+                          shift.endTime,
+                          shift.unpaidBreak,
+                        );
+                        const bizName =
+                          businesses.find((b) => b.id === shift.businessId)
+                            ?.name || "";
+                        const locName =
+                          (locationsMap[shift.businessId] || []).find(
+                            (l) => l.id === shift.locationId,
+                          )?.name || "";
+
+                        return (
+                          <div
+                            key={shift.shiftId}
+                            className="flex items-center justify-between mt-1.5 pl-3 border-l-2 border-neutral-100"
+                          >
+                            <span className="text-[10px] text-neutral-500 font-medium">
+                              Shift {sIdx + 1}
+                              {bizName && ` · ${bizName}`}
+                              {locName && ` (${locName})`}
                             </span>
-                            <span className="text-[9px] font-semibold text-neutral-450 leading-tight">
-                              {formatTimeToAMPM(row.startTime)} -{" "}
-                              {formatTimeToAMPM(row.endTime)}
-                            </span>
+                            <div className="flex flex-col items-end">
+                              <span className="text-[10px] font-bold text-emerald-800">
+                                {hours.toFixed(1)} hrs
+                              </span>
+                              <span className="text-[9px] font-semibold text-neutral-400 leading-tight">
+                                {formatTimeToAMPM(shift.startTime)} –{" "}
+                                {formatTimeToAMPM(shift.endTime)}
+                              </span>
+                            </div>
                           </div>
-                        )}
-                      </div>
+                        );
+                      })}
                     </div>
                   );
                 })}
@@ -2481,14 +2836,19 @@ export default function TimesheetEntryPage() {
                   Total Weekly Hours
                 </span>
                 <span className="text-base font-black text-emerald-800 bg-[#BAEBCE]/40 px-3 py-1.5 rounded-xl border border-[#BAEBCE]/20 leading-none">
-                  {confirmRows
+                  {confirmDays
                     .reduce(
-                      (sum, row) =>
+                      (sum, day) =>
                         sum +
-                        calculateRowHours(
-                          row.startTime,
-                          row.endTime,
-                          row.unpaidBreak,
+                        day.shifts.reduce(
+                          (s, shift) =>
+                            s +
+                            calculateShiftHours(
+                              shift.startTime,
+                              shift.endTime,
+                              shift.unpaidBreak,
+                            ),
+                          0,
                         ),
                       0,
                     )
@@ -2507,7 +2867,7 @@ export default function TimesheetEntryPage() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => executeSubmit(confirmRows)}
+                  onClick={() => executeSubmit(confirmDays)}
                   className="flex-1 bg-[#0A2924] hover:bg-[#0A2924]/90 border border-[#0A2924] text-white py-3 rounded-full text-xs font-bold transition-all duration-200 shadow-sm flex items-center justify-center gap-2 cursor-pointer"
                 >
                   Confirm & Submit

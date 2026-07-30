@@ -39,6 +39,7 @@ export interface TimesheetSettings {
 
   // 7. Project Management
   projects: string[];
+  enable_projects: boolean;
 }
 
 export const getTimesheetSettings = async (

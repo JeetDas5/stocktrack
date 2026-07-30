@@ -743,6 +743,7 @@ class TimesheetSettings(SQLModel, table=True):
 
     # 7. Project Settings
     projects: List[str] = Field(default=[], sa_column=Column(JSON))
+    enable_projects: bool = Field(default=True)
 
 
 
