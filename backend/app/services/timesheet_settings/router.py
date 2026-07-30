@@ -195,7 +195,7 @@ def save_timesheet_settings(
     # 2. Timesheet Entry Rules
     settings.allow_past_entry = data.allow_past_entry
     settings.max_past_days = data.max_past_days
-    settings.lock_submitted = data.lock_submitted
+    settings.lock_submitted = not data.allow_staff_edit_pending
     settings.allow_staff_edit_pending = data.allow_staff_edit_pending
     settings.allow_managers_edit_approved = data.allow_managers_edit_approved
 
