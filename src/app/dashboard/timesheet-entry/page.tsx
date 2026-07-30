@@ -1354,10 +1354,15 @@ export default function TimesheetEntryPage() {
           >
             <div className="bg-white border border-neutral-200 rounded-3xl shadow-2xs overflow-hidden flex-1 min-h-0 flex flex-col">
               <div className="overflow-auto flex-1 min-h-0">
-                <table className="w-full text-left border-collapse min-w-[1300px]">
+                <table
+                  className={cn(
+                    "w-full text-left border-collapse",
+                    showProjectColumn ? "min-w-[1300px]" : "min-w-[1050px]",
+                  )}
+                >
                   <thead>
                     <tr className="border-b border-neutral-200 text-[11px] font-semibold uppercase tracking-wider text-neutral-500 bg-white sticky top-0 z-10">
-                      <th className="py-4 px-6 text-left font-semibold min-w-[110px]">
+                      <th className="py-4 px-6 text-left font-semibold w-[120px] min-w-[120px] max-w-[120px]">
                         Day / Date
                       </th>
                       <th className="py-4 px-1 text-left font-semibold min-w-[50px]">
@@ -1386,7 +1391,7 @@ export default function TimesheetEntryPage() {
                           Project
                         </th>
                       )}
-                      <th className="py-4 px-3 text-left font-semibold w-[125px]">
+                      <th className="py-4 px-3 text-left font-semibold w-full min-w-[150px]">
                         Notes
                       </th>
                       <th className="py-4 px-3 text-center font-semibold min-w-[80px]">
@@ -1477,7 +1482,7 @@ export default function TimesheetEntryPage() {
                           >
                             <td
                               className={cn(
-                                "py-3 px-6 align-middle",
+                                "py-3 px-6 align-middle w-[120px] min-w-[120px] max-w-[120px]",
                                 !isFirstShift &&
                                   "border-l-2 border-l-neutral-100",
                               )}
@@ -1830,7 +1835,7 @@ export default function TimesheetEntryPage() {
                               </td>
                             )}
 
-                            <td className="py-3 px-2 text-left align-middle">
+                            <td className="py-3 px-2 text-left align-middle w-full min-w-[150px]">
                               {!shiftEditable ? (
                                 <div className="w-full font-medium text-[13px] text-neutral-400 border border-neutral-200/60 rounded-xl bg-neutral-100 px-2 h-10 flex items-center truncate">
                                   {shift.notes || "—"}
@@ -2444,152 +2449,162 @@ export default function TimesheetEntryPage() {
                                 </div>
                               </div>
 
-                              {/* Unpaid Break */}
-                              <div className="flex flex-col gap-1.5 mt-3">
-                                <label className="text-neutral-400 font-bold text-[9px] uppercase tracking-wider pl-0.5">
-                                  Unpaid Break (Minutes)
-                                </label>
-                                {!shiftEditable ? (
-                                  <div className="w-full border border-neutral-200/60 rounded-xl bg-neutral-50 px-3 py-2 font-medium text-[13px] text-neutral-400 h-10 flex items-center">
-                                    {shift.unpaidBreak} mins
-                                  </div>
-                                ) : (
-                                  <div className="relative w-full">
-                                    <input
-                                      type="text"
-                                      inputMode="numeric"
-                                      pattern="[0-9]*"
-                                      disabled={
-                                        !shiftEditable ||
-                                        submitting ||
-                                        (!shift.startTime && !shift.endTime) ||
-                                        settings?.require_break_entry === false
-                                      }
-                                      value={shift.unpaidBreak}
-                                      onChange={(e) => {
-                                        const val = e.target.value;
-                                        if (val === "" || /^\d*$/.test(val)) {
-                                          handleBreakChange(
+                              <div
+                                className={cn(
+                                  "mt-3",
+                                  showProjectColumn
+                                    ? "grid grid-cols-2 gap-3"
+                                    : "flex flex-col gap-1.5",
+                                )}
+                              >
+                                <div className="flex flex-col gap-1.5">
+                                  <label className="text-neutral-400 font-bold text-[9px] uppercase tracking-wider pl-0.5">
+                                    Unpaid Break (Minutes)
+                                  </label>
+                                  {!shiftEditable ? (
+                                    <div className="w-full border border-neutral-200/60 rounded-xl bg-neutral-50 px-3 py-2 font-medium text-[13px] text-neutral-400 h-10 flex items-center">
+                                      {shift.unpaidBreak} mins
+                                    </div>
+                                  ) : (
+                                    <div className="relative w-full">
+                                      <input
+                                        type="text"
+                                        inputMode="numeric"
+                                        pattern="[0-9]*"
+                                        disabled={
+                                          !shiftEditable ||
+                                          submitting ||
+                                          (!shift.startTime &&
+                                            !shift.endTime) ||
+                                          settings?.require_break_entry ===
+                                            false
+                                        }
+                                        value={shift.unpaidBreak}
+                                        onChange={(e) => {
+                                          const val = e.target.value;
+                                          if (val === "" || /^\d*$/.test(val)) {
+                                            handleBreakChange(
+                                              dayIdx,
+                                              shiftIdx,
+                                              val,
+                                            );
+                                          }
+                                        }}
+                                        className="w-full border border-neutral-200 rounded-xl bg-white pl-3 pr-10 py-2 focus:outline-none focus:border-neutral-900 transition disabled:opacity-50 disabled:bg-neutral-50 disabled:cursor-not-allowed font-medium text-[13px] text-neutral-900 h-10"
+                                      />
+                                      <div className="absolute right-1 top-1/2 -translate-y-1/2 flex flex-col gap-0.5 pr-1">
+                                        <button
+                                          type="button"
+                                          disabled={
+                                            !shiftEditable ||
+                                            submitting ||
+                                            (!shift.startTime &&
+                                              !shift.endTime) ||
+                                            settings?.require_break_entry ===
+                                              false
+                                          }
+                                          onClick={() => {
+                                            const cur =
+                                              parseInt(shift.unpaidBreak, 10) ||
+                                              0;
+                                            handleBreakChange(
+                                              dayIdx,
+                                              shiftIdx,
+                                              (cur + 5).toString(),
+                                            );
+                                          }}
+                                          className="text-neutral-400 hover:text-neutral-800 disabled:opacity-40"
+                                        >
+                                          <ChevronDown className="w-3.5 h-3.5 rotate-180" />
+                                        </button>
+                                        <button
+                                          type="button"
+                                          disabled={
+                                            !shiftEditable ||
+                                            submitting ||
+                                            (!shift.startTime &&
+                                              !shift.endTime) ||
+                                            settings?.require_break_entry ===
+                                              false
+                                          }
+                                          onClick={() => {
+                                            const cur =
+                                              parseInt(shift.unpaidBreak, 10) ||
+                                              0;
+                                            handleBreakChange(
+                                              dayIdx,
+                                              shiftIdx,
+                                              Math.max(0, cur - 5).toString(),
+                                            );
+                                          }}
+                                          className="text-neutral-400 hover:text-neutral-800 disabled:opacity-40"
+                                        >
+                                          <ChevronDown className="w-3.5 h-3.5" />
+                                        </button>
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+
+                                {/* Project */}
+                                {showProjectColumn && (
+                                  <div className="flex flex-col gap-1.5">
+                                    <label className="text-neutral-400 font-bold text-[9px] uppercase tracking-wider pl-0.5">
+                                      Project
+                                    </label>
+                                    {!shiftEditable ? (
+                                      <div className="w-full font-semibold text-[13px] text-emerald-700/60 border border-neutral-200/60 rounded-xl bg-neutral-50 px-3 h-10 flex items-center truncate">
+                                        {projectOptions.length === 0
+                                          ? "N/A"
+                                          : shift.project || "—"}
+                                      </div>
+                                    ) : projectOptions.length === 0 ? (
+                                      <div className="w-full font-semibold text-[13px] text-neutral-400 border border-neutral-200/80 rounded-xl bg-neutral-100/70 px-3 h-10 flex items-center justify-between cursor-not-allowed select-none opacity-60">
+                                        <span>N/A</span>
+                                        <ChevronDown className="w-4 h-4 text-neutral-300" />
+                                      </div>
+                                    ) : (
+                                      <Select
+                                        value={shift.project || ""}
+                                        onValueChange={(val) =>
+                                          handleProjectSelect(
                                             dayIdx,
                                             shiftIdx,
                                             val,
-                                          );
+                                          )
                                         }
-                                      }}
-                                      className="w-full border border-neutral-200 rounded-xl bg-white pl-3 pr-10 py-2 focus:outline-none focus:border-neutral-900 transition disabled:opacity-50 disabled:bg-neutral-50 disabled:cursor-not-allowed font-medium text-[13px] text-neutral-900 h-10"
-                                    />
-                                    <div className="absolute right-1 top-1/2 -translate-y-1/2 flex flex-col gap-0.5 pr-1">
-                                      <button
-                                        type="button"
                                         disabled={
                                           !shiftEditable ||
                                           submitting ||
-                                          (!shift.startTime &&
-                                            !shift.endTime) ||
-                                          settings?.require_break_entry ===
-                                            false
+                                          (!shift.startTime && !shift.endTime)
                                         }
-                                        onClick={() => {
-                                          const cur =
-                                            parseInt(shift.unpaidBreak, 10) ||
-                                            0;
-                                          handleBreakChange(
-                                            dayIdx,
-                                            shiftIdx,
-                                            (cur + 5).toString(),
-                                          );
-                                        }}
-                                        className="text-neutral-400 hover:text-neutral-800 disabled:opacity-40"
                                       >
-                                        <ChevronDown className="w-3.5 h-3.5 rotate-180" />
-                                      </button>
-                                      <button
-                                        type="button"
-                                        disabled={
-                                          !shiftEditable ||
-                                          submitting ||
-                                          (!shift.startTime &&
-                                            !shift.endTime) ||
-                                          settings?.require_break_entry ===
-                                            false
-                                        }
-                                        onClick={() => {
-                                          const cur =
-                                            parseInt(shift.unpaidBreak, 10) ||
-                                            0;
-                                          handleBreakChange(
-                                            dayIdx,
-                                            shiftIdx,
-                                            Math.max(0, cur - 5).toString(),
-                                          );
-                                        }}
-                                        className="text-neutral-400 hover:text-neutral-800 disabled:opacity-40"
-                                      >
-                                        <ChevronDown className="w-3.5 h-3.5" />
-                                      </button>
-                                    </div>
+                                        <SelectTrigger
+                                          className={cn(
+                                            "flex items-center justify-between w-full border border-neutral-200 rounded-xl bg-white px-3 py-2 text-left focus:outline-none focus:border-neutral-900 transition hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed font-semibold text-[13px] h-10 cursor-pointer",
+                                            shift.project
+                                              ? "text-emerald-700"
+                                              : "text-neutral-400 font-medium",
+                                          )}
+                                        >
+                                          <SelectValue placeholder="Select Project" />
+                                        </SelectTrigger>
+                                        <SelectContent className="rounded-xl border border-neutral-200 bg-white p-1 max-h-56 z-50">
+                                          {projectOptions.map((opt) => (
+                                            <SelectItem
+                                              value={opt}
+                                              key={opt}
+                                              className="rounded-lg px-3 py-2 text-[13px] font-semibold text-emerald-700 focus:bg-emerald-50 focus:text-emerald-800 cursor-pointer"
+                                            >
+                                              {opt}
+                                            </SelectItem>
+                                          ))}
+                                        </SelectContent>
+                                      </Select>
+                                    )}
                                   </div>
                                 )}
                               </div>
-
-                              {/* Project */}
-                              {showProjectColumn && (
-                                <div className="flex flex-col gap-1.5 mt-3">
-                                  <label className="text-neutral-400 font-bold text-[9px] uppercase tracking-wider pl-0.5">
-                                    Project
-                                  </label>
-                                  {!shiftEditable ? (
-                                    <div className="w-full font-semibold text-[13px] text-emerald-700/60 border border-neutral-200/60 rounded-xl bg-neutral-50 px-3 h-10 flex items-center truncate">
-                                      {projectOptions.length === 0
-                                        ? "N/A"
-                                        : shift.project || "—"}
-                                    </div>
-                                  ) : projectOptions.length === 0 ? (
-                                    <div className="w-full font-semibold text-[13px] text-neutral-400 border border-neutral-200/80 rounded-xl bg-neutral-100/70 px-3 h-10 flex items-center justify-between cursor-not-allowed select-none opacity-60">
-                                      <span>N/A</span>
-                                      <ChevronDown className="w-4 h-4 text-neutral-300" />
-                                    </div>
-                                  ) : (
-                                    <Select
-                                      value={shift.project || ""}
-                                      onValueChange={(val) =>
-                                        handleProjectSelect(
-                                          dayIdx,
-                                          shiftIdx,
-                                          val,
-                                        )
-                                      }
-                                      disabled={
-                                        !shiftEditable ||
-                                        submitting ||
-                                        (!shift.startTime && !shift.endTime)
-                                      }
-                                    >
-                                      <SelectTrigger
-                                        className={cn(
-                                          "flex items-center justify-between w-full border border-neutral-200 rounded-xl bg-white px-3 py-2 text-left focus:outline-none focus:border-neutral-900 transition hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed font-semibold text-[13px] h-10 cursor-pointer",
-                                          shift.project
-                                            ? "text-emerald-700"
-                                            : "text-neutral-400 font-medium",
-                                        )}
-                                      >
-                                        <SelectValue placeholder="Select Project" />
-                                      </SelectTrigger>
-                                      <SelectContent className="rounded-xl border border-neutral-200 bg-white p-1 max-h-56 z-50">
-                                        {projectOptions.map((opt) => (
-                                          <SelectItem
-                                            value={opt}
-                                            key={opt}
-                                            className="rounded-lg px-3 py-2 text-[13px] font-semibold text-emerald-700 focus:bg-emerald-50 focus:text-emerald-800 cursor-pointer"
-                                          >
-                                            {opt}
-                                          </SelectItem>
-                                        ))}
-                                      </SelectContent>
-                                    </Select>
-                                  )}
-                                </div>
-                              )}
 
                               {/* Notes */}
                               <div className="flex flex-col gap-1.5 mt-3">
