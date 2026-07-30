@@ -105,6 +105,10 @@ export default function TimesheetEntryPage() {
     return settings?.projects || [];
   }, [settings]);
 
+  const showProjectColumn = useMemo(() => {
+    return settings?.enable_projects !== false && projectOptions.length > 0;
+  }, [settings, projectOptions]);
+
   const [currentWeekStart, setCurrentWeekStart] = useState<Date>(() => {
     const today = new Date();
     const day = today.getDay();
@@ -941,9 +945,9 @@ export default function TimesheetEntryPage() {
     }
   };
 
-  // ─── Clear All ────────────────────────────────────────────────────────────
-
   const handleClearAll = () => {
+    const defaultBiz = businesses.length === 1 ? businesses[0].id : "";
+
     const newDays = weekDays.map((day) => {
       const isEditable = checkIsDateEditable(
         day.dateStr,
@@ -951,20 +955,51 @@ export default function TimesheetEntryPage() {
       );
       if (!isEditable || day.isFuture) return day;
 
-      // For days with DB records that are approved, keep them
-      const hasApproved = day.shifts.some((s) => s.status === "approved");
-      if (hasApproved) return day;
+      const dayTimesheets = staffTimesheets.filter(
+        (ts) => ts.workDate === day.dateStr,
+      );
 
-      // Clear all shifts for this day
-      return { ...day, shifts: [] };
+      let shifts: ShiftRow[] = [];
+
+      if (dayTimesheets.length > 0) {
+        shifts = dayTimesheets.map((ts) => {
+          const isDayOff = ts.startTime === "00:00" && ts.endTime === "00:00";
+          const bId = ts.businessId || defaultBiz;
+          const bizLocs = locationsMap[bId] || [];
+          const lId =
+            ts.locationId || (bizLocs.length === 1 ? bizLocs[0].id : "");
+          return {
+            shiftId: makeShiftId(),
+            businessId: bId,
+            locationId: lId,
+            locationName: ts.locationName || "",
+            startTime: isDayOff ? "" : ts.startTime,
+            endTime: isDayOff ? "" : ts.endTime,
+            unpaidBreak: ts.unpaidBreak.toString(),
+            project: ts.project || "",
+            notes: ts.notes || "",
+            dbTimesheetId: ts.id || null,
+            status: ts.status || "",
+          };
+        });
+      }
+
+      const isDayOff =
+        dayTimesheets.length === 1 &&
+        dayTimesheets[0].startTime === "00:00" &&
+        dayTimesheets[0].endTime === "00:00";
+
+      return {
+        ...day,
+        isDayOff,
+        shifts,
+      };
     });
 
     clearDraft();
     setWeekDays(newDays);
     toast.success("Unsaved changes cleared.");
   };
-
-  // ─── Submit ───────────────────────────────────────────────────────────────
 
   const executeSubmit = async (daysToSubmit: DayGroup[]) => {
     setShowConfirmModal(false);
@@ -1346,10 +1381,12 @@ export default function TimesheetEntryPage() {
                       <th className="py-4 px-3 text-center font-semibold min-w-[60px]">
                         Hours
                       </th>
-                      <th className="py-4 px-3 text-left font-semibold min-w-[160px]">
-                        Project
-                      </th>
-                      <th className="py-4 px-3 text-left font-semibold min-w-[170px]">
+                      {showProjectColumn && (
+                        <th className="py-4 px-3 text-left font-semibold min-w-[160px]">
+                          Project
+                        </th>
+                      )}
+                      <th className="py-4 px-3 text-left font-semibold w-[125px]">
                         Notes
                       </th>
                       <th className="py-4 px-3 text-center font-semibold min-w-[80px]">
@@ -1386,7 +1423,10 @@ export default function TimesheetEntryPage() {
                                 </span>
                               </div>
                             </td>
-                            <td colSpan={9} className="py-4 px-3 align-middle">
+                            <td
+                              colSpan={showProjectColumn ? 9 : 8}
+                              className="py-4 px-3 align-middle"
+                            >
                               <div className="flex items-center gap-4">
                                 <span className="text-neutral-400 text-xs font-medium italic">
                                   No shifts have been added
@@ -1495,7 +1535,6 @@ export default function TimesheetEntryPage() {
                               )}
                             </td>
 
-                            {/* ── Location */}
                             <td className="py-3 px-3 align-middle">
                               {!shiftEditable ? (
                                 <div className={readonlyCell}>
@@ -1535,7 +1574,6 @@ export default function TimesheetEntryPage() {
                               )}
                             </td>
 
-                            {/* ── Start Time */}
                             <td
                               className="py-3 px-3 text-center align-middle"
                               id={`timecell-${dayIdx}-${shiftIdx}-start`}
@@ -1648,7 +1686,6 @@ export default function TimesheetEntryPage() {
                               </div>
                             </td>
 
-                            {/* ── Unpaid Break */}
                             <td className="py-3 px-3 text-center align-middle">
                               {!shiftEditable ? (
                                 <div className="w-24 mx-auto border border-neutral-200/60 rounded-xl bg-neutral-100 px-2 py-2 text-center font-medium text-[13px] text-neutral-400 h-10 flex items-center justify-center">
@@ -1727,72 +1764,75 @@ export default function TimesheetEntryPage() {
                               )}
                             </td>
 
-                            {/* ── Total Hours */}
                             <td className="py-3 px-3 text-center align-middle">
                               <span className="text-[14px] font-semibold text-neutral-900">
                                 {hours > 0 ? hours.toFixed(1) : "0.0"}
                               </span>
                             </td>
 
-                            {/* ── Project */}
-                            <td
-                              className="py-3 px-3 text-left align-middle"
-                              id={`projectcell-${dayIdx}-${shiftIdx}`}
-                            >
-                              <div className="relative">
-                                {!shiftEditable ? (
-                                  <div className="w-full font-semibold text-[13px] text-emerald-700/60 border border-neutral-200/60 rounded-xl bg-neutral-100 px-3 h-10 flex items-center truncate">
-                                    {projectOptions.length === 0
-                                      ? "N/A"
-                                      : shift.project || "—"}
-                                  </div>
-                                ) : projectOptions.length === 0 ? (
-                                  <div className="w-full font-semibold text-[13px] text-neutral-400 border border-neutral-200/80 rounded-xl bg-neutral-100/70 px-3 h-10 flex items-center justify-between cursor-not-allowed select-none opacity-60">
-                                    <span>N/A</span>
-                                    <ChevronDown className="w-4 h-4 text-neutral-300" />
-                                  </div>
-                                ) : (
-                                  <Select
-                                    value={shift.project || ""}
-                                    onValueChange={(val) =>
-                                      handleProjectSelect(dayIdx, shiftIdx, val)
-                                    }
-                                    disabled={
-                                      !shiftEditable ||
-                                      submitting ||
-                                      (!shift.startTime && !shift.endTime)
-                                    }
-                                  >
-                                    <SelectTrigger
-                                      className={cn(
-                                        "flex items-center justify-between w-full border border-neutral-200 rounded-xl bg-white px-3 py-2 text-left focus:outline-none focus:border-neutral-900 focus:ring-4 focus:ring-neutral-900/5 transition hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed font-semibold text-[13px] h-10 cursor-pointer",
-                                        shift.project
-                                          ? "text-emerald-700"
-                                          : "text-neutral-400 font-medium",
-                                      )}
+                            {showProjectColumn && (
+                              <td
+                                className="py-3 px-3 text-left align-middle"
+                                id={`projectcell-${dayIdx}-${shiftIdx}`}
+                              >
+                                <div className="relative">
+                                  {!shiftEditable ? (
+                                    <div className="w-full font-semibold text-[13px] text-emerald-700/60 border border-neutral-200/60 rounded-xl bg-neutral-100 px-3 h-10 flex items-center truncate">
+                                      {projectOptions.length === 0
+                                        ? "N/A"
+                                        : shift.project || "—"}
+                                    </div>
+                                  ) : projectOptions.length === 0 ? (
+                                    <div className="w-full font-semibold text-[13px] text-neutral-400 border border-neutral-200/80 rounded-xl bg-neutral-100/70 px-3 h-10 flex items-center justify-between cursor-not-allowed select-none opacity-60">
+                                      <span>N/A</span>
+                                      <ChevronDown className="w-4 h-4 text-neutral-300" />
+                                    </div>
+                                  ) : (
+                                    <Select
+                                      value={shift.project || ""}
+                                      onValueChange={(val) =>
+                                        handleProjectSelect(
+                                          dayIdx,
+                                          shiftIdx,
+                                          val,
+                                        )
+                                      }
+                                      disabled={
+                                        !shiftEditable ||
+                                        submitting ||
+                                        (!shift.startTime && !shift.endTime)
+                                      }
                                     >
-                                      <SelectValue placeholder="Select Project" />
-                                    </SelectTrigger>
-                                    <SelectContent className="rounded-xl border border-neutral-200 bg-white p-1 max-h-56 z-50">
-                                      {projectOptions.map((opt) => (
-                                        <SelectItem
-                                          value={opt}
-                                          key={opt}
-                                          className="rounded-lg px-3 py-2 text-[13px] font-semibold text-emerald-700 focus:bg-emerald-50 focus:text-emerald-800 hover:bg-emerald-50 hover:text-emerald-800 cursor-pointer"
-                                        >
-                                          {opt}
-                                        </SelectItem>
-                                      ))}
-                                    </SelectContent>
-                                  </Select>
-                                )}
-                              </div>
-                            </td>
+                                      <SelectTrigger
+                                        className={cn(
+                                          "flex items-center justify-between w-full border border-neutral-200 rounded-xl bg-white px-3 py-2 text-left focus:outline-none focus:border-neutral-900 focus:ring-4 focus:ring-neutral-900/5 transition hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed font-semibold text-[13px] h-10 cursor-pointer",
+                                          shift.project
+                                            ? "text-emerald-700"
+                                            : "text-neutral-400 font-medium",
+                                        )}
+                                      >
+                                        <SelectValue placeholder="Select Project" />
+                                      </SelectTrigger>
+                                      <SelectContent className="rounded-xl border border-neutral-200 bg-white p-1 max-h-56 z-50">
+                                        {projectOptions.map((opt) => (
+                                          <SelectItem
+                                            value={opt}
+                                            key={opt}
+                                            className="rounded-lg px-3 py-2 text-[13px] font-semibold text-emerald-700 focus:bg-emerald-50 focus:text-emerald-800 hover:bg-emerald-50 hover:text-emerald-800 cursor-pointer"
+                                          >
+                                            {opt}
+                                          </SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                  )}
+                                </div>
+                              </td>
+                            )}
 
-                            {/* ── Notes */}
-                            <td className="py-3 px-3 text-left align-middle">
+                            <td className="py-3 px-2 text-left align-middle">
                               {!shiftEditable ? (
-                                <div className="w-full font-medium text-[13px] text-neutral-400 border border-neutral-200/60 rounded-xl bg-neutral-100 px-3 h-10 flex items-center truncate">
+                                <div className="w-full font-medium text-[13px] text-neutral-400 border border-neutral-200/60 rounded-xl bg-neutral-100 px-2 h-10 flex items-center truncate">
                                   {shift.notes || "—"}
                                 </div>
                               ) : (
@@ -1812,12 +1852,11 @@ export default function TimesheetEntryPage() {
                                     )
                                   }
                                   placeholder="Add notes..."
-                                  className="w-full border border-neutral-200 rounded-xl bg-white px-3 py-2 text-[13px] font-medium text-neutral-900 placeholder-neutral-400 focus:outline-none focus:border-neutral-900 focus:ring-4 focus:ring-neutral-900/5 transition disabled:opacity-50 disabled:bg-neutral-50 disabled:cursor-not-allowed h-10"
+                                  className="w-full border border-neutral-200 rounded-xl bg-white px-2 py-2 text-[13px] font-medium text-neutral-900 placeholder-neutral-400 focus:outline-none focus:border-neutral-900 focus:ring-4 focus:ring-neutral-900/5 transition disabled:opacity-50 disabled:bg-neutral-50 disabled:cursor-not-allowed h-10"
                                 />
                               )}
                             </td>
 
-                            {/* ── Actions column */}
                             <td className="py-3 px-3 text-center align-middle">
                               <div className="flex items-center justify-center gap-1">
                                 {/* Add shift: only on last shift of the day */}
@@ -2494,57 +2533,63 @@ export default function TimesheetEntryPage() {
                               </div>
 
                               {/* Project */}
-                              <div className="flex flex-col gap-1.5 mt-3">
-                                <label className="text-neutral-400 font-bold text-[9px] uppercase tracking-wider pl-0.5">
-                                  Project
-                                </label>
-                                {!shiftEditable ? (
-                                  <div className="w-full font-semibold text-[13px] text-emerald-700/60 border border-neutral-200/60 rounded-xl bg-neutral-50 px-3 h-10 flex items-center truncate">
-                                    {projectOptions.length === 0
-                                      ? "N/A"
-                                      : shift.project || "—"}
-                                  </div>
-                                ) : projectOptions.length === 0 ? (
-                                  <div className="w-full font-semibold text-[13px] text-neutral-400 border border-neutral-200/80 rounded-xl bg-neutral-100/70 px-3 h-10 flex items-center justify-between cursor-not-allowed select-none opacity-60">
-                                    <span>N/A</span>
-                                    <ChevronDown className="w-4 h-4 text-neutral-300" />
-                                  </div>
-                                ) : (
-                                  <Select
-                                    value={shift.project || ""}
-                                    onValueChange={(val) =>
-                                      handleProjectSelect(dayIdx, shiftIdx, val)
-                                    }
-                                    disabled={
-                                      !shiftEditable ||
-                                      submitting ||
-                                      (!shift.startTime && !shift.endTime)
-                                    }
-                                  >
-                                    <SelectTrigger
-                                      className={cn(
-                                        "flex items-center justify-between w-full border border-neutral-200 rounded-xl bg-white px-3 py-2 text-left focus:outline-none focus:border-neutral-900 transition hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed font-semibold text-[13px] h-10 cursor-pointer",
-                                        shift.project
-                                          ? "text-emerald-700"
-                                          : "text-neutral-400 font-medium",
-                                      )}
+                              {showProjectColumn && (
+                                <div className="flex flex-col gap-1.5 mt-3">
+                                  <label className="text-neutral-400 font-bold text-[9px] uppercase tracking-wider pl-0.5">
+                                    Project
+                                  </label>
+                                  {!shiftEditable ? (
+                                    <div className="w-full font-semibold text-[13px] text-emerald-700/60 border border-neutral-200/60 rounded-xl bg-neutral-50 px-3 h-10 flex items-center truncate">
+                                      {projectOptions.length === 0
+                                        ? "N/A"
+                                        : shift.project || "—"}
+                                    </div>
+                                  ) : projectOptions.length === 0 ? (
+                                    <div className="w-full font-semibold text-[13px] text-neutral-400 border border-neutral-200/80 rounded-xl bg-neutral-100/70 px-3 h-10 flex items-center justify-between cursor-not-allowed select-none opacity-60">
+                                      <span>N/A</span>
+                                      <ChevronDown className="w-4 h-4 text-neutral-300" />
+                                    </div>
+                                  ) : (
+                                    <Select
+                                      value={shift.project || ""}
+                                      onValueChange={(val) =>
+                                        handleProjectSelect(
+                                          dayIdx,
+                                          shiftIdx,
+                                          val,
+                                        )
+                                      }
+                                      disabled={
+                                        !shiftEditable ||
+                                        submitting ||
+                                        (!shift.startTime && !shift.endTime)
+                                      }
                                     >
-                                      <SelectValue placeholder="Select Project" />
-                                    </SelectTrigger>
-                                    <SelectContent className="rounded-xl border border-neutral-200 bg-white p-1 max-h-56 z-50">
-                                      {projectOptions.map((opt) => (
-                                        <SelectItem
-                                          value={opt}
-                                          key={opt}
-                                          className="rounded-lg px-3 py-2 text-[13px] font-semibold text-emerald-700 focus:bg-emerald-50 focus:text-emerald-800 cursor-pointer"
-                                        >
-                                          {opt}
-                                        </SelectItem>
-                                      ))}
-                                    </SelectContent>
-                                  </Select>
-                                )}
-                              </div>
+                                      <SelectTrigger
+                                        className={cn(
+                                          "flex items-center justify-between w-full border border-neutral-200 rounded-xl bg-white px-3 py-2 text-left focus:outline-none focus:border-neutral-900 transition hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed font-semibold text-[13px] h-10 cursor-pointer",
+                                          shift.project
+                                            ? "text-emerald-700"
+                                            : "text-neutral-400 font-medium",
+                                        )}
+                                      >
+                                        <SelectValue placeholder="Select Project" />
+                                      </SelectTrigger>
+                                      <SelectContent className="rounded-xl border border-neutral-200 bg-white p-1 max-h-56 z-50">
+                                        {projectOptions.map((opt) => (
+                                          <SelectItem
+                                            value={opt}
+                                            key={opt}
+                                            className="rounded-lg px-3 py-2 text-[13px] font-semibold text-emerald-700 focus:bg-emerald-50 focus:text-emerald-800 cursor-pointer"
+                                          >
+                                            {opt}
+                                          </SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                  )}
+                                </div>
+                              )}
 
                               {/* Notes */}
                               <div className="flex flex-col gap-1.5 mt-3">

@@ -38,6 +38,7 @@ class TimesheetSettingsUpdate(SQLModel):
     lock_timesheets_before_date: bool
 
     projects: List[str] = []
+    enable_projects: bool = True
 
 
 def verify_timesheet_admin(user: User, business_id: str, session: Session):
@@ -222,6 +223,7 @@ def save_timesheet_settings(
 
     # 7. Project Settings
     settings.projects = data.projects
+    settings.enable_projects = data.enable_projects
 
     session.add(settings)
     session.commit()

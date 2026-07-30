@@ -148,6 +148,7 @@ export default function TimesheetSettingsPage() {
 
   const [projects, setProjects] = useState<string[]>([]);
   const [newProjectName, setNewProjectName] = useState("");
+  const [enableProjects, setEnableProjects] = useState(true);
 
   const [originalSettings, setOriginalSettings] =
     useState<TimesheetSettings | null>(null);
@@ -207,6 +208,7 @@ export default function TimesheetSettingsPage() {
     setLockPayrollPeriodDate(data.lock_payroll_period_date || "");
     setLockTimesheetsBeforeDate(data.lock_timesheets_before_date);
     setProjects(data.projects || []);
+    setEnableProjects(data.enable_projects !== false);
   };
 
   useEffect(() => {
@@ -277,6 +279,7 @@ export default function TimesheetSettingsPage() {
           lock_payroll_period_date: lockPayrollPeriodDate || null,
           lock_timesheets_before_date: lockTimesheetsBeforeDate,
           projects: projects,
+          enable_projects: enableProjects,
         };
 
         const updated = await saveTimesheetSettings(activeBusinessId, payload);
@@ -317,6 +320,7 @@ export default function TimesheetSettingsPage() {
     lockPayrollPeriodDate,
     lockTimesheetsBeforeDate,
     projects,
+    enableProjects,
   ]);
 
   const toggleSection = (section: keyof typeof openSections) => {
@@ -1203,6 +1207,25 @@ export default function TimesheetSettingsPage() {
           >
             <div className="accordion-grid-inner rounded-b-2xl">
               <div className="p-6 space-y-6">
+                <div className="border-b border-zinc-100 pb-5">
+                  <label className="flex items-start gap-2.5 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={enableProjects}
+                      onChange={(e) => setEnableProjects(e.target.checked)}
+                      className="mt-0.5 h-3.5 w-3.5 accent-[#0C830C] text-[#0C830C] border-zinc-300 rounded focus:ring-[#0C830C]"
+                    />
+                    <div className="flex flex-col">
+                      <span className="text-xs font-bold text-zinc-950">
+                        Enable projects for timesheets
+                      </span>
+                      <p className="text-[10px] text-zinc-400 mt-0.5">
+                        Ask staff and managers to select projects when entering timesheet shifts.
+                      </p>
+                    </div>
+                  </label>
+                </div>
+
                 <div>
                   <h3 className="text-xs font-extrabold text-zinc-700 uppercase tracking-wide mb-1">
                     Create & Manage Projects
