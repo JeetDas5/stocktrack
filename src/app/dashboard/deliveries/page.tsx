@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import { toast } from "sonner";
 import { useBusinessStore } from "@/stores/business-store";
 import { getSuppliers } from "@/lib/repositories/supplier.repository";
@@ -17,7 +17,6 @@ import {
   Search,
   ChevronLeft,
   ChevronRight,
-  ChevronDown,
   Plus,
   Loader2,
   X,
@@ -25,7 +24,6 @@ import {
   Download,
   Check,
   MoreVertical,
-  Calendar as CalendarIcon,
 } from "lucide-react";
 import {
   Select,
@@ -42,7 +40,7 @@ export default function DeliveriesPage() {
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [, setError] = useState<string | null>(null);
 
   const [deliveries, setDeliveries] = useState<Delivery[]>([]);
   const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([]);
@@ -56,8 +54,8 @@ export default function DeliveriesPage() {
   const [endDateFilter, setEndDateFilter] = useState("");
   const [weekOffset, setWeekOffset] = useState(0);
 
-  const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
+  const [visibleCount, setVisibleCount] = useState(20);
+  const loadMoreRef = useRef<HTMLDivElement>(null);
 
   const [isPanelOpen, setIsPanelOpen] = useState(false);
   const [panelMode, setPanelMode] = useState<"new" | "view">("new");
@@ -253,7 +251,6 @@ export default function DeliveriesPage() {
     const { monday, sunday } = getWeekRange(newOffset);
     setStartDateFilter(monday.toISOString().split("T")[0]);
     setEndDateFilter(sunday.toISOString().split("T")[0]);
-    setCurrentPage(1);
   };
 
   const handleNextWeek = () => {
@@ -262,7 +259,6 @@ export default function DeliveriesPage() {
     const { monday, sunday } = getWeekRange(newOffset);
     setStartDateFilter(monday.toISOString().split("T")[0]);
     setEndDateFilter(sunday.toISOString().split("T")[0]);
-    setCurrentPage(1);
   };
 
   const filteredDeliveries = useMemo(() => {
@@ -319,17 +315,45 @@ export default function DeliveriesPage() {
     endDateFilter,
   ]);
 
-  const totalDeliveriesCount = filteredDeliveries.length;
-  const totalPages = Math.max(
-    1,
-    Math.ceil(totalDeliveriesCount / itemsPerPage),
-  );
-  const paginatedDeliveries = useMemo(() => {
-    return filteredDeliveries.slice(
-      (currentPage - 1) * itemsPerPage,
-      currentPage * itemsPerPage,
+  // Reset visible count when filters change
+  useEffect(() => {
+    setVisibleCount(20);
+  }, [
+    searchQuery,
+    selectedSupplierFilter,
+    selectedStatusFilter,
+    startDateFilter,
+    endDateFilter,
+  ]);
+
+  // Infinite Scroll Observer
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          setVisibleCount((prev) =>
+            Math.min(prev + 20, filteredDeliveries.length),
+          );
+        }
+      },
+      { threshold: 0.1 },
     );
-  }, [filteredDeliveries, currentPage, itemsPerPage]);
+
+    const currentRef = loadMoreRef.current;
+    if (currentRef) {
+      observer.observe(currentRef);
+    }
+
+    return () => {
+      if (currentRef) {
+        observer.unobserve(currentRef);
+      }
+    };
+  }, [filteredDeliveries.length]);
+
+  const visibleDeliveries = useMemo(() => {
+    return filteredDeliveries.slice(0, visibleCount);
+  }, [filteredDeliveries, visibleCount]);
 
   const selectedPO = purchaseOrders.find((p) => p.id === selectedPOId);
 
@@ -443,9 +467,9 @@ export default function DeliveriesPage() {
   }
 
   return (
-    <div className="flex flex-col lg:flex-row gap-6 bg-white min-h-0 w-full pb-8">
-      <div className="flex-1 min-w-0 space-y-4">
-   
+    <div className="flex flex-col gap-6 bg-white min-h-0 w-full pb-8">
+      <div className="w-full space-y-4">
+        {/* Header Card */}
         <div className="bg-white border border-neutral-200 rounded-[18px] py-4 px-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 shadow-sm">
           <h1 className="text-[24px] font-bold text-neutral-900 tracking-tight">
             Deliveries
@@ -471,8 +495,9 @@ export default function DeliveriesPage() {
           </div>
         </div>
 
+        {/* Filter Controls Row */}
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full">
-
+          {/* Search Supplier input */}
           <div className="relative flex-1 min-w-[200px]">
             <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-neutral-400">
               <Search className="h-4 w-4" />
@@ -482,20 +507,15 @@ export default function DeliveriesPage() {
               placeholder="Search Supplier"
               className="w-full bg-white border border-neutral-200 focus:border-neutral-900 focus:ring-4 focus:ring-neutral-900/5 rounded-full py-2.5 pl-10 pr-4 text-xs font-medium text-neutral-900 placeholder:text-neutral-400 focus:outline-none transition shadow-2xs h-10"
               value={searchQuery}
-              onChange={(e) => {
-                setSearchQuery(e.target.value);
-                setCurrentPage(1);
-              }}
+              onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
 
+          {/* Status Dropdown */}
           <div className="w-full sm:w-44">
             <Select
               value={selectedStatusFilter}
-              onValueChange={(val) => {
-                setSelectedStatusFilter(val);
-                setCurrentPage(1);
-              }}
+              onValueChange={(val) => setSelectedStatusFilter(val)}
             >
               <SelectTrigger className="w-full h-10 rounded-full border border-neutral-200 bg-white px-4 text-xs font-semibold text-neutral-800 hover:bg-neutral-50 transition cursor-pointer shadow-2xs">
                 <SelectValue placeholder="All Statuses" />
@@ -539,10 +559,7 @@ export default function DeliveriesPage() {
           <div className="w-full sm:w-48">
             <Select
               value={selectedSupplierFilter}
-              onValueChange={(val) => {
-                setSelectedSupplierFilter(val);
-                setCurrentPage(1);
-              }}
+              onValueChange={(val) => setSelectedSupplierFilter(val)}
             >
               <SelectTrigger className="w-full h-10 rounded-full border border-neutral-200 bg-white px-4 text-xs font-semibold text-neutral-800 hover:bg-neutral-50 transition cursor-pointer shadow-2xs">
                 <SelectValue placeholder="All Suppliers" />
@@ -575,7 +592,6 @@ export default function DeliveriesPage() {
               onChange={({ startDate, endDate }) => {
                 setStartDateFilter(startDate);
                 setEndDateFilter(endDate);
-                setCurrentPage(1);
               }}
               triggerClassName="border-none shadow-none bg-transparent hover:bg-transparent h-full py-0 px-1 font-semibold text-xs text-neutral-700"
             />
@@ -601,8 +617,8 @@ export default function DeliveriesPage() {
           </div>
         </div>
 
-        {/* Deliveries Table Card */}
-        <div className="bg-white border border-neutral-200 rounded-[28px] shadow-sm overflow-hidden">
+        {/* Deliveries Table Card - Infinite Scroll */}
+        <div className="bg-white border border-neutral-200 rounded-[18px] shadow-sm overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
@@ -618,7 +634,7 @@ export default function DeliveriesPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-neutral-100 text-xs text-neutral-900 bg-white">
-                {paginatedDeliveries.length === 0 ? (
+                {visibleDeliveries.length === 0 ? (
                   <tr>
                     <td colSpan={8} className="py-16 px-6 text-center">
                       <div className="flex flex-col items-center justify-center max-w-md mx-auto">
@@ -641,7 +657,7 @@ export default function DeliveriesPage() {
                     </td>
                   </tr>
                 ) : (
-                  paginatedDeliveries.map((d) => {
+                  visibleDeliveries.map((d) => {
                     const badge = getStatusBadge(d.status);
 
                     const formattedDate = new Date(
@@ -726,251 +742,486 @@ export default function DeliveriesPage() {
             </table>
           </div>
 
-          {/* Table Footer / Pagination */}
-          <div className="border-t border-neutral-200 px-6 py-4 bg-white flex flex-col sm:flex-row items-center justify-between gap-4">
-            <span className="text-xs font-medium text-neutral-500">
-              Showing{" "}
-              {filteredDeliveries.length > 0
-                ? (currentPage - 1) * itemsPerPage + 1
-                : 0}{" "}
-              to{" "}
-              {Math.min(currentPage * itemsPerPage, filteredDeliveries.length)}{" "}
-              of {filteredDeliveries.length} deliveries
-            </span>
-
-            <div className="flex items-center gap-1.5">
-              <button
-                type="button"
-                onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
-                disabled={currentPage === 1}
-                className="p-1.5 rounded-lg border border-neutral-200 bg-white hover:bg-neutral-50 text-neutral-600 disabled:opacity-40 cursor-pointer shadow-2xs transition"
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </button>
-
-              {Array.from({ length: totalPages }).map((_, idx) => (
-                <button
-                  type="button"
-                  key={idx}
-                  onClick={() => setCurrentPage(idx + 1)}
-                  className={`h-8 w-8 rounded-lg text-xs font-bold border transition-colors ${
-                    currentPage === idx + 1
-                      ? "bg-[#0A2924] text-white border-[#0A2924]"
-                      : "bg-white text-neutral-700 border-neutral-200 hover:bg-neutral-50"
-                  }`}
-                >
-                  {idx + 1}
-                </button>
-              ))}
-
-              <button
-                type="button"
-                onClick={() =>
-                  setCurrentPage((prev) => Math.min(prev + 1, totalPages))
-                }
-                disabled={currentPage === totalPages}
-                className="p-1.5 rounded-lg border border-neutral-200 bg-white hover:bg-neutral-50 text-neutral-600 disabled:opacity-40 cursor-pointer shadow-2xs transition"
-              >
-                <ChevronRight className="h-4 w-4" />
-              </button>
+          {/* Infinite Scroll Loader Sentinel */}
+          {visibleCount < filteredDeliveries.length && (
+            <div
+              ref={loadMoreRef}
+              className="py-4 border-t border-neutral-100 flex items-center justify-center text-xs font-semibold text-neutral-400 gap-2 bg-neutral-50/30"
+            >
+              <Loader2 className="h-4 w-4 animate-spin text-neutral-600" />
+              <span>Loading more deliveries...</span>
             </div>
-          </div>
+          )}
         </div>
       </div>
 
-      {/* Side Slide-Over Panel for Receive Delivery & View Details */}
+      {/* Slide-Over Drawer Overlay Sidebar for Receive & View Delivery (Matches /stock-items drawer) */}
       {isPanelOpen && (
-        <div className="w-full lg:w-[480px] xl:w-[540px] shrink-0 border border-neutral-200 bg-neutral-50/50 rounded-[28px] overflow-hidden flex flex-col h-fit sticky top-6 shadow-sm">
-          <div className="bg-white border-b border-neutral-200 px-6 py-4 flex items-center justify-between">
-            <div>
-              <h2 className="text-base font-bold text-neutral-900">
-                {panelMode === "new"
-                  ? "Receive Delivery"
-                  : `View Delivery - ${viewingDelivery?.deliveryNumber || "..."}`}
-              </h2>
-              <p className="text-xs text-neutral-500 font-medium mt-0.5">
-                {panelMode === "new"
-                  ? "Receive items against a purchase order."
-                  : "Detailed record of received delivery."}
-              </p>
+        <>
+          <div
+            className="fixed inset-0 bg-black/30 z-40 transition-opacity"
+            onClick={() => setIsPanelOpen(false)}
+          />
+          <div className="fixed top-0 right-0 h-full w-[500px] max-w-[95vw] bg-white border-l border-neutral-200 shadow-2xl flex flex-col justify-between z-50 animate-slide-in">
+            <div className="bg-white border-b border-neutral-200 px-6 py-4 flex items-center justify-between">
+              <div>
+                <h2 className="text-base font-bold text-neutral-900">
+                  {panelMode === "new"
+                    ? "Receive Delivery"
+                    : `View Delivery - ${viewingDelivery?.deliveryNumber || "..."}`}
+                </h2>
+                <p className="text-xs text-neutral-500 font-medium mt-0.5">
+                  {panelMode === "new"
+                    ? "Receive items against a purchase order."
+                    : "Detailed record of received delivery."}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsPanelOpen(false)}
+                className="p-1.5 rounded-lg hover:bg-neutral-100 text-neutral-400 hover:text-neutral-700 cursor-pointer transition-colors"
+              >
+                <X className="h-5 w-5" />
+              </button>
             </div>
-            <button
-              type="button"
-              onClick={() => setIsPanelOpen(false)}
-              className="p-1 rounded-lg hover:bg-neutral-100 text-neutral-400 hover:text-neutral-600 cursor-pointer"
-            >
-              <X className="h-5 w-5" />
-            </button>
-          </div>
 
-          <div className="flex-1 overflow-y-auto p-5 space-y-5 max-h-[75vh]">
-            {panelMode === "new" ? (
-              <>
-                <div className="bg-white border border-neutral-200 rounded-2xl p-4 space-y-4 shadow-2xs">
-                  <div className="flex items-center gap-2 pb-2.5 border-b border-neutral-100">
-                    <span className="h-5 w-5 rounded-full bg-[#0A2924] text-white font-bold text-[10px] flex items-center justify-center">
-                      1
-                    </span>
-                    <h3 className="text-xs font-bold text-neutral-900 uppercase tracking-wider">
-                      Select Purchase Order
-                    </h3>
-                  </div>
-
-                  <div className="space-y-3">
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider block">
-                        Supplier *
-                      </label>
-                      <Select
-                        value={selectedSupplierId}
-                        onValueChange={(val) => {
-                          setSelectedSupplierId(val);
-                          setSelectedPOId("");
-                          setDeliveryItemsInput([]);
-                        }}
-                      >
-                        <SelectTrigger className="w-full h-10 rounded-xl border border-neutral-200 bg-white px-3 text-xs font-semibold text-neutral-900 cursor-pointer">
-                          <SelectValue placeholder="Select a Supplier" />
-                        </SelectTrigger>
-                        <SelectContent className="rounded-xl border border-neutral-200 bg-white p-1 max-h-56 z-50">
-                          {suppliers.map((s) => (
-                            <SelectItem
-                              key={s.id}
-                              value={s.id}
-                              className="rounded-lg px-3 py-2 text-xs font-semibold cursor-pointer"
-                            >
-                              {s.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+            <div className="flex-1 overflow-y-auto p-6 space-y-6">
+              {panelMode === "new" ? (
+                <>
+                  <div className="bg-white border border-neutral-200 rounded-2xl p-4 space-y-4 shadow-2xs">
+                    <div className="flex items-center gap-2 pb-2.5 border-b border-neutral-100">
+                      <span className="h-5 w-5 rounded-full bg-[#0A2924] text-white font-bold text-[10px] flex items-center justify-center">
+                        1
+                      </span>
+                      <h3 className="text-xs font-bold text-neutral-900 uppercase tracking-wider">
+                        Select Purchase Order
+                      </h3>
                     </div>
 
-                    {selectedSupplierId && (
+                    <div className="space-y-3">
                       <div className="space-y-1">
                         <label className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider block">
-                          Location
+                          Supplier *
                         </label>
                         <Select
-                          value={selectedLocationId}
+                          value={selectedSupplierId}
                           onValueChange={(val) => {
-                            setSelectedLocationId(val);
+                            setSelectedSupplierId(val);
                             setSelectedPOId("");
                             setDeliveryItemsInput([]);
                           }}
                         >
                           <SelectTrigger className="w-full h-10 rounded-xl border border-neutral-200 bg-white px-3 text-xs font-semibold text-neutral-900 cursor-pointer">
-                            <SelectValue placeholder="All Locations / None" />
+                            <SelectValue placeholder="Select a Supplier" />
                           </SelectTrigger>
                           <SelectContent className="rounded-xl border border-neutral-200 bg-white p-1 max-h-56 z-50">
-                            <SelectItem
-                              value=""
-                              className="rounded-lg px-3 py-2 text-xs font-semibold cursor-pointer"
-                            >
-                              All Locations / None
-                            </SelectItem>
-                            {locations.map((loc) => (
+                            {suppliers.map((s) => (
                               <SelectItem
-                                key={loc.id}
-                                value={loc.id}
+                                key={s.id}
+                                value={s.id}
                                 className="rounded-lg px-3 py-2 text-xs font-semibold cursor-pointer"
                               >
-                                {loc.name}
+                                {s.name}
                               </SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
                       </div>
-                    )}
 
-                    {selectedSupplierId && (
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider block">
-                          Purchase Order *
-                        </label>
-                        <Select
-                          value={selectedPOId}
-                          onValueChange={handlePOSelect}
-                        >
-                          <SelectTrigger className="w-full h-10 rounded-xl border border-neutral-200 bg-white px-3 text-xs font-semibold text-neutral-900 cursor-pointer">
-                            <SelectValue placeholder="Select a Purchase Order" />
-                          </SelectTrigger>
-                          <SelectContent className="rounded-xl border border-neutral-200 bg-white p-1 max-h-56 z-50">
-                            {activeSupplierPOs.map((p) => (
+                      {selectedSupplierId && (
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider block">
+                            Location
+                          </label>
+                          <Select
+                            value={selectedLocationId}
+                            onValueChange={(val) => {
+                              setSelectedLocationId(val);
+                              setSelectedPOId("");
+                              setDeliveryItemsInput([]);
+                            }}
+                          >
+                            <SelectTrigger className="w-full h-10 rounded-xl border border-neutral-200 bg-white px-3 text-xs font-semibold text-neutral-900 cursor-pointer">
+                              <SelectValue placeholder="All Locations / None" />
+                            </SelectTrigger>
+                            <SelectContent className="rounded-xl border border-neutral-200 bg-white p-1 max-h-56 z-50">
                               <SelectItem
-                                key={p.id}
-                                value={p.id}
+                                value=""
                                 className="rounded-lg px-3 py-2 text-xs font-semibold cursor-pointer"
                               >
-                                {p.poNumber}{" "}
-                                {p.locationName ? `(${p.locationName})` : ""}
+                                All Locations / None
                               </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    )}
+                              {locations.map((loc) => (
+                                <SelectItem
+                                  key={loc.id}
+                                  value={loc.id}
+                                  className="rounded-lg px-3 py-2 text-xs font-semibold cursor-pointer"
+                                >
+                                  {loc.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
 
-                    {selectedPO && (
-                      <div className="bg-neutral-50 border border-neutral-200 rounded-xl p-3 text-[11px] font-medium text-neutral-500 space-y-1">
-                        <div className="flex justify-between">
-                          <span>PO Date:</span>
-                          <span className="text-neutral-800 font-bold">
-                            {new Date(selectedPO.createdAt).toLocaleDateString(
-                              "en-GB",
-                              {
+                      {selectedSupplierId && (
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider block">
+                            Purchase Order *
+                          </label>
+                          <Select
+                            value={selectedPOId}
+                            onValueChange={handlePOSelect}
+                          >
+                            <SelectTrigger className="w-full h-10 rounded-xl border border-neutral-200 bg-white px-3 text-xs font-semibold text-neutral-900 cursor-pointer">
+                              <SelectValue placeholder="Select a Purchase Order" />
+                            </SelectTrigger>
+                            <SelectContent className="rounded-xl border border-neutral-200 bg-white p-1 max-h-56 z-50">
+                              {activeSupplierPOs.map((p) => (
+                                <SelectItem
+                                  key={p.id}
+                                  value={p.id}
+                                  className="rounded-lg px-3 py-2 text-xs font-semibold cursor-pointer"
+                                >
+                                  {p.poNumber}{" "}
+                                  {p.locationName ? `(${p.locationName})` : ""}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
+
+                      {selectedPO && (
+                        <div className="bg-neutral-50 border border-neutral-200 rounded-xl p-3 text-[11px] font-medium text-neutral-500 space-y-1">
+                          <div className="flex justify-between">
+                            <span>PO Date:</span>
+                            <span className="text-neutral-800 font-bold">
+                              {new Date(
+                                selectedPO.createdAt,
+                              ).toLocaleDateString("en-GB", {
                                 day: "2-digit",
                                 month: "short",
                                 year: "numeric",
-                              },
-                            )}
-                          </span>
+                              })}
+                            </span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Expected:</span>
+                            <span className="text-neutral-800 font-bold">
+                              {new Date(
+                                new Date(selectedPO.createdAt).getTime() +
+                                  86400000,
+                              ).toLocaleDateString("en-GB", {
+                                day: "2-digit",
+                                month: "short",
+                                year: "numeric",
+                              })}
+                            </span>
+                          </div>
+                          <div className="flex justify-between border-t border-neutral-200/60 pt-1 mt-1 text-xs font-bold">
+                            <span>PO Total:</span>
+                            <span className="text-[#0A2924]">
+                              $
+                              {selectedPO.totalAmount.toLocaleString(
+                                undefined,
+                                {
+                                  minimumFractionDigits: 2,
+                                  maximumFractionDigits: 2,
+                                },
+                              )}
+                            </span>
+                          </div>
                         </div>
-                        <div className="flex justify-between">
-                          <span>Expected:</span>
-                          <span className="text-neutral-800 font-bold">
-                            {new Date(
-                              new Date(selectedPO.createdAt).getTime() +
-                                86400000,
-                            ).toLocaleDateString("en-GB", {
-                              day: "2-digit",
-                              month: "short",
-                              year: "numeric",
-                            })}
-                          </span>
-                        </div>
-                        <div className="flex justify-between border-t border-neutral-200/60 pt-1 mt-1 text-xs font-bold">
-                          <span>PO Total:</span>
-                          <span className="text-[#0A2924]">
-                            $
-                            {selectedPO.totalAmount.toLocaleString(undefined, {
-                              minimumFractionDigits: 2,
-                              maximumFractionDigits: 2,
-                            })}
-                          </span>
-                        </div>
-                      </div>
-                    )}
+                      )}
+                    </div>
                   </div>
-                </div>
 
-                {deliveryItemsInput.length > 0 && (
-                  <div className="bg-white border border-neutral-200 rounded-2xl p-4 space-y-4 shadow-2xs">
-                    <div className="flex justify-between items-center pb-2.5 border-b border-neutral-100">
-                      <div className="flex items-center gap-2">
+                  {deliveryItemsInput.length > 0 && (
+                    <div className="bg-white border border-neutral-200 rounded-2xl p-4 space-y-4 shadow-2xs">
+                      <div className="flex justify-between items-center pb-2.5 border-b border-neutral-100">
+                        <div className="flex items-center gap-2">
+                          <span className="h-5 w-5 rounded-full bg-[#0A2924] text-white font-bold text-[10px] flex items-center justify-center">
+                            2
+                          </span>
+                          <h3 className="text-xs font-bold text-neutral-900 uppercase tracking-wider">
+                            PO Items
+                          </h3>
+                        </div>
+                        <span className="text-xs font-bold text-neutral-500">
+                          {deliveryItemsInput.length} items • $
+                          {selectedPO?.totalAmount.toLocaleString(undefined, {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })}
+                        </span>
+                      </div>
+
+                      <div className="border border-neutral-200 rounded-xl overflow-hidden">
+                        <table className="w-full text-left border-collapse text-xs">
+                          <thead>
+                            <tr className="border-b border-neutral-200 text-[10px] uppercase font-bold tracking-wider text-neutral-400 bg-neutral-50/50">
+                              <th className="py-2.5 px-3 w-8 text-center">#</th>
+                              <th className="py-2.5 px-2">Item</th>
+                              <th className="py-2.5 px-2 text-center">
+                                Ordered
+                              </th>
+                              <th className="py-2.5 px-2 text-center w-20">
+                                Received
+                              </th>
+                              <th className="py-2.5 px-2 text-right">
+                                Unit Price
+                              </th>
+                              <th className="py-2.5 px-2 text-right">Total</th>
+                              <th className="py-2.5 px-3 text-center w-12">
+                                Recv (All)
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-neutral-100 font-semibold text-neutral-700 bg-white">
+                            {deliveryItemsInput.map((item, idx) => {
+                              const totalVal =
+                                item.receivedQuantity * item.unitCost;
+                              const isAllReceived =
+                                item.receivedQuantity === item.orderedQuantity;
+
+                              return (
+                                <tr
+                                  key={item.stockItemId}
+                                  className="hover:bg-neutral-50/40 transition-colors"
+                                >
+                                  <td className="py-3 px-3 text-center text-neutral-400 font-bold text-xs">
+                                    {idx + 1}
+                                  </td>
+                                  <td className="py-3 px-2">
+                                    <p className="font-bold text-neutral-900 leading-tight truncate max-w-[100px]">
+                                      {item.stockItemName}
+                                    </p>
+                                    <p className="text-[9px] text-neutral-400 font-medium uppercase tracking-wider mt-0.5">
+                                      {item.sku || "NO SKU"}
+                                    </p>
+                                  </td>
+                                  <td className="py-3 px-2 text-center font-semibold text-neutral-500">
+                                    {item.orderedQuantity}
+                                  </td>
+                                  <td className="py-2 px-1 text-center">
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      step="any"
+                                      className={`w-16 bg-white border rounded-lg py-1 px-1.5 text-center text-xs font-bold focus:outline-none focus:ring-2 ${
+                                        isAllReceived
+                                          ? "border-neutral-200 focus:border-neutral-900 focus:ring-neutral-900/10"
+                                          : "border-[#0A2924] text-[#0A2924] focus:border-[#0A2924] focus:ring-[#0A2924]/10"
+                                      }`}
+                                      value={
+                                        item.receivedQuantity === 0 &&
+                                        item.orderedQuantity !== 0
+                                          ? ""
+                                          : item.receivedQuantity
+                                      }
+                                      placeholder="0"
+                                      onChange={(e) =>
+                                        handleReceivedQtyChange(
+                                          idx,
+                                          e.target.value,
+                                        )
+                                      }
+                                    />
+                                  </td>
+                                  <td className="py-3 px-2 text-right text-neutral-500 font-medium">
+                                    ${item.unitCost.toFixed(2)}
+                                  </td>
+                                  <td className="py-3 px-2 text-right font-bold text-neutral-900">
+                                    ${totalVal.toFixed(2)}
+                                  </td>
+                                  <td className="py-2 px-3 text-center">
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        handleToggleReceivedAll(
+                                          idx,
+                                          !isAllReceived,
+                                        )
+                                      }
+                                      className={`h-4.5 w-4.5 rounded flex items-center justify-center transition-all cursor-pointer ${
+                                        isAllReceived
+                                          ? "bg-[#0A2924] text-white border border-[#0A2924]"
+                                          : "bg-white border border-neutral-300 hover:border-neutral-400 text-transparent"
+                                      }`}
+                                    >
+                                      <Check className="h-3 w-3 stroke-[3px]" />
+                                    </button>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+
+                  {deliveryItemsInput.length > 0 && (
+                    <div className="bg-white border border-neutral-200 rounded-2xl p-4 space-y-4 shadow-2xs">
+                      <div className="flex items-center gap-2 pb-2.5 border-b border-neutral-100">
                         <span className="h-5 w-5 rounded-full bg-[#0A2924] text-white font-bold text-[10px] flex items-center justify-center">
-                          2
+                          3
                         </span>
                         <h3 className="text-xs font-bold text-neutral-900 uppercase tracking-wider">
-                          PO Items
+                          Summary
                         </h3>
                       </div>
-                      <span className="text-xs font-bold text-neutral-500">
-                        {deliveryItemsInput.length} items • $
-                        {selectedPO?.totalAmount.toLocaleString(undefined, {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        })}
+
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                        <div className="bg-neutral-50 border border-neutral-200 rounded-xl p-2.5 text-center">
+                          <p className="text-[9px] font-bold text-neutral-400 uppercase tracking-wider">
+                            Total Ordered
+                          </p>
+                          <h4 className="text-sm font-bold text-neutral-900 mt-1">
+                            {calculatedSummary.totalOrdered}
+                          </h4>
+                          <p className="text-[8px] font-medium text-neutral-400 uppercase tracking-wider mt-0.5">
+                            Base Units
+                          </p>
+                        </div>
+
+                        <div className="bg-neutral-50 border border-neutral-200 rounded-xl p-2.5 text-center">
+                          <p className="text-[9px] font-bold text-neutral-400 uppercase tracking-wider">
+                            Total Received
+                          </p>
+                          <h4 className="text-sm font-bold text-neutral-900 mt-1">
+                            {calculatedSummary.totalReceived}
+                          </h4>
+                          <p className="text-[8px] font-medium text-neutral-400 uppercase tracking-wider mt-0.5">
+                            Base Units
+                          </p>
+                        </div>
+
+                        <div className="bg-neutral-50 border border-neutral-200 rounded-xl p-2.5 text-center">
+                          <p className="text-[9px] font-bold text-neutral-400 uppercase tracking-wider">
+                            Total Value
+                          </p>
+                          <h4 className="text-sm font-bold text-emerald-700 mt-1">
+                            ${calculatedSummary.totalValue.toFixed(2)}
+                          </h4>
+                          <p className="text-[8px] font-medium text-neutral-400 uppercase tracking-wider mt-0.5">
+                            AUD
+                          </p>
+                        </div>
+
+                        <div className="bg-neutral-50 border border-neutral-200 rounded-xl p-2.5 text-center">
+                          <p className="text-[9px] font-bold text-neutral-400 uppercase tracking-wider">
+                            Variance
+                          </p>
+                          <h4
+                            className={`text-sm font-bold mt-1 ${
+                              calculatedSummary.variance < 0
+                                ? "text-rose-600"
+                                : calculatedSummary.variance > 0
+                                  ? "text-emerald-600"
+                                  : "text-neutral-600"
+                            }`}
+                          >
+                            {calculatedSummary.variance > 0 ? "+" : ""}
+                            {calculatedSummary.variance}
+                          </h4>
+                          <p className="text-[8px] font-medium text-neutral-400 uppercase tracking-wider mt-0.5">
+                            Base Units
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-wider text-neutral-500">
+                          <span>Notes (Optional)</span>
+                          <span className="text-[9px] font-medium text-neutral-400">
+                            {notes.length}/250
+                          </span>
+                        </div>
+                        <textarea
+                          maxLength={250}
+                          placeholder="Enter notes..."
+                          className="w-full bg-white border border-neutral-200 focus:border-neutral-900 rounded-xl p-3 text-xs font-medium text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:ring-4 focus:ring-neutral-900/5 transition min-h-[70px] resize-none"
+                          value={notes}
+                          onChange={(e) => setNotes(e.target.value)}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </>
+              ) : viewingDelivery ? (
+                <>
+                  <div className="bg-white border border-neutral-200 rounded-2xl p-4 space-y-3.5 shadow-2xs">
+                    <div className="flex items-center gap-2 pb-2.5 border-b border-neutral-100">
+                      <FileText className="h-4.5 w-4.5 text-neutral-400" />
+                      <h3 className="text-xs font-bold text-neutral-900 uppercase tracking-wider">
+                        Delivery Information
+                      </h3>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-y-3 text-xs font-medium text-neutral-500">
+                      <div>
+                        <p className="text-[9px] font-bold text-neutral-400 uppercase tracking-wider">
+                          Supplier
+                        </p>
+                        <p className="text-neutral-900 font-semibold mt-0.5">
+                          {viewingDelivery.supplierName}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-[9px] font-bold text-neutral-400 uppercase tracking-wider">
+                          PO Number
+                        </p>
+                        <p className="text-neutral-900 font-semibold mt-0.5 uppercase">
+                          {viewingDelivery.poNumber}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-[9px] font-bold text-neutral-400 uppercase tracking-wider">
+                          Delivery Date
+                        </p>
+                        <p className="text-neutral-900 font-semibold mt-0.5">
+                          {new Date(
+                            viewingDelivery.deliveryDate,
+                          ).toLocaleDateString("en-GB", {
+                            day: "2-digit",
+                            month: "short",
+                            year: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-[9px] font-bold text-neutral-400 uppercase tracking-wider">
+                          Fulfillment Status
+                        </p>
+                        {(() => {
+                          const badge = getStatusBadge(viewingDelivery.status);
+                          return (
+                            <span
+                              className={cn(
+                                "inline-flex items-center gap-1 text-[9px] uppercase tracking-wider font-bold px-2 py-0.5 rounded-md border mt-1",
+                                badge.badgeStyle,
+                              )}
+                            >
+                              {badge.label}
+                            </span>
+                          );
+                        })()}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-white border border-neutral-200 rounded-2xl p-4 space-y-3 shadow-2xs">
+                    <div className="flex justify-between items-center pb-2.5 border-b border-neutral-100">
+                      <h3 className="text-xs font-bold text-neutral-900 uppercase tracking-wider">
+                        Received Items
+                      </h3>
+                      <span className="text-xs font-semibold text-neutral-400">
+                        {viewingDelivery.items.length} items
                       </span>
                     </div>
 
@@ -981,35 +1232,30 @@ export default function DeliveriesPage() {
                             <th className="py-2.5 px-3 w-8 text-center">#</th>
                             <th className="py-2.5 px-2">Item</th>
                             <th className="py-2.5 px-2 text-center">Ordered</th>
-                            <th className="py-2.5 px-2 text-center w-20">
+                            <th className="py-2.5 px-2 text-center">
                               Received
                             </th>
                             <th className="py-2.5 px-2 text-right">
                               Unit Price
                             </th>
-                            <th className="py-2.5 px-2 text-right">Total</th>
-                            <th className="py-2.5 px-3 text-center w-12">
-                              Recv (All)
-                            </th>
+                            <th className="py-2.5 px-3 text-right">Total</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-neutral-100 font-semibold text-neutral-700 bg-white">
-                          {deliveryItemsInput.map((item, idx) => {
-                            const totalVal =
-                              item.receivedQuantity * item.unitCost;
-                            const isAllReceived =
+                          {viewingDelivery.items.map((item, idx) => {
+                            const isFullyReceived =
                               item.receivedQuantity === item.orderedQuantity;
 
                             return (
                               <tr
-                                key={item.stockItemId}
-                                className="hover:bg-neutral-50/40 transition-colors"
+                                key={item.id}
+                                className="hover:bg-neutral-50/30 transition-colors"
                               >
-                                <td className="py-3 px-3 text-center text-neutral-400 font-bold text-xs">
+                                <td className="py-3 px-3 text-center text-neutral-400 font-bold">
                                   {idx + 1}
                                 </td>
                                 <td className="py-3 px-2">
-                                  <p className="font-bold text-neutral-900 leading-tight truncate max-w-[100px]">
+                                  <p className="font-bold text-neutral-900 leading-tight">
                                     {item.stockItemName}
                                   </p>
                                   <p className="text-[9px] text-neutral-400 font-medium uppercase tracking-wider mt-0.5">
@@ -1019,54 +1265,20 @@ export default function DeliveriesPage() {
                                 <td className="py-3 px-2 text-center font-semibold text-neutral-500">
                                   {item.orderedQuantity}
                                 </td>
-                                <td className="py-2 px-1 text-center">
-                                  <input
-                                    type="number"
-                                    min="0"
-                                    step="any"
-                                    className={`w-16 bg-white border rounded-lg py-1 px-1.5 text-center text-xs font-bold focus:outline-none focus:ring-2 ${
-                                      isAllReceived
-                                        ? "border-neutral-200 focus:border-neutral-900 focus:ring-neutral-900/10"
-                                        : "border-[#0A2924] text-[#0A2924] focus:border-[#0A2924] focus:ring-[#0A2924]/10"
-                                    }`}
-                                    value={
-                                      item.receivedQuantity === 0 &&
-                                      item.orderedQuantity !== 0
-                                        ? ""
-                                        : item.receivedQuantity
-                                    }
-                                    placeholder="0"
-                                    onChange={(e) =>
-                                      handleReceivedQtyChange(
-                                        idx,
-                                        e.target.value,
-                                      )
-                                    }
-                                  />
+                                <td
+                                  className={`py-3 px-2 text-center font-bold ${
+                                    isFullyReceived
+                                      ? "text-neutral-700"
+                                      : "text-emerald-700"
+                                  }`}
+                                >
+                                  {item.receivedQuantity}
                                 </td>
                                 <td className="py-3 px-2 text-right text-neutral-500 font-medium">
                                   ${item.unitCost.toFixed(2)}
                                 </td>
-                                <td className="py-3 px-2 text-right font-bold text-neutral-900">
-                                  ${totalVal.toFixed(2)}
-                                </td>
-                                <td className="py-2 px-3 text-center">
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      handleToggleReceivedAll(
-                                        idx,
-                                        !isAllReceived,
-                                      )
-                                    }
-                                    className={`h-4.5 w-4.5 rounded flex items-center justify-center transition-all cursor-pointer ${
-                                      isAllReceived
-                                        ? "bg-[#0A2924] text-white border border-[#0A2924]"
-                                        : "bg-white border border-neutral-300 hover:border-neutral-400 text-transparent"
-                                    }`}
-                                  >
-                                    <Check className="h-3 w-3 stroke-[3px]" />
-                                  </button>
+                                <td className="py-3 px-3 text-right font-bold text-neutral-900">
+                                  ${item.totalCost.toFixed(2)}
                                 </td>
                               </tr>
                             );
@@ -1075,18 +1287,11 @@ export default function DeliveriesPage() {
                       </table>
                     </div>
                   </div>
-                )}
 
-                {deliveryItemsInput.length > 0 && (
                   <div className="bg-white border border-neutral-200 rounded-2xl p-4 space-y-4 shadow-2xs">
-                    <div className="flex items-center gap-2 pb-2.5 border-b border-neutral-100">
-                      <span className="h-5 w-5 rounded-full bg-[#0A2924] text-white font-bold text-[10px] flex items-center justify-center">
-                        3
-                      </span>
-                      <h3 className="text-xs font-bold text-neutral-900 uppercase tracking-wider">
-                        Summary
-                      </h3>
-                    </div>
+                    <h3 className="text-xs font-bold text-neutral-900 uppercase tracking-wider pb-2 border-b border-neutral-100">
+                      Fulfillment Summary
+                    </h3>
 
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                       <div className="bg-neutral-50 border border-neutral-200 rounded-xl p-2.5 text-center">
@@ -1094,7 +1299,10 @@ export default function DeliveriesPage() {
                           Total Ordered
                         </p>
                         <h4 className="text-sm font-bold text-neutral-900 mt-1">
-                          {calculatedSummary.totalOrdered}
+                          {viewingDelivery.items.reduce(
+                            (sum, item) => sum + item.orderedQuantity,
+                            0,
+                          )}
                         </h4>
                         <p className="text-[8px] font-medium text-neutral-400 uppercase tracking-wider mt-0.5">
                           Base Units
@@ -1106,7 +1314,10 @@ export default function DeliveriesPage() {
                           Total Received
                         </p>
                         <h4 className="text-sm font-bold text-neutral-900 mt-1">
-                          {calculatedSummary.totalReceived}
+                          {viewingDelivery.items.reduce(
+                            (sum, item) => sum + item.receivedQuantity,
+                            0,
+                          )}
                         </h4>
                         <p className="text-[8px] font-medium text-neutral-400 uppercase tracking-wider mt-0.5">
                           Base Units
@@ -1118,7 +1329,7 @@ export default function DeliveriesPage() {
                           Total Value
                         </p>
                         <h4 className="text-sm font-bold text-emerald-700 mt-1">
-                          ${calculatedSummary.totalValue.toFixed(2)}
+                          ${viewingDelivery.totalAmount.toFixed(2)}
                         </h4>
                         <p className="text-[8px] font-medium text-neutral-400 uppercase tracking-wider mt-0.5">
                           AUD
@@ -1129,320 +1340,100 @@ export default function DeliveriesPage() {
                         <p className="text-[9px] font-bold text-neutral-400 uppercase tracking-wider">
                           Variance
                         </p>
-                        <h4
-                          className={`text-sm font-bold mt-1 ${
-                            calculatedSummary.variance < 0
-                              ? "text-rose-600"
-                              : calculatedSummary.variance > 0
-                                ? "text-emerald-600"
-                                : "text-neutral-600"
-                          }`}
-                        >
-                          {calculatedSummary.variance > 0 ? "+" : ""}
-                          {calculatedSummary.variance}
-                        </h4>
+                        {(() => {
+                          const ordered = viewingDelivery.items.reduce(
+                            (sum, item) => sum + item.orderedQuantity,
+                            0,
+                          );
+                          const received = viewingDelivery.items.reduce(
+                            (sum, item) => sum + item.receivedQuantity,
+                            0,
+                          );
+                          const diff = received - ordered;
+
+                          return (
+                            <h4
+                              className={`text-sm font-bold mt-1 ${
+                                diff < 0
+                                  ? "text-rose-600"
+                                  : diff > 0
+                                    ? "text-emerald-600"
+                                    : "text-neutral-600"
+                              }`}
+                            >
+                              {diff > 0 ? "+" : ""}
+                              {diff}
+                            </h4>
+                          );
+                        })()}
                         <p className="text-[8px] font-medium text-neutral-400 uppercase tracking-wider mt-0.5">
                           Base Units
                         </p>
                       </div>
                     </div>
 
-                    <div className="space-y-1.5">
-                      <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-wider text-neutral-500">
-                        <span>Notes (Optional)</span>
-                        <span className="text-[9px] font-medium text-neutral-400">
-                          {notes.length}/250
-                        </span>
+                    {viewingDelivery.notes && (
+                      <div className="bg-neutral-50/50 border border-neutral-200 rounded-xl p-3.5 space-y-1">
+                        <p className="text-[9px] font-bold text-neutral-400 uppercase tracking-wider">
+                          Delivery Notes
+                        </p>
+                        <p className="text-xs font-medium text-neutral-700 leading-relaxed italic">
+                          &quot;{viewingDelivery.notes}&quot;
+                        </p>
                       </div>
-                      <textarea
-                        maxLength={250}
-                        placeholder="Enter notes..."
-                        className="w-full bg-white border border-neutral-200 focus:border-neutral-900 rounded-xl p-3 text-xs font-medium text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:ring-4 focus:ring-neutral-900/5 transition min-h-[70px] resize-none"
-                        value={notes}
-                        onChange={(e) => setNotes(e.target.value)}
-                      />
-                    </div>
+                    )}
                   </div>
-                )}
-              </>
-            ) : viewingDelivery ? (
-              <>
-                <div className="bg-white border border-neutral-200 rounded-2xl p-4 space-y-3.5 shadow-2xs">
-                  <div className="flex items-center gap-2 pb-2.5 border-b border-neutral-100">
-                    <FileText className="h-4.5 w-4.5 text-neutral-400" />
-                    <h3 className="text-xs font-bold text-neutral-900 uppercase tracking-wider">
-                      Delivery Information
-                    </h3>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-y-3 text-xs font-medium text-neutral-500">
-                    <div>
-                      <p className="text-[9px] font-bold text-neutral-400 uppercase tracking-wider">
-                        Supplier
-                      </p>
-                      <p className="text-neutral-900 font-semibold mt-0.5">
-                        {viewingDelivery.supplierName}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-[9px] font-bold text-neutral-400 uppercase tracking-wider">
-                        PO Number
-                      </p>
-                      <p className="text-neutral-900 font-semibold mt-0.5 uppercase">
-                        {viewingDelivery.poNumber}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-[9px] font-bold text-neutral-400 uppercase tracking-wider">
-                        Delivery Date
-                      </p>
-                      <p className="text-neutral-900 font-semibold mt-0.5">
-                        {new Date(
-                          viewingDelivery.deliveryDate,
-                        ).toLocaleDateString("en-GB", {
-                          day: "2-digit",
-                          month: "short",
-                          year: "numeric",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-[9px] font-bold text-neutral-400 uppercase tracking-wider">
-                        Fulfillment Status
-                      </p>
-                      {(() => {
-                        const badge = getStatusBadge(viewingDelivery.status);
-                        return (
-                          <span
-                            className={cn(
-                              "inline-flex items-center gap-1 text-[9px] uppercase tracking-wider font-bold px-2 py-0.5 rounded-md border mt-1",
-                              badge.badgeStyle,
-                            )}
-                          >
-                            {badge.label}
-                          </span>
-                        );
-                      })()}
-                    </div>
-                  </div>
+                </>
+              ) : (
+                <div className="min-h-[30vh] flex flex-col items-center justify-center text-neutral-400">
+                  <Loader2 className="h-6 w-6 animate-spin text-neutral-900 mb-2" />
+                  <p className="text-[10px] font-bold uppercase tracking-wider">
+                    Loading details...
+                  </p>
                 </div>
+              )}
+            </div>
 
-                <div className="bg-white border border-neutral-200 rounded-2xl p-4 space-y-3 shadow-2xs">
-                  <div className="flex justify-between items-center pb-2.5 border-b border-neutral-100">
-                    <h3 className="text-xs font-bold text-neutral-900 uppercase tracking-wider">
-                      Received Items
-                    </h3>
-                    <span className="text-xs font-semibold text-neutral-400">
-                      {viewingDelivery.items.length} items
-                    </span>
-                  </div>
-
-                  <div className="border border-neutral-200 rounded-xl overflow-hidden">
-                    <table className="w-full text-left border-collapse text-xs">
-                      <thead>
-                        <tr className="border-b border-neutral-200 text-[10px] uppercase font-bold tracking-wider text-neutral-400 bg-neutral-50/50">
-                          <th className="py-2.5 px-3 w-8 text-center">#</th>
-                          <th className="py-2.5 px-2">Item</th>
-                          <th className="py-2.5 px-2 text-center">Ordered</th>
-                          <th className="py-2.5 px-2 text-center">Received</th>
-                          <th className="py-2.5 px-2 text-right">Unit Price</th>
-                          <th className="py-2.5 px-3 text-right">Total</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-neutral-100 font-semibold text-neutral-700 bg-white">
-                        {viewingDelivery.items.map((item, idx) => {
-                          const isFullyReceived =
-                            item.receivedQuantity === item.orderedQuantity;
-
-                          return (
-                            <tr
-                              key={item.id}
-                              className="hover:bg-neutral-50/30 transition-colors"
-                            >
-                              <td className="py-3 px-3 text-center text-neutral-400 font-bold">
-                                {idx + 1}
-                              </td>
-                              <td className="py-3 px-2">
-                                <p className="font-bold text-neutral-900 leading-tight">
-                                  {item.stockItemName}
-                                </p>
-                                <p className="text-[9px] text-neutral-400 font-medium uppercase tracking-wider mt-0.5">
-                                  {item.sku || "NO SKU"}
-                                </p>
-                              </td>
-                              <td className="py-3 px-2 text-center font-semibold text-neutral-500">
-                                {item.orderedQuantity}
-                              </td>
-                              <td
-                                className={`py-3 px-2 text-center font-bold ${
-                                  isFullyReceived
-                                    ? "text-neutral-700"
-                                    : "text-emerald-700"
-                                }`}
-                              >
-                                {item.receivedQuantity}
-                              </td>
-                              <td className="py-3 px-2 text-right text-neutral-500 font-medium">
-                                ${item.unitCost.toFixed(2)}
-                              </td>
-                              <td className="py-3 px-3 text-right font-bold text-neutral-900">
-                                ${item.totalCost.toFixed(2)}
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-
-                <div className="bg-white border border-neutral-200 rounded-2xl p-4 space-y-4 shadow-2xs">
-                  <h3 className="text-xs font-bold text-neutral-900 uppercase tracking-wider pb-2 border-b border-neutral-100">
-                    Fulfillment Summary
-                  </h3>
-
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                    <div className="bg-neutral-50 border border-neutral-200 rounded-xl p-2.5 text-center">
-                      <p className="text-[9px] font-bold text-neutral-400 uppercase tracking-wider">
-                        Total Ordered
-                      </p>
-                      <h4 className="text-sm font-bold text-neutral-900 mt-1">
-                        {viewingDelivery.items.reduce(
-                          (sum, item) => sum + item.orderedQuantity,
-                          0,
-                        )}
-                      </h4>
-                      <p className="text-[8px] font-medium text-neutral-400 uppercase tracking-wider mt-0.5">
-                        Base Units
-                      </p>
-                    </div>
-
-                    <div className="bg-neutral-50 border border-neutral-200 rounded-xl p-2.5 text-center">
-                      <p className="text-[9px] font-bold text-neutral-400 uppercase tracking-wider">
-                        Total Received
-                      </p>
-                      <h4 className="text-sm font-bold text-neutral-900 mt-1">
-                        {viewingDelivery.items.reduce(
-                          (sum, item) => sum + item.receivedQuantity,
-                          0,
-                        )}
-                      </h4>
-                      <p className="text-[8px] font-medium text-neutral-400 uppercase tracking-wider mt-0.5">
-                        Base Units
-                      </p>
-                    </div>
-
-                    <div className="bg-neutral-50 border border-neutral-200 rounded-xl p-2.5 text-center">
-                      <p className="text-[9px] font-bold text-neutral-400 uppercase tracking-wider">
-                        Total Value
-                      </p>
-                      <h4 className="text-sm font-bold text-emerald-700 mt-1">
-                        ${viewingDelivery.totalAmount.toFixed(2)}
-                      </h4>
-                      <p className="text-[8px] font-medium text-neutral-400 uppercase tracking-wider mt-0.5">
-                        AUD
-                      </p>
-                    </div>
-
-                    <div className="bg-neutral-50 border border-neutral-200 rounded-xl p-2.5 text-center">
-                      <p className="text-[9px] font-bold text-neutral-400 uppercase tracking-wider">
-                        Variance
-                      </p>
-                      {(() => {
-                        const ordered = viewingDelivery.items.reduce(
-                          (sum, item) => sum + item.orderedQuantity,
-                          0,
-                        );
-                        const received = viewingDelivery.items.reduce(
-                          (sum, item) => sum + item.receivedQuantity,
-                          0,
-                        );
-                        const diff = received - ordered;
-
-                        return (
-                          <h4
-                            className={`text-sm font-bold mt-1 ${
-                              diff < 0
-                                ? "text-rose-600"
-                                : diff > 0
-                                  ? "text-emerald-600"
-                                  : "text-neutral-600"
-                            }`}
-                          >
-                            {diff > 0 ? "+" : ""}
-                            {diff}
-                          </h4>
-                        );
-                      })()}
-                      <p className="text-[8px] font-medium text-neutral-400 uppercase tracking-wider mt-0.5">
-                        Base Units
-                      </p>
-                    </div>
-                  </div>
-
-                  {viewingDelivery.notes && (
-                    <div className="bg-neutral-50/50 border border-neutral-200 rounded-xl p-3.5 space-y-1">
-                      <p className="text-[9px] font-bold text-neutral-400 uppercase tracking-wider">
-                        Delivery Notes
-                      </p>
-                      <p className="text-xs font-medium text-neutral-700 leading-relaxed italic">
-                        &quot;{viewingDelivery.notes}&quot;
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </>
-            ) : (
-              <div className="min-h-[30vh] flex flex-col items-center justify-center text-neutral-400">
-                <Loader2 className="h-6 w-6 animate-spin text-neutral-900 mb-2" />
-                <p className="text-[10px] font-bold uppercase tracking-wider">
-                  Loading details...
-                </p>
-              </div>
-            )}
-          </div>
-
-          <div className="bg-white border-t border-neutral-200 px-6 py-4 flex items-center justify-end gap-3">
-            {panelMode === "new" ? (
-              <>
+            <div className="bg-white border-t border-neutral-200 px-6 py-4 flex items-center justify-end gap-3 shrink-0">
+              {panelMode === "new" ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setIsPanelOpen(false)}
+                    className="bg-white border border-neutral-200 hover:bg-neutral-50 text-neutral-700 px-5 py-2.5 rounded-full text-xs font-semibold transition cursor-pointer shadow-2xs"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleConfirmAndReceive}
+                    disabled={
+                      saving || !selectedPOId || deliveryItemsInput.length === 0
+                    }
+                    className="inline-flex items-center gap-2 bg-[#0A2924] hover:bg-[#0A2924]/90 disabled:opacity-40 disabled:cursor-not-allowed text-white px-5 py-2.5 rounded-full text-xs font-semibold transition cursor-pointer shadow-sm"
+                  >
+                    {saving ? (
+                      <>
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        <span>Receiving...</span>
+                      </>
+                    ) : (
+                      <span>Confirm & Receive</span>
+                    )}
+                  </button>
+                </>
+              ) : (
                 <button
                   type="button"
                   onClick={() => setIsPanelOpen(false)}
                   className="bg-white border border-neutral-200 hover:bg-neutral-50 text-neutral-700 px-5 py-2.5 rounded-full text-xs font-semibold transition cursor-pointer shadow-2xs"
                 >
-                  Cancel
+                  Close
                 </button>
-                <button
-                  type="button"
-                  onClick={handleConfirmAndReceive}
-                  disabled={
-                    saving || !selectedPOId || deliveryItemsInput.length === 0
-                  }
-                  className="inline-flex items-center gap-2 bg-[#0A2924] hover:bg-[#0A2924]/90 disabled:opacity-40 disabled:cursor-not-allowed text-white px-5 py-2.5 rounded-full text-xs font-semibold transition cursor-pointer shadow-sm"
-                >
-                  {saving ? (
-                    <>
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      <span>Receiving...</span>
-                    </>
-                  ) : (
-                    <span>Confirm & Receive</span>
-                  )}
-                </button>
-              </>
-            ) : (
-              <button
-                type="button"
-                onClick={() => setIsPanelOpen(false)}
-                className="bg-white border border-neutral-200 hover:bg-neutral-50 text-neutral-700 px-5 py-2.5 rounded-full text-xs font-semibold transition cursor-pointer shadow-2xs"
-              >
-                Close
-              </button>
-            )}
+              )}
+            </div>
           </div>
-        </div>
+        </>
       )}
     </div>
   );
