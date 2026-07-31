@@ -36,6 +36,7 @@ const MODULE_ROUTES: Record<string, string[]> = {
     "/dashboard/categories",
     "/dashboard/suppliers",
     "/dashboard/recipes",
+    "/dashboard/products",
     "/dashboard/refill-planner",
     "/dashboard/purchase-orders",
     "/dashboard/deliveries",

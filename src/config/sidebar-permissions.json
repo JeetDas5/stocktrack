@@ -8,7 +8,7 @@
     "/dashboard/suppliers",
     "/dashboard/categories",
     "/dashboard/stock-items",
-    "/dashboard/recipes",
+    "/dashboard/products",
     "/dashboard/counts",
     "/dashboard/refill-planner",
     "/dashboard/purchase-orders",

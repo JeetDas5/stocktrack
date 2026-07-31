@@ -702,7 +702,8 @@ export default function StockItemsPage() {
                   {visibleItems.map((item) => (
                     <tr
                       key={item.id}
-                      className="hover:bg-neutral-50/50 transition-colors"
+                      onClick={() => openEditDrawer(item)}
+                      className="hover:bg-neutral-50/50 transition-colors cursor-pointer"
                     >
                       <td className="py-4 px-6">
                         <div>
@@ -730,7 +731,10 @@ export default function StockItemsPage() {
                         <div className="flex items-center justify-end gap-1.5">
                           <button
                             type="button"
-                            onClick={() => openEditDrawer(item)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openEditDrawer(item);
+                            }}
                             className="p-1.5 rounded-lg hover:bg-neutral-100 text-neutral-400 hover:text-neutral-800 transition-colors cursor-pointer"
                             title="Edit Stock Item"
                           >
@@ -738,7 +742,10 @@ export default function StockItemsPage() {
                           </button>
                           <button
                             type="button"
-                            onClick={() => handleDelete(item.id)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDelete(item.id);
+                            }}
                             className="p-1.5 rounded-lg hover:bg-rose-50 text-neutral-400 hover:text-rose-600 transition-colors cursor-pointer"
                             title="Delete Stock Item"
                           >
