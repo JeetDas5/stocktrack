@@ -161,6 +161,22 @@ def get_current_user(
                                         "roster-settings",
                                         "availability"
                                     ])
+                                elif mod == "inventory":
+                                    allowed_sub.extend([
+                                        "categories",
+                                        "stock-items",
+                                        "stock-counts",
+                                        "deliveries",
+                                        "suppliers",
+                                        "recipes",
+                                        "consumption",
+                                        "purchase-orders",
+                                        "refill-suggestions",
+                                        "reconciliations",
+                                        "sales",
+                                        "refill-planner",
+                                        "inventory",
+                                    ])
                             if sub_resource in allowed_sub:
                                 is_module_allowed = True
                                 
@@ -178,6 +194,23 @@ def get_current_user(
                     
                 elif resource == "staff":  # /api/staff/invitations
                     is_module_allowed = "timesheet" in user_modules
+
+                elif resource in (
+                    "categories",
+                    "stock-items",
+                    "stock-counts",
+                    "deliveries",
+                    "suppliers",
+                    "recipes",
+                    "consumption",
+                    "purchase-orders",
+                    "refill-suggestions",
+                    "reconciliations",
+                    "sales",
+                    "refill-planner",
+                    "inventory",
+                ):
+                    is_module_allowed = "inventory" in user_modules
             else:
                 is_module_allowed = True
                 
