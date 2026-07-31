@@ -467,12 +467,10 @@ export default function StockCountsPage() {
   return (
     <div className="flex flex-col bg-[#F5F5F5] md:bg-white h-full w-full relative select-none">
       <div className="flex-1 min-w-0 flex flex-col space-y-3 min-h-0 w-full max-w-full">
-        <div className="border border-zinc-200 rounded-2xl md:rounded-xl py-4 px-5 md:py-3 md:px-4 bg-white flex justify-between items-center gap-4 shrink-0 shadow-sm">
-          <div>
-            <h1 className="text-xl md:text-2xl font-extrabold text-zinc-900 tracking-tight">
-              Stock Counts
-            </h1>
-          </div>
+        <div className="bg-white border border-neutral-200 rounded-3xl py-4 px-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 shadow-sm">
+          <h1 className="text-[24px] font-bold text-neutral-900 tracking-tight">
+            Stock Counts
+          </h1>
 
           <div className="flex flex-col md:flex-row items-end md:items-center gap-1 md:gap-4">
             <span className="text-[10px] md:text-[11px] font-bold text-zinc-500 uppercase tracking-wider whitespace-nowrap">
@@ -491,8 +489,8 @@ export default function StockCountsPage() {
             </div>
           </div>
         </div>
-        <div className="flex flex-col md:flex-row gap-2 md:gap-2.5 md:items-center w-full max-w-full shrink-0">
-          <div className="relative w-full md:max-w-md md:flex-1">
+        <div className="flex flex-col md:flex-row gap-2 md:gap-2.5 md:items-center w-full max-w-full shrink-0 justify-between">
+          <div className="relative w-full md:w-64">
             <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-zinc-400">
               <Search className="h-4 w-4" />
             </span>
@@ -505,7 +503,7 @@ export default function StockCountsPage() {
             />
           </div>
 
-          <div className="flex gap-2 items-center overflow-x-auto md:overflow-visible no-scrollbar py-0.5">
+          <div className="flex gap-2 items-center overflow-x-auto md:overflow-visible no-scrollbar py-0.5 md:ml-auto">
             <button
               type="button"
               onClick={() =>
@@ -515,7 +513,7 @@ export default function StockCountsPage() {
               }
               className={`rounded-full px-4 py-2 text-xs font-bold transition-all border cursor-pointer whitespace-nowrap shrink-0 ${
                 filterStatus === "completed"
-                  ? "bg-[#DCFCE7] text-[#16A34A] border-[#16A34A]/20 shadow-xs"
+                  ? "bg-zinc-800 text-white border-zinc-800 shadow-xs"
                   : "bg-white text-zinc-600 border-zinc-200 hover:bg-zinc-50 shadow-2xs"
               }`}
             >
@@ -937,12 +935,12 @@ export default function StockCountsPage() {
         </div>
 
         <div className="hidden md:flex flex-row items-center justify-between gap-4 py-2 shrink-0">
-          <div className="flex items-center gap-2 text-xs font-bold text-zinc-500 rounded-full px-3 py-1">
+          <div className="flex items-center gap-2 text-xs text-zinc-500 rounded-full px-3 py-1">
             {lastAutoSave ? (
               <>
                 <Check className="h-4 w-4 text-emerald-600 shrink-0 stroke-[3px]" />
-                <span className="text-zinc-900">
-                  Auto Saved at {lastAutoSave}
+                <span className="font-medium">
+                  Draft Saved at {lastAutoSave}
                 </span>
               </>
             ) : (

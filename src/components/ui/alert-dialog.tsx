@@ -48,12 +48,12 @@ const variantConfig: Record<
   },
   info: {
     icon: Info,
-    iconBg: "bg-sky-50",
-    iconColor: "text-sky-500",
-    confirmBg: "bg-sky-500",
-    confirmHover: "hover:bg-sky-600",
+    iconBg: "bg-white",
+    iconColor: "text-black",
+    confirmBg: "bg-black",
+    confirmHover: "hover:bg-zinc-700",
     confirmText: "text-white",
-    ringColor: "focus:ring-sky-500",
+    ringColor: "focus:ring-gray-500",
   },
   success: {
     icon: CheckCircle,
@@ -112,7 +112,7 @@ export default function AlertDialog({
 
   return (
     <div
-      className="fixed inset-0 z-[200] flex items-center justify-center p-4"
+      className="fixed inset-0 z-200 flex items-center justify-center p-4"
       role="dialog"
       aria-modal="true"
       aria-labelledby="alert-dialog-title"

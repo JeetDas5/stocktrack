@@ -3,7 +3,7 @@
 "use client";
 
 import { toast } from "sonner";
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 
 import { Business } from "@/types/business";
 import { useAuth } from "@/providers/auth-provider";
@@ -23,10 +23,16 @@ import {
   Loader2,
   Edit2,
   Trash2,
-  ChevronLeft,
-  ChevronRight,
   PlusCircle,
 } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { cn } from "@/lib/utils";
 
 export default function RecipesPage() {
   const { activeBusinessId } = useBusinessStore();
@@ -54,6 +60,9 @@ export default function RecipesPage() {
     "all" | "active" | "inactive"
   >("all");
 
+  const [visibleCount, setVisibleCount] = useState(20);
+  const loadMoreRef = useRef<HTMLDivElement>(null);
+
   const [showDrawer, setShowDrawer] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
 
@@ -73,9 +82,6 @@ export default function RecipesPage() {
 
   const [saving, setSaving] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
-
-  const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 7;
 
   useEffect(() => {
     if (!activeBusinessId) return;
@@ -370,26 +376,36 @@ export default function RecipesPage() {
     });
   }, [recipes, searchQuery, categoryFilter, statusFilter]);
 
-  const totalPages = Math.max(
-    1,
-    Math.ceil(filteredRecipes.length / itemsPerPage),
-  );
-  const paginatedRecipes = useMemo(() => {
-    const startIndex = (currentPage - 1) * itemsPerPage;
-    return filteredRecipes.slice(startIndex, startIndex + itemsPerPage);
-  }, [filteredRecipes, currentPage]);
-
   useEffect(() => {
-    if (currentPage > totalPages) {
-      setCurrentPage(totalPages);
-    }
-  }, [totalPages, currentPage]);
+    setVisibleCount(20);
+  }, [searchQuery, categoryFilter, statusFilter]);
 
-  const handlePageChange = (page: number) => {
-    if (page >= 1 && page <= totalPages) {
-      setCurrentPage(page);
+  // Infinite Scroll Observer
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          setVisibleCount((prev) => Math.min(prev + 20, filteredRecipes.length));
+        }
+      },
+      { threshold: 0.1 },
+    );
+
+    const currentRef = loadMoreRef.current;
+    if (currentRef) {
+      observer.observe(currentRef);
     }
-  };
+
+    return () => {
+      if (currentRef) {
+        observer.unobserve(currentRef);
+      }
+    };
+  }, [filteredRecipes.length]);
+
+  const visibleRecipes = useMemo(() => {
+    return filteredRecipes.slice(0, visibleCount);
+  }, [filteredRecipes, visibleCount]);
 
   if (!activeBusinessId) {
     return null;
@@ -397,165 +413,154 @@ export default function RecipesPage() {
 
   if (recipesLoading || loadingContext) {
     return (
-      <div className="h-[75vh] flex flex-col items-center justify-center bg-white text-[#0F172A]">
-        <Loader2 className="h-7 w-7 text-[#16A34A] animate-spin mb-3" />
-        <span className="text-[#64748B] text-xs font-bold uppercase tracking-wider">
+      <div className="min-h-[75vh] flex flex-col items-center justify-center bg-white text-neutral-900">
+        <Loader2 className="h-7 w-7 text-neutral-900 animate-spin mb-3" />
+        <p className="text-neutral-400 text-xs font-bold uppercase tracking-wider">
           Loading recipes book...
-        </span>
+        </p>
       </div>
     );
   }
 
   return (
-    <div className="flex bg-white min-h-[80vh] relative select-none">
-      <div className="flex-1 space-y-6 pr-0 lg:pr-4">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-zinc-200 pb-5">
+    <div className="flex flex-col gap-6 bg-white min-h-0 w-full pb-8 select-none font-sans antialiased text-neutral-900">
+      <div className="w-full space-y-4">
+        {/* Header Card */}
+        <div className="bg-white border border-neutral-200 rounded-3xl py-4 px-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 shadow-sm">
           <div>
-            <h1 className="text-3xl font-extrabold text-[#0F172A] tracking-tight">
+            <h1 className="text-[24px] font-bold text-neutral-900 tracking-tight">
               Recipes
             </h1>
-            <p className="text-[#64748B] text-xs font-bold mt-1.5">
+            <p className="text-neutral-500 text-xs font-medium mt-0.5">
               Create and manage recipes to track ingredients and portion costs.
             </p>
           </div>
 
-          <div className="flex items-center gap-3 w-full sm:w-auto">
+          <div className="flex items-center gap-3">
             <button
-              onClick={() => toast.info("Import function coming soon!")}
-              className="flex-1 sm:flex-initial bg-white border border-zinc-200 hover:bg-zinc-50 text-zinc-700 rounded-xl px-4 py-2.5 text-xs font-bold uppercase tracking-wider transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer"
-            >
-              Import Recipes
-            </button>
-            <button
+              type="button"
               onClick={openAddDrawer}
-              className="flex-1 sm:flex-initial bg-[#16A34A] hover:bg-[#15803D] text-white rounded-xl px-5 py-2.5 text-xs font-bold uppercase tracking-wider shadow-sm flex items-center justify-center gap-2 cursor-pointer transition-all duration-200"
+              className="inline-flex items-center gap-2 bg-[#0A2924] hover:bg-[#0A2924]/90 border border-[#0A2924] text-white px-5 py-2.5 rounded-full text-xs font-semibold transition-all duration-200 cursor-pointer shadow-sm"
             >
-              <Plus className="h-4 w-4 stroke-[3px]" />
-              Add Recipe
+              <Plus className="h-4 w-4 stroke-[2.5]" />
+              <span>Add Recipe</span>
             </button>
           </div>
         </div>
 
-        <div className="flex flex-col md:flex-row gap-4 justify-between items-stretch md:items-center">
-          <div className="flex flex-col sm:flex-row gap-3 flex-1">
-            <div className="relative flex-1">
-              <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-zinc-400">
-                <Search className="h-4 w-4" />
-              </span>
-              <input
-                type="text"
-                placeholder="Search recipes..."
-                className="w-full bg-white border border-zinc-200 focus:border-[#16A34A] rounded-xl py-2.5 pl-10 pr-4 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#16A34A] transition-all shadow-xs"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </div>
+        {/* Filter Controls Row */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 w-full">
+          <div className="relative flex-1 max-w-md">
+            <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-neutral-400">
+              <Search className="h-4 w-4" />
+            </span>
+            <input
+              type="text"
+              placeholder="Search recipes..."
+              className="w-full bg-white border border-neutral-200 focus:border-neutral-900 focus:ring-4 focus:ring-neutral-900/5 rounded-full py-2.5 pl-10 pr-4 text-xs font-medium text-neutral-900 placeholder:text-neutral-400 focus:outline-none transition shadow-2xs h-10"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
 
-            <div className="relative min-w-[140px]">
-              <select
+          <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto">
+            <div className="w-full sm:w-44">
+              <Select
                 value={categoryFilter}
-                onChange={(e) => setCategoryFilter(e.target.value)}
-                className="w-full bg-white border border-zinc-200 rounded-xl py-2.5 pl-3.5 pr-8 text-xs font-bold text-zinc-700 shadow-xs appearance-none focus:outline-none focus:ring-1 focus:ring-[#16A34A] focus:border-[#16A34A] cursor-pointer"
+                onValueChange={(val) => setCategoryFilter(val)}
               >
-                <option value="all">All Categories</option>
-                {categories.map((cat) => (
-                  <option key={cat.id} value={cat.id}>
-                    {cat.name}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
-            </div>
-
-            <div className="relative min-w-[180px]">
-              <select
-                disabled
-                className="w-full bg-zinc-50 border border-zinc-200 rounded-xl py-2.5 pl-3.5 pr-8 text-xs font-bold text-zinc-500 shadow-xs appearance-none cursor-not-allowed"
-              >
-                <option>{activeBusiness?.name || "All Businesses"}</option>
-              </select>
-              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
+                <SelectTrigger className="w-full h-10 rounded-full border border-neutral-200 bg-white px-4 text-xs font-semibold text-neutral-800 hover:bg-neutral-50 transition cursor-pointer shadow-2xs">
+                  <SelectValue placeholder="All Categories" />
+                </SelectTrigger>
+                <SelectContent className="rounded-xl border border-neutral-200 bg-white p-1 max-h-56 z-50">
+                  <SelectItem
+                    value="all"
+                    className="rounded-lg px-3 py-2 text-xs font-semibold cursor-pointer"
+                  >
+                    All Categories
+                  </SelectItem>
+                  {categories.map((cat) => (
+                    <SelectItem
+                      key={cat.id}
+                      value={cat.id}
+                      className="rounded-lg px-3 py-2 text-xs font-semibold cursor-pointer"
+                    >
+                      {cat.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
         </div>
 
-        {filteredRecipes.length === 0 ? (
-          <div className="bg-white border border-zinc-200 rounded-2xl py-20 px-6 text-center flex flex-col items-center justify-center shadow-sm animate-fade-in">
-            <ChefHat className="h-12 w-12 text-zinc-300 mb-3" />
-            <h3 className="text-base font-bold text-[#0F172A]">
+        {/* Recipes Table */}
+        {visibleRecipes.length === 0 ? (
+          <div className="bg-white border border-neutral-200 rounded-3xl py-20 px-6 text-center flex flex-col items-center justify-center shadow-xs">
+            <ChefHat className="h-10 w-10 text-neutral-300 mb-3" />
+            <h3 className="text-base font-bold text-neutral-900">
               No recipes found
             </h3>
-            <p className="text-[#64748B] text-xs mt-1 font-semibold max-w-xs leading-relaxed">
-              No registered recipe book profiles match your criteria. Click +
-              Add Recipe to begin.
+            <p className="text-neutral-500 text-xs mt-1 font-medium max-w-xs leading-relaxed">
+              No registered recipe book profiles match your criteria. Click Add
+              Recipe to begin.
             </p>
           </div>
         ) : (
-          <div className="bg-white border border-zinc-200 rounded-2xl shadow-xs overflow-hidden">
+          <div className="bg-white border border-neutral-200 rounded-3xl shadow-xs overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="border-b border-zinc-200 text-[10px] uppercase font-extrabold tracking-wider text-[#64748B] bg-zinc-50/50">
-                    <th className="py-4 px-6 font-extrabold">Recipe Name</th>
-                    <th className="py-4 px-6 font-extrabold">Category</th>
-                    <th className="py-4 px-6 font-extrabold">
-                      Yield / Serving
-                    </th>
-                    <th className="py-4 px-6 font-extrabold">Ingredients</th>
-                    <th className="py-4 px-6 font-extrabold">
-                      Cost per Serving
-                    </th>
-                    <th className="py-4 px-6 font-extrabold">Sales Amount</th>
-                    <th className="py-4 px-6 font-extrabold">Status</th>
-                    <th className="py-4 px-6 font-extrabold text-right">
-                      Actions
-                    </th>
+                  <tr className="border-b border-neutral-200 text-[11px] font-bold text-neutral-500 uppercase tracking-wider bg-white">
+                    <th className="py-4 px-6 font-bold">Recipe Name</th>
+                    <th className="py-4 px-6 font-bold">Category</th>
+                    <th className="py-4 px-6 font-bold">Yield / Serving</th>
+                    <th className="py-4 px-6 font-bold">Ingredients</th>
+                    <th className="py-4 px-6 font-bold">Cost per Serving</th>
+                    <th className="py-4 px-6 font-bold">Sales Amount</th>
+                    <th className="py-4 px-6 font-bold">Status</th>
+                    <th className="py-4 px-6 font-bold text-right">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-zinc-200 text-xs text-[#0F172A]">
-                  {paginatedRecipes.map((rec) => (
+                <tbody className="divide-y divide-neutral-100 text-xs text-neutral-900 bg-white">
+                  {visibleRecipes.map((rec) => (
                     <tr
                       key={rec.id}
-                      className="hover:bg-zinc-50/40 transition-colors"
+                      className="hover:bg-neutral-50/50 transition-colors"
                     >
                       <td className="py-4 px-6">
-                        <div className="flex items-center gap-3.5">
-                          <div className="h-9 w-9 rounded-xl bg-emerald-50 text-[#16A34A] flex items-center justify-center shrink-0 border border-emerald-100/50 shadow-xs">
-                            <ChefHat className="h-4 w-4" />
-                          </div>
-                          <div>
-                            <span
-                              className="font-extrabold text-[#0F172A] hover:text-[#16A34A] transition-colors cursor-pointer block"
-                              onClick={() => openEditDrawer(rec)}
-                            >
-                              {rec.recipeName}
-                            </span>
-                            {rec.recipeCode && (
-                              <span className="text-[10px] text-zinc-400 font-bold block mt-0.5 uppercase tracking-wider">
-                                {rec.recipeCode}
-                              </span>
-                            )}
-                          </div>
+                        <div>
+                          <p
+                            className="font-bold text-neutral-900 text-xs hover:underline cursor-pointer"
+                            onClick={() => openEditDrawer(rec)}
+                          >
+                            {rec.recipeName}
+                          </p>
+                          {rec.recipeCode && (
+                            <p className="text-[10px] text-neutral-400 font-medium mt-0.5 uppercase tracking-wider">
+                              {rec.recipeCode}
+                            </p>
+                          )}
                         </div>
                       </td>
 
-                      <td className="py-4 px-6 font-bold text-[#64748B]">
+                      <td className="py-4 px-6 font-semibold text-neutral-600">
                         {rec.categoryName || "Uncategorized"}
                       </td>
 
-                      <td className="py-4 px-6 font-bold text-zinc-700">
+                      <td className="py-4 px-6 font-semibold text-neutral-800">
                         {rec.yieldQty} {rec.yieldUnit}
                       </td>
 
-                      <td className="py-4 px-6 font-extrabold text-zinc-600">
+                      <td className="py-4 px-6 font-bold text-neutral-700">
                         {rec.ingredientsCount ?? 0}
                       </td>
 
-                      <td className="py-4 px-6 font-extrabold text-zinc-950">
+                      <td className="py-4 px-6 font-bold text-neutral-900">
                         ${(rec.costPerServing ?? 0).toFixed(2)}
                       </td>
 
-                      <td className="py-4 px-6 font-extrabold text-zinc-950">
+                      <td className="py-4 px-6 font-bold text-neutral-900">
                         $
                         {(rec.salesAmount ?? rec.costPerServing ?? 0).toFixed(
                           2,
@@ -563,41 +568,43 @@ export default function RecipesPage() {
                       </td>
 
                       <td className="py-4 px-6">
-                        <div className="inline-flex items-center gap-1.5">
+                        <span
+                          className={cn(
+                            "px-2.5 py-1.5 rounded-md font-bold text-[10px] uppercase tracking-wider inline-flex items-center gap-1.5 border",
+                            rec.status === "active"
+                              ? "bg-emerald-50 text-emerald-800 border-emerald-200/70"
+                              : "bg-neutral-100 text-neutral-600 border-neutral-200",
+                          )}
+                        >
                           <span
-                            className={`h-1.5 w-1.5 rounded-full ${
+                            className={cn(
+                              "h-1.5 w-1.5 rounded-full",
                               rec.status === "active"
-                                ? "bg-[#16A34A]"
-                                : "bg-[#64748B]"
-                            }`}
+                                ? "bg-emerald-600"
+                                : "bg-neutral-400",
+                            )}
                           />
-                          <span
-                            className={`text-[10px] font-extrabold ${
-                              rec.status === "active"
-                                ? "text-[#16A34A]"
-                                : "text-[#64748B]"
-                            }`}
-                          >
-                            {rec.status === "active" ? "Active" : "Inactive"}
-                          </span>
-                        </div>
+                          {rec.status === "active" ? "Active" : "Inactive"}
+                        </span>
                       </td>
 
-                      <td className="py-4 px-6 text-right">
-                        <div className="flex items-center justify-end gap-2">
+                      <td className="py-4 px-6 text-right relative">
+                        <div className="flex items-center justify-end gap-1.5">
                           <button
+                            type="button"
                             onClick={() => openEditDrawer(rec)}
-                            className="p-1.5 rounded-lg hover:bg-zinc-100 text-zinc-500 hover:text-[#16A34A] transition-colors cursor-pointer"
+                            className="p-1.5 rounded-lg hover:bg-neutral-100 text-neutral-400 hover:text-neutral-800 transition-colors cursor-pointer"
                             title="Edit"
                           >
                             <Edit2 className="h-4 w-4" />
                           </button>
                           <button
+                            type="button"
                             onClick={() => handleDelete(rec.id)}
-                            className="p-1.5 rounded-lg hover:bg-rose-50 text-zinc-500 hover:text-rose-600 transition-colors cursor-pointer"
+                            className="p-1.5 rounded-lg hover:bg-rose-50 text-neutral-400 hover:text-rose-600 transition-colors cursor-pointer"
                             title="Delete"
                           >
-                            <X className="h-4 w-4" />
+                            <Trash2 className="h-4 w-4" />
                           </button>
                         </div>
                       </td>
@@ -607,54 +614,16 @@ export default function RecipesPage() {
               </table>
             </div>
 
-            <div className="bg-zinc-50/50 border-t border-zinc-200 py-4 px-6 flex flex-col sm:flex-row justify-between items-center gap-4 text-xs text-[#64748B] font-semibold">
-              <span>
-                Showing{" "}
-                {Math.min(
-                  filteredRecipes.length,
-                  (currentPage - 1) * itemsPerPage + 1,
-                )}{" "}
-                to{" "}
-                {Math.min(filteredRecipes.length, currentPage * itemsPerPage)}{" "}
-                of {filteredRecipes.length} recipes
-              </span>
-
-              {totalPages > 1 && (
-                <div className="flex items-center gap-1">
-                  <button
-                    onClick={() => handlePageChange(currentPage - 1)}
-                    className="p-1.5 rounded-lg border border-zinc-200 bg-white hover:bg-zinc-50 text-zinc-500 disabled:opacity-40 disabled:hover:bg-white cursor-pointer disabled:cursor-not-allowed"
-                    disabled={currentPage === 1}
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                  </button>
-
-                  {Array.from({ length: totalPages }, (_, i) => i + 1).map(
-                    (page) => (
-                      <button
-                        key={page}
-                        onClick={() => handlePageChange(page)}
-                        className={`h-8 w-8 rounded-lg font-bold text-xs cursor-pointer transition-all duration-150 ${
-                          currentPage === page
-                            ? "bg-[#16A34A] text-white shadow-xs"
-                            : "border border-zinc-200 bg-white hover:bg-zinc-50 text-zinc-700"
-                        }`}
-                      >
-                        {page}
-                      </button>
-                    ),
-                  )}
-
-                  <button
-                    onClick={() => handlePageChange(currentPage + 1)}
-                    className="p-1.5 rounded-lg border border-zinc-200 bg-white hover:bg-zinc-50 text-zinc-500 disabled:opacity-40 disabled:hover:bg-white cursor-pointer disabled:cursor-not-allowed"
-                    disabled={currentPage === totalPages}
-                  >
-                    <ChevronRight className="h-4 w-4" />
-                  </button>
-                </div>
-              )}
-            </div>
+            {/* Infinite Scroll Loader Sentinel */}
+            {visibleCount < filteredRecipes.length && (
+              <div
+                ref={loadMoreRef}
+                className="py-4 border-t border-neutral-100 flex items-center justify-center text-xs font-semibold text-neutral-400 gap-2 bg-neutral-50/30"
+              >
+                <Loader2 className="h-4 w-4 animate-spin text-neutral-600" />
+                <span>Loading more recipes...</span>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -662,91 +631,95 @@ export default function RecipesPage() {
       {showDrawer && (
         <>
           <div
-            className="fixed inset-0 bg-black/25 backdrop-blur-xs z-90 animate-fade-in"
+            className="fixed inset-0 bg-black/30 z-40 transition-opacity"
             onClick={() => setShowDrawer(false)}
           />
-          <div className="fixed top-0 right-0 h-full w-[460px] bg-white border-l border-zinc-200 shadow-2xl flex flex-col justify-between z-100 animate-slide-in">
+          <div className="fixed top-0 right-0 h-full w-[520px] sm:w-[560px] max-w-[95vw] bg-white border-l border-neutral-200 shadow-2xl flex flex-col justify-between z-50 animate-slide-in">
             <div className="p-6 overflow-y-auto space-y-6 flex-1">
-              <div className="flex justify-between items-start">
+              <div className="flex justify-between items-start border-b border-neutral-100 pb-4">
                 <div>
-                  <h3 className="text-lg font-extrabold text-[#0F172A]">
+                  <h3 className="text-base font-bold text-neutral-900">
                     {editId ? "Edit Recipe" : "Add Recipe"}
                   </h3>
-                  <p className="text-[#64748B] text-xs font-semibold mt-1">
+                  <p className="text-neutral-500 text-xs font-medium mt-0.5">
                     {editId
                       ? "Edit the details for this recipe."
                       : "Enter the details for the new recipe."}
                   </p>
                 </div>
                 <button
+                  type="button"
                   onClick={() => setShowDrawer(false)}
-                  className="p-1.5 rounded-lg hover:bg-zinc-100 text-zinc-400 hover:text-zinc-700 cursor-pointer"
+                  className="p-1.5 rounded-lg hover:bg-neutral-100 text-neutral-400 hover:text-neutral-700 cursor-pointer transition-colors"
                 >
                   <X className="h-5 w-5" />
                 </button>
               </div>
 
-              <form onSubmit={handleSave} className="space-y-6">
+              <form onSubmit={handleSave} className="space-y-5">
                 <div className="space-y-4">
-                  <div className="border-b border-zinc-100 pb-1">
-                    <span className="text-[10px] font-extrabold tracking-widest text-[#64748B] uppercase">
-                      Basic Information
-                    </span>
-                  </div>
+                  <h4 className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 border-b border-neutral-100 pb-1">
+                    Basic Information
+                  </h4>
 
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-[#0F172A] block">
-                      Recipe Name <span className="text-rose-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      maxLength={50}
-                      placeholder="Enter recipe name"
-                      className="w-full bg-white border border-zinc-300 focus:border-[#16A34A] rounded-xl py-2.5 px-3.5 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#16A34A] transition-all font-semibold"
-                      value={formName}
-                      onChange={(e) => setFormName(e.target.value)}
-                    />
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-[#0F172A] block">
-                      Recipe Code
-                    </label>
-                    <input
-                      type="text"
-                      maxLength={20}
-                      placeholder="e.g. RC-0001"
-                      className="w-full bg-white border border-zinc-300 focus:border-[#16A34A] rounded-xl py-2.5 px-3.5 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#16A34A] transition-all font-semibold"
-                      value={formCode}
-                      onChange={(e) => setFormCode(e.target.value)}
-                    />
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-[#0F172A] block">
-                      Category <span className="text-rose-500">*</span>
-                    </label>
-                    <div className="relative">
-                      <select
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-bold text-neutral-700 uppercase tracking-wider block">
+                        Recipe Name <span className="text-rose-500">*</span>
+                      </label>
+                      <input
+                        type="text"
                         required
-                        className="w-full bg-white border border-zinc-300 focus:border-[#16A34A] rounded-xl py-2.5 px-3.5 text-xs text-[#0F172A] font-bold focus:outline-none focus:ring-1 focus:ring-[#16A34A] appearance-none cursor-pointer"
-                        value={formCategoryId}
-                        onChange={(e) => setFormCategoryId(e.target.value)}
-                      >
-                        <option value="">Select category</option>
-                        {categories.map((cat) => (
-                          <option key={cat.id} value={cat.id}>
-                            {cat.name}
-                          </option>
-                        ))}
-                      </select>
-                      <ChevronDown className="absolute right-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
+                        maxLength={50}
+                        placeholder="Enter recipe name"
+                        className="w-full bg-white border border-neutral-200 focus:border-neutral-900 focus:ring-4 focus:ring-neutral-900/5 rounded-xl py-2 px-3 text-xs font-semibold text-neutral-900 placeholder:text-neutral-400 focus:outline-none transition"
+                        value={formName}
+                        onChange={(e) => setFormName(e.target.value)}
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-bold text-neutral-700 uppercase tracking-wider block">
+                        Recipe Code
+                      </label>
+                      <input
+                        type="text"
+                        maxLength={20}
+                        placeholder="e.g. RC-0001"
+                        className="w-full bg-white border border-neutral-200 focus:border-neutral-900 focus:ring-4 focus:ring-neutral-900/5 rounded-xl py-2 px-3 text-xs font-semibold text-neutral-900 placeholder:text-neutral-400 focus:outline-none transition"
+                        value={formCode}
+                        onChange={(e) => setFormCode(e.target.value)}
+                      />
                     </div>
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-[#0F172A] block">
+                    <label className="text-[10px] font-bold text-neutral-700 uppercase tracking-wider block">
+                      Category <span className="text-rose-500">*</span>
+                    </label>
+                    <Select
+                      value={formCategoryId}
+                      onValueChange={(val) => setFormCategoryId(val)}
+                    >
+                      <SelectTrigger className="w-full h-10 rounded-xl border border-neutral-200 bg-white px-3 text-xs font-semibold text-neutral-900 focus:outline-none focus:ring-4 focus:ring-neutral-900/5 focus:border-neutral-900 transition cursor-pointer shadow-2xs">
+                        <SelectValue placeholder="Select category" />
+                      </SelectTrigger>
+                      <SelectContent className="rounded-xl border border-neutral-200 bg-white p-1 max-h-56 z-60">
+                        {categories.map((cat) => (
+                          <SelectItem
+                            key={cat.id}
+                            value={cat.id}
+                            className="rounded-lg px-3 py-2 text-xs font-semibold cursor-pointer"
+                          >
+                            {cat.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-neutral-700 uppercase tracking-wider block">
                       Yield / Serving <span className="text-rose-500">*</span>
                     </label>
                     <div className="flex gap-2">
@@ -756,7 +729,7 @@ export default function RecipesPage() {
                         min={1}
                         step={1}
                         placeholder="1"
-                        className="w-24 bg-white border border-zinc-300 focus:border-[#16A34A] rounded-xl py-2.5 px-3.5 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#16A34A] transition-all font-semibold"
+                        className="w-24 bg-white border border-neutral-200 focus:border-neutral-900 focus:ring-4 focus:ring-neutral-900/5 rounded-xl py-2 px-3 text-xs font-semibold text-neutral-900 placeholder:text-neutral-400 focus:outline-none transition"
                         value={formYieldQty}
                         onChange={(e) =>
                           setFormYieldQty(parseInt(e.target.value) || 1)
@@ -767,7 +740,7 @@ export default function RecipesPage() {
                         required
                         maxLength={20}
                         placeholder="Unit (e.g. Serving, Portion)"
-                        className="flex-1 bg-white border border-zinc-300 focus:border-[#16A34A] rounded-xl py-2.5 px-3.5 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#16A34A] transition-all font-semibold"
+                        className="flex-1 bg-white border border-neutral-200 focus:border-neutral-900 focus:ring-4 focus:ring-neutral-900/5 rounded-xl py-2 px-3 text-xs font-semibold text-neutral-900 placeholder:text-neutral-400 focus:outline-none transition"
                         value={formYieldUnit}
                         onChange={(e) => setFormYieldUnit(e.target.value)}
                       />
@@ -776,19 +749,19 @@ export default function RecipesPage() {
 
                   <div className="flex gap-4">
                     <div className="w-1/2 space-y-1.5">
-                      <label className="text-xs font-bold text-[#64748B] block">
+                      <label className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider block">
                         Calculated Serving Cost
                       </label>
-                      <div className="bg-zinc-100 border border-zinc-200 rounded-xl py-2.5 px-3.5 text-xs text-zinc-600 font-bold flex items-center h-[38px] cursor-not-allowed">
+                      <div className="bg-neutral-100 border border-neutral-200 rounded-xl py-2 px-3 text-xs text-neutral-700 font-bold flex items-center h-10 cursor-not-allowed">
                         ${currentServingCost.toFixed(2)}
                       </div>
                     </div>
                     <div className="w-1/2 space-y-1.5">
-                      <label className="text-xs font-bold text-[#0F172A] block">
+                      <label className="text-[10px] font-bold text-neutral-700 uppercase tracking-wider block">
                         Sales Amount <span className="text-rose-500">*</span>
                       </label>
                       <div className="relative">
-                        <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-zinc-400 text-xs font-semibold">
+                        <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-neutral-400 text-xs font-semibold">
                           $
                         </span>
                         <input
@@ -797,7 +770,7 @@ export default function RecipesPage() {
                           min={0}
                           required
                           placeholder="0.00"
-                          className="w-full bg-white border border-zinc-300 focus:border-[#16A34A] rounded-xl py-2.5 pl-8 pr-3.5 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#16A34A] transition-all font-semibold"
+                          className="w-full bg-white border border-neutral-200 focus:border-neutral-900 focus:ring-4 focus:ring-neutral-900/5 rounded-xl py-2 pl-8 pr-3 text-xs font-semibold text-neutral-900 placeholder:text-neutral-400 focus:outline-none transition h-10"
                           value={formSalesAmount}
                           onChange={(e) => {
                             setFormSalesAmount(e.target.value);
@@ -808,29 +781,29 @@ export default function RecipesPage() {
                     </div>
                   </div>
 
-                  <div className="space-y-4">
-                    <div className="border-b border-zinc-100 pb-1 flex justify-between items-center">
-                      <span className="text-[10px] font-extrabold tracking-widest text-[#64748B] uppercase">
+                  <div className="space-y-3 pt-2">
+                    <div className="border-b border-neutral-100 pb-1 flex justify-between items-center">
+                      <h4 className="text-[10px] font-bold uppercase tracking-wider text-neutral-400">
                         Recipe Ingredients
-                      </span>
+                      </h4>
                     </div>
 
                     {formIngredients.length === 0 ? (
-                      <div className="border border-dashed border-zinc-200 rounded-xl p-6 text-center flex flex-col items-center justify-center">
-                        <ChefHat className="h-8 w-8 text-zinc-300 mb-2" />
-                        <p className="text-zinc-500 text-[11px] font-bold">
+                      <div className="border border-dashed border-neutral-200 rounded-2xl p-6 text-center flex flex-col items-center justify-center">
+                        <ChefHat className="h-8 w-8 text-neutral-300 mb-2" />
+                        <p className="text-neutral-700 text-xs font-bold">
                           No ingredients added yet
                         </p>
-                        <p className="text-zinc-400 text-[10px] font-semibold mt-0.5">
+                        <p className="text-neutral-400 text-[10px] font-medium mt-0.5">
                           Click below to add ingredients to this recipe.
                         </p>
                         <button
                           type="button"
                           onClick={handleAddIngredientRow}
-                          className="mt-3 bg-white border border-zinc-200 hover:bg-zinc-50 text-zinc-700 rounded-lg px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-wider flex items-center gap-1 cursor-pointer transition-colors shadow-xs"
+                          className="mt-3 bg-neutral-100 hover:bg-neutral-200 text-neutral-800 rounded-lg px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 cursor-pointer transition-colors"
                         >
-                          <PlusCircle className="h-3.5 w-3.5 text-[#16A34A]" />
-                          Add Ingredient
+                          <PlusCircle className="h-3.5 w-3.5 text-[#0A2924]" />
+                          <span>Add Ingredient</span>
                         </button>
                       </div>
                     ) : (
@@ -844,16 +817,16 @@ export default function RecipesPage() {
                           return (
                             <div
                               key={idx}
-                              className="bg-zinc-50/50 border border-zinc-150 rounded-xl p-3.5 space-y-3"
+                              className="bg-neutral-50 border border-neutral-200 rounded-xl p-3.5 space-y-3"
                             >
                               <div className="flex justify-between items-center">
-                                <span className="text-[10px] font-extrabold text-[#16A34A] uppercase tracking-wider">
+                                <span className="text-[10px] font-bold text-[#0A2924] uppercase tracking-wider">
                                   Ingredient #{idx + 1}
                                 </span>
                                 <button
                                   type="button"
                                   onClick={() => handleRemoveIngredientRow(idx)}
-                                  className="text-zinc-400 hover:text-rose-600 transition-colors p-1 rounded hover:bg-zinc-100 shrink-0 cursor-pointer"
+                                  className="text-neutral-400 hover:text-rose-600 transition-colors p-1 rounded hover:bg-neutral-200 shrink-0 cursor-pointer"
                                   title="Remove Ingredient"
                                 >
                                   <Trash2 className="h-3.5 w-3.5" />
@@ -861,39 +834,41 @@ export default function RecipesPage() {
                               </div>
 
                               <div className="space-y-2">
-                                <div className="relative">
-                                  <select
-                                    value={ing.itemId}
-                                    onChange={(e) =>
-                                      handleIngredientChange(
-                                        idx,
-                                        "itemId",
-                                        e.target.value,
-                                      )
-                                    }
-                                    className="w-full bg-white border border-zinc-300 focus:border-[#16A34A] rounded-xl py-2 px-3 text-[11px] text-[#0F172A] font-bold focus:outline-none focus:ring-1 focus:ring-[#16A34A] appearance-none cursor-pointer"
-                                  >
-                                    <option value="">
-                                      Select ingredient...
-                                    </option>
+                                <Select
+                                  value={ing.itemId}
+                                  onValueChange={(val) =>
+                                    handleIngredientChange(
+                                      idx,
+                                      "itemId",
+                                      val,
+                                    )
+                                  }
+                                >
+                                  <SelectTrigger className="w-full h-9 rounded-xl border border-neutral-200 bg-white px-3 text-xs font-semibold text-neutral-900 focus:outline-none focus:ring-4 focus:ring-neutral-900/5 focus:border-neutral-900 transition cursor-pointer shadow-2xs">
+                                    <SelectValue placeholder="Select ingredient..." />
+                                  </SelectTrigger>
+                                  <SelectContent className="rounded-xl border border-neutral-200 bg-white p-1 max-h-56 z-60">
                                     {stockItems.map((s) => (
-                                      <option key={s.id} value={s.id}>
+                                      <SelectItem
+                                        key={s.id}
+                                        value={s.id}
+                                        className="rounded-lg px-3 py-2 text-xs font-semibold cursor-pointer"
+                                      >
                                         {s.name} ({s.baseUnit})
-                                      </option>
+                                      </SelectItem>
                                     ))}
-                                  </select>
-                                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-400 pointer-events-none" />
-                                </div>
+                                  </SelectContent>
+                                </Select>
 
                                 <div className="flex items-center gap-2">
-                                  <div className="flex items-center border border-zinc-300 bg-white rounded-xl py-2 px-3 focus-within:border-[#16A34A] focus-within:ring-1 focus-within:ring-[#16A34A] flex-1">
+                                  <div className="flex items-center border border-neutral-200 bg-white rounded-xl py-1.5 px-3 focus-within:border-neutral-900 focus-within:ring-4 focus-within:ring-neutral-900/5 flex-1 h-9">
                                     <input
                                       type="number"
                                       step="any"
                                       min={0.0001}
                                       required
                                       placeholder="Quantity"
-                                      className="w-full bg-transparent border-none text-[11px] text-zinc-950 focus:outline-none font-bold"
+                                      className="w-full bg-transparent border-none text-xs text-neutral-900 focus:outline-none font-bold"
                                       value={ing.qtyUsed}
                                       onChange={(e) =>
                                         handleIngredientChange(
@@ -903,12 +878,12 @@ export default function RecipesPage() {
                                         )
                                       }
                                     />
-                                    <span className="text-[10px] text-zinc-400 font-extrabold uppercase tracking-wide pl-2 shrink-0">
+                                    <span className="text-[10px] text-neutral-400 font-bold uppercase tracking-wide pl-2 shrink-0">
                                       {item?.baseUnit || "pcs"}
                                     </span>
                                   </div>
 
-                                  <div className="bg-zinc-100 border border-zinc-200 rounded-xl py-2 px-3 text-[11px] font-bold text-zinc-600 min-w-[100px] text-right shrink-0">
+                                  <div className="bg-neutral-100 border border-neutral-200 rounded-xl py-1.5 px-3 text-xs font-bold text-neutral-700 min-w-[90px] text-right shrink-0 h-9 flex items-center justify-end">
                                     ${rowCost.toFixed(2)}
                                   </div>
                                 </div>
@@ -920,58 +895,68 @@ export default function RecipesPage() {
                         <button
                           type="button"
                           onClick={handleAddIngredientRow}
-                          className="w-full bg-white border border-zinc-200 hover:bg-zinc-50 text-zinc-700 rounded-xl py-2 text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 cursor-pointer transition-colors shadow-xs"
+                          className="w-full bg-neutral-100 hover:bg-neutral-200 text-neutral-800 rounded-xl py-2 text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
                         >
-                          <PlusCircle className="h-4 w-4 text-[#16A34A]" />
-                          Add Another Ingredient
+                          <PlusCircle className="h-4 w-4 text-[#0A2924]" />
+                          <span>Add Another Ingredient</span>
                         </button>
                       </div>
                     )}
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-[#0F172A] block">
+                    <label className="text-[10px] font-bold text-neutral-700 uppercase tracking-wider block">
                       Description (Optional)
                     </label>
                     <textarea
                       placeholder="Enter description"
-                      rows={3}
+                      rows={2}
                       maxLength={200}
-                      className="w-full bg-white border border-zinc-300 focus:border-[#16A34A] rounded-xl py-2.5 px-3.5 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#16A34A] transition-all font-semibold resize-none"
+                      className="w-full bg-white border border-neutral-200 focus:border-neutral-900 focus:ring-4 focus:ring-neutral-900/5 rounded-xl py-2 px-3 text-xs font-medium text-neutral-900 placeholder:text-neutral-400 focus:outline-none transition resize-none"
                       value={formDescription}
                       onChange={(e) => setFormDescription(e.target.value)}
                     />
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-[#0F172A] block">
+                    <label className="text-[10px] font-bold text-neutral-700 uppercase tracking-wider block">
                       Status <span className="text-rose-500">*</span>
                     </label>
-                    <div className="relative">
-                      <select
-                        required
-                        className="w-full bg-white border border-zinc-300 focus:border-[#16A34A] rounded-xl py-2.5 px-3.5 text-xs text-[#0F172A] font-bold focus:outline-none focus:ring-1 focus:ring-[#16A34A] appearance-none cursor-pointer"
-                        value={formStatus}
-                        onChange={(e) =>
-                          setFormStatus(e.target.value as "active" | "inactive")
-                        }
-                      >
-                        <option value="active">Active</option>
-                        <option value="inactive">Inactive</option>
-                      </select>
-                      <ChevronDown className="absolute right-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
-                    </div>
+                    <Select
+                      value={formStatus}
+                      onValueChange={(val) =>
+                        setFormStatus(val as "active" | "inactive")
+                      }
+                    >
+                      <SelectTrigger className="w-full h-10 rounded-xl border border-neutral-200 bg-white px-3 text-xs font-semibold text-neutral-900 focus:outline-none focus:ring-4 focus:ring-neutral-900/5 focus:border-neutral-900 transition cursor-pointer shadow-2xs">
+                        <SelectValue placeholder="Select status" />
+                      </SelectTrigger>
+                      <SelectContent className="rounded-xl border border-neutral-200 bg-white p-1 max-h-56 z-60">
+                        <SelectItem
+                          value="active"
+                          className="rounded-lg px-3 py-2 text-xs font-semibold cursor-pointer"
+                        >
+                          Active
+                        </SelectItem>
+                        <SelectItem
+                          value="inactive"
+                          className="rounded-lg px-3 py-2 text-xs font-semibold cursor-pointer"
+                        >
+                          Inactive
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
               </form>
             </div>
 
-            <div className="border-t border-zinc-200 p-6 bg-zinc-50 flex items-center justify-between gap-3 rounded-b-2xl">
+            <div className="border-t border-neutral-200 p-6 bg-white flex items-center justify-between gap-3 shrink-0">
               <div className="text-left shrink-0">
-                <span className="text-[10px] text-zinc-400 font-extrabold uppercase tracking-wide block">
+                <span className="text-[9px] text-neutral-400 font-bold uppercase tracking-wider block">
                   Serving Cost
                 </span>
-                <span className="text-sm font-extrabold text-zinc-950 block">
+                <span className="text-sm font-bold text-neutral-900 block">
                   ${currentServingCost.toFixed(2)}
                 </span>
               </div>
@@ -980,22 +965,23 @@ export default function RecipesPage() {
                 <button
                   type="button"
                   onClick={() => setShowDrawer(false)}
-                  className="bg-white border border-zinc-200 hover:bg-zinc-100 text-zinc-700 px-5 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all duration-150 cursor-pointer"
+                  className="bg-white border border-neutral-200 hover:bg-neutral-50 text-neutral-700 rounded-full px-5 py-2.5 text-xs font-semibold transition cursor-pointer shadow-2xs"
                 >
                   Cancel
                 </button>
                 <button
+                  type="submit"
                   onClick={handleSave}
                   disabled={saving}
-                  className="bg-[#16A34A] hover:bg-[#15803D] disabled:bg-[#16A34A]/60 text-white px-5 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider shadow-sm flex items-center gap-1.5 transition-all duration-150 cursor-pointer"
+                  className="inline-flex items-center gap-2 bg-[#0A2924] hover:bg-[#0A2924]/90 disabled:opacity-40 disabled:cursor-not-allowed text-white px-5 py-2.5 rounded-full text-xs font-semibold transition cursor-pointer shadow-sm"
                 >
                   {saving ? (
                     <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Saving...
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      <span>Saving...</span>
                     </>
                   ) : (
-                    "Save Recipe"
+                    <span>Save Recipe</span>
                   )}
                 </button>
               </div>
