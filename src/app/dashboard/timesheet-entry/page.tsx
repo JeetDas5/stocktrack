@@ -1152,28 +1152,53 @@ export default function TimesheetEntryPage() {
           }
         }
 
-        for (const shift of day.shifts) {
-          const hasTimeSet = shift.startTime && shift.endTime;
-          if (!hasTimeSet) continue;
+        for (let sIdx = 0; sIdx < day.shifts.length; sIdx++) {
+          const shift = day.shifts[sIdx];
+          const shiftNum = sIdx + 1;
+
+          const isPartiallyFilled =
+            Boolean(shift.businessId) ||
+            Boolean(shift.locationId) ||
+            Boolean(shift.startTime) ||
+            Boolean(shift.endTime) ||
+            Boolean(shift.project) ||
+            Boolean(shift.notes?.trim());
+
+          if (!isPartiallyFilled) continue;
 
           if (!shift.businessId) {
             throw new Error(
-              `On ${day.dayName} (${day.displayDate}), please select a business.`,
+              `On ${day.dayName} (${day.displayDate}), Shift ${shiftNum} is incomplete: please select a business.`,
             );
           }
           if (!shift.locationId) {
             throw new Error(
-              `On ${day.dayName} (${day.displayDate}), please select a location.`,
+              `On ${day.dayName} (${day.displayDate}), Shift ${shiftNum} is incomplete: please select a location.`,
+            );
+          }
+          if (!shift.startTime && !shift.endTime) {
+            throw new Error(
+              `On ${day.dayName} (${day.displayDate}), Shift ${shiftNum} is incomplete: please select start and end times.`,
+            );
+          }
+          if (!shift.startTime) {
+            throw new Error(
+              `On ${day.dayName} (${day.displayDate}), Shift ${shiftNum} is incomplete: please select a start time.`,
+            );
+          }
+          if (!shift.endTime) {
+            throw new Error(
+              `On ${day.dayName} (${day.displayDate}), Shift ${shiftNum} is incomplete: please select an end time.`,
             );
           }
           if (shift.startTime > shift.endTime) {
             throw new Error(
-              `On ${day.dayName} (${day.displayDate}), Start Time cannot be after End Time.`,
+              `On ${day.dayName} (${day.displayDate}), Shift ${shiftNum}: Start Time cannot be after End Time.`,
             );
           }
           if (shift.startTime === shift.endTime) {
             throw new Error(
-              `On ${day.dayName} (${day.displayDate}), Start and End times cannot be identical.`,
+              `On ${day.dayName} (${day.displayDate}), Shift ${shiftNum}: Start and End times cannot be identical.`,
             );
           }
 
@@ -1988,7 +2013,7 @@ export default function TimesheetEntryPage() {
                         />
                       </svg>
                       <span>
-                        Draft saved locally at {lastSavedTime}. Submit to save
+                        Draft saved at {lastSavedTime}. Submit to save
                         timesheet.
                       </span>
                     </div>
