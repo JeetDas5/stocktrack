@@ -43,7 +43,7 @@ def get_refill_suggestions(
     allowed_locs = get_allowed_locations(current_user, business_id, "purchase_orders.read", session)
 
     items = session.exec(select(StockItem).where(
-        StockItem.business_id == business_id).where(StockItem.is_active == True)).all()
+        StockItem.business_id == business_id).where(StockItem.is_active)).all()
     suggestions = []
 
     for item in items:
