@@ -704,10 +704,13 @@ export default function TimesheetEntryPage() {
     return `${zeroPaddedHour}:${minStr} ${ampm}`;
   };
 
-  // ─── Shift Handlers ────────────────────────────────────────────────────────
-
   const handleAddShift = useCallback(
     (dayIndex: number) => {
+      const currentShiftsCount = weekDays[dayIndex]?.shifts.length || 0;
+      if (currentShiftsCount >= 3) {
+        toast.error("Maximum 3 shifts allowed per day.");
+        return;
+      }
       const defaultBiz = businesses.length === 1 ? businesses[0].id : "";
       const bizLocs = locationsMap[defaultBiz] || [];
       const defaultLoc = bizLocs.length === 1 ? bizLocs[0].id : "";
@@ -715,11 +718,12 @@ export default function TimesheetEntryPage() {
       updateAndSaveWeekDays((prev) =>
         prev.map((day, idx) => {
           if (idx !== dayIndex) return day;
+          if (day.shifts.length >= 3) return day;
           return { ...day, shifts: [...day.shifts, newShift] };
         }),
       );
     },
-    [businesses, locationsMap, makeBlankShift, updateAndSaveWeekDays],
+    [businesses, locationsMap, makeBlankShift, updateAndSaveWeekDays, weekDays],
   );
 
   const handleDeleteShift = useCallback(
@@ -911,7 +915,7 @@ export default function TimesheetEntryPage() {
       if (prevTimesheets.length > 0) {
         copiedCount++;
         const defaultBiz = businesses.length === 1 ? businesses[0].id : "";
-        const newShifts: ShiftRow[] = prevTimesheets.map((ts) => {
+        const newShifts: ShiftRow[] = prevTimesheets.slice(0, 3).map((ts) => {
           const bId = ts.businessId || defaultBiz;
           const bizLocs = locationsMap[bId] || [];
           const lId =
@@ -998,7 +1002,7 @@ export default function TimesheetEntryPage() {
 
     clearDraft();
     setWeekDays(newDays);
-    toast.success("Unsaved changes cleared.");
+    toast.success("Draft cleared.");
   };
 
   const executeSubmit = async (daysToSubmit: DayGroup[]) => {
@@ -1105,6 +1109,12 @@ export default function TimesheetEntryPage() {
         const anyShiftStatus = day.shifts[0]?.status || "";
         const isEditable = checkIsDateEditable(day.dateStr, anyShiftStatus);
         if (!isEditable) continue;
+
+        if (day.shifts.length > 3) {
+          throw new Error(
+            `On ${day.dayName} (${day.displayDate}), maximum 3 shifts are allowed per day.`,
+          );
+        }
 
         for (const shift of day.shifts) {
           const hasTimeSet = shift.startTime && shift.endTime;
@@ -1864,14 +1874,24 @@ export default function TimesheetEntryPage() {
 
                             <td className="py-3 px-3 text-center align-middle">
                               <div className="flex items-center justify-center gap-1">
-                                {/* Add shift: only on last shift of the day */}
                                 {isLastShift && dayEditable && (
                                   <button
                                     type="button"
-                                    disabled={submitting}
+                                    disabled={
+                                      submitting || day.shifts.length >= 3
+                                    }
                                     onClick={() => handleAddShift(dayIdx)}
-                                    title="Add another shift"
-                                    className="w-7 h-7 flex items-center justify-center rounded-lg text-[#0A2924] hover:bg-[#0A2924]/10 border border-[#0A2924]/25 transition-colors cursor-pointer disabled:opacity-40"
+                                    title={
+                                      day.shifts.length >= 3
+                                        ? "Maximum 3 shifts allowed per day"
+                                        : "Add another shift"
+                                    }
+                                    className={cn(
+                                      "w-7 h-7 flex items-center justify-center rounded-lg border transition-colors",
+                                      day.shifts.length >= 3
+                                        ? "text-neutral-300 border-neutral-200 cursor-not-allowed bg-neutral-50"
+                                        : "text-[#0A2924] hover:bg-[#0A2924]/10 border-[#0A2924]/25 cursor-pointer",
+                                    )}
                                   >
                                     <Plus className="w-3.5 h-3.5" />
                                   </button>
@@ -1914,7 +1934,6 @@ export default function TimesheetEntryPage() {
                 </table>
               </div>
 
-              {/* Footer */}
               <div className="border-t border-neutral-200 px-6 py-4 bg-white flex flex-col sm:flex-row items-center justify-between gap-4">
                 <div className="flex items-center gap-2">
                   {lastSavedTime && (
@@ -1932,7 +1951,10 @@ export default function TimesheetEntryPage() {
                           d="M5 13l4 4L19 7"
                         />
                       </svg>
-                      <span>Saved on {lastSavedTime}</span>
+                      <span>
+                        Draft saved locally at {lastSavedTime}. Submit to save
+                        timesheet.
+                      </span>
                     </div>
                   )}
                 </div>
@@ -2655,12 +2677,19 @@ export default function TimesheetEntryPage() {
                           <div className="px-4 py-3 border-t border-neutral-100">
                             <button
                               type="button"
-                              disabled={submitting}
+                              disabled={submitting || day.shifts.length >= 3}
                               onClick={() => handleAddShift(dayIdx)}
-                              className="w-full inline-flex items-center justify-center gap-2 border border-dashed border-neutral-300 hover:border-[#0A2924]/40 hover:bg-[#0A2924]/3 text-neutral-500 hover:text-[#0A2924] px-4 py-2.5 rounded-xl text-xs font-semibold transition-colors cursor-pointer disabled:opacity-50"
+                              className={cn(
+                                "w-full inline-flex items-center justify-center gap-2 border border-dashed rounded-xl px-4 py-2.5 text-xs font-semibold transition-colors",
+                                day.shifts.length >= 3
+                                  ? "border-neutral-200 bg-neutral-50 text-neutral-400 cursor-not-allowed"
+                                  : "border-neutral-300 hover:border-[#0A2924]/40 hover:bg-[#0A2924]/3 text-neutral-500 hover:text-[#0A2924] cursor-pointer",
+                              )}
                             >
                               <Plus className="w-3.5 h-3.5" />
-                              Add Another Shift
+                              {day.shifts.length >= 3
+                                ? "Max 3 Shifts Reached"
+                                : "Add Another Shift"}
                             </button>
                           </div>
                         )}

@@ -244,6 +244,21 @@ def create_timesheet(
             status_code=status.HTTP_404_NOT_FOUND, detail="Location not found"
         )
 
+    # Check max shifts per day limit (max 3 shifts per day per staff member)
+    day_shifts_count = len(
+        session.exec(
+            select(Timesheet).where(
+                Timesheet.staff_id == data.staff_id,
+                Timesheet.work_date == data.work_date,
+            )
+        ).all()
+    )
+    if day_shifts_count >= 3:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Maximum 3 shifts allowed per day for a staff member."
+        )
+
     # Check for existing duplicate timesheet
     existing = session.exec(
         select(Timesheet).where(
