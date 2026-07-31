@@ -517,7 +517,7 @@ export default function DashboardLayout({
       href: "/dashboard/suppliers",
       icon: ShippingTruck01Icon,
     },
-    { name: "Recipes", href: "/dashboard/recipes", icon: ChefHatIcon },
+    { name: "Products", href: "/dashboard/products", icon: ChefHatIcon },
   ];
 
   const staffLinks: SidebarLink[] = [
@@ -623,6 +623,7 @@ export default function DashboardLayout({
       "/dashboard/categories",
       "/dashboard/suppliers",
       "/dashboard/recipes",
+      "/dashboard/products",
       "/dashboard/refill-planner",
       "/dashboard/purchase-orders",
       "/dashboard/deliveries",

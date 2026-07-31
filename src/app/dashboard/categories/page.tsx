@@ -283,13 +283,11 @@ export default function CategoriesPage() {
                     return (
                       <tr
                         key={cat.id}
-                        className="hover:bg-zinc-50/40 transition-colors text-center"
+                        onClick={() => openEditDrawer(cat)}
+                        className="hover:bg-zinc-50/40 transition-colors text-center cursor-pointer"
                       >
                         <td className="py-4 px-6">
-                          <span
-                            className="font-semibold text-[#0F172A] hover:text-[#0a2924] transition-colors cursor-pointer underline underline-offset-4 decoration-zinc-300"
-                            onClick={() => openEditDrawer(cat)}
-                          >
+                          <span className="font-semibold text-[#0F172A] hover:text-[#0a2924] transition-colors">
                             {cat.name}
                           </span>
                         </td>
@@ -319,7 +317,10 @@ export default function CategoriesPage() {
                         <td className="py-4 px-6 text-right">
                           <div className="flex items-center justify-end">
                             <button
-                              onClick={() => openEditDrawer(cat)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openEditDrawer(cat);
+                              }}
                               className="h-8 w-8 flex items-center justify-center text-zinc-500 hover:text-[#0a2924] hover:border-[#0a2924] bg-white transition-colors cursor-pointer"
                               title="Edit Category"
                             >

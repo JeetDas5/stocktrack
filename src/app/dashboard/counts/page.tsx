@@ -23,6 +23,7 @@ import {
   Check,
   Loader2,
   ClipboardList,
+  X,
 } from "lucide-react";
 
 const encodeNotes = (
@@ -96,10 +97,25 @@ export default function StockCountsPage() {
 
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategoryId, setSelectedCategoryId] = useState("all");
-  const [filterStatus, setFilterStatus] = useState<
-    "all" | "completed" | "pending"
-  >("all");
   const [lastAutoSave, setLastAutoSave] = useState("");
+
+  const [showSubmittedModal, setShowSubmittedModal] = useState(false);
+  const [submittedData, setSubmittedData] = useState<{
+    countDate: string;
+    countedByName: string;
+    items: Array<{
+      id: string;
+      name: string;
+      categoryName?: string;
+      baseUnit: string;
+      countedCartons: string;
+      opt1Label?: string;
+      countedCartons2: string;
+      opt2Label?: string;
+      countedPieces: string;
+      totalBaseQty: number;
+    }>;
+  } | null>(null);
 
   const calendarRef = useRef<HTMLDivElement>(null);
   const categoryDropdownRef = useRef<HTMLDivElement>(null);
@@ -376,6 +392,50 @@ export default function StockCountsPage() {
           "Stock Count submitted successfully! Inventory stock levels updated.",
         );
 
+        const submittedList = stockItems
+          .map((item) => {
+            const counts = itemCounts[item.id] || {
+              countedCartons: "",
+              countedPieces: "",
+              selectedOptionId: item.countingOptions?.[0]?.id || "",
+              countedCartons2: "",
+              selectedOptionId2: item.countingOptions?.[1]?.id || "",
+            };
+            const hasVal =
+              counts.countedCartons !== "" ||
+              counts.countedCartons2 !== "" ||
+              counts.countedPieces !== "";
+            if (!hasVal) return null;
+
+            const opt1Label = item.countingOptions?.[0]
+              ? getOptionLabel(item.countingOptions[0], item.baseUnit)
+              : undefined;
+            const opt2Label = item.countingOptions?.[1]
+              ? getOptionLabel(item.countingOptions[1], item.baseUnit)
+              : undefined;
+
+            return {
+              id: item.id,
+              name: item.name,
+              categoryName: item.categoryName,
+              baseUnit: item.baseUnit,
+              countedCartons: counts.countedCartons,
+              opt1Label,
+              countedCartons2: counts.countedCartons2,
+              opt2Label,
+              countedPieces: counts.countedPieces,
+              totalBaseQty: calculateTotal(item.id, item),
+            };
+          })
+          .filter((i): i is NonNullable<typeof i> => i !== null);
+
+        setSubmittedData({
+          countDate,
+          countedByName,
+          items: submittedList,
+        });
+        setShowSubmittedModal(true);
+
         const draftKey = `nexbrix_stock_count_draft_${activeBusinessId}_${activeLocationId}`;
         localStorage.removeItem(draftKey);
         setLastAutoSave("");
@@ -422,20 +482,6 @@ export default function StockCountsPage() {
       item.categoryId !== selectedCategoryId
     ) {
       return false;
-    }
-
-    const counts = itemCounts[item.id];
-    const isCounted =
-      counts &&
-      (counts.countedCartons !== "" ||
-        counts.countedCartons2 !== "" ||
-        counts.countedPieces !== "");
-
-    if (filterStatus === "completed") {
-      return isCounted;
-    }
-    if (filterStatus === "pending") {
-      return !isCounted;
     }
 
     return true;
@@ -504,36 +550,6 @@ export default function StockCountsPage() {
           </div>
 
           <div className="flex gap-2 items-center overflow-x-auto md:overflow-visible no-scrollbar py-0.5 md:ml-auto">
-            <button
-              type="button"
-              onClick={() =>
-                setFilterStatus(
-                  filterStatus === "completed" ? "all" : "completed",
-                )
-              }
-              className={`rounded-full px-4 py-2 text-xs font-bold transition-all border cursor-pointer whitespace-nowrap shrink-0 ${
-                filterStatus === "completed"
-                  ? "bg-zinc-800 text-white border-zinc-800 shadow-xs"
-                  : "bg-white text-zinc-600 border-zinc-200 hover:bg-zinc-50 shadow-2xs"
-              }`}
-            >
-              Completed
-            </button>
-
-            <button
-              type="button"
-              onClick={() =>
-                setFilterStatus(filterStatus === "pending" ? "all" : "pending")
-              }
-              className={`rounded-full px-4 py-2 text-xs font-bold transition-all border cursor-pointer whitespace-nowrap shrink-0 ${
-                filterStatus === "pending"
-                  ? "bg-zinc-800 text-white border-zinc-800 shadow-xs"
-                  : "bg-white text-zinc-600 border-zinc-200 hover:bg-zinc-50 shadow-2xs"
-              }`}
-            >
-              Pending
-            </button>
-
             <div
               className="relative font-bold shrink-0 hidden md:block"
               ref={categoryDropdownRef}
@@ -672,11 +688,20 @@ export default function StockCountsPage() {
 
                     const hasOptions =
                       item.countingOptions && item.countingOptions.length > 0;
+                    const hasValue =
+                      counts &&
+                      (counts.countedCartons !== "" ||
+                        counts.countedCartons2 !== "" ||
+                        counts.countedPieces !== "");
 
                     return (
                       <tr
                         key={item.id}
-                        className="hover:bg-zinc-50/30 transition-colors"
+                        className={`transition-colors ${
+                          hasValue
+                            ? "bg-emerald-50/70 hover:bg-emerald-100/50"
+                            : "hover:bg-zinc-50/30"
+                        }`}
                       >
                         <td className="py-2.5 px-8">
                           <div>
@@ -824,11 +849,20 @@ export default function StockCountsPage() {
                 const hasOptions =
                   item.countingOptions && item.countingOptions.length > 0;
                 const totalBaseQty = calculateTotal(item.id, item);
+                const hasValue =
+                  counts &&
+                  (counts.countedCartons !== "" ||
+                    counts.countedCartons2 !== "" ||
+                    counts.countedPieces !== "");
 
                 return (
                   <div
                     key={item.id}
-                    className="bg-white rounded-2xl px-4 py-4 shadow-sm border border-zinc-100 space-y-3"
+                    className={`rounded-2xl px-4 py-4 shadow-sm border space-y-3 transition-colors ${
+                      hasValue
+                        ? "bg-emerald-50/70 border-emerald-200"
+                        : "bg-white border-zinc-100"
+                    }`}
                   >
                     <div className="flex justify-between items-center gap-2 min-w-0">
                       <h3 className="text-[15px] font-bold text-zinc-900 truncate">
@@ -1008,6 +1042,139 @@ export default function StockCountsPage() {
         onConfirm={handleConfirmClear}
         onCancel={() => setShowClearConfirm(false)}
       />
+
+      {showSubmittedModal && submittedData && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          role="dialog"
+          aria-modal="true"
+        >
+          <div
+            className="absolute inset-0 bg-black/40 backdrop-blur-sm animate-fade-in"
+            onClick={() => setShowSubmittedModal(false)}
+          />
+
+          <div className="relative bg-white rounded-3xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden animate-scale-in border border-zinc-100 z-10">
+            <div className="p-6 border-b border-zinc-100 flex items-center justify-between bg-zinc-50/50">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0">
+                  <Check className="h-5 w-5 stroke-[3px]" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-extrabold text-zinc-900 tracking-tight">
+                    Submitted Stock Counts
+                  </h2>
+                  <p className="text-xs text-zinc-500 font-medium mt-0.5">
+                    {formatDateDisplay(submittedData.countDate)} • Counted by{" "}
+                    <span className="font-bold text-zinc-700">
+                      {submittedData.countedByName || "User"}
+                    </span>
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowSubmittedModal(false)}
+                className="p-2 rounded-full text-zinc-400 hover:text-zinc-700 hover:bg-zinc-200/60 transition-colors cursor-pointer"
+                aria-label="Close"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="p-6 overflow-y-auto flex-1 space-y-4">
+              <div className="bg-emerald-50/80 border border-emerald-200/70 rounded-2xl p-4 flex items-center justify-between">
+                <span className="text-xs font-bold text-emerald-900">
+                  Total Items Submitted:
+                </span>
+                <span className="text-sm font-extrabold text-emerald-700 bg-white px-3 py-1 rounded-full shadow-2xs border border-emerald-200">
+                  {submittedData.items.length}{" "}
+                  {submittedData.items.length === 1 ? "item" : "items"}
+                </span>
+              </div>
+
+              {submittedData.items.length === 0 ? (
+                <p className="text-center text-xs text-zinc-400 py-8 font-medium">
+                  No counts were entered in this session.
+                </p>
+              ) : (
+                <div className="border border-zinc-200 rounded-2xl overflow-hidden divide-y divide-zinc-100">
+                  <div className="bg-zinc-50 px-4 py-3 text-[10px] uppercase font-extrabold text-zinc-400 grid grid-cols-12 gap-2">
+                    <span className="col-span-5">Item</span>
+                    <span className="col-span-4 text-center">
+                      Submitted Quantities
+                    </span>
+                    <span className="col-span-3 text-right">
+                      Total Base Qty
+                    </span>
+                  </div>
+                  {submittedData.items.map((item) => (
+                    <div
+                      key={item.id}
+                      className="px-4 py-3 text-xs grid grid-cols-12 gap-2 items-center hover:bg-zinc-50/50"
+                    >
+                      <div className="col-span-5 min-w-0">
+                        <p className="font-bold text-zinc-900 truncate">
+                          {item.name}
+                        </p>
+                        <p className="text-[10px] text-zinc-400 font-medium">
+                          {item.categoryName || "Uncategorized"}
+                        </p>
+                      </div>
+                      <div className="col-span-4 text-center text-zinc-600 text-[11px] font-medium space-y-0.5">
+                        {item.countedCartons !== "" && (
+                          <div>
+                            <span className="font-bold text-zinc-900">
+                              {item.countedCartons}
+                            </span>{" "}
+                            <span className="text-zinc-500">
+                              {item.opt1Label || "Opt 1"}
+                            </span>
+                          </div>
+                        )}
+                        {item.countedCartons2 !== "" && (
+                          <div>
+                            <span className="font-bold text-zinc-900">
+                              {item.countedCartons2}
+                            </span>{" "}
+                            <span className="text-zinc-500">
+                              {item.opt2Label || "Opt 2"}
+                            </span>
+                          </div>
+                        )}
+                        {item.countedPieces !== "" && (
+                          <div>
+                            <span className="font-bold text-zinc-900">
+                              {item.countedPieces}
+                            </span>{" "}
+                            <span className="text-zinc-500">
+                              {item.baseUnit}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                      <div className="col-span-3 text-right">
+                        <span className="bg-emerald-100/80 text-emerald-800 text-xs font-extrabold px-2.5 py-1 rounded-full inline-block">
+                          {item.totalBaseQty} {item.baseUnit}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="p-4 border-t border-zinc-100 bg-zinc-50/50 flex justify-end">
+              <button
+                onClick={() => setShowSubmittedModal(false)}
+                className="bg-zinc-900 hover:bg-zinc-800 text-white rounded-full px-6 py-2.5 text-xs font-bold uppercase tracking-wider transition-colors shadow-xs cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
