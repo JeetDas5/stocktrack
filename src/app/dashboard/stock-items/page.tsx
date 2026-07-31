@@ -1,10 +1,11 @@
+/* eslint-disable react-hooks/set-state-in-effect */
 "use client";
 
-import Image from "next/image";
-import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import AlertDialog from "@/components/ui/alert-dialog";
+import { useEffect, useState, useMemo, useRef } from "react";
+
 import { useAuth } from "@/providers/auth-provider";
+import AlertDialog from "@/components/ui/alert-dialog";
 import { useBusinessStore } from "@/stores/business-store";
 import { useLocationStore } from "@/stores/location-store";
 import {
@@ -13,21 +14,8 @@ import {
   Supplier,
   Location,
   BaseUnit,
-  LocationRule,
 } from "@/types/inventory";
-import {
-  Package,
-  Plus,
-  Search,
-  ChevronDown,
-  X,
-  Loader2,
-  Trash2,
-  Edit2,
-  ChevronLeft,
-  ChevronRight,
-  Info,
-} from "lucide-react";
+import { Package, Plus, Search, X, Loader2, Trash2, Edit2 } from "lucide-react";
 import {
   createStockItem,
   getStockItems,
@@ -37,6 +25,14 @@ import {
 import { getCategories } from "@/lib/repositories/category.repository";
 import { getSuppliers } from "@/lib/repositories/supplier.repository";
 import { getLocations } from "@/lib/repositories/location.repository";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { cn } from "@/lib/utils";
 
 export default function StockItemsPage() {
   const { activeBusinessId } = useBusinessStore();
@@ -52,6 +48,9 @@ export default function StockItemsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState("");
   const [selectedSupplierFilter, setSelectedSupplierFilter] = useState("");
+
+  const [visibleCount, setVisibleCount] = useState(20);
+  const loadMoreRef = useRef<HTMLDivElement>(null);
 
   const [showDrawer, setShowDrawer] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
@@ -104,7 +103,6 @@ export default function StockItemsPage() {
     Record<string, boolean>
   >({});
   const [selectedLocations, setSelectedLocations] = useState<string[]>([]);
-  const [showLocationDropdown, setShowLocationDropdown] = useState(false);
 
   const dynamicUnits: string[] = [];
   if (formBaseUnit) {
@@ -140,21 +138,9 @@ export default function StockItemsPage() {
     return `w-full bg-white border ${
       hasError
         ? "border-rose-400 focus:border-rose-500 focus:ring-rose-500 ring-1 ring-rose-500/20"
-        : "border-zinc-300 focus:border-[#16A34A] focus:ring-[#16A34A]"
-    } rounded-xl py-2 px-3 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 transition-all ${extraClasses}`;
+        : "border-neutral-200 focus:border-neutral-900 focus:ring-neutral-900/5"
+    } rounded-xl py-2 px-3 text-xs text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:ring-4 transition-all ${extraClasses}`;
   };
-
-  const getSelectClassName = (fieldName: string, extraClasses = "") => {
-    const hasError = validationErrors[fieldName];
-    return `w-full bg-white border ${
-      hasError
-        ? "border-rose-400 focus:border-rose-500 focus:ring-rose-500 ring-1 ring-rose-500/20"
-        : "border-zinc-300 focus:border-[#16A34A] focus:ring-[#16A34A]"
-    } rounded-xl py-2.5 pl-3.5 pr-10 text-xs text-zinc-950 focus:outline-none focus:ring-1 appearance-none cursor-pointer font-semibold transition-all ${extraClasses}`;
-  };
-
-  const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 5;
 
   async function loadData() {
     if (!activeBusinessId) return;
@@ -180,7 +166,6 @@ export default function StockItemsPage() {
   }
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeBusinessId, profile]);
@@ -199,23 +184,33 @@ export default function StockItemsPage() {
 
     setReorderOption("same");
     setSameCapacity("");
-    setSameCapacityUnit("Each");
+    setSameCapacityUnit("pcs");
     setSameReorder("");
-    setSameReorderUnit("Each");
+    setSameReorderUnit("pcs");
     setSameCurrentStock("");
 
-    const initialRules: typeof locationRulesMap = {};
+    const initialRules: Record<
+      string,
+      {
+        storageCapacity: string;
+        storageCapacityUnit: string;
+        reorderLevel: string;
+        reorderLevelUnit: string;
+        currentStock: string;
+      }
+    > = {};
+
     locations.forEach((loc) => {
       initialRules[loc.id] = {
         storageCapacity: "",
-        storageCapacityUnit: "Each",
+        storageCapacityUnit: "pcs",
         reorderLevel: "",
-        reorderLevelUnit: "Each",
+        reorderLevelUnit: "pcs",
         currentStock: "",
       };
     });
-    setLocationRulesMap(initialRules);
 
+    setLocationRulesMap(initialRules);
     setSelectedLocations(locations.map((loc) => loc.id));
     setValidationErrors({});
     setShowDrawer(true);
@@ -223,78 +218,110 @@ export default function StockItemsPage() {
 
   const openEditDrawer = (item: StockItem) => {
     setEditId(item.id);
-    setFormName(item.name);
+    setFormName(item.name || "");
     setFormSku(item.sku || "");
     setFormCategoryId(item.categoryId || "");
     setFormSupplierId(item.supplierId || "");
-    setFormBaseUnit(item.baseUnit);
+    setFormBaseUnit(item.baseUnit || "pcs");
     setFormDescription(item.description || "");
     setFormActive(item.isActive !== false);
     setFormCostPerBaseUnit(
       item.costPerBaseUnit ? String(item.costPerBaseUnit) : "",
     );
-    setCountingOptions(
-      (item.countingOptions || []).map((co) => ({
-        id: co.id,
-        levelName: co.levelName,
-        displayName: co.displayName,
-        conversionToBaseQty: co.conversionToBaseQty,
-        baseUnit: co.baseUnit || "pcs",
-        sortOrder: co.sortOrder,
-        showOnMobile: co.showOnMobile !== false,
-      })),
-    );
+    setCountingOptions(item.countingOptions || []);
 
-    const rules = item.locationRules || [];
-    const isSameOption =
-      rules.length > 0 &&
-      rules.every(
-        (r) =>
-          r.storageCapacity === rules[0].storageCapacity &&
-          r.storageCapacityUnit === rules[0].storageCapacityUnit &&
-          r.reorderLevel === rules[0].reorderLevel &&
-          r.reorderLevelUnit === rules[0].reorderLevelUnit &&
-          r.currentStock === rules[0].currentStock,
+    const hasDifferentRules =
+      item.locationRules &&
+      item.locationRules.length > 1 &&
+      item.locationRules.some(
+        (r, _, arr) =>
+          r.storageCapacity !== arr[0].storageCapacity ||
+          r.reorderLevel !== arr[0].reorderLevel,
       );
 
-    if (isSameOption && rules.length > 0) {
-      setReorderOption("same");
-      setSameCapacity(String(rules[0].storageCapacity));
-      setSameCapacityUnit(rules[0].storageCapacityUnit || "Each");
-      setSameReorder(String(rules[0].reorderLevel));
-      setSameReorderUnit(rules[0].reorderLevelUnit || "Each");
-      setSameCurrentStock(
-        rules[0].currentStock !== undefined
-          ? String(rules[0].currentStock)
-          : "",
-      );
-    } else {
+    if (hasDifferentRules) {
       setReorderOption("different");
       setSameCapacity("");
-      setSameCapacityUnit("Each");
+      setSameCapacityUnit(item.baseUnit || "pcs");
       setSameReorder("");
-      setSameReorderUnit("Each");
+      setSameReorderUnit(item.baseUnit || "pcs");
       setSameCurrentStock("");
+    } else {
+      setReorderOption("same");
+      const firstRule = item.locationRules?.[0];
+      setSameCapacity(
+        firstRule?.storageCapacity !== undefined
+          ? String(firstRule.storageCapacity)
+          : "",
+      );
+      setSameCapacityUnit(
+        firstRule?.storageCapacityUnit || item.baseUnit || "pcs",
+      );
+      setSameReorder(
+        firstRule?.reorderLevel !== undefined
+          ? String(firstRule.reorderLevel)
+          : "",
+      );
+      setSameReorderUnit(firstRule?.reorderLevelUnit || item.baseUnit || "pcs");
+      setSameCurrentStock(
+        firstRule?.currentStock !== undefined
+          ? String(firstRule.currentStock)
+          : "",
+      );
     }
 
-    const rulesMap: typeof locationRulesMap = {};
-    locations.forEach((loc) => {
-      const existing = rules.find((r) => r.locationId === loc.id);
-      rulesMap[loc.id] = {
-        storageCapacity: existing ? String(existing.storageCapacity) : "",
-        storageCapacityUnit: existing?.storageCapacityUnit || "Each",
-        reorderLevel: existing ? String(existing.reorderLevel) : "",
-        reorderLevelUnit: existing?.reorderLevelUnit || "Each",
-        currentStock:
-          existing?.currentStock !== undefined
-            ? String(existing.currentStock)
-            : "",
-      };
-    });
-    setLocationRulesMap(rulesMap);
+    const rulesMap: Record<
+      string,
+      {
+        storageCapacity: string;
+        storageCapacityUnit: string;
+        reorderLevel: string;
+        reorderLevelUnit: string;
+        currentStock: string;
+      }
+    > = {};
 
-    const itemLocIds = (item.locationRules || []).map((r) => r.locationId);
-    setSelectedLocations(itemLocIds);
+    const activeLocIds: string[] = [];
+
+    locations.forEach((loc) => {
+      const existingRule = item.locationRules?.find(
+        (r) => r.locationId === loc.id,
+      );
+      if (existingRule) {
+        activeLocIds.push(loc.id);
+        rulesMap[loc.id] = {
+          storageCapacity:
+            existingRule.storageCapacity !== undefined
+              ? String(existingRule.storageCapacity)
+              : "",
+          storageCapacityUnit:
+            existingRule.storageCapacityUnit || item.baseUnit || "pcs",
+          reorderLevel:
+            existingRule.reorderLevel !== undefined
+              ? String(existingRule.reorderLevel)
+              : "",
+          reorderLevelUnit:
+            existingRule.reorderLevelUnit || item.baseUnit || "pcs",
+          currentStock:
+            existingRule.currentStock !== undefined
+              ? String(existingRule.currentStock)
+              : "",
+        };
+      } else {
+        rulesMap[loc.id] = {
+          storageCapacity: "",
+          storageCapacityUnit: item.baseUnit || "pcs",
+          reorderLevel: "",
+          reorderLevelUnit: item.baseUnit || "pcs",
+          currentStock: "",
+        };
+      }
+    });
+
+    setLocationRulesMap(rulesMap);
+    setSelectedLocations(
+      activeLocIds.length > 0 ? activeLocIds : locations.map((loc) => loc.id),
+    );
     setValidationErrors({});
     setShowDrawer(true);
   };
@@ -306,182 +333,29 @@ export default function StockItemsPage() {
     const errors: Record<string, boolean> = {};
     if (!formName.trim()) errors.name = true;
     if (!formSku.trim()) errors.sku = true;
-    if (!formSupplierId) errors.supplierId = true;
     if (!formCategoryId) errors.categoryId = true;
-    if (!formBaseUnit) errors.baseUnit = true;
-    if (selectedLocations.length === 0) errors.locations = true;
-
-    if (reorderOption === "same") {
-      const capVal = parseFloat(sameCapacity) || 0;
-      const reoVal = parseFloat(sameReorder) || 0;
-      const stockVal = parseFloat(sameCurrentStock) || 0;
-
-      if (!sameCapacity.trim() || isNaN(Number(sameCapacity)) || capVal <= 0) {
-        errors.sameCapacity = true;
-      }
-      if (!sameReorder.trim() || isNaN(Number(sameReorder)) || reoVal < 0) {
-        errors.sameReorder = true;
-      }
-      if (
-        !sameCurrentStock.trim() ||
-        isNaN(Number(sameCurrentStock)) ||
-        stockVal < 0
-      ) {
-        errors.sameCurrentStock = true;
-      }
-
-      if (
-        errors.sameCapacity ||
-        errors.sameReorder ||
-        errors.sameCurrentStock
-      ) {
-        setValidationErrors(errors);
-        toast.error(
-          "Capacity must be positive (> 0), and reorder level and current stock cannot be negative.",
-        );
-        return;
-      }
-
-      const selectedCapUnit = dynamicUnits.includes(sameCapacityUnit)
-        ? sameCapacityUnit
-        : dynamicUnits[0];
-      const selectedReoUnit = dynamicUnits.includes(sameReorderUnit)
-        ? sameReorderUnit
-        : dynamicUnits[0];
-
-      const capConverted = getConvertedValue(sameCapacity, selectedCapUnit);
-      const reoConverted = getConvertedValue(sameReorder, selectedReoUnit);
-      const stockConverted = stockVal;
-
-      if (reoConverted > capConverted) {
-        errors.sameReorder = true;
-        setValidationErrors(errors);
-        toast.error("Reorder level must be less than storage capacity.");
-        return;
-      }
-      if (stockConverted > capConverted) {
-        errors.sameCurrentStock = true;
-        setValidationErrors(errors);
-        toast.error("Current stock must be less than storage capacity.");
-        return;
-      }
-    } else {
-      let limitViolation = false;
-      let limitErrorMsg = "";
-      locations
-        .filter((loc) => selectedLocations.includes(loc.id))
-        .forEach((loc) => {
-          const rule = locationRulesMap[loc.id];
-          const capVal = rule ? parseFloat(rule.storageCapacity) : 0;
-          const reoVal = rule ? parseFloat(rule.reorderLevel) : 0;
-          const stockVal = rule ? parseFloat(rule.currentStock) : 0;
-
-          if (
-            !rule ||
-            !rule.storageCapacity.trim() ||
-            isNaN(Number(rule.storageCapacity)) ||
-            capVal <= 0
-          ) {
-            errors[`capacity_${loc.id}`] = true;
-            limitViolation = true;
-            limitErrorMsg = `Storage capacity must be positive (> 0) at ${loc.name}.`;
-          }
-          if (
-            !rule ||
-            !rule.reorderLevel.trim() ||
-            isNaN(Number(rule.reorderLevel)) ||
-            reoVal < 0
-          ) {
-            errors[`reorder_${loc.id}`] = true;
-            limitViolation = true;
-            limitErrorMsg = `Reorder level cannot be negative at ${loc.name}.`;
-          }
-          if (
-            !rule ||
-            !rule.currentStock ||
-            !rule.currentStock.trim() ||
-            isNaN(Number(rule.currentStock)) ||
-            stockVal < 0
-          ) {
-            errors[`stock_${loc.id}`] = true;
-            limitViolation = true;
-            limitErrorMsg = `Current stock cannot be negative at ${loc.name}.`;
-          }
-
-          if (
-            rule &&
-            !errors[`capacity_${loc.id}`] &&
-            !errors[`reorder_${loc.id}`] &&
-            !errors[`stock_${loc.id}`]
-          ) {
-            const selectedCapUnit = dynamicUnits.includes(
-              rule.storageCapacityUnit,
-            )
-              ? rule.storageCapacityUnit
-              : dynamicUnits[0];
-            const selectedReoUnit = dynamicUnits.includes(rule.reorderLevelUnit)
-              ? rule.reorderLevelUnit
-              : dynamicUnits[0];
-
-            const capConverted = getConvertedValue(
-              rule.storageCapacity,
-              selectedCapUnit,
-            );
-            const reoConverted = getConvertedValue(
-              rule.reorderLevel,
-              selectedReoUnit,
-            );
-            const stockConverted = stockVal;
-
-            if (reoConverted >= capConverted) {
-              errors[`reorder_${loc.id}`] = true;
-              limitViolation = true;
-              limitErrorMsg = `Reorder level must be less than storage capacity at ${loc.name}.`;
-            }
-            if (stockConverted >= capConverted) {
-              errors[`stock_${loc.id}`] = true;
-              limitViolation = true;
-              limitErrorMsg = `Current stock must be less than storage capacity at ${loc.name}.`;
-            }
-          }
-        });
-
-      if (limitViolation || Object.keys(errors).length > 0) {
-        setValidationErrors(errors);
-        if (limitViolation) {
-          toast.error(limitErrorMsg);
-        } else {
-          toast.error(
-            "Please fill in all compulsory fields marked with an asterisk (*).",
-          );
-        }
-        return;
-      }
-    }
+    if (!formSupplierId) errors.supplierId = true;
 
     if (Object.keys(errors).length > 0) {
       setValidationErrors(errors);
-      toast.error(
-        "Please fill in all compulsory fields marked with an asterisk (*).",
-      );
+      toast.error("Please fill in all required fields.");
       return;
     }
 
     try {
       setSaving(true);
-      setValidationErrors({});
+      const rulesPayload: {
+        locationId: string;
+        storageCapacity: number;
+        storageCapacityUnit: string;
+        reorderLevel: number;
+        reorderLevelUnit: string;
+        currentStock: number;
+      }[] = [];
 
-      const rulesPayload: LocationRule[] = [];
       if (reorderOption === "same") {
-        const selectedCapUnit = dynamicUnits.includes(sameCapacityUnit)
-          ? sameCapacityUnit
-          : dynamicUnits[0];
-        const selectedReoUnit = dynamicUnits.includes(sameReorderUnit)
-          ? sameReorderUnit
-          : dynamicUnits[0];
-
-        const capConverted = getConvertedValue(sameCapacity, selectedCapUnit);
-        const reoConverted = getConvertedValue(sameReorder, selectedReoUnit);
+        const capConverted = getConvertedValue(sameCapacity, sameCapacityUnit);
+        const reoConverted = getConvertedValue(sameReorder, sameReorderUnit);
         const stockConverted = parseFloat(sameCurrentStock) || 0;
 
         locations
@@ -575,9 +449,11 @@ export default function StockItemsPage() {
           : "Stock item created successfully!",
       );
       setShowDrawer(false);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
-      toast.error(err.message || "Failed to save stock item.");
+      toast.error(
+        (err as { message?: string }).message || "Failed to save stock item.",
+      );
     } finally {
       setSaving(false);
     }
@@ -601,243 +477,251 @@ export default function StockItemsPage() {
     }
   };
 
-  const filteredItems = items.filter((item) => {
-    const matchesSearch =
-      item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (item.sku && item.sku.toLowerCase().includes(searchQuery.toLowerCase()));
+  const filteredItems = useMemo(() => {
+    return items.filter((item) => {
+      const matchesSearch =
+        item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (item.sku &&
+          item.sku.toLowerCase().includes(searchQuery.toLowerCase()));
 
-    const matchesCategory = selectedCategoryFilter
-      ? item.categoryId === selectedCategoryFilter
-      : true;
-    const matchesSupplier = selectedSupplierFilter
-      ? item.supplierId === selectedSupplierFilter
-      : true;
-    const matchesLocation = activeLocationId
-      ? !item.locationRules ||
-        item.locationRules.length === 0 ||
-        item.locationRules.some((rule) => rule.locationId === activeLocationId)
-      : true;
+      const matchesCategory = selectedCategoryFilter
+        ? item.categoryId === selectedCategoryFilter
+        : true;
+      const matchesSupplier = selectedSupplierFilter
+        ? item.supplierId === selectedSupplierFilter
+        : true;
+      const matchesLocation = activeLocationId
+        ? !item.locationRules ||
+          item.locationRules.length === 0 ||
+          item.locationRules.some(
+            (rule) => rule.locationId === activeLocationId,
+          )
+        : true;
 
-    return (
-      matchesSearch && matchesCategory && matchesSupplier && matchesLocation
+      return (
+        matchesSearch && matchesCategory && matchesSupplier && matchesLocation
+      );
+    });
+  }, [
+    items,
+    searchQuery,
+    selectedCategoryFilter,
+    selectedSupplierFilter,
+    activeLocationId,
+  ]);
+
+  useEffect(() => {
+    setVisibleCount(20);
+  }, [
+    searchQuery,
+    selectedCategoryFilter,
+    selectedSupplierFilter,
+    activeLocationId,
+  ]);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          setVisibleCount((prev) => Math.min(prev + 20, filteredItems.length));
+        }
+      },
+      { threshold: 0.1 },
     );
-  });
 
-  const totalPages = Math.ceil(filteredItems.length / itemsPerPage);
-  const paginatedItems = filteredItems.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage,
-  );
+    const currentRef = loadMoreRef.current;
+    if (currentRef) {
+      observer.observe(currentRef);
+    }
+
+    return () => {
+      if (currentRef) {
+        observer.unobserve(currentRef);
+      }
+    };
+  }, [filteredItems.length]);
+
+  const visibleItems = useMemo(() => {
+    return filteredItems.slice(0, visibleCount);
+  }, [filteredItems, visibleCount]);
 
   const getStatusBadge = (item: StockItem) => {
     if (!item.isActive) {
       return (
-        <span className="bg-zinc-100 text-zinc-500 px-2.5 py-1 rounded-md font-bold text-[10px] uppercase tracking-wider inline-flex items-center gap-1.5">
-          <span className="h-1.5 w-1.5 rounded-full bg-zinc-400" />
+        <span className="bg-neutral-100 text-neutral-600 px-2.5 py-1 rounded-md font-bold text-[10px] uppercase tracking-wider inline-flex items-center gap-1.5 border border-neutral-200">
+          <span className="h-1.5 w-1.5 rounded-full bg-neutral-400" />
           Inactive
         </span>
       );
     }
 
-    if (
-      item.sku === "ITEM-C004" ||
-      item.name.toLowerCase().includes("lettuce")
-    ) {
-      return (
-        <span className="bg-amber-50 text-amber-600 px-2.5 py-1 rounded-md font-bold text-[10px] uppercase tracking-wider inline-flex items-center gap-1.5 border border-amber-200">
-          <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
-          Low Stock
-        </span>
-      );
-    }
-
     return (
-      <span className="bg-emerald-50 text-emerald-600 px-2.5 py-1 rounded-md font-bold text-[10px] uppercase tracking-wider inline-flex items-center gap-1.5 border border-emerald-200">
-        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+      <span className="bg-emerald-50 text-emerald-800 px-2.5 py-1.5 rounded-md font-bold text-[10px] uppercase tracking-wider inline-flex items-center gap-1.5 border border-emerald-200/70">
+        <span className="h-1.5 w-1.5 rounded-full bg-emerald-600" />
         Active
       </span>
     );
   };
 
-  const unitsOptions = [
-    "Each",
-    "Pack (24)",
-    "Carton",
-    "Box (12)",
-    "Pallet",
-    "pcs",
-    "gm",
-    "kg",
-    "L",
-  ];
-
-  if (loading) {
+  if (loading && items.length === 0) {
     return (
-      <div className="h-[75vh] flex flex-col items-center justify-center bg-white text-[#0F172A]">
-        <Loader2 className="h-7 w-7 text-[#16A34A] animate-spin mb-3" />
-        <span className="text-[#64748B] text-xs font-bold uppercase tracking-wider">
+      <div className="min-h-[75vh] flex flex-col items-center justify-center bg-white text-neutral-900">
+        <Loader2 className="h-7 w-7 text-neutral-900 animate-spin mb-3" />
+        <p className="text-neutral-400 text-xs font-bold uppercase tracking-wider">
           Loading stock items...
-        </span>
+        </p>
       </div>
     );
   }
 
   return (
-    <div className="flex bg-white min-h-[80vh] relative select-none">
-      <div className="flex-1 space-y-6 pr-0 lg:pr-4">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-zinc-200 pb-5">
+    <div className="flex flex-col gap-6 bg-white min-h-0 w-full pb-8 select-none font-sans antialiased text-neutral-900">
+      <div className="w-full space-y-4">
+        <div className="bg-white border border-neutral-200 rounded-3xl py-4 px-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 shadow-sm">
           <div>
-            <h1 className="text-3xl font-extrabold text-[#0F172A] tracking-tight">
+            <h1 className="text-[24px] font-bold text-neutral-900 tracking-tight">
               Stock Items
             </h1>
-            <p className="text-[#64748B] text-xs font-bold mt-1.5">
-              Manage all your stock items, including storage capacity and
-              reorder levels by location.
+            <p className="text-neutral-500 text-xs font-medium mt-0.5">
+              Manage all your stock items, storage capacity, and reorder levels
+              by location.
             </p>
           </div>
 
           <div className="flex items-center gap-3">
-            <button className="border border-zinc-200 hover:bg-zinc-50 text-zinc-700 rounded-xl px-4 py-2.5 text-xs font-bold transition-all duration-200 flex items-center gap-2 cursor-pointer shadow-xs">
-              Import Items
-            </button>
             <button
+              type="button"
               onClick={openAddDrawer}
-              className="bg-[#16A34A] hover:bg-[#15803D] text-white rounded-xl px-5 py-2.5 text-xs font-bold uppercase tracking-wider shadow-sm flex items-center gap-2 cursor-pointer transition-all duration-200"
+              className="inline-flex items-center gap-2 bg-[#0A2924] hover:bg-[#0A2924]/90 border border-[#0A2924] text-white px-5 py-2.5 rounded-full text-xs font-semibold transition-all duration-200 cursor-pointer shadow-sm"
             >
-              <Plus className="h-4 w-4 stroke-[3px]" />
-              Add Stock Item
+              <Plus className="h-4 w-4 stroke-[2.5]" />
+              <span>Add Stock Item</span>
             </button>
           </div>
         </div>
 
-        <div className="flex flex-col sm:flex-row gap-3.5 justify-between items-center bg-zinc-50/50 p-3 rounded-2xl border border-zinc-200">
-          <div className="relative w-full sm:max-w-xs">
-            <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-zinc-400">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 w-full">
+          <div className="relative flex-1 max-w-md">
+            <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-neutral-400">
               <Search className="h-4 w-4" />
             </span>
             <input
               type="text"
               placeholder="Search stock items..."
-              className="w-full bg-white border border-zinc-200 focus:border-[#16A34A] rounded-xl py-2 pl-9 pr-4 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#16A34A] transition-all shadow-xs"
+              className="w-full bg-white border border-neutral-200 focus:border-neutral-900 focus:ring-4 focus:ring-neutral-900/5 rounded-full py-2.5 pl-10 pr-4 text-xs font-medium text-neutral-900 placeholder:text-neutral-400 focus:outline-none transition shadow-2xs h-10"
               value={searchQuery}
-              onChange={(e) => {
-                setSearchQuery(e.target.value);
-                setCurrentPage(1);
-              }}
+              onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
 
           <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto">
-            <div className="relative">
-              <select
-                className="bg-white border border-zinc-200 rounded-xl py-2 pl-3.5 pr-8 text-xs font-bold text-zinc-700 focus:outline-none focus:border-[#16A34A] cursor-pointer appearance-none shadow-xs"
+            <div className="w-full sm:w-44">
+              <Select
                 value={selectedCategoryFilter}
-                onChange={(e) => {
-                  setSelectedCategoryFilter(e.target.value);
-                  setCurrentPage(1);
-                }}
+                onValueChange={(val) => setSelectedCategoryFilter(val)}
               >
-                <option value="">All Categories</option>
-                {categories.map((cat) => (
-                  <option key={cat.id} value={cat.id}>
-                    {cat.name}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-400 pointer-events-none" />
+                <SelectTrigger className="w-full h-10 rounded-full border border-neutral-200 bg-white px-4 text-xs font-semibold text-neutral-800 hover:bg-neutral-50 transition cursor-pointer shadow-2xs">
+                  <SelectValue placeholder="All Categories" />
+                </SelectTrigger>
+                <SelectContent className="rounded-xl border border-neutral-200 bg-white p-1 max-h-56 z-50">
+                  <SelectItem
+                    value=""
+                    className="rounded-lg px-3 py-2 text-xs font-semibold cursor-pointer"
+                  >
+                    All Categories
+                  </SelectItem>
+                  {categories.map((cat) => (
+                    <SelectItem
+                      key={cat.id}
+                      value={cat.id}
+                      className="rounded-lg px-3 py-2 text-xs font-semibold cursor-pointer"
+                    >
+                      {cat.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
-            <div className="relative">
-              <select
-                className="bg-white border border-zinc-200 rounded-xl py-2 pl-3.5 pr-8 text-xs font-bold text-zinc-700 focus:outline-none focus:border-[#16A34A] cursor-pointer appearance-none shadow-xs"
+            <div className="w-full sm:w-44">
+              <Select
                 value={selectedSupplierFilter}
-                onChange={(e) => {
-                  setSelectedSupplierFilter(e.target.value);
-                  setCurrentPage(1);
-                }}
+                onValueChange={(val) => setSelectedSupplierFilter(val)}
               >
-                <option value="">All Suppliers</option>
-                {suppliers.map((sup) => (
-                  <option key={sup.id} value={sup.id}>
-                    {sup.name}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-400 pointer-events-none" />
+                <SelectTrigger className="w-full h-10 rounded-full border border-neutral-200 bg-white px-4 text-xs font-semibold text-neutral-800 hover:bg-neutral-50 transition cursor-pointer shadow-2xs">
+                  <SelectValue placeholder="All Suppliers" />
+                </SelectTrigger>
+                <SelectContent className="rounded-xl border border-neutral-200 bg-white p-1 max-h-56 z-50">
+                  <SelectItem
+                    value=""
+                    className="rounded-lg px-3 py-2 text-xs font-semibold cursor-pointer"
+                  >
+                    All Suppliers
+                  </SelectItem>
+                  {suppliers.map((sup) => (
+                    <SelectItem
+                      key={sup.id}
+                      value={sup.id}
+                      className="rounded-lg px-3 py-2 text-xs font-semibold cursor-pointer"
+                    >
+                      {sup.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-
-            <button className="border border-zinc-200 hover:bg-zinc-50 bg-white text-zinc-700 rounded-xl px-3.5 py-2 text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer">
-              Filters
-            </button>
           </div>
         </div>
 
-        {paginatedItems.length === 0 ? (
-          <div className="bg-white border border-zinc-200 rounded-2xl py-20 px-6 text-center flex flex-col items-center justify-center shadow-sm">
-            <Package className="h-10 w-10 text-zinc-300 mb-3" />
-            <h3 className="text-base font-bold text-[#0F172A]">
+        {visibleItems.length === 0 ? (
+          <div className="bg-white border border-neutral-200 rounded-3xl py-20 px-6 text-center flex flex-col items-center justify-center shadow-xs">
+            <Package className="h-10 w-10 text-neutral-300 mb-3" />
+            <h3 className="text-base font-bold text-neutral-900">
               No stock items found
             </h3>
-            <p className="text-[#64748B] text-xs mt-1 font-semibold max-w-xs leading-relaxed">
+            <p className="text-neutral-500 text-xs mt-1 font-medium max-w-xs leading-relaxed">
               No registered stock items match your search filters. Click Add
               Stock Item to begin.
             </p>
           </div>
         ) : (
-          <div className="bg-white border border-zinc-200 rounded-2xl shadow-xs overflow-hidden">
+          <div className="bg-white border border-neutral-200 rounded-3xl shadow-xs overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="border-b border-zinc-200 text-[10px] uppercase font-extrabold tracking-wider text-[#64748B] bg-zinc-50/50">
-                    <th className="py-4 px-6 font-extrabold">Item Name</th>
-                    <th className="py-4 px-6 font-extrabold">Category</th>
-                    <th className="py-4 px-6 font-extrabold">Base Unit</th>
-                    <th className="py-4 px-6 font-extrabold">Locations</th>
-                    <th className="py-4 px-6 font-extrabold">Status</th>
-                    <th className="py-4 px-6 font-extrabold text-right">
-                      Actions
-                    </th>
+                  <tr className="border-b border-neutral-200 text-[11px] font-bold text-neutral-500 uppercase tracking-wider bg-white">
+                    <th className="py-4 px-6 font-bold">Item Name</th>
+                    <th className="py-4 px-6 font-bold">Category</th>
+                    <th className="py-4 px-6 font-bold">Base Unit</th>
+                    <th className="py-4 px-6 font-bold">Locations</th>
+                    <th className="py-4 px-6 font-bold">Status</th>
+                    <th className="py-4 px-6 font-bold text-right">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-zinc-200 text-xs text-[#0F172A]">
-                  {paginatedItems.map((item) => (
+                <tbody className="divide-y divide-neutral-100 text-xs text-neutral-900 bg-white">
+                  {visibleItems.map((item) => (
                     <tr
                       key={item.id}
-                      className="hover:bg-zinc-50/40 transition-colors"
+                      className="hover:bg-neutral-50/50 transition-colors"
                     >
                       <td className="py-4 px-6">
-                        <div className="flex items-center gap-3.5">
-                          <div className="h-10 w-10 rounded-lg bg-zinc-100 flex items-center justify-center shrink-0 border border-zinc-200 overflow-hidden shadow-xs">
-                            {item.imageUrl ? (
-                              <Image
-                                src={item.imageUrl}
-                                alt={item.name}
-                                width={50}
-                                height={50}
-                                className="h-full w-full object-cover"
-                              />
-                            ) : (
-                              <Package className="h-5 w-5 text-zinc-400" />
-                            )}
-                          </div>
-                          <div>
-                            <p className="font-extrabold text-[#0F172A]">
-                              {item.name}
-                            </p>
-                            <p className="text-[10px] text-[#64748B] font-bold mt-0.5 uppercase tracking-wider">
-                              {item.sku || "No SKU"}
-                            </p>
-                          </div>
+                        <div>
+                          <p className="font-bold text-neutral-900 text-xs">
+                            {item.name}
+                          </p>
+                          <p className="text-[10px] text-neutral-400 font-medium mt-0.5 uppercase tracking-wider">
+                            {item.sku || "No SKU"}
+                          </p>
                         </div>
                       </td>
-                      <td className="py-4 px-6 font-bold text-[#64748B]">
+                      <td className="py-4 px-6 font-semibold text-neutral-600">
                         {item.categoryName || "Uncategorized"}
                       </td>
-                      <td className="py-4 px-6 font-bold text-zinc-800">
+                      <td className="py-4 px-6 font-semibold text-neutral-800">
                         {item.baseUnit}
                       </td>
                       <td className="py-4 px-6">
-                        <span className="bg-zinc-100 text-zinc-800 px-2 py-0.5 rounded-full font-extrabold text-[10px]">
+                        <span className=" text-neutral-800 px-2.5 py-0.5 font-bold text-[10px]">
                           {item.locationsCount || 0}
                         </span>
                       </td>
@@ -845,15 +729,17 @@ export default function StockItemsPage() {
                       <td className="py-4 px-6 text-right relative">
                         <div className="flex items-center justify-end gap-1.5">
                           <button
+                            type="button"
                             onClick={() => openEditDrawer(item)}
-                            className="p-1.5 rounded-lg hover:bg-zinc-100 text-zinc-500 hover:text-[#16A34A] transition-colors cursor-pointer"
+                            className="p-1.5 rounded-lg hover:bg-neutral-100 text-neutral-400 hover:text-neutral-800 transition-colors cursor-pointer"
                             title="Edit Stock Item"
                           >
                             <Edit2 className="h-4 w-4" />
                           </button>
                           <button
+                            type="button"
                             onClick={() => handleDelete(item.id)}
-                            className="p-1.5 rounded-lg hover:bg-rose-50 text-zinc-500 hover:text-[#EF4444] transition-colors cursor-pointer"
+                            className="p-1.5 rounded-lg hover:bg-rose-50 text-neutral-400 hover:text-rose-600 transition-colors cursor-pointer"
                             title="Delete Stock Item"
                           >
                             <Trash2 className="h-4 w-4" />
@@ -866,51 +752,15 @@ export default function StockItemsPage() {
               </table>
             </div>
 
-            <div className="bg-zinc-50/50 border-t border-zinc-200 py-4 px-6 flex flex-col sm:flex-row justify-between items-center gap-4 text-xs text-[#64748B] font-semibold">
-              <span>
-                Showing{" "}
-                {filteredItems.length === 0
-                  ? 0
-                  : (currentPage - 1) * itemsPerPage + 1}{" "}
-                to {Math.min(currentPage * itemsPerPage, filteredItems.length)}{" "}
-                of {filteredItems.length} items
-              </span>
-              {totalPages > 1 && (
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() =>
-                      setCurrentPage((prev) => Math.max(prev - 1, 1))
-                    }
-                    disabled={currentPage === 1}
-                    className="p-1.5 rounded-lg border border-zinc-200 bg-white hover:bg-zinc-50 text-zinc-400 disabled:opacity-40 cursor-pointer"
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                  </button>
-                  {Array.from({ length: totalPages }).map((_, idx) => (
-                    <button
-                      key={idx}
-                      onClick={() => setCurrentPage(idx + 1)}
-                      className={`h-8 w-8 rounded-lg font-bold flex items-center justify-center cursor-pointer transition-colors ${
-                        currentPage === idx + 1
-                          ? "bg-[#16A34A] text-white"
-                          : "border border-zinc-200 bg-white hover:bg-zinc-50 text-zinc-600"
-                      }`}
-                    >
-                      {idx + 1}
-                    </button>
-                  ))}
-                  <button
-                    onClick={() =>
-                      setCurrentPage((prev) => Math.min(prev + 1, totalPages))
-                    }
-                    disabled={currentPage === totalPages}
-                    className="p-1.5 rounded-lg border border-zinc-200 bg-white hover:bg-zinc-50 text-zinc-400 disabled:opacity-40 cursor-pointer"
-                  >
-                    <ChevronRight className="h-4 w-4" />
-                  </button>
-                </div>
-              )}
-            </div>
+            {visibleCount < filteredItems.length && (
+              <div
+                ref={loadMoreRef}
+                className="py-4 border-t border-neutral-100 flex items-center justify-center text-xs font-semibold text-neutral-400 gap-2 bg-neutral-50/30"
+              >
+                <Loader2 className="h-4 w-4 animate-spin text-neutral-600" />
+                <span>Loading more stock items...</span>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -918,23 +768,24 @@ export default function StockItemsPage() {
       {showDrawer && (
         <>
           <div
-            className="fixed inset-0 bg-black/30 z-98 transition-opacity"
+            className="fixed inset-0 bg-black/30 z-40 transition-opacity"
             onClick={() => setShowDrawer(false)}
           />
-          <div className="fixed top-0 right-0 h-full w-[460px] bg-white border-l border-zinc-200 shadow-2xl flex flex-col justify-between z-99 animate-slide-in">
+          <div className="fixed top-0 right-0 h-full w-[480px] max-w-[95vw] bg-white border-l border-neutral-200 shadow-2xl flex flex-col justify-between z-50 animate-slide-in">
             <div className="p-6 overflow-y-auto space-y-6 flex-1">
-              <div className="flex justify-between items-start border-b border-zinc-100 pb-4">
+              <div className="flex justify-between items-start border-b border-neutral-100 pb-4">
                 <div>
-                  <h3 className="text-lg font-extrabold text-[#0F172A]">
+                  <h3 className="text-base font-bold text-neutral-900">
                     {editId ? "Edit Stock Item" : "Add Stock Item"}
                   </h3>
-                  <p className="text-[#64748B] text-xs font-semibold mt-1">
+                  <p className="text-neutral-500 text-xs font-medium mt-0.5">
                     Enter the details for the stock item.
                   </p>
                 </div>
                 <button
+                  type="button"
                   onClick={() => setShowDrawer(false)}
-                  className="p-1.5 rounded-lg hover:bg-zinc-100 text-zinc-400 hover:text-zinc-700 cursor-pointer transition-colors"
+                  className="p-1.5 rounded-lg hover:bg-neutral-100 text-neutral-400 hover:text-neutral-700 cursor-pointer transition-colors"
                 >
                   <X className="h-5 w-5" />
                 </button>
@@ -942,13 +793,13 @@ export default function StockItemsPage() {
 
               <form onSubmit={handleSave} noValidate className="space-y-5">
                 <div className="space-y-4">
-                  <h4 className="text-[10px] font-extrabold uppercase tracking-widest text-[#64748B] border-b border-zinc-100 pb-1">
+                  <h4 className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 border-b border-neutral-100 pb-1">
                     Basic Information
                   </h4>
 
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1.5">
-                      <label className="text-[10px] font-bold text-[#0F172A] uppercase tracking-wider block">
+                      <label className="text-[10px] font-bold text-neutral-700 uppercase tracking-wider block">
                         Item Name <span className="text-rose-500">*</span>
                       </label>
                       <input
@@ -969,7 +820,7 @@ export default function StockItemsPage() {
                     </div>
 
                     <div className="space-y-1.5">
-                      <label className="text-[10px] font-bold text-[#0F172A] uppercase tracking-wider block">
+                      <label className="text-[10px] font-bold text-neutral-700 uppercase tracking-wider block">
                         SKU / Item Code <span className="text-rose-500">*</span>
                       </label>
                       <input
@@ -992,258 +843,155 @@ export default function StockItemsPage() {
 
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1.5">
-                      <label className="text-[10px] font-bold text-[#0F172A] uppercase tracking-wider block">
+                      <label className="text-[10px] font-bold text-neutral-700 uppercase tracking-wider block">
                         Category <span className="text-rose-500">*</span>
                       </label>
-                      <div className="relative">
-                        <select
-                          className={getSelectClassName("categoryId")}
-                          value={formCategoryId}
-                          onChange={(e) => {
-                            setFormCategoryId(e.target.value);
-                            if (validationErrors.categoryId) {
-                              setValidationErrors((prev) => ({
-                                ...prev,
-                                categoryId: false,
-                              }));
-                            }
-                          }}
+                      <Select
+                        value={formCategoryId}
+                        onValueChange={(val) => {
+                          setFormCategoryId(val);
+                          if (validationErrors.categoryId) {
+                            setValidationErrors((prev) => ({
+                              ...prev,
+                              categoryId: false,
+                            }));
+                          }
+                        }}
+                      >
+                        <SelectTrigger
+                          className={cn(
+                            "w-full h-10 rounded-xl border bg-white px-3 text-xs font-semibold text-neutral-900 focus:outline-none focus:ring-4 transition cursor-pointer shadow-2xs",
+                            validationErrors.categoryId
+                              ? "border-rose-400 focus:border-rose-500 focus:ring-rose-500/20"
+                              : "border-neutral-200 focus:border-neutral-900 focus:ring-neutral-900/5",
+                          )}
                         >
-                          <option value="">Select category</option>
+                          <SelectValue placeholder="Select category" />
+                        </SelectTrigger>
+                        <SelectContent className="rounded-xl border border-neutral-200 bg-white p-1 max-h-56 z-60">
                           {categories.map((cat) => (
-                            <option key={cat.id} value={cat.id}>
+                            <SelectItem
+                              key={cat.id}
+                              value={cat.id}
+                              className="rounded-lg px-3 py-2 text-xs font-semibold cursor-pointer"
+                            >
                               {cat.name}
-                            </option>
+                            </SelectItem>
                           ))}
-                        </select>
-                        <ChevronDown className="absolute right-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
-                      </div>
+                        </SelectContent>
+                      </Select>
                     </div>
 
                     <div className="space-y-1.5">
-                      <label className="text-[10px] font-bold text-[#0F172A] uppercase tracking-wider block">
+                      <label className="text-[10px] font-bold text-neutral-700 uppercase tracking-wider block">
                         Supplier <span className="text-rose-500">*</span>
                       </label>
-                      <div className="relative">
-                        <select
-                          className={getSelectClassName("supplierId")}
-                          value={formSupplierId}
-                          onChange={(e) => {
-                            setFormSupplierId(e.target.value);
-                            if (validationErrors.supplierId) {
-                              setValidationErrors((prev) => ({
-                                ...prev,
-                                supplierId: false,
-                              }));
-                            }
-                          }}
+                      <Select
+                        value={formSupplierId}
+                        onValueChange={(val) => {
+                          setFormSupplierId(val);
+                          if (validationErrors.supplierId) {
+                            setValidationErrors((prev) => ({
+                              ...prev,
+                              supplierId: false,
+                            }));
+                          }
+                        }}
+                      >
+                        <SelectTrigger
+                          className={cn(
+                            "w-full h-10 rounded-xl border bg-white px-3 text-xs font-semibold text-neutral-900 focus:outline-none focus:ring-4 transition cursor-pointer shadow-2xs",
+                            validationErrors.supplierId
+                              ? "border-rose-400 focus:border-rose-500 focus:ring-rose-500/20"
+                              : "border-neutral-200 focus:border-neutral-900 focus:ring-neutral-900/5",
+                          )}
                         >
-                          <option value="">Select supplier</option>
+                          <SelectValue placeholder="Select supplier" />
+                        </SelectTrigger>
+                        <SelectContent className="rounded-xl border border-neutral-200 bg-white p-1 max-h-56 z-60">
                           {suppliers.map((sup) => (
-                            <option key={sup.id} value={sup.id}>
+                            <SelectItem
+                              key={sup.id}
+                              value={sup.id}
+                              className="rounded-lg px-3 py-2 text-xs font-semibold cursor-pointer"
+                            >
                               {sup.name}
-                            </option>
+                            </SelectItem>
                           ))}
-                        </select>
-                        <ChevronDown className="absolute right-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
-                      </div>
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1.5 relative">
-                      <label className="text-[10px] font-bold text-[#0F172A] uppercase tracking-wider block">
-                        Locations <span className="text-rose-500">*</span>
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-bold text-neutral-700 uppercase tracking-wider block">
+                        Base Unit <span className="text-rose-500">*</span>
                       </label>
-                      <div className="relative">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setShowLocationDropdown(!showLocationDropdown)
-                          }
-                          className={`w-full bg-white border ${
-                            validationErrors.locations
-                              ? "border-rose-400 focus:border-rose-500 ring-1 ring-rose-500/20"
-                              : "border-zinc-300 focus:border-[#16A34A]"
-                          } rounded-xl py-2.5 px-3.5 text-xs font-semibold text-zinc-800 text-left flex justify-between items-center cursor-pointer`}
-                        >
-                          <span>
-                            {selectedLocations.length === 0
-                              ? "Select locations"
-                              : selectedLocations.length === locations.length
-                                ? "All Locations Selected"
-                                : `${selectedLocations.length} Location${selectedLocations.length > 1 ? "s" : ""} Selected`}
-                          </span>
-                          <ChevronDown className="h-4 w-4 text-zinc-400" />
-                        </button>
-
-                        {showLocationDropdown && (
-                          <>
-                            <div
-                              className="fixed inset-0 z-40"
-                              onClick={() => setShowLocationDropdown(false)}
-                            />
-                            <div className="absolute left-0 right-0 mt-1.5 bg-white border border-zinc-200 rounded-xl shadow-lg max-h-60 overflow-y-auto p-2.5 z-50 space-y-2">
-                              <div className="flex justify-between items-center pb-2 border-b border-zinc-100 text-[10px] font-extrabold uppercase text-[#64748B]">
-                                <span>Select Locations</span>
-                                <div className="flex gap-2">
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setSelectedLocations(
-                                        locations.map((l) => l.id),
-                                      );
-                                      if (validationErrors.locations) {
-                                        setValidationErrors((prev) => ({
-                                          ...prev,
-                                          locations: false,
-                                        }));
-                                      }
-                                    }}
-                                    className="text-[#16A34A] hover:underline cursor-pointer"
-                                  >
-                                    All
-                                  </button>
-                                  <span>|</span>
-                                  <button
-                                    type="button"
-                                    onClick={() => setSelectedLocations([])}
-                                    className="text-rose-500 hover:underline cursor-pointer"
-                                  >
-                                    None
-                                  </button>
-                                </div>
-                              </div>
-                              <div className="space-y-1.5 pt-1">
-                                {locations.map((loc) => {
-                                  const isChecked = selectedLocations.includes(
-                                    loc.id,
-                                  );
-                                  return (
-                                    <label
-                                      key={loc.id}
-                                      className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-zinc-50 cursor-pointer text-xs font-semibold text-zinc-700 transition-colors"
-                                    >
-                                      <input
-                                        type="checkbox"
-                                        className="h-3.5 w-3.5 text-[#16A34A] focus:ring-[#16A34A] border-zinc-300 rounded cursor-pointer"
-                                        checked={isChecked}
-                                        onChange={() => {
-                                          if (isChecked) {
-                                            setSelectedLocations(
-                                              selectedLocations.filter(
-                                                (id) => id !== loc.id,
-                                              ),
-                                            );
-                                          } else {
-                                            setSelectedLocations([
-                                              ...selectedLocations,
-                                              loc.id,
-                                            ]);
-                                            if (validationErrors.locations) {
-                                              setValidationErrors((prev) => ({
-                                                ...prev,
-                                                locations: false,
-                                              }));
-                                            }
-                                          }
-                                        }}
-                                      />
-                                      <span className="truncate">
-                                        {loc.name}
-                                      </span>
-                                    </label>
-                                  );
-                                })}
-                              </div>
-                            </div>
-                          </>
-                        )}
-                      </div>
+                      <Select
+                        value={formBaseUnit}
+                        onValueChange={(val) =>
+                          setFormBaseUnit(val as BaseUnit)
+                        }
+                      >
+                        <SelectTrigger className="w-full h-10 rounded-xl border border-neutral-200 bg-white px-3 text-xs font-semibold text-neutral-900 focus:outline-none focus:ring-4 focus:ring-neutral-900/5 focus:border-neutral-900 transition cursor-pointer shadow-2xs">
+                          <SelectValue placeholder="Select unit" />
+                        </SelectTrigger>
+                        <SelectContent className="rounded-xl border border-neutral-200 bg-white p-1 max-h-56 z-60">
+                          <SelectItem
+                            value="pcs"
+                            className="rounded-lg px-3 py-2 text-xs font-semibold cursor-pointer"
+                          >
+                            pcs
+                          </SelectItem>
+                          <SelectItem
+                            value="kg"
+                            className="rounded-lg px-3 py-2 text-xs font-semibold cursor-pointer"
+                          >
+                            kg
+                          </SelectItem>
+                          <SelectItem
+                            value="L"
+                            className="rounded-lg px-3 py-2 text-xs font-semibold cursor-pointer"
+                          >
+                            L
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
 
                     <div className="space-y-1.5">
-                      <label className="text-[10px] font-bold text-[#0F172A] uppercase tracking-wider block">
-                        Base Unit <span className="text-rose-500">*</span>
+                      <label className="text-[10px] font-bold text-neutral-700 uppercase tracking-wider block">
+                        Cost per Base Unit ($)
                       </label>
-                      <div className="relative">
-                        <select
-                          className={getSelectClassName("baseUnit")}
-                          value={formBaseUnit}
-                          onChange={(e) => {
-                            setFormBaseUnit(e.target.value as BaseUnit);
-                            if (validationErrors.baseUnit) {
-                              setValidationErrors((prev) => ({
-                                ...prev,
-                                baseUnit: false,
-                              }));
-                            }
-                          }}
-                        >
-                          <option value="">Select base unit</option>
-                          {unitsOptions.map((unit) => (
-                            <option key={unit} value={unit}>
-                              {unit}
-                            </option>
-                          ))}
-                        </select>
-                        <ChevronDown className="absolute right-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
-                      </div>
-                      <span className="text-[10px] font-bold text-[#64748B] block mt-1">
-                        This is the unit you purchase and receive in (e.g., Pack
-                        24, Box 12).
-                      </span>
+                      <input
+                        type="number"
+                        step="any"
+                        placeholder="0.00"
+                        className="w-full bg-white border border-neutral-200 rounded-xl py-2 px-3 text-xs text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:ring-4 focus:ring-neutral-900/5 focus:border-neutral-900 transition-all"
+                        value={formCostPerBaseUnit}
+                        onChange={(e) => setFormCostPerBaseUnit(e.target.value)}
+                      />
                     </div>
                   </div>
 
                   <div className="space-y-1.5">
-                    <div className="flex justify-between items-center">
-                      <label className="text-[10px] font-bold text-[#0F172A] uppercase tracking-wider block">
-                        Description
-                      </label>
-                      <span className="text-[10px] font-bold text-[#64748B]">
-                        {formDescription.length} / 250
-                      </span>
-                    </div>
+                    <label className="text-[10px] font-bold text-neutral-700 uppercase tracking-wider block">
+                      Description
+                    </label>
                     <textarea
-                      maxLength={250}
-                      placeholder="Enter description (optional)"
-                      rows={3}
-                      className="w-full bg-white border border-zinc-300 focus:border-[#16A34A] rounded-xl py-2 px-3 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#16A34A] transition-all resize-none"
+                      placeholder="Optional description"
+                      rows={2}
+                      className="w-full bg-white border border-neutral-200 rounded-xl py-2 px-3 text-xs text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:ring-4 focus:ring-neutral-900/5 focus:border-neutral-900 transition-all resize-none"
                       value={formDescription}
                       onChange={(e) => setFormDescription(e.target.value)}
                     />
                   </div>
                 </div>
 
-                <div className="space-y-4 pt-2 border-t border-zinc-100">
-                  <h4 className="text-[10px] font-extrabold uppercase tracking-widest text-[#64748B] border-b border-zinc-100 pb-1">
-                    Stock Settings
-                  </h4>
-
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-[#0F172A] uppercase tracking-wider block">
-                      Cost per Base Unit
-                    </label>
-                    <div className="relative">
-                      <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-zinc-400 text-xs">
-                        $
-                      </span>
-                      <input
-                        type="number"
-                        step="any"
-                        placeholder="0.00"
-                        className="w-full bg-white border border-zinc-300 focus:border-[#16A34A] rounded-xl py-2 pl-7 pr-3 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#16A34A] transition-all font-semibold"
-                        value={formCostPerBaseUnit}
-                        onChange={(e) => setFormCostPerBaseUnit(e.target.value)}
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-4 pt-2 border-t border-zinc-100">
-                  <div className="flex justify-between items-center border-b border-zinc-100 pb-1">
-                    <h4 className="text-[10px] font-extrabold uppercase tracking-widest text-[#64748B]">
+                <div className="space-y-3 pt-2">
+                  <div className="flex justify-between items-center border-b border-neutral-100 pb-1">
+                    <h4 className="text-[10px] font-bold uppercase tracking-wider text-neutral-400">
                       Counting Options
                     </h4>
                     <button
@@ -1256,29 +1004,24 @@ export default function StockItemsPage() {
                             displayName: "",
                             conversionToBaseQty: 1,
                             baseUnit: formBaseUnit,
-                            sortOrder: prev.length,
+                            sortOrder: prev.length + 1,
                             showOnMobile: true,
                           },
                         ])
                       }
-                      className="text-[#16A34A] hover:text-[#15803D] text-[10px] font-extrabold uppercase tracking-wider flex items-center gap-1 cursor-pointer transition-colors"
+                      className="text-[10px] font-bold text-[#0A2924] bg-neutral-100 hover:bg-neutral-200 cursor-pointer flex items-center gap-1 rounded-lg p-1.5"
                     >
                       <Plus className="h-3 w-3 stroke-[3px]" />
                       Add Option
                     </button>
                   </div>
 
-                  {countingOptions.length === 0 ? (
-                    <p className="text-[10px] font-bold text-zinc-400 text-center py-2">
-                      No counting options configured. Click Add Option to
-                      configure conversion factors.
-                    </p>
-                  ) : (
-                    <div className="space-y-3.5">
+                  {countingOptions.length > 0 && (
+                    <div className="space-y-2.5">
                       {countingOptions.map((co, idx) => (
                         <div
                           key={idx}
-                          className="bg-zinc-50/50 border border-zinc-200 rounded-xl p-3.5 space-y-3 relative"
+                          className="bg-neutral-50 border border-neutral-200 rounded-xl p-3 space-y-2 relative"
                         >
                           <button
                             type="button"
@@ -1287,21 +1030,20 @@ export default function StockItemsPage() {
                                 prev.filter((_, i) => i !== idx),
                               )
                             }
-                            className="absolute top-2.5 right-2.5 p-1 rounded-lg text-zinc-400 hover:text-rose-500 hover:bg-rose-50 cursor-pointer transition-colors"
+                            className="absolute top-2 right-2 p-1 text-neutral-400 hover:text-rose-600 transition-colors cursor-pointer"
                           >
-                            <Trash2 className="h-3.5 w-3.5" />
+                            <X className="h-3.5 w-3.5" />
                           </button>
 
-                          <div className="grid grid-cols-2 gap-3">
-                            <div className="space-y-1">
-                              <label className="text-[9px] font-bold text-zinc-500 uppercase tracking-wider">
-                                Display Name
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <label className="text-[9px] font-bold text-neutral-500 uppercase tracking-wider block mb-1">
+                                Option Name
                               </label>
                               <input
                                 type="text"
-                                required
-                                placeholder="e.g. Case"
-                                className="w-full bg-white border border-zinc-300 focus:border-[#16A34A] rounded-lg py-1.5 px-2.5 text-xs text-zinc-950 focus:outline-none"
+                                placeholder="e.g. Carton, Pack"
+                                className="w-full bg-white border border-neutral-200 rounded-lg p-2 text-xs font-semibold text-neutral-900 focus:outline-none focus:ring-1 focus:ring-neutral-900"
                                 value={co.displayName}
                                 onChange={(e) =>
                                   setCountingOptions((prev) =>
@@ -1317,18 +1059,15 @@ export default function StockItemsPage() {
                                 }
                               />
                             </div>
-
-                            <div className="space-y-1">
-                              <label className="text-[9px] font-bold text-zinc-500 uppercase tracking-wider">
-                                Conversion to Base Qty
+                            <div>
+                              <label className="text-[9px] font-bold text-neutral-500 uppercase tracking-wider block mb-1">
+                                Conversion to Base ({formBaseUnit})
                               </label>
                               <input
                                 type="number"
-                                required
-                                min="0.0001"
                                 step="any"
-                                placeholder="e.g. 24"
-                                className="w-full bg-white border border-zinc-300 focus:border-[#16A34A] rounded-lg py-1.5 px-2.5 text-xs text-zinc-950 focus:outline-none font-semibold"
+                                placeholder="1"
+                                className="w-full bg-white border border-neutral-200 rounded-lg p-2 text-xs font-semibold text-neutral-900 focus:outline-none focus:ring-1 focus:ring-neutral-900"
                                 value={co.conversionToBaseQty}
                                 onChange={(e) =>
                                   setCountingOptions((prev) =>
@@ -1337,61 +1076,7 @@ export default function StockItemsPage() {
                                         ? {
                                             ...item,
                                             conversionToBaseQty:
-                                              parseFloat(e.target.value) || 0,
-                                          }
-                                        : item,
-                                    ),
-                                  )
-                                }
-                              />
-                            </div>
-                          </div>
-
-                          <div className="flex justify-between items-center pt-1">
-                            <div className="flex items-center gap-1.5">
-                              <input
-                                type="checkbox"
-                                id={`showOnMobile-${idx}`}
-                                className="h-3.5 w-3.5 text-[#16A34A] focus:ring-[#16A34A] border-zinc-300 rounded cursor-pointer"
-                                checked={co.showOnMobile}
-                                onChange={(e) =>
-                                  setCountingOptions((prev) =>
-                                    prev.map((item, i) =>
-                                      i === idx
-                                        ? {
-                                            ...item,
-                                            showOnMobile: e.target.checked,
-                                          }
-                                        : item,
-                                    ),
-                                  )
-                                }
-                              />
-                              <label
-                                htmlFor={`showOnMobile-${idx}`}
-                                className="text-[10px] font-bold text-[#0F172A] cursor-pointer"
-                              >
-                                Show on Mobile
-                              </label>
-                            </div>
-
-                            <div className="flex items-center gap-1.5">
-                              <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider">
-                                Sort Order
-                              </span>
-                              <input
-                                type="number"
-                                required
-                                className="w-10 bg-white border border-zinc-300 focus:border-[#16A34A] rounded-lg py-1 px-1.5 text-center text-xs text-zinc-950 focus:outline-none"
-                                value={co.sortOrder}
-                                onChange={(e) =>
-                                  setCountingOptions((prev) =>
-                                    prev.map((item, i) =>
-                                      i === idx
-                                        ? {
-                                            ...item,
-                                            sortOrder:
-                                              parseInt(e.target.value) || 0,
+                                              parseFloat(e.target.value) || 1,
                                           }
                                         : item,
                                     ),
@@ -1407,403 +1092,124 @@ export default function StockItemsPage() {
                 </div>
 
                 <div className="space-y-4 pt-2">
-                  <div className="border-t border-zinc-100 pt-4">
-                    <h4 className="text-[10px] font-extrabold uppercase tracking-widest text-[#64748B] block mb-1">
+                  <div className="border-t border-neutral-100 pt-4">
+                    <h4 className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 block mb-1">
                       Storage Capacity & Reorder Level by Location
                     </h4>
-                    <span className="text-[10px] font-semibold text-[#64748B] block">
-                      Set storage capacity and reorder level for this item at
-                      each location.
-                    </span>
                   </div>
 
-                  <div className="bg-zinc-50 border border-zinc-200 rounded-xl p-3 flex items-start gap-2.5">
-                    <Info className="h-4.5 w-4.5 text-zinc-400 shrink-0 mt-0.5" />
-                    <span className="text-[10px] font-bold text-zinc-500 leading-relaxed">
-                      Choose how you want to set values across locations.
-                    </span>
-                  </div>
+                  <div className="space-y-3">
+                    {locations.map((loc) => {
+                      const isSelected = selectedLocations.includes(loc.id);
+                      const rule = locationRulesMap[loc.id] || {
+                        storageCapacity: "",
+                        storageCapacityUnit: formBaseUnit,
+                        reorderLevel: "",
+                        reorderLevelUnit: formBaseUnit,
+                        currentStock: "",
+                      };
 
-                  <div className="grid grid-cols-2 gap-3.5">
-                    <button
-                      type="button"
-                      onClick={() => setReorderOption("same")}
-                      className={`flex flex-col text-left p-3.5 rounded-xl border transition-all cursor-pointer ${
-                        reorderOption === "same"
-                          ? "border-[#16A34A] bg-[#DCFCE7]/10"
-                          : "border-zinc-200 hover:border-zinc-300 bg-white"
-                      }`}
-                    >
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="radio"
-                          name="reorderOption"
-                          className="h-3.5 w-3.5 text-[#16A34A] focus:ring-[#16A34A] cursor-pointer"
-                          checked={reorderOption === "same"}
-                          onChange={() => setReorderOption("same")}
-                        />
-                        <span className="text-[10px] font-extrabold text-[#0F172A]">
-                          Apply Same Values
-                        </span>
-                      </div>
-                      <span className="text-[9px] font-bold text-zinc-500 mt-2 leading-relaxed">
-                        Use the same capacity & reorder level for every
-                        location.
-                      </span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => setReorderOption("different")}
-                      className={`flex flex-col text-left p-3.5 rounded-xl border transition-all cursor-pointer ${
-                        reorderOption === "different"
-                          ? "border-[#16A34A] bg-[#DCFCE7]/10"
-                          : "border-zinc-200 hover:border-zinc-300 bg-white"
-                      }`}
-                    >
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="radio"
-                          name="reorderOption"
-                          className="h-3.5 w-3.5 text-[#16A34A] focus:ring-[#16A34A] cursor-pointer"
-                          checked={reorderOption === "different"}
-                          onChange={() => setReorderOption("different")}
-                        />
-                        <span className="text-[10px] font-extrabold text-[#0F172A]">
-                          Set Different Values
-                        </span>
-                      </div>
-                      <span className="text-[9px] font-bold text-zinc-500 mt-2 leading-relaxed">
-                        Set custom capacity & reorder for each location.
-                      </span>
-                    </button>
-                  </div>
-
-                  {reorderOption === "same" ? (
-                    <div className="bg-zinc-50 border border-zinc-200 rounded-xl p-4 space-y-4">
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-1.5">
-                          <label className="text-[10px] font-bold text-[#0F172A] uppercase block">
-                            Storage Capacity{" "}
-                            <span className="text-rose-500">*</span>
-                          </label>
-                          <div className="flex gap-1.5">
-                            <input
-                              type="number"
-                              placeholder="0"
-                              className={getInputClassName(
-                                "sameCapacity",
-                                "font-semibold",
-                              )}
-                              value={sameCapacity}
-                              onChange={(e) => {
-                                setSameCapacity(e.target.value);
-                                if (validationErrors.sameCapacity) {
-                                  setValidationErrors((prev) => ({
-                                    ...prev,
-                                    sameCapacity: false,
-                                  }));
-                                }
-                              }}
-                            />
-                            <div className="relative shrink-0 w-24">
-                              <select
-                                className="w-full bg-white border border-zinc-300 focus:border-[#16A34A] rounded-xl py-2 pl-2 pr-7 text-[10px] font-bold text-zinc-700 focus:outline-none appearance-none cursor-pointer"
-                                value={
-                                  dynamicUnits.includes(sameCapacityUnit)
-                                    ? sameCapacityUnit
-                                    : dynamicUnits[0]
-                                }
-                                onChange={(e) =>
-                                  setSameCapacityUnit(e.target.value)
-                                }
-                              >
-                                {dynamicUnits.map((unit) => (
-                                  <option key={unit} value={unit}>
-                                    {unit}
-                                  </option>
-                                ))}
-                              </select>
-                              <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-400 pointer-events-none" />
-                            </div>
+                      return (
+                        <div
+                          key={loc.id}
+                          className="bg-neutral-50 border border-neutral-200 rounded-xl p-3 space-y-2.5"
+                        >
+                          <div className="flex items-center justify-between">
+                            <label className="flex items-center gap-2 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                className="h-4 w-4 text-[#0A2924] focus:ring-[#0A2924] border-neutral-300 rounded cursor-pointer"
+                                checked={isSelected}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setSelectedLocations((prev) => [
+                                      ...prev,
+                                      loc.id,
+                                    ]);
+                                  } else {
+                                    setSelectedLocations((prev) =>
+                                      prev.filter((id) => id !== loc.id),
+                                    );
+                                  }
+                                }}
+                              />
+                              <span className="text-xs font-bold text-neutral-900">
+                                {loc.name}
+                              </span>
+                            </label>
                           </div>
-                        </div>
 
-                        <div className="space-y-1.5">
-                          <label className="text-[10px] font-bold text-[#0F172A] uppercase block">
-                            Reorder Level{" "}
-                            <span className="text-rose-500">*</span>
-                          </label>
-                          <div className="flex gap-1.5">
-                            <input
-                              type="number"
-                              placeholder="0"
-                              className={getInputClassName(
-                                "sameReorder",
-                                "font-semibold",
-                              )}
-                              value={sameReorder}
-                              onChange={(e) => {
-                                setSameReorder(e.target.value);
-                                if (validationErrors.sameReorder) {
-                                  setValidationErrors((prev) => ({
-                                    ...prev,
-                                    sameReorder: false,
-                                  }));
-                                }
-                              }}
-                            />
-                            <div className="relative shrink-0 w-24">
-                              <select
-                                className="w-full bg-white border border-zinc-300 focus:border-[#16A34A] rounded-xl py-2 pl-2 pr-7 text-[10px] font-bold text-zinc-700 focus:outline-none appearance-none cursor-pointer"
-                                value={
-                                  dynamicUnits.includes(sameReorderUnit)
-                                    ? sameReorderUnit
-                                    : dynamicUnits[0]
-                                }
-                                onChange={(e) =>
-                                  setSameReorderUnit(e.target.value)
-                                }
-                              >
-                                {dynamicUnits.map((unit) => (
-                                  <option key={unit} value={unit}>
-                                    {unit}
-                                  </option>
-                                ))}
-                              </select>
-                              <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-400 pointer-events-none" />
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-1.5">
-                          <label className="text-[10px] font-bold text-[#0F172A] uppercase block">
-                            Current Stock ({formBaseUnit}){" "}
-                            <span className="text-rose-500">*</span>
-                          </label>
-                          <input
-                            type="number"
-                            placeholder="0"
-                            className={getInputClassName(
-                              "sameCurrentStock",
-                              "font-semibold",
-                            )}
-                            value={sameCurrentStock}
-                            onChange={(e) => {
-                              setSameCurrentStock(e.target.value);
-                              if (validationErrors.sameCurrentStock) {
-                                setValidationErrors((prev) => ({
-                                  ...prev,
-                                  sameCurrentStock: false,
-                                }));
-                              }
-                            }}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  ) : selectedLocations.length === 0 ? (
-                    <div className="bg-zinc-50 border border-zinc-200 border-dashed rounded-xl p-6 text-center">
-                      <p className="text-xs font-semibold text-zinc-400">
-                        Please select at least one location in the
-                        &quot;Locations&quot; field above to configure specific
-                        rules.
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="bg-zinc-50 border border-zinc-200 rounded-xl overflow-hidden">
-                      <div className="max-h-72 overflow-y-auto divide-y divide-zinc-200">
-                        <div className="grid grid-cols-12 text-[9px] uppercase font-extrabold text-[#64748B] bg-zinc-100/60 p-2 border-b border-zinc-200">
-                          <span className="col-span-3">Location</span>
-                          <span className="col-span-2 pl-1.5">
-                            Current Stock{" "}
-                            <span className="text-rose-500">*</span>
-                          </span>
-                          <span className="col-span-4 pl-1.5">
-                            Storage Capacity{" "}
-                            <span className="text-rose-500">*</span>
-                          </span>
-                          <span className="col-span-3 pl-1.5">
-                            Reorder Level{" "}
-                            <span className="text-rose-500">*</span>
-                          </span>
-                        </div>
-                        {locations
-                          .filter((loc) => selectedLocations.includes(loc.id))
-                          .map((loc) => {
-                            const rule = locationRulesMap[loc.id] || {
-                              storageCapacity: "",
-                              storageCapacityUnit: dynamicUnits[0],
-                              reorderLevel: "",
-                              reorderLevelUnit: dynamicUnits[0],
-                              currentStock: "",
-                            };
-                            const stockErrKey = `stock_${loc.id}`;
-                            const capErrKey = `capacity_${loc.id}`;
-                            const reoErrKey = `reorder_${loc.id}`;
-                            return (
-                              <div
-                                key={loc.id}
-                                className="grid grid-cols-12 items-center gap-1.5 p-2 bg-white"
-                              >
-                                <span
-                                  className="col-span-3 text-[10px] font-extrabold text-[#0F172A] truncate animate-none"
-                                  title={loc.name}
-                                >
-                                  {loc.name}
-                                </span>
-
-                                <div className="col-span-2 flex gap-1 items-center pr-1.5">
-                                  <input
-                                    type="number"
-                                    placeholder="0"
-                                    className={`w-full bg-white border ${
-                                      validationErrors[stockErrKey]
-                                        ? "border-rose-400 focus:border-rose-500 focus:ring-rose-500 ring-1 ring-rose-500/20"
-                                        : "border-zinc-200 focus:border-[#16A34A]"
-                                    } rounded-lg py-1 px-1.5 text-[10px] text-zinc-950 focus:outline-none text-center font-bold`}
-                                    value={rule.currentStock}
-                                    onChange={(e) => {
-                                      setLocationRulesMap((prev) => ({
-                                        ...prev,
-                                        [loc.id]: {
-                                          ...rule,
-                                          currentStock: e.target.value,
-                                        },
-                                      }));
-                                      if (validationErrors[stockErrKey]) {
-                                        setValidationErrors((prev) => ({
-                                          ...prev,
-                                          [stockErrKey]: false,
-                                        }));
-                                      }
-                                    }}
-                                  />
-                                </div>
-
-                                <div className="col-span-4 flex gap-1 items-center">
-                                  <input
-                                    type="number"
-                                    placeholder="0"
-                                    className={`w-12 shrink-0 bg-white border ${
-                                      validationErrors[capErrKey]
-                                        ? "border-rose-400 focus:border-rose-500 focus:ring-rose-500 ring-1 ring-rose-500/20"
-                                        : "border-zinc-200 focus:border-[#16A34A]"
-                                    } rounded-lg py-1 px-1.5 text-[10px] text-zinc-950 focus:outline-none text-center font-bold`}
-                                    value={rule.storageCapacity}
-                                    onChange={(e) => {
-                                      setLocationRulesMap((prev) => ({
-                                        ...prev,
-                                        [loc.id]: {
-                                          ...rule,
-                                          storageCapacity: e.target.value,
-                                        },
-                                      }));
-                                      if (validationErrors[capErrKey]) {
-                                        setValidationErrors((prev) => ({
-                                          ...prev,
-                                          [capErrKey]: false,
-                                        }));
-                                      }
-                                    }}
-                                  />
-                                  <div className="relative shrink-0 w-14">
-                                    <select
-                                      className="w-full bg-white border border-zinc-200 rounded-lg py-1 pl-1 pr-4 text-[8px] font-bold text-zinc-700 focus:outline-none appearance-none cursor-pointer"
-                                      value={
-                                        dynamicUnits.includes(
-                                          rule.storageCapacityUnit,
-                                        )
-                                          ? rule.storageCapacityUnit
-                                          : dynamicUnits[0]
-                                      }
-                                      onChange={(e) =>
-                                        setLocationRulesMap((prev) => ({
-                                          ...prev,
-                                          [loc.id]: {
-                                            ...rule,
-                                            storageCapacityUnit: e.target.value,
-                                          },
-                                        }))
-                                      }
-                                    >
-                                      {dynamicUnits.map((unit) => (
-                                        <option key={unit} value={unit}>
-                                          {unit}
-                                        </option>
-                                      ))}
-                                    </select>
-                                    <ChevronDown className="absolute right-1 top-1/2 -translate-y-1/2 h-2.5 w-2.5 text-zinc-400 pointer-events-none" />
-                                  </div>
-                                </div>
-
-                                <div className="col-span-3 flex gap-1 items-center">
-                                  <input
-                                    type="number"
-                                    placeholder="0"
-                                    className={`w-11 shrink-0 bg-white border ${
-                                      validationErrors[reoErrKey]
-                                        ? "border-rose-400 focus:border-rose-500 focus:ring-rose-500 ring-1 ring-rose-500/20"
-                                        : "border-zinc-200 focus:border-[#16A34A]"
-                                    } rounded-lg py-1 px-1.5 text-[10px] text-zinc-950 focus:outline-none text-center font-bold`}
-                                    value={rule.reorderLevel}
-                                    onChange={(e) => {
-                                      setLocationRulesMap((prev) => ({
-                                        ...prev,
-                                        [loc.id]: {
-                                          ...rule,
-                                          reorderLevel: e.target.value,
-                                        },
-                                      }));
-                                      if (validationErrors[reoErrKey]) {
-                                        setValidationErrors((prev) => ({
-                                          ...prev,
-                                          [reoErrKey]: false,
-                                        }));
-                                      }
-                                    }}
-                                  />
-                                  <div className="relative shrink-0 w-12">
-                                    <select
-                                      className="w-full bg-white border border-zinc-200 rounded-lg py-1 pl-1 pr-4 text-[8px] font-bold text-zinc-700 focus:outline-none appearance-none cursor-pointer"
-                                      value={
-                                        dynamicUnits.includes(
-                                          rule.reorderLevelUnit,
-                                        )
-                                          ? rule.reorderLevelUnit
-                                          : dynamicUnits[0]
-                                      }
-                                      onChange={(e) =>
-                                        setLocationRulesMap((prev) => ({
-                                          ...prev,
-                                          [loc.id]: {
-                                            ...rule,
-                                            reorderLevelUnit: e.target.value,
-                                          },
-                                        }))
-                                      }
-                                    >
-                                      {dynamicUnits.map((unit) => (
-                                        <option key={unit} value={unit}>
-                                          {unit}
-                                        </option>
-                                      ))}
-                                    </select>
-                                    <ChevronDown className="absolute right-1 top-1/2 -translate-y-1/2 h-2.5 w-2.5 text-zinc-400 pointer-events-none" />
-                                  </div>
-                                </div>
+                          {isSelected && (
+                            <div className="grid grid-cols-3 gap-2 pt-1 border-t border-neutral-200/60">
+                              <div>
+                                <label className="text-[9px] font-bold text-neutral-400 uppercase tracking-wider block mb-1">
+                                  Capacity
+                                </label>
+                                <input
+                                  type="number"
+                                  placeholder="0"
+                                  className="w-full bg-white border border-neutral-200 rounded-lg py-1.5 px-2 text-xs font-semibold text-neutral-900 focus:outline-none"
+                                  value={rule.storageCapacity}
+                                  onChange={(e) => {
+                                    const val = e.target.value;
+                                    setLocationRulesMap((prev) => ({
+                                      ...prev,
+                                      [loc.id]: {
+                                        ...prev[loc.id],
+                                        storageCapacity: val,
+                                      },
+                                    }));
+                                  }}
+                                />
                               </div>
-                            );
-                          })}
-                      </div>
-                    </div>
-                  )}
-                  <span className="text-[9px] font-bold text-zinc-400 block">
-                    You can always edit these values later from the item details
-                    page.
-                  </span>
+                              <div>
+                                <label className="text-[9px] font-bold text-neutral-400 uppercase tracking-wider block mb-1">
+                                  Reorder Lvl
+                                </label>
+                                <input
+                                  type="number"
+                                  placeholder="0"
+                                  className="w-full bg-white border border-neutral-200 rounded-lg py-1.5 px-2 text-xs font-semibold text-neutral-900 focus:outline-none"
+                                  value={rule.reorderLevel}
+                                  onChange={(e) => {
+                                    const val = e.target.value;
+                                    setLocationRulesMap((prev) => ({
+                                      ...prev,
+                                      [loc.id]: {
+                                        ...prev[loc.id],
+                                        reorderLevel: val,
+                                      },
+                                    }));
+                                  }}
+                                />
+                              </div>
+                              <div>
+                                <label className="text-[9px] font-bold text-neutral-400 uppercase tracking-wider block mb-1">
+                                  Cur Stock
+                                </label>
+                                <input
+                                  type="number"
+                                  placeholder="0"
+                                  className="w-full bg-white border border-neutral-200 rounded-lg py-1.5 px-2 text-xs font-semibold text-neutral-900 focus:outline-none"
+                                  value={rule.currentStock}
+                                  onChange={(e) => {
+                                    const val = e.target.value;
+                                    setLocationRulesMap((prev) => ({
+                                      ...prev,
+                                      [loc.id]: {
+                                        ...prev[loc.id],
+                                        currentStock: val,
+                                      },
+                                    }));
+                                  }}
+                                />
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
 
                 {editId && (
@@ -1811,13 +1217,13 @@ export default function StockItemsPage() {
                     <input
                       type="checkbox"
                       id="formActive"
-                      className="h-4 w-4 text-[#16A34A] focus:ring-[#16A34A] border-zinc-300 rounded cursor-pointer"
+                      className="h-4 w-4 text-[#0A2924] focus:ring-[#0A2924] border-neutral-300 rounded cursor-pointer"
                       checked={formActive}
                       onChange={(e) => setFormActive(e.target.checked)}
                     />
                     <label
                       htmlFor="formActive"
-                      className="text-xs font-bold text-[#0F172A] cursor-pointer"
+                      className="text-xs font-bold text-neutral-900 cursor-pointer"
                     >
                       Stock item is active and visible
                     </label>
@@ -1826,11 +1232,11 @@ export default function StockItemsPage() {
               </form>
             </div>
 
-            <div className="p-6 border-t border-zinc-200 bg-zinc-50 flex justify-end gap-3 shrink-0">
+            <div className="p-6 border-t border-neutral-200 bg-white flex justify-end gap-3 shrink-0">
               <button
                 type="button"
                 onClick={() => setShowDrawer(false)}
-                className="bg-white hover:bg-zinc-100 border border-zinc-200 text-zinc-700 rounded-xl px-4 py-2.5 text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer"
+                className="bg-white border border-neutral-200 hover:bg-neutral-50 text-neutral-700 rounded-full px-5 py-2.5 text-xs font-semibold transition cursor-pointer shadow-2xs"
                 disabled={saving}
               >
                 Cancel
@@ -1845,15 +1251,15 @@ export default function StockItemsPage() {
                   !formBaseUnit ||
                   !formSupplierId
                 }
-                className="bg-[#16A34A] hover:bg-[#15803D] text-white rounded-xl px-5 py-2.5 text-xs font-bold uppercase tracking-wider shadow-sm flex items-center gap-2 cursor-pointer transition-colors disabled:opacity-50"
+                className="inline-flex items-center gap-2 bg-[#0A2924] hover:bg-[#0A2924]/90 disabled:opacity-40 disabled:cursor-not-allowed text-white px-5 py-2.5 rounded-full text-xs font-semibold transition cursor-pointer shadow-sm"
               >
                 {saving ? (
                   <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Saving...
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    <span>Saving...</span>
                   </>
                 ) : (
-                  "Save Stock Item"
+                  <span>Save Stock Item</span>
                 )}
               </button>
             </div>

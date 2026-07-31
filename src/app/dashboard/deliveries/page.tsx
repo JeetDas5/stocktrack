@@ -6,12 +6,19 @@ import { useBusinessStore } from "@/stores/business-store";
 import { getSuppliers } from "@/lib/repositories/supplier.repository";
 import { getLocations } from "@/lib/repositories/location.repository";
 import { getPurchaseOrders } from "@/lib/repositories/purchase-order.repository";
+import { getStockItems } from "@/lib/repositories/stock-item.repository";
 import {
   getDeliveries,
   getDelivery,
   createDelivery,
 } from "@/lib/repositories/delivery.repository";
-import { Supplier, PurchaseOrder, Delivery, Location } from "@/types/inventory";
+import {
+  Supplier,
+  PurchaseOrder,
+  Delivery,
+  Location,
+  StockItem,
+} from "@/types/inventory";
 import {
   PackageOpen,
   Search,
@@ -46,6 +53,7 @@ export default function DeliveriesPage() {
   const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
+  const [stockItems, setStockItems] = useState<StockItem[]>([]);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedSupplierFilter, setSelectedSupplierFilter] = useState("all");
@@ -73,6 +81,7 @@ export default function DeliveriesPage() {
       orderedQuantity: number;
       receivedQuantity: number;
       unitCost: number;
+      baseUnit?: string;
     }[]
   >([]);
 
@@ -85,17 +94,19 @@ export default function DeliveriesPage() {
       setLoading(true);
       setError(null);
 
-      const [dList, poList, sList, locsList] = await Promise.all([
+      const [dList, poList, sList, locsList, itemsList] = await Promise.all([
         getDeliveries(activeBusinessId),
         getPurchaseOrders(activeBusinessId),
         getSuppliers(activeBusinessId),
         getLocations(activeBusinessId),
+        getStockItems(activeBusinessId),
       ]);
 
       setDeliveries(dList);
       setPurchaseOrders(poList);
       setSuppliers(sList.filter((s) => s.isActive !== false));
       setLocations(locsList.filter((l) => l.isActive !== false));
+      setStockItems(itemsList);
     } catch (err) {
       console.error(err);
       setError("Failed to load deliveries data.");
@@ -127,14 +138,18 @@ export default function DeliveriesPage() {
     const selectedPO = purchaseOrders.find((p) => p.id === poId);
     if (!selectedPO) return;
 
-    const mappedItems = selectedPO.items.map((item) => ({
-      stockItemId: item.stockItemId,
-      stockItemName: item.stockItemName || "Unknown Item",
-      sku: item.sku || "",
-      orderedQuantity: item.quantity,
-      receivedQuantity: item.quantity,
-      unitCost: item.unitCost,
-    }));
+    const mappedItems = selectedPO.items.map((item) => {
+      const sItem = stockItems.find((s) => s.id === item.stockItemId);
+      return {
+        stockItemId: item.stockItemId,
+        stockItemName: item.stockItemName || "Unknown Item",
+        sku: item.sku || "",
+        orderedQuantity: item.quantity,
+        receivedQuantity: item.quantity,
+        unitCost: item.unitCost,
+        baseUnit: sItem?.baseUnit || "pcs",
+      };
+    });
 
     setDeliveryItemsInput(mappedItems);
   };
@@ -358,7 +373,7 @@ export default function DeliveriesPage() {
   const selectedPO = purchaseOrders.find((p) => p.id === selectedPOId);
 
   const calculatedSummary = useMemo(() => {
-    return deliveryItemsInput.reduce(
+    const summary = deliveryItemsInput.reduce(
       (acc, item) => {
         const totalOrdered = acc.totalOrdered + item.orderedQuantity;
         const totalReceived = acc.totalReceived + item.receivedQuantity;
@@ -369,6 +384,16 @@ export default function DeliveriesPage() {
       },
       { totalOrdered: 0, totalReceived: 0, totalValue: 0, variance: 0 },
     );
+
+    const unitsSet = new Set(
+      deliveryItemsInput.map((i) => i.baseUnit).filter(Boolean),
+    );
+    const unitLabel =
+      unitsSet.size === 1
+        ? Array.from(unitsSet)[0]!.toUpperCase()
+        : "UNITS";
+
+    return { ...summary, unitLabel };
   }, [deliveryItemsInput]);
 
   const handleExportExcel = () => {
@@ -511,7 +536,6 @@ export default function DeliveriesPage() {
             />
           </div>
 
-          {/* Status Dropdown */}
           <div className="w-full sm:w-44">
             <Select
               value={selectedStatusFilter}
@@ -630,13 +654,12 @@ export default function DeliveriesPage() {
                   <th className="py-4 px-6">Items</th>
                   <th className="py-4 px-6">Total Value</th>
                   <th className="py-4 px-6">Status</th>
-                  <th className="py-4 px-6 text-center">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-neutral-100 text-xs text-neutral-900 bg-white">
                 {visibleDeliveries.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="py-16 px-6 text-center">
+                    <td colSpan={7} className="py-16 px-6 text-center">
                       <div className="flex flex-col items-center justify-center max-w-md mx-auto">
                         <div className="h-12 w-12 rounded-2xl bg-neutral-50 border border-neutral-200 flex items-center justify-center mb-3 shadow-2xs">
                           <PackageOpen className="h-6 w-6 text-neutral-400 stroke-[1.5]" />
@@ -671,7 +694,8 @@ export default function DeliveriesPage() {
                     return (
                       <tr
                         key={d.id}
-                        className="hover:bg-neutral-50/50 transition-colors"
+                        onClick={() => handleViewDelivery(d.id)}
+                        className="hover:bg-neutral-50/70 transition-colors cursor-pointer"
                       >
                         <td className="py-4 px-6 font-semibold text-xs text-neutral-900">
                           {d.supplierName}
@@ -705,35 +729,6 @@ export default function DeliveriesPage() {
                             {badge.label}
                           </span>
                         </td>
-                        <td className="py-4 px-6 text-center relative">
-                          <div className="relative inline-block text-left">
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setOpenActionId(
-                                  openActionId === d.id ? null : d.id,
-                                )
-                              }
-                              className="p-1.5 rounded-lg hover:bg-neutral-100 text-neutral-400 hover:text-neutral-800 transition-colors cursor-pointer"
-                              title="Actions"
-                            >
-                              <MoreVertical className="h-4 w-4" />
-                            </button>
-
-                            {openActionId === d.id && (
-                              <div className="absolute right-0 top-full mt-1 w-36 bg-white border border-neutral-200 rounded-xl shadow-lg p-1 z-50 animate-scale-in">
-                                <button
-                                  type="button"
-                                  onClick={() => handleViewDelivery(d.id)}
-                                  className="w-full text-left px-3 py-2 text-xs font-semibold text-neutral-800 hover:bg-neutral-50 rounded-lg flex items-center gap-2 cursor-pointer"
-                                >
-                                  <FileText className="w-3.5 h-3.5 text-neutral-400" />
-                                  View Details
-                                </button>
-                              </div>
-                            )}
-                          </div>
-                        </td>
                       </tr>
                     );
                   })
@@ -762,7 +757,7 @@ export default function DeliveriesPage() {
             className="fixed inset-0 bg-black/30 z-40 transition-opacity"
             onClick={() => setIsPanelOpen(false)}
           />
-          <div className="fixed top-0 right-0 h-full w-[500px] max-w-[95vw] bg-white border-l border-neutral-200 shadow-2xl flex flex-col justify-between z-50 animate-slide-in">
+          <div className="fixed top-0 right-0 h-full w-[580px] sm:w-[620px] max-w-[95vw] bg-white border-l border-neutral-200 shadow-2xl flex flex-col justify-between z-50 animate-slide-in">
             <div className="bg-white border-b border-neutral-200 px-6 py-4 flex items-center justify-between">
               <div>
                 <h2 className="text-base font-bold text-neutral-900">
@@ -963,18 +958,18 @@ export default function DeliveriesPage() {
                           <thead>
                             <tr className="border-b border-neutral-200 text-[10px] uppercase font-bold tracking-wider text-neutral-400 bg-neutral-50/50">
                               <th className="py-2.5 px-3 w-8 text-center">#</th>
-                              <th className="py-2.5 px-2">Item</th>
-                              <th className="py-2.5 px-2 text-center">
+                              <th className="py-2.5 px-3">Item</th>
+                              <th className="py-2.5 px-3 text-center">
                                 Ordered
                               </th>
-                              <th className="py-2.5 px-2 text-center w-20">
+                              <th className="py-2.5 px-3 text-center w-20">
                                 Received
                               </th>
-                              <th className="py-2.5 px-2 text-right">
+                              <th className="py-2.5 px-3 text-right">
                                 Unit Price
                               </th>
-                              <th className="py-2.5 px-2 text-right">Total</th>
-                              <th className="py-2.5 px-3 text-center w-12">
+                              <th className="py-2.5 px-3 text-right">Total</th>
+                              <th className="py-2.5 px-3 text-center w-14">
                                 Recv (All)
                               </th>
                             </tr>
@@ -991,7 +986,7 @@ export default function DeliveriesPage() {
                                   key={item.stockItemId}
                                   className="hover:bg-neutral-50/40 transition-colors"
                                 >
-                                  <td className="py-3 px-3 text-center text-neutral-400 font-bold text-xs">
+                                  <td className="py-3 px-2 text-center text-neutral-400 font-bold text-xs">
                                     {idx + 1}
                                   </td>
                                   <td className="py-3 px-2">
@@ -1010,7 +1005,7 @@ export default function DeliveriesPage() {
                                       type="number"
                                       min="0"
                                       step="any"
-                                      className={`w-16 bg-white border rounded-lg py-1 px-1.5 text-center text-xs font-bold focus:outline-none focus:ring-2 ${
+                                      className={`w-14 bg-white border rounded-lg py-1 px-1 text-center text-xs font-bold focus:outline-none focus:ring-2 ${
                                         isAllReceived
                                           ? "border-neutral-200 focus:border-neutral-900 focus:ring-neutral-900/10"
                                           : "border-[#0A2924] text-[#0A2924] focus:border-[#0A2924] focus:ring-[#0A2924]/10"
@@ -1036,7 +1031,7 @@ export default function DeliveriesPage() {
                                   <td className="py-3 px-2 text-right font-bold text-neutral-900">
                                     ${totalVal.toFixed(2)}
                                   </td>
-                                  <td className="py-2 px-3 text-center">
+                                  <td className="py-2 px-2 text-center">
                                     <button
                                       type="button"
                                       onClick={() =>
@@ -1045,7 +1040,7 @@ export default function DeliveriesPage() {
                                           !isAllReceived,
                                         )
                                       }
-                                      className={`h-4.5 w-4.5 rounded flex items-center justify-center transition-all cursor-pointer ${
+                                      className={`h-4.5 w-4.5 rounded flex items-center justify-center transition-all cursor-pointer mx-auto ${
                                         isAllReceived
                                           ? "bg-[#0A2924] text-white border border-[#0A2924]"
                                           : "bg-white border border-neutral-300 hover:border-neutral-400 text-transparent"
@@ -1083,7 +1078,7 @@ export default function DeliveriesPage() {
                             {calculatedSummary.totalOrdered}
                           </h4>
                           <p className="text-[8px] font-medium text-neutral-400 uppercase tracking-wider mt-0.5">
-                            Base Units
+                            {calculatedSummary.unitLabel}
                           </p>
                         </div>
 
@@ -1095,7 +1090,7 @@ export default function DeliveriesPage() {
                             {calculatedSummary.totalReceived}
                           </h4>
                           <p className="text-[8px] font-medium text-neutral-400 uppercase tracking-wider mt-0.5">
-                            Base Units
+                            {calculatedSummary.unitLabel}
                           </p>
                         </div>
 
@@ -1128,7 +1123,7 @@ export default function DeliveriesPage() {
                             {calculatedSummary.variance}
                           </h4>
                           <p className="text-[8px] font-medium text-neutral-400 uppercase tracking-wider mt-0.5">
-                            Base Units
+                            {calculatedSummary.unitLabel}
                           </p>
                         </div>
                       </div>
@@ -1215,174 +1210,195 @@ export default function DeliveriesPage() {
                     </div>
                   </div>
 
-                  <div className="bg-white border border-neutral-200 rounded-2xl p-4 space-y-3 shadow-2xs">
-                    <div className="flex justify-between items-center pb-2.5 border-b border-neutral-100">
-                      <h3 className="text-xs font-bold text-neutral-900 uppercase tracking-wider">
-                        Received Items
-                      </h3>
-                      <span className="text-xs font-semibold text-neutral-400">
-                        {viewingDelivery.items.length} items
-                      </span>
-                    </div>
+                  {(() => {
+                    const viewUnitsSet = new Set(
+                      viewingDelivery.items
+                        .map((item) => {
+                          const s = stockItems.find(
+                            (st) => st.id === item.stockItemId,
+                          );
+                          return s?.baseUnit;
+                        })
+                        .filter(Boolean),
+                    );
+                    const viewUnitLabel =
+                      viewUnitsSet.size === 1
+                        ? Array.from(viewUnitsSet)[0]!.toUpperCase()
+                        : "UNITS";
 
-                    <div className="border border-neutral-200 rounded-xl overflow-hidden">
-                      <table className="w-full text-left border-collapse text-xs">
-                        <thead>
-                          <tr className="border-b border-neutral-200 text-[10px] uppercase font-bold tracking-wider text-neutral-400 bg-neutral-50/50">
-                            <th className="py-2.5 px-3 w-8 text-center">#</th>
-                            <th className="py-2.5 px-2">Item</th>
-                            <th className="py-2.5 px-2 text-center">Ordered</th>
-                            <th className="py-2.5 px-2 text-center">
-                              Received
-                            </th>
-                            <th className="py-2.5 px-2 text-right">
-                              Unit Price
-                            </th>
-                            <th className="py-2.5 px-3 text-right">Total</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-neutral-100 font-semibold text-neutral-700 bg-white">
-                          {viewingDelivery.items.map((item, idx) => {
-                            const isFullyReceived =
-                              item.receivedQuantity === item.orderedQuantity;
+                    return (
+                      <>
+                        <div className="bg-white border border-neutral-200 rounded-2xl p-4 space-y-3 shadow-2xs">
+                          <div className="flex justify-between items-center pb-2.5 border-b border-neutral-100">
+                            <h3 className="text-xs font-bold text-neutral-900 uppercase tracking-wider">
+                              Received Items
+                            </h3>
+                            <span className="text-xs font-semibold text-neutral-400">
+                              {viewingDelivery.items.length} items
+                            </span>
+                          </div>
 
-                            return (
-                              <tr
-                                key={item.id}
-                                className="hover:bg-neutral-50/30 transition-colors"
-                              >
-                                <td className="py-3 px-3 text-center text-neutral-400 font-bold">
-                                  {idx + 1}
-                                </td>
-                                <td className="py-3 px-2">
-                                  <p className="font-bold text-neutral-900 leading-tight">
-                                    {item.stockItemName}
-                                  </p>
-                                  <p className="text-[9px] text-neutral-400 font-medium uppercase tracking-wider mt-0.5">
-                                    {item.sku || "NO SKU"}
-                                  </p>
-                                </td>
-                                <td className="py-3 px-2 text-center font-semibold text-neutral-500">
-                                  {item.orderedQuantity}
-                                </td>
-                                <td
-                                  className={`py-3 px-2 text-center font-bold ${
-                                    isFullyReceived
-                                      ? "text-neutral-700"
-                                      : "text-emerald-700"
-                                  }`}
-                                >
-                                  {item.receivedQuantity}
-                                </td>
-                                <td className="py-3 px-2 text-right text-neutral-500 font-medium">
-                                  ${item.unitCost.toFixed(2)}
-                                </td>
-                                <td className="py-3 px-3 text-right font-bold text-neutral-900">
-                                  ${item.totalCost.toFixed(2)}
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
+                          <div className="border border-neutral-200 rounded-xl overflow-hidden">
+                            <table className="w-full text-left border-collapse text-xs">
+                              <thead>
+                                <tr className="border-b border-neutral-200 text-[10px] uppercase font-bold tracking-wider text-neutral-400 bg-neutral-50/50">
+                                  <th className="py-2.5 px-3 w-8 text-center">#</th>
+                                  <th className="py-2.5 px-2">Item</th>
+                                  <th className="py-2.5 px-2 text-center">Ordered</th>
+                                  <th className="py-2.5 px-2 text-center">
+                                    Received
+                                  </th>
+                                  <th className="py-2.5 px-2 text-right">
+                                    Unit Price
+                                  </th>
+                                  <th className="py-2.5 px-3 text-right">Total</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-neutral-100 font-semibold text-neutral-700 bg-white">
+                                {viewingDelivery.items.map((item, idx) => {
+                                  const isFullyReceived =
+                                    item.receivedQuantity === item.orderedQuantity;
 
-                  <div className="bg-white border border-neutral-200 rounded-2xl p-4 space-y-4 shadow-2xs">
-                    <h3 className="text-xs font-bold text-neutral-900 uppercase tracking-wider pb-2 border-b border-neutral-100">
-                      Fulfillment Summary
-                    </h3>
+                                  return (
+                                    <tr
+                                      key={item.id}
+                                      className="hover:bg-neutral-50/30 transition-colors"
+                                    >
+                                      <td className="py-3 px-3 text-center text-neutral-400 font-bold">
+                                        {idx + 1}
+                                      </td>
+                                      <td className="py-3 px-2">
+                                        <p className="font-bold text-neutral-900 leading-tight">
+                                          {item.stockItemName}
+                                        </p>
+                                        <p className="text-[9px] text-neutral-400 font-medium uppercase tracking-wider mt-0.5">
+                                          {item.sku || "NO SKU"}
+                                        </p>
+                                      </td>
+                                      <td className="py-3 px-2 text-center font-semibold text-neutral-500">
+                                        {item.orderedQuantity}
+                                      </td>
+                                      <td
+                                        className={`py-3 px-2 text-center font-bold ${
+                                          isFullyReceived
+                                            ? "text-neutral-700"
+                                            : "text-emerald-700"
+                                        }`}
+                                      >
+                                        {item.receivedQuantity}
+                                      </td>
+                                      <td className="py-3 px-2 text-right text-neutral-500 font-medium">
+                                        ${item.unitCost.toFixed(2)}
+                                      </td>
+                                      <td className="py-3 px-3 text-right font-bold text-neutral-900">
+                                        ${item.totalCost.toFixed(2)}
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
 
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                      <div className="bg-neutral-50 border border-neutral-200 rounded-xl p-2.5 text-center">
-                        <p className="text-[9px] font-bold text-neutral-400 uppercase tracking-wider">
-                          Total Ordered
-                        </p>
-                        <h4 className="text-sm font-bold text-neutral-900 mt-1">
-                          {viewingDelivery.items.reduce(
-                            (sum, item) => sum + item.orderedQuantity,
-                            0,
+                        <div className="bg-white border border-neutral-200 rounded-2xl p-4 space-y-4 shadow-2xs">
+                          <h3 className="text-xs font-bold text-neutral-900 uppercase tracking-wider pb-2 border-b border-neutral-100">
+                            Fulfillment Summary
+                          </h3>
+
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                            <div className="bg-neutral-50 border border-neutral-200 rounded-xl p-2.5 text-center">
+                              <p className="text-[9px] font-bold text-neutral-400 uppercase tracking-wider">
+                                Total Ordered
+                              </p>
+                              <h4 className="text-sm font-bold text-neutral-900 mt-1">
+                                {viewingDelivery.items.reduce(
+                                  (sum, item) => sum + item.orderedQuantity,
+                                  0,
+                                )}
+                              </h4>
+                              <p className="text-[8px] font-medium text-neutral-400 uppercase tracking-wider mt-0.5">
+                                {viewUnitLabel}
+                              </p>
+                            </div>
+
+                            <div className="bg-neutral-50 border border-neutral-200 rounded-xl p-2.5 text-center">
+                              <p className="text-[9px] font-bold text-neutral-400 uppercase tracking-wider">
+                                Total Received
+                              </p>
+                              <h4 className="text-sm font-bold text-neutral-900 mt-1">
+                                {viewingDelivery.items.reduce(
+                                  (sum, item) => sum + item.receivedQuantity,
+                                  0,
+                                )}
+                              </h4>
+                              <p className="text-[8px] font-medium text-neutral-400 uppercase tracking-wider mt-0.5">
+                                {viewUnitLabel}
+                              </p>
+                            </div>
+
+                            <div className="bg-neutral-50 border border-neutral-200 rounded-xl p-2.5 text-center">
+                              <p className="text-[9px] font-bold text-neutral-400 uppercase tracking-wider">
+                                Total Value
+                              </p>
+                              <h4 className="text-sm font-bold text-emerald-700 mt-1">
+                                ${viewingDelivery.totalAmount.toFixed(2)}
+                              </h4>
+                              <p className="text-[8px] font-medium text-neutral-400 uppercase tracking-wider mt-0.5">
+                                AUD
+                              </p>
+                            </div>
+
+                            <div className="bg-neutral-50 border border-neutral-200 rounded-xl p-2.5 text-center">
+                              <p className="text-[9px] font-bold text-neutral-400 uppercase tracking-wider">
+                                Variance
+                              </p>
+                              {(() => {
+                                const ordered = viewingDelivery.items.reduce(
+                                  (sum, item) => sum + item.orderedQuantity,
+                                  0,
+                                );
+                                const received = viewingDelivery.items.reduce(
+                                  (sum, item) => sum + item.receivedQuantity,
+                                  0,
+                                );
+                                const diff = received - ordered;
+
+                                return (
+                                  <h4
+                                    className={`text-sm font-bold mt-1 ${
+                                      diff < 0
+                                        ? "text-rose-600"
+                                        : diff > 0
+                                          ? "text-emerald-600"
+                                          : "text-neutral-600"
+                                    }`}
+                                  >
+                                    {diff > 0 ? "+" : ""}
+                                    {diff}
+                                  </h4>
+                                );
+                              })()}
+                              <p className="text-[8px] font-medium text-neutral-400 uppercase tracking-wider mt-0.5">
+                                {viewUnitLabel}
+                              </p>
+                            </div>
+                          </div>
+
+                          {viewingDelivery.notes && (
+                            <div className="bg-neutral-50/50 border border-neutral-200 rounded-xl p-3.5 space-y-1">
+                              <p className="text-[9px] font-bold text-neutral-400 uppercase tracking-wider">
+                                Delivery Notes
+                              </p>
+                              <p className="text-xs font-medium text-neutral-700 leading-relaxed italic">
+                                &quot;{viewingDelivery.notes}&quot;
+                              </p>
+                            </div>
                           )}
-                        </h4>
-                        <p className="text-[8px] font-medium text-neutral-400 uppercase tracking-wider mt-0.5">
-                          Base Units
-                        </p>
-                      </div>
-
-                      <div className="bg-neutral-50 border border-neutral-200 rounded-xl p-2.5 text-center">
-                        <p className="text-[9px] font-bold text-neutral-400 uppercase tracking-wider">
-                          Total Received
-                        </p>
-                        <h4 className="text-sm font-bold text-neutral-900 mt-1">
-                          {viewingDelivery.items.reduce(
-                            (sum, item) => sum + item.receivedQuantity,
-                            0,
-                          )}
-                        </h4>
-                        <p className="text-[8px] font-medium text-neutral-400 uppercase tracking-wider mt-0.5">
-                          Base Units
-                        </p>
-                      </div>
-
-                      <div className="bg-neutral-50 border border-neutral-200 rounded-xl p-2.5 text-center">
-                        <p className="text-[9px] font-bold text-neutral-400 uppercase tracking-wider">
-                          Total Value
-                        </p>
-                        <h4 className="text-sm font-bold text-emerald-700 mt-1">
-                          ${viewingDelivery.totalAmount.toFixed(2)}
-                        </h4>
-                        <p className="text-[8px] font-medium text-neutral-400 uppercase tracking-wider mt-0.5">
-                          AUD
-                        </p>
-                      </div>
-
-                      <div className="bg-neutral-50 border border-neutral-200 rounded-xl p-2.5 text-center">
-                        <p className="text-[9px] font-bold text-neutral-400 uppercase tracking-wider">
-                          Variance
-                        </p>
-                        {(() => {
-                          const ordered = viewingDelivery.items.reduce(
-                            (sum, item) => sum + item.orderedQuantity,
-                            0,
-                          );
-                          const received = viewingDelivery.items.reduce(
-                            (sum, item) => sum + item.receivedQuantity,
-                            0,
-                          );
-                          const diff = received - ordered;
-
-                          return (
-                            <h4
-                              className={`text-sm font-bold mt-1 ${
-                                diff < 0
-                                  ? "text-rose-600"
-                                  : diff > 0
-                                    ? "text-emerald-600"
-                                    : "text-neutral-600"
-                              }`}
-                            >
-                              {diff > 0 ? "+" : ""}
-                              {diff}
-                            </h4>
-                          );
-                        })()}
-                        <p className="text-[8px] font-medium text-neutral-400 uppercase tracking-wider mt-0.5">
-                          Base Units
-                        </p>
-                      </div>
-                    </div>
-
-                    {viewingDelivery.notes && (
-                      <div className="bg-neutral-50/50 border border-neutral-200 rounded-xl p-3.5 space-y-1">
-                        <p className="text-[9px] font-bold text-neutral-400 uppercase tracking-wider">
-                          Delivery Notes
-                        </p>
-                        <p className="text-xs font-medium text-neutral-700 leading-relaxed italic">
-                          &quot;{viewingDelivery.notes}&quot;
-                        </p>
-                      </div>
-                    )}
-                  </div>
+                        </div>
+                      </>
+                    );
+                  })()}
                 </>
               ) : (
                 <div className="min-h-[30vh] flex flex-col items-center justify-center text-neutral-400">
