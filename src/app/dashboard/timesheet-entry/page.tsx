@@ -704,10 +704,13 @@ export default function TimesheetEntryPage() {
     return `${zeroPaddedHour}:${minStr} ${ampm}`;
   };
 
-  // ─── Shift Handlers ────────────────────────────────────────────────────────
-
   const handleAddShift = useCallback(
     (dayIndex: number) => {
+      const currentShiftsCount = weekDays[dayIndex]?.shifts.length || 0;
+      if (currentShiftsCount >= 3) {
+        toast.error("Maximum 3 shifts allowed per day.");
+        return;
+      }
       const defaultBiz = businesses.length === 1 ? businesses[0].id : "";
       const bizLocs = locationsMap[defaultBiz] || [];
       const defaultLoc = bizLocs.length === 1 ? bizLocs[0].id : "";
@@ -715,11 +718,12 @@ export default function TimesheetEntryPage() {
       updateAndSaveWeekDays((prev) =>
         prev.map((day, idx) => {
           if (idx !== dayIndex) return day;
+          if (day.shifts.length >= 3) return day;
           return { ...day, shifts: [...day.shifts, newShift] };
         }),
       );
     },
-    [businesses, locationsMap, makeBlankShift, updateAndSaveWeekDays],
+    [businesses, locationsMap, makeBlankShift, updateAndSaveWeekDays, weekDays],
   );
 
   const handleDeleteShift = useCallback(
@@ -911,7 +915,7 @@ export default function TimesheetEntryPage() {
       if (prevTimesheets.length > 0) {
         copiedCount++;
         const defaultBiz = businesses.length === 1 ? businesses[0].id : "";
-        const newShifts: ShiftRow[] = prevTimesheets.map((ts) => {
+        const newShifts: ShiftRow[] = prevTimesheets.slice(0, 3).map((ts) => {
           const bId = ts.businessId || defaultBiz;
           const bizLocs = locationsMap[bId] || [];
           const lId =
@@ -998,7 +1002,7 @@ export default function TimesheetEntryPage() {
 
     clearDraft();
     setWeekDays(newDays);
-    toast.success("Unsaved changes cleared.");
+    toast.success("Draft cleared.");
   };
 
   const executeSubmit = async (daysToSubmit: DayGroup[]) => {
@@ -1106,28 +1110,95 @@ export default function TimesheetEntryPage() {
         const isEditable = checkIsDateEditable(day.dateStr, anyShiftStatus);
         if (!isEditable) continue;
 
-        for (const shift of day.shifts) {
-          const hasTimeSet = shift.startTime && shift.endTime;
-          if (!hasTimeSet) continue;
+        if (day.shifts.length > 3) {
+          throw new Error(
+            `On ${day.dayName} (${day.displayDate}), maximum 3 shifts are allowed per day.`,
+          );
+        }
+
+        // Check for overlapping shifts on the same day
+        const validShifts = day.shifts
+          .map((s, idx) => ({ ...s, shiftIndex: idx + 1 }))
+          .filter(
+            (s) =>
+              s.startTime &&
+              s.endTime &&
+              !(s.startTime === "00:00" && s.endTime === "00:00"),
+          );
+
+        for (let i = 0; i < validShifts.length; i++) {
+          for (let j = i + 1; j < validShifts.length; j++) {
+            const s1 = validShifts[i];
+            const s2 = validShifts[j];
+
+            const parseMins = (t: string) => {
+              const [h, m] = t.split(":").map(Number);
+              return h * 60 + m;
+            };
+
+            const start1 = parseMins(s1.startTime);
+            let end1 = parseMins(s1.endTime);
+            if (end1 <= start1) end1 += 24 * 60;
+
+            const start2 = parseMins(s2.startTime);
+            let end2 = parseMins(s2.endTime);
+            if (end2 <= start2) end2 += 24 * 60;
+
+            if (Math.max(start1, start2) < Math.min(end1, end2)) {
+              throw new Error(
+                `On ${day.dayName} (${day.displayDate}), Shift ${s1.shiftIndex} (${formatTimeToAMPM(s1.startTime)} - ${formatTimeToAMPM(s1.endTime)}) overlaps with Shift ${s2.shiftIndex} (${formatTimeToAMPM(s2.startTime)} - ${formatTimeToAMPM(s2.endTime)}).`,
+              );
+            }
+          }
+        }
+
+        for (let sIdx = 0; sIdx < day.shifts.length; sIdx++) {
+          const shift = day.shifts[sIdx];
+          const shiftNum = sIdx + 1;
+
+          const isPartiallyFilled =
+            Boolean(shift.businessId) ||
+            Boolean(shift.locationId) ||
+            Boolean(shift.startTime) ||
+            Boolean(shift.endTime) ||
+            Boolean(shift.project) ||
+            Boolean(shift.notes?.trim());
+
+          if (!isPartiallyFilled) continue;
 
           if (!shift.businessId) {
             throw new Error(
-              `On ${day.dayName} (${day.displayDate}), please select a business.`,
+              `On ${day.dayName} (${day.displayDate}), Shift ${shiftNum} is incomplete: please select a business.`,
             );
           }
           if (!shift.locationId) {
             throw new Error(
-              `On ${day.dayName} (${day.displayDate}), please select a location.`,
+              `On ${day.dayName} (${day.displayDate}), Shift ${shiftNum} is incomplete: please select a location.`,
+            );
+          }
+          if (!shift.startTime && !shift.endTime) {
+            throw new Error(
+              `On ${day.dayName} (${day.displayDate}), Shift ${shiftNum} is incomplete: please select start and end times.`,
+            );
+          }
+          if (!shift.startTime) {
+            throw new Error(
+              `On ${day.dayName} (${day.displayDate}), Shift ${shiftNum} is incomplete: please select a start time.`,
+            );
+          }
+          if (!shift.endTime) {
+            throw new Error(
+              `On ${day.dayName} (${day.displayDate}), Shift ${shiftNum} is incomplete: please select an end time.`,
             );
           }
           if (shift.startTime > shift.endTime) {
             throw new Error(
-              `On ${day.dayName} (${day.displayDate}), Start Time cannot be after End Time.`,
+              `On ${day.dayName} (${day.displayDate}), Shift ${shiftNum}: Start Time cannot be after End Time.`,
             );
           }
           if (shift.startTime === shift.endTime) {
             throw new Error(
-              `On ${day.dayName} (${day.displayDate}), Start and End times cannot be identical.`,
+              `On ${day.dayName} (${day.displayDate}), Shift ${shiftNum}: Start and End times cannot be identical.`,
             );
           }
 
@@ -1864,14 +1935,24 @@ export default function TimesheetEntryPage() {
 
                             <td className="py-3 px-3 text-center align-middle">
                               <div className="flex items-center justify-center gap-1">
-                                {/* Add shift: only on last shift of the day */}
                                 {isLastShift && dayEditable && (
                                   <button
                                     type="button"
-                                    disabled={submitting}
+                                    disabled={
+                                      submitting || day.shifts.length >= 3
+                                    }
                                     onClick={() => handleAddShift(dayIdx)}
-                                    title="Add another shift"
-                                    className="w-7 h-7 flex items-center justify-center rounded-lg text-[#0A2924] hover:bg-[#0A2924]/10 border border-[#0A2924]/25 transition-colors cursor-pointer disabled:opacity-40"
+                                    title={
+                                      day.shifts.length >= 3
+                                        ? "Maximum 3 shifts allowed per day"
+                                        : "Add another shift"
+                                    }
+                                    className={cn(
+                                      "w-7 h-7 flex items-center justify-center rounded-lg border transition-colors",
+                                      day.shifts.length >= 3
+                                        ? "text-neutral-300 border-neutral-200 cursor-not-allowed bg-neutral-50"
+                                        : "text-[#0A2924] hover:bg-[#0A2924]/10 border-[#0A2924]/25 cursor-pointer",
+                                    )}
                                   >
                                     <Plus className="w-3.5 h-3.5" />
                                   </button>
@@ -1914,7 +1995,6 @@ export default function TimesheetEntryPage() {
                 </table>
               </div>
 
-              {/* Footer */}
               <div className="border-t border-neutral-200 px-6 py-4 bg-white flex flex-col sm:flex-row items-center justify-between gap-4">
                 <div className="flex items-center gap-2">
                   {lastSavedTime && (
@@ -1932,7 +2012,10 @@ export default function TimesheetEntryPage() {
                           d="M5 13l4 4L19 7"
                         />
                       </svg>
-                      <span>Saved on {lastSavedTime}</span>
+                      <span>
+                        Draft saved at {lastSavedTime}. Submit to save
+                        timesheet.
+                      </span>
                     </div>
                   )}
                 </div>
@@ -2655,12 +2738,19 @@ export default function TimesheetEntryPage() {
                           <div className="px-4 py-3 border-t border-neutral-100">
                             <button
                               type="button"
-                              disabled={submitting}
+                              disabled={submitting || day.shifts.length >= 3}
                               onClick={() => handleAddShift(dayIdx)}
-                              className="w-full inline-flex items-center justify-center gap-2 border border-dashed border-neutral-300 hover:border-[#0A2924]/40 hover:bg-[#0A2924]/3 text-neutral-500 hover:text-[#0A2924] px-4 py-2.5 rounded-xl text-xs font-semibold transition-colors cursor-pointer disabled:opacity-50"
+                              className={cn(
+                                "w-full inline-flex items-center justify-center gap-2 border border-dashed rounded-xl px-4 py-2.5 text-xs font-semibold transition-colors",
+                                day.shifts.length >= 3
+                                  ? "border-neutral-200 bg-neutral-50 text-neutral-400 cursor-not-allowed"
+                                  : "border-neutral-300 hover:border-[#0A2924]/40 hover:bg-[#0A2924]/3 text-neutral-500 hover:text-[#0A2924] cursor-pointer",
+                              )}
                             >
                               <Plus className="w-3.5 h-3.5" />
-                              Add Another Shift
+                              {day.shifts.length >= 3
+                                ? "Max 3 Shifts Reached"
+                                : "Add Another Shift"}
                             </button>
                           </div>
                         )}
