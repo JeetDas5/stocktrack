@@ -1116,6 +1116,42 @@ export default function TimesheetEntryPage() {
           );
         }
 
+        // Check for overlapping shifts on the same day
+        const validShifts = day.shifts
+          .map((s, idx) => ({ ...s, shiftIndex: idx + 1 }))
+          .filter(
+            (s) =>
+              s.startTime &&
+              s.endTime &&
+              !(s.startTime === "00:00" && s.endTime === "00:00"),
+          );
+
+        for (let i = 0; i < validShifts.length; i++) {
+          for (let j = i + 1; j < validShifts.length; j++) {
+            const s1 = validShifts[i];
+            const s2 = validShifts[j];
+
+            const parseMins = (t: string) => {
+              const [h, m] = t.split(":").map(Number);
+              return h * 60 + m;
+            };
+
+            const start1 = parseMins(s1.startTime);
+            let end1 = parseMins(s1.endTime);
+            if (end1 <= start1) end1 += 24 * 60;
+
+            const start2 = parseMins(s2.startTime);
+            let end2 = parseMins(s2.endTime);
+            if (end2 <= start2) end2 += 24 * 60;
+
+            if (Math.max(start1, start2) < Math.min(end1, end2)) {
+              throw new Error(
+                `On ${day.dayName} (${day.displayDate}), Shift ${s1.shiftIndex} (${formatTimeToAMPM(s1.startTime)} - ${formatTimeToAMPM(s1.endTime)}) overlaps with Shift ${s2.shiftIndex} (${formatTimeToAMPM(s2.startTime)} - ${formatTimeToAMPM(s2.endTime)}).`,
+              );
+            }
+          }
+        }
+
         for (const shift of day.shifts) {
           const hasTimeSet = shift.startTime && shift.endTime;
           if (!hasTimeSet) continue;

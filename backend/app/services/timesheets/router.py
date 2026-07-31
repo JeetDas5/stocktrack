@@ -117,6 +117,35 @@ def calculate_timesheet_hours(start: str, end: str, break_mins: int) -> float:
     return max(0.0, net_hours)
 
 
+def parse_time_to_minutes(t_str: str) -> int:
+    for fmt in ("%I:%M %p", "%I:%M%p", "%H:%M", "%H:%M:%S"):
+        try:
+            dt = datetime.strptime(t_str.strip(), fmt)
+            return dt.hour * 60 + dt.minute
+        except ValueError:
+            pass
+    return 0
+
+
+def shifts_overlap(start1: str, end1: str, start2: str, end2: str) -> bool:
+    is_day_off_1 = (start1.strip() in ("00:00", "00:00:00")) and (end1.strip() in ("00:00", "00:00:00"))
+    is_day_off_2 = (start2.strip() in ("00:00", "00:00:00")) and (end2.strip() in ("00:00", "00:00:00"))
+    if is_day_off_1 or is_day_off_2:
+        return False
+
+    s1 = parse_time_to_minutes(start1)
+    e1 = parse_time_to_minutes(end1)
+    if e1 <= s1:
+        e1 += 24 * 60
+
+    s2 = parse_time_to_minutes(start2)
+    e2 = parse_time_to_minutes(end2)
+    if e2 <= s2:
+        e2 += 24 * 60
+
+    return max(s1, s2) < min(e1, e2)
+
+
 def check_is_staff(user: User, business_id: str, session: Session) -> bool:
     if user.role == "staff":
         return True
@@ -245,19 +274,26 @@ def create_timesheet(
         )
 
     # Check max shifts per day limit (max 3 shifts per day per staff member)
-    day_shifts_count = len(
-        session.exec(
-            select(Timesheet).where(
-                Timesheet.staff_id == data.staff_id,
-                Timesheet.work_date == data.work_date,
-            )
-        ).all()
-    )
-    if day_shifts_count >= 3:
+    existing_day_timesheets = session.exec(
+        select(Timesheet).where(
+            Timesheet.staff_id == data.staff_id,
+            Timesheet.work_date == data.work_date,
+        )
+    ).all()
+
+    if len(existing_day_timesheets) >= 3:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Maximum 3 shifts allowed per day for a staff member."
         )
+
+    # Check for overlapping shifts on the same date for this staff member
+    for existing_ts in existing_day_timesheets:
+        if shifts_overlap(data.start_time, data.end_time, existing_ts.start_time, existing_ts.end_time):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Shift timing ({data.start_time}-{data.end_time}) overlaps with an existing shift ({existing_ts.start_time}-{existing_ts.end_time})."
+            )
 
     # Check for existing duplicate timesheet
     existing = session.exec(
@@ -549,6 +585,22 @@ def update_timesheet(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Location not found"
         )
+
+    # Check for overlapping shifts on the same date for this staff member (excluding current timesheet)
+    other_day_timesheets = session.exec(
+        select(Timesheet).where(
+            Timesheet.staff_id == data.staff_id,
+            Timesheet.work_date == data.work_date,
+            Timesheet.id != timesheet_id,
+        )
+    ).all()
+
+    for existing_ts in other_day_timesheets:
+        if shifts_overlap(data.start_time, data.end_time, existing_ts.start_time, existing_ts.end_time):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Shift timing ({data.start_time}-{data.end_time}) overlaps with an existing shift ({existing_ts.start_time}-{existing_ts.end_time})."
+            )
 
     total_h = calculate_timesheet_hours(
         data.start_time, data.end_time, data.unpaid_break
