@@ -5,6 +5,10 @@ import { useEffect, useState, useMemo } from "react";
 
 import { useAuth } from "@/providers/auth-provider";
 import { Dropdown } from "@/components/ui/dropdown";
+import {
+  AddressAutocompleteInput,
+  AddressDetails,
+} from "@/components/ui/address-autocomplete";
 import { useBusinessStore } from "@/stores/business-store";
 import { useSupplierStore } from "@/stores/supplier-store";
 import { Supplier, OrderingMethod } from "@/types/inventory";
@@ -101,6 +105,31 @@ export default function SuppliersPage() {
   const [saving, setSaving] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 7;
+
+  const handleAddressSelect = (details: AddressDetails) => {
+    if (details.addressLine1) {
+      setFormAddressLine1(details.addressLine1);
+    }
+    if (details.city) {
+      setFormCity(details.city);
+    }
+    if (details.stateProvince) {
+      setFormStateProvince(details.stateProvince);
+    }
+    if (details.postalCode) {
+      setFormPostalCode(details.postalCode);
+    }
+    if (details.country) {
+      const matched = COUNTRY_OPTIONS.find(
+        (opt) => opt.value.toLowerCase() === details.country.toLowerCase()
+      );
+      if (matched) {
+        setFormCountry(matched.value);
+      } else {
+        setFormCountry(details.country);
+      }
+    }
+  };
 
   useEffect(() => {
     if (!activeBusinessId) return;
@@ -985,20 +1014,14 @@ export default function SuppliersPage() {
                       <label className="text-xs font-bold text-[#0F172A] block">
                         Address Line 1 <span className="text-rose-500">*</span>
                       </label>
-                      <div className="relative">
-                        <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-zinc-400">
-                          <MapPin className="h-4 w-4" />
-                        </span>
-                        <input
-                          type="text"
-                          required
-                          maxLength={100}
-                          placeholder="Enter address line 1"
-                          className="w-full bg-white border border-zinc-300 focus:border-[#0a2924] rounded-xl py-2.5 pl-10 pr-3.5 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#0a2924] transition-all"
-                          value={formAddressLine1}
-                          onChange={(e) => setFormAddressLine1(e.target.value)}
-                        />
-                      </div>
+                      <AddressAutocompleteInput
+                        required
+                        maxLength={100}
+                        placeholder="Start typing address (e.g. 123 Main St)..."
+                        value={formAddressLine1}
+                        onChange={setFormAddressLine1}
+                        onAddressSelect={handleAddressSelect}
+                      />
                     </div>
 
                     <div className="space-y-1.5">
