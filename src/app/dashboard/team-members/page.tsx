@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable react-hooks/set-state-in-effect */
 "use client";
 
@@ -21,11 +20,11 @@ import {
 import { getRosterSettings } from "@/lib/repositories/roster-settings.repository";
 import { Business } from "@/types/business";
 import { Location } from "@/types/inventory";
-import { Staff, PendingStaffAssignment } from "@/types/staff";
+import { Staff, PendingStaffAssignment, StaffCreateInput } from "@/types/staff";
 import {
   Search,
   Loader2,
-  Download,
+  FileText,
   Building2,
   Plus,
   Copy,
@@ -38,7 +37,6 @@ import {
   MoreVertical,
   UserX,
   Calendar as CalendarIcon,
-  Eye,
 } from "lucide-react";
 import { Dropdown } from "@/components/ui/dropdown";
 import Calendar from "@/components/ui/calendar";
@@ -341,8 +339,8 @@ export default function StaffDirectoryPage() {
 
   const loadPending = useCallback(async () => {
     if (!activeBusinessId) return;
+    setLoadingPending(true);
     try {
-      setLoadingPending(true);
       const data = await getPendingStaff(activeBusinessId);
       setPendingStaff(data);
     } catch (err) {
@@ -357,8 +355,20 @@ export default function StaffDirectoryPage() {
   }, [activeBusinessId]);
 
   useEffect(() => {
-    loadPending();
-  }, [loadPending]);
+    let ignore = false;
+    if (!activeBusinessId) return;
+
+    // Call async helper without triggering synchronous setState inside effect body initialization
+    Promise.resolve().then(() => {
+      if (!ignore) {
+        loadPending();
+      }
+    });
+
+    return () => {
+      ignore = true;
+    };
+  }, [activeBusinessId, loadPending]);
 
   const handleClearFilters = () => {
     setSearchQuery("");
@@ -366,6 +376,7 @@ export default function StaffDirectoryPage() {
     setLocationFilter("all");
     setRoleFilter("all");
     setStatusFilter("all");
+    setDisplayLimit(30);
   };
 
   const handleExport = () => {
@@ -484,34 +495,6 @@ export default function StaffDirectoryPage() {
   const displayedStaff = useMemo(() => {
     return filteredStaff.slice(0, displayLimit);
   }, [filteredStaff, displayLimit]);
-
-  useEffect(() => {
-    setDisplayLimit(30);
-  }, [searchQuery, roleFilter, businessFilter, locationFilter, statusFilter]);
-
-  const getInitials = (name: string) => {
-    return name
-      .split(" ")
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase()
-      .substring(0, 2);
-  };
-
-  const getAvatarBg = () => {
-    return "bg-zinc-100 text-zinc-800 border-zinc-200/60";
-  };
-
-  const getRoleBadgeClass = (role: string) => {
-    const r = role.toLowerCase();
-    if (r === "manager") {
-      return "bg-black text-white border-black";
-    }
-    if (r === "supervisor") {
-      return "bg-zinc-800 text-white border-zinc-800";
-    }
-    return "bg-zinc-100 text-zinc-800 border-zinc-200";
-  };
 
   const handleCreateInvitation = async () => {
     if (!activeBusinessId) return;
@@ -654,16 +637,14 @@ export default function StaffDirectoryPage() {
     }
   };
 
-  const isAllBusinessesAndLocationsSelected = useMemo(() => {
-    if (businesses.length === 0) return false;
-    const allBizSelected = businesses.every((b) => approvalBusinesses.includes(b.id));
-    const allLocsSelected = businesses.every((b) => {
+  const isAllBusinessesAndLocationsSelected =
+    businesses.length > 0 &&
+    businesses.every((b) => approvalBusinesses.includes(b.id)) &&
+    businesses.every((b) => {
       const locs = businessLocations[b.id] || [];
       const selectedLocs = approvalLocations[b.id] || [];
       return locs.length > 0 && selectedLocs.length === locs.length;
     });
-    return allBizSelected && allLocsSelected;
-  }, [businesses, approvalBusinesses, approvalLocations, businessLocations]);
 
   const handleToggleSelectAllBusinessesAndLocations = async () => {
     if (isAllBusinessesAndLocationsSelected) {
@@ -673,7 +654,7 @@ export default function StaffDirectoryPage() {
       const allBizIds = businesses.map((b) => b.id);
       setApprovalBusinesses(allBizIds);
 
-      const newLocsRecord = { ...businessLocations };
+      const fetchedLocsRecord: Record<string, Location[]> = {};
       const newApprovalLocs: Record<string, string[]> = {};
 
       await Promise.all(
@@ -682,17 +663,22 @@ export default function StaffDirectoryPage() {
           if (!locs) {
             try {
               locs = await getLocations(b.id);
-              newLocsRecord[b.id] = locs;
+              fetchedLocsRecord[b.id] = locs;
             } catch (err) {
-              console.error(`Failed to load locations for business ${b.id}:`, err);
+              console.error(
+                `Failed to load locations for business ${b.id}:`,
+                err,
+              );
               locs = [];
             }
           }
           newApprovalLocs[b.id] = locs.map((l) => l.id);
-        })
+        }),
       );
 
-      setBusinessLocations(newLocsRecord);
+      if (Object.keys(fetchedLocsRecord).length > 0) {
+        setBusinessLocations((prev) => ({ ...prev, ...fetchedLocsRecord }));
+      }
       setApprovalLocations(newApprovalLocs);
     }
   };
@@ -841,8 +827,11 @@ export default function StaffDirectoryPage() {
         const res = await api.get(
           `/api/businesses/${activeBusinessId}/staff/${staff.id}/assignments`,
         );
-        const assignments = res.data;
-        const bizIds = assignments.map((a: any) => a.business_id);
+        const assignments = res.data as {
+          business_id: string;
+          location_ids: string[];
+        }[];
+        const bizIds = assignments.map((a) => a.business_id);
         const bizLocs: Record<string, string[]> = {};
         for (const a of assignments) {
           bizLocs[a.business_id] = a.location_ids;
@@ -905,7 +894,7 @@ export default function StaffDirectoryPage() {
       const { updateStaff } =
         await import("@/lib/repositories/staff.repository");
 
-      const payload: any = {
+      const payload: StaffCreateInput = {
         name: isRestrictedAdmin ? staffToEdit.name : editName.trim(),
         phone: isRestrictedAdmin ? staffToEdit.phone || "" : editPhone.trim(),
         email: isRestrictedAdmin ? staffToEdit.email : editEmail.trim(),
@@ -997,25 +986,19 @@ export default function StaffDirectoryPage() {
   }
 
   return (
-    <div className="bg-white min-h-0 flex flex-col w-full h-[calc(100vh-120px)] md:h-[85vh] pb-4 px-4 py-3 overflow-hidden">
-      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 border-b py-3 px-3 md:py-3 md:px-4 border border-[#E2E8F0] rounded-2xl shadow-sm">
-        <div>
-          <h1 className="text-xl md:text-2xl font-bold md:font-extrabold tracking-tight">
-            Team Members
-          </h1>
-          <p className="text-[#64748B] text-xs font-bold mt-1.5">
-            View and manage all staff members, invitations, and access
-            permissions.
-          </p>
-        </div>
+    <div className="min-h-0 flex flex-col w-full h-[calc(100vh-100px)] md:h-[88vh] pb-4 overflow-y-auto">
+      <div className="border border-neutral-200 rounded-3xl py-4 px-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 shadow-sm mb-4">
+        <h1 className="text-[24px] font-bold text-neutral-900 tracking-tight">
+          Team Members
+        </h1>
 
-        <div className="flex items-center gap-3 self-end lg:self-auto">
+        <div className="flex items-center gap-3 self-end sm:self-auto">
           {activeTab === "directory" && (
             <button
               onClick={handleExport}
-              className="bg-white hover:bg-zinc-50 border border-black text-black rounded-full px-5 py-2.5 text-xs font-bold uppercase tracking-wider shadow-sm flex items-center gap-2 cursor-pointer transition-all duration-200"
+              className="bg-white hover:bg-zinc-50 border border-[#CBD5E1] text-[#0F172A] rounded-full px-5 py-2.5 text-xs md:text-sm font-bold flex items-center gap-2 cursor-pointer transition-all duration-200 shadow-2xs"
             >
-              <Download className="h-4 w-4" />
+              <FileText className="h-4 w-4 text-[#0F172A]" />
               Export
             </button>
           )}
@@ -1023,7 +1006,7 @@ export default function StaffDirectoryPage() {
           <button
             onClick={handleCreateInvitation}
             disabled={generatingLink}
-            className="bg-black hover:bg-neutral-800 text-white rounded-full px-5 py-2.5 text-xs font-bold uppercase tracking-wider shadow-sm flex items-center gap-2 cursor-pointer transition-all duration-200 disabled:opacity-50"
+            className="bg-[#0B2521] hover:bg-[#071916] text-white rounded-full px-5 py-2.5 text-xs md:text-sm font-semibold flex items-center gap-2 cursor-pointer transition-all duration-200 shadow-xs disabled:opacity-50"
           >
             {generatingLink ? (
               <>
@@ -1032,7 +1015,7 @@ export default function StaffDirectoryPage() {
               </>
             ) : (
               <>
-                <Plus className="h-4 w-4 stroke-[3px]" />
+                <Plus className="h-4 w-4 stroke-[2.5px]" />
                 Create Invitation
               </>
             )}
@@ -1040,99 +1023,99 @@ export default function StaffDirectoryPage() {
         </div>
       </div>
 
-      <div className="flex border-b border-zinc-200 mt-4 mb-2">
-        <button
-          onClick={() => setActiveTab("directory")}
-          className={`pb-3 text-xs font-bold uppercase tracking-wider px-4 border-b-2 cursor-pointer transition-all duration-150 flex items-center gap-2 ${
-            activeTab === "directory"
-              ? "border-black text-black font-extrabold"
-              : "border-transparent text-zinc-400 hover:text-zinc-600"
-          }`}
-        >
-          Active Staff
-          {staffMembers.length > 0 && (
+      {/* Filter & Search Bar Row */}
+      <div className="flex flex-col md:flex-row justify-between items-stretch md:items-center gap-3 mb-5 shrink-0">
+        {/* Search Input */}
+        <div className="relative flex-1 max-w-md">
+          <Search className="h-4 w-4 text-[#94A3B8] absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none" />
+          <input
+            type="text"
+            placeholder="Search Staffs"
+            className="w-full bg-white border border-[#E2E8F0] focus:border-zinc-400 rounded-full py-2.5 pl-11 pr-4 text-xs md:text-sm text-[#0F172A] placeholder-[#94A3B8] outline-none shadow-2xs transition-all"
+            value={searchQuery}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              setDisplayLimit(30);
+            }}
+          />
+        </div>
+
+        {/* Tabs & Role Dropdown */}
+        <div className="flex items-center gap-3 flex-wrap md:flex-nowrap">
+          {/* Active Staff Tab */}
+          <button
+            onClick={() => setActiveTab("directory")}
+            className={`rounded-full px-5 py-2 text-xs md:text-sm font-semibold flex items-center gap-2 cursor-pointer transition-all duration-150 shadow-2xs ${
+              activeTab === "directory"
+                ? "bg-[#CCD7D2] text-[#0F172A] font-bold border border-transparent"
+                : "bg-white border border-[#E2E8F0] text-[#64748B] hover:text-[#0F172A]"
+            }`}
+          >
+            Active
             <span
-              className={`text-[10px] px-2 py-0.5 rounded-full font-bold transition-all duration-150 ${
+              className={`rounded-full px-2 py-0.5 text-xs font-bold ${
                 activeTab === "directory"
-                  ? "bg-black text-white"
-                  : "bg-zinc-100 text-zinc-500"
+                  ? "bg-[#B3C4BB] text-[#0F172A]"
+                  : "bg-zinc-100 text-[#64748B]"
               }`}
             >
               {staffMembers.length}
             </span>
-          )}
-        </button>
-        <button
-          onClick={() => setActiveTab("pending")}
-          className={`pb-3 text-xs font-bold uppercase tracking-wider px-4 border-b-2 cursor-pointer transition-all duration-150 flex items-center gap-2 ${
-            activeTab === "pending"
-              ? "border-black text-black font-extrabold"
-              : "border-transparent text-zinc-400 hover:text-zinc-600"
-          }`}
-        >
-          Pending Approvals
-          {pendingStaff.length > 0 && (
+          </button>
+
+          {/* Pending Tab */}
+          <button
+            onClick={() => setActiveTab("pending")}
+            className={`rounded-full px-5 py-2 text-xs md:text-sm font-semibold flex items-center gap-2 cursor-pointer transition-all duration-150 shadow-2xs ${
+              activeTab === "pending"
+                ? "bg-[#CCD7D2] text-[#0F172A] font-bold border border-transparent"
+                : "bg-white border border-[#E2E8F0] text-[#64748B] hover:text-[#0F172A]"
+            }`}
+          >
+            Pending
             <span
-              className={`text-[10px] px-2 py-0.5 rounded-full font-bold transition-all duration-150 ${
+              className={`rounded-full px-2 py-0.5 text-xs font-bold ${
                 activeTab === "pending"
-                  ? "bg-black text-white"
-                  : "bg-zinc-100 text-zinc-500"
+                  ? "bg-[#B3C4BB] text-[#0F172A]"
+                  : "bg-zinc-100 text-[#64748B]"
               }`}
             >
               {pendingStaff.length}
             </span>
+          </button>
+
+          {/* Role Filter Dropdown */}
+          <Dropdown
+            value={roleFilter}
+            onChange={(val) => {
+              setRoleFilter(val);
+              setDisplayLimit(30);
+            }}
+            options={[
+              { value: "all", label: "All Roles" },
+              { value: "manager", label: "Manager" },
+              { value: "staff", label: "Staff" },
+            ]}
+            className="min-w-[130px]"
+            triggerClassName="rounded-full py-2 px-4 border-[#E2E8F0] text-xs md:text-sm font-semibold text-[#0F172A] shadow-2xs bg-white"
+          />
+
+          {(searchQuery || roleFilter !== "all") && (
+            <button
+              onClick={handleClearFilters}
+              className="border border-[#E2E8F0] text-[#64748B] bg-white hover:bg-zinc-50 rounded-full px-4 py-2 text-xs font-bold transition duration-200 cursor-pointer"
+            >
+              Clear
+            </button>
           )}
-        </button>
+        </div>
       </div>
 
-      {activeTab === "directory" ? (
-        <>
-          <div className="mt-1 flex flex-wrap justify-between gap-1 items-center">
-            <div className="relative flex-1 w-full max-w-[50svw] md:max-w-[30svw]">
-              <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-zinc-400">
-                <Search className="h-4 w-4" />
-              </span>
-              <input
-                type="text"
-                placeholder="Search by name, phone, email, role or position..."
-                className="w-full bg-white border border-zinc-200 focus:border-black rounded-xl py-2 pl-10 pr-4 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-black transition-all shadow-xs"
-                value={searchQuery}
-                onChange={(e) => {
-                  setSearchQuery(e.target.value);
-                }}
-              />
-            </div>
-
-            <div className="flex items-center gap-3">
-              <Dropdown
-                value={roleFilter}
-                onChange={(val) => {
-                  setRoleFilter(val);
-                }}
-                options={
-                  [
-                    { value: "all", label: "All Roles" },
-                    { value: "manager", label: "Manager" },
-                    { value: "staff", label: "Staff" },
-                  ] as const
-                }
-                className="min-w-[130px]"
-                triggerClassName="rounded-xl py-2.5 px-3 font-bold text-zinc-950 focus:ring-black focus:border-black"
-              />
-
-              {(searchQuery || roleFilter !== "all") && (
-                <button
-                  onClick={handleClearFilters}
-                  className="border border-zinc-200 text-zinc-700 bg-white hover:bg-zinc-50 rounded-xl px-4 py-2.5 text-xs font-bold transition duration-200 cursor-pointer"
-                >
-                  Clear
-                </button>
-              )}
-            </div>
-          </div>
-
-          {filteredStaff.length === 0 ? (
-            <div className="mt-6 bg-white border border-zinc-200 rounded-2xl py-20 px-6 text-center flex flex-col items-center justify-center shadow-sm">
+      {/* Main Table Container */}
+      <div className="bg-white border border-[#E2E8F0] rounded-[28px] p-6 md:p-8 shadow-xs flex-1 min-h-0 flex flex-col overflow-hidden">
+        {activeTab === "directory" ? (
+          filteredStaff.length === 0 ? (
+            <div className="py-20 px-6 text-center flex flex-col items-center justify-center">
               <Building2 className="h-10 w-10 text-zinc-300 mb-3" />
               <h3 className="text-base font-bold text-[#0F172A]">
                 No staff records found
@@ -1142,277 +1125,202 @@ export default function StaffDirectoryPage() {
               </p>
             </div>
           ) : (
-            <div className="mt-6 bg-white border border-zinc-200 rounded-2xl shadow-xs overflow-hidden flex-1 min-h-0 flex flex-col">
-              <div
-                className="overflow-auto flex-1 min-h-0"
-                onScroll={(e) => {
-                  const container = e.currentTarget;
-                  if (
-                    container.scrollHeight - container.scrollTop <=
-                    container.clientHeight + 100
-                  ) {
-                    setDisplayLimit((prev) =>
-                      Math.min(prev + 30, filteredStaff.length),
-                    );
-                  }
-                }}
-              >
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="border-b border-zinc-200 text-[10px] uppercase font-extrabold tracking-wider text-[#64748B] bg-zinc-50 sticky top-0 z-10 text-center">
-                      <th
-                        onClick={() => handleSort("name")}
-                        className="py-4 px-6 font-extrabold cursor-pointer hover:bg-zinc-100 transition duration-150 select-none"
-                      >
-                        Staff Name
-                      </th>
-                      <th className="py-4 px-6 font-extrabold select-none">
-                        Position
-                      </th>
-                      <th className="py-4 px-6 font-extrabold select-none text-center">
-                        Weekly Hours
-                      </th>
-                      <th
-                        onClick={() => handleSort("role")}
-                        className="py-4 px-6 font-extrabold cursor-pointer hover:bg-zinc-100 transition duration-150 select-none"
-                      >
-                        Role
-                      </th>
-                      <th className="py-4 px-6 font-extrabold select-none">
-                        Business
-                      </th>
-                      <th
-                        onClick={() => handleSort("assigned_locations")}
-                        className="py-4 px-4 text-center font-extrabold cursor-pointer hover:bg-zinc-100 transition duration-150 select-none"
-                      >
-                        Locations
-                      </th>
-                      <th
-                        onClick={() => handleSort("status")}
-                        className="py-4 px-4 mx-auto text-center font-extrabold cursor-pointer hover:bg-zinc-100 transition duration-150 select-none"
-                      >
-                        Status
-                      </th>
-                      <th className="p-4 font-extrabold text-right select-none">
-                        Actions
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-zinc-200 text-xs text-[#0F172A]">
-                    {displayedStaff.map((s) => (
-                      <tr
-                        key={s.id}
-                        onClick={() => handleOpenEditModal(s)}
-                        className="hover:bg-zinc-50/40 transition-colors cursor-pointer"
-                      >
-                        <td className="py-4 px-6">
-                          <div className="flex items-center gap-3">
-                            <div
-                              className={`h-9 w-9 rounded-full flex items-center justify-center font-extrabold text-xs border shadow-3xs shrink-0 ${getAvatarBg()}`}
-                            >
-                              {getInitials(s.name)}
-                            </div>
-                            <span className="font-extrabold text-[#0F172A]">
-                              {s.name}
-                            </span>
-                          </div>
-                        </td>
-                        <td className="py-4 px-6 text-zinc-950 font-bold">
-                          {s.position || (
-                            <span className="text-zinc-400 font-medium italic">
-                              None
-                            </span>
-                          )}
-                        </td>
-                        <td className="py-4 px-6 text-center text-[#64748B] font-bold">
-                          {s.maxWorkingHours !== null &&
-                          s.maxWorkingHours !== undefined
-                            ? `${s.maxWorkingHours}`
-                            : "Unlimited"}
-                        </td>
-                        <td className="py-4 px-6">
-                          <span
-                            className={`px-2.5 py-1 rounded-md font-bold text-[10px] border tracking-wide leading-none ${getRoleBadgeClass(s.role)}`}
-                          >
-                            {s.role}
+            <div
+              className="overflow-auto flex-1 min-h-0"
+              onScroll={(e) => {
+                const container = e.currentTarget;
+                if (
+                  container.scrollHeight - container.scrollTop <=
+                  container.clientHeight + 100
+                ) {
+                  setDisplayLimit((prev) =>
+                    Math.min(prev + 30, filteredStaff.length),
+                  );
+                }
+              }}
+            >
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-[#E2E8F0] text-[11px] md:text-xs uppercase font-bold tracking-wider text-[#717D7D] bg-white sticky top-0 z-10">
+                    <th
+                      onClick={() => handleSort("name")}
+                      className="py-4 px-4 font-bold cursor-pointer hover:text-black transition duration-150 select-none"
+                    >
+                      STAFF NAME
+                    </th>
+                    <th className="py-4 px-4 font-bold select-none">
+                      POSITION
+                    </th>
+                    <th className="py-4 px-4 font-bold select-none">
+                      WEEKLY HOURS
+                    </th>
+                    <th className="py-4 px-4 font-bold select-none">
+                      PRIORITY
+                    </th>
+                    <th className="py-4 px-4 font-bold select-none">
+                      BUSINESS
+                    </th>
+                    <th
+                      onClick={() => handleSort("assigned_locations")}
+                      className="py-4 px-4 font-bold cursor-pointer hover:text-black transition duration-150 select-none"
+                    >
+                      LOCATIONS
+                    </th>
+                    <th
+                      onClick={() => handleSort("status")}
+                      className="py-4 px-4 font-bold cursor-pointer hover:text-black transition duration-150 select-none"
+                    >
+                      STATUS
+                    </th>
+                    <th className="py-4 px-4 font-bold text-right select-none">
+                      ACTIONS
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#E2E8F0]/70 text-xs md:text-sm text-[#0F172A]">
+                  {displayedStaff.map((s) => (
+                    <tr
+                      key={s.id}
+                      onClick={() => handleOpenEditModal(s)}
+                      className="hover:bg-zinc-50/60 transition-colors cursor-pointer"
+                    >
+                      <td className="py-5 px-4 font-semibold text-[#0F172A]">
+                        {s.name}
+                      </td>
+                      <td className="py-5 px-4 font-semibold text-[#0F172A]">
+                        {s.position || "-"}
+                      </td>
+                      <td className="py-5 px-4 font-semibold text-[#0F172A]">
+                        {s.maxWorkingHours !== null &&
+                        s.maxWorkingHours !== undefined
+                          ? s.maxWorkingHours
+                          : "Unlimited"}
+                      </td>
+                      <td className="py-5 px-4 font-semibold text-[#0F172A]">
+                        {s.priority || 1}
+                      </td>
+                      <td className="py-5 px-4 font-semibold text-[#0F172A]">
+                        {activeBusiness?.name || "-"}
+                      </td>
+                      <td className="py-5 px-4 font-semibold text-[#0F172A]">
+                        {s.locations && s.locations.length > 0 ? (
+                          s.locations.map((loc) => loc.name).join(", ")
+                        ) : (
+                          <span className="text-zinc-400 font-normal italic">
+                            None
                           </span>
-                        </td>
-                        <td className="py-4 px-6 text-zinc-950 font-bold">
-                          {activeBusiness?.name || (
-                            <span className="text-zinc-400 font-medium italic">
-                              None
-                            </span>
-                          )}
-                        </td>
-                        <td className="py-4 px-6 text-zinc-700 text-center">
-                          {s.locations && s.locations.length > 0 ? (
-                            <div className="flex flex-col items-center gap-1">
-                              {s.locations.map((loc) => (
-                                <span
-                                  key={loc.id}
-                                  className="inline-flex items-center gap-1 text-[12px] text-zinc-700 border border-zinc-200/50 rounded-md px-2 py-0.5"
-                                >
-                                  {loc.name}
-                                </span>
-                              ))}
-                            </div>
-                          ) : (
-                            <div className="text-center">
-                              <span className="text-zinc-400 font-medium italic">
-                                No location assignments
-                              </span>
-                            </div>
-                          )}
-                        </td>
-                        <td className="py-4 px-6">
-                          {s.status === "Active" ? (
-                            <span className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-[12px] text-[#0C830C] w-fit leading-none shadow-3xs">
-                              ACTIVE
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-[12px] text-[#9B1C1C] w-fit leading-none shadow-3xs">
-                              INACTIVE
-                            </span>
-                          )}
-                        </td>
-                        <td
-                          className="py-4 px-6 text-right"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <ActionsMenu
-                            staff={s}
-                            onEdit={() => handleOpenEditModal(s)}
-                            onToggleStatus={() => handleToggleStatus(s)}
-                          />
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              <div className="bg-zinc-50/50 border-t border-zinc-200 py-3.5 px-6 flex justify-between items-center text-xs text-[#64748B] font-semibold">
-                <span>
-                  Showing{" "}
-                  {Math.min(displayedStaff.length, filteredStaff.length)} of{" "}
-                  {filteredStaff.length} staff members
-                </span>
-              </div>
-            </div>
-          )}
-        </>
-      ) : (
-        <div className="mt-6">
-          {loadingPending ? (
-            <div className="py-20 flex flex-col items-center justify-center bg-white border border-zinc-200 rounded-2xl">
-              <Loader2 className="h-6 w-6 text-black animate-spin mb-2" />
-              <span className="text-xs text-zinc-500 font-bold uppercase tracking-wider">
-                Loading approval queue...
-              </span>
-            </div>
-          ) : pendingStaff.length === 0 ? (
-            <div className="bg-white border border-zinc-200 rounded-2xl py-20 px-6 text-center flex flex-col items-center justify-center shadow-xs">
-              <UserCheck className="h-10 w-10 text-zinc-300 mb-3" />
-              <h3 className="text-base font-bold text-[#0F172A]">
-                No pending approvals
-              </h3>
-              <p className="text-[#64748B] text-xs mt-1 font-semibold max-w-xs leading-relaxed">
-                All staff access requests are processed. There are no users
-                waiting for access.
-              </p>
-            </div>
-          ) : (
-            <div className="bg-white border border-zinc-200 rounded-2xl shadow-xs overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="border-b border-zinc-200 text-[10px] uppercase font-extrabold tracking-wider text-[#64748B] bg-zinc-50/50">
-                      <th className="py-4 px-6">Name</th>
-                      <th className="py-4 px-6">Email</th>
-                      <th className="py-4 px-6">Phone</th>
-                      <th className="py-4 px-6">Request Date</th>
-                      <th className="py-4 px-6 text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-zinc-200 text-xs text-[#0F172A]">
-                    {pendingStaff.map((p) => (
-                      <tr
-                        key={p.id}
-                        onClick={() => handleOpenApprovalModal(p)}
-                        className="hover:bg-zinc-50/40 transition-colors cursor-pointer"
+                        )}
+                      </td>
+                      <td className="py-5 px-4">
+                        {s.status === "Active" ? (
+                          <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#16A34A]">
+                            <span className="h-2 w-2 rounded-full bg-[#16A34A]" />
+                            ACTIVE
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#DC2626]">
+                            <span className="h-2 w-2 rounded-full bg-[#DC2626]" />
+                            INACTIVE
+                          </span>
+                        )}
+                      </td>
+                      <td
+                        className="py-5 px-4 text-right"
+                        onClick={(e) => e.stopPropagation()}
                       >
-                        <td className="py-4 px-6 font-extrabold">
-                          {p.user_name || "New Staff"}
-                        </td>
-                        <td className="py-4 px-6 text-[#64748B] font-medium">
-                          {p.user_email}
-                        </td>
-                        <td className="py-4 px-6 text-[#64748B] font-medium">
-                          {p.user_phone || "N/A"}
-                        </td>
-                        <td className="py-4 px-6 text-[#64748B] font-medium">
-                          <div className="font-bold">
-                            {new Date(p.created_at).toLocaleDateString()}
-                          </div>
-                          {(() => {
-                            const diffTime =
-                              new Date().getTime() -
-                              new Date(p.created_at).getTime();
-                            const diffDays = Math.floor(
-                              diffTime / (1000 * 60 * 60 * 24),
-                            );
-                            const isExtended = diffDays >= 7;
-                            if (diffDays === 0) {
-                              return (
-                                <span className="text-[10px] text-zinc-400 font-semibold mt-0.5 block">
-                                  Today
-                                </span>
-                              );
-                            }
-                            if (diffDays === 1) {
-                              return (
-                                <span className="text-[10px] text-zinc-500 font-semibold mt-0.5 block">
-                                  Yesterday
-                                </span>
-                              );
-                            }
-                            return (
-                              <span
-                                className={`text-[10px] font-bold px-2 py-0.5 rounded-full inline-flex items-center gap-1.5 mt-0.5 ${
-                                  isExtended
-                                    ? "bg-red-50 text-red-600 border border-red-200"
-                                    : "bg-amber-50 text-amber-600 border border-amber-200"
-                                }`}
-                              >
-                                {isExtended && (
-                                  <span className="h-1.5 w-1.5 rounded-full bg-red-600 animate-pulse" />
-                                )}
-                                {diffDays} days ago
-                              </span>
-                            );
-                          })()}
-                        </td>
-                        <td
-                          className="py-4 px-6 text-right flex items-center justify-end gap-2"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <button
-                            onClick={() => handleOpenApprovalModal(p)}
-                            className="bg-black hover:bg-neutral-800 text-white rounded-lg p-2 px-3.5 text-xs font-bold cursor-pointer flex items-center gap-1 transition"
-                          >
-                            <Eye className="h-4 w-4" />
-                            View
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                        <ActionsMenu
+                          staff={s}
+                          onEdit={() => handleOpenEditModal(s)}
+                          onToggleStatus={() => handleToggleStatus(s)}
+                        />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-          )}
-        </div>
-      )}
+          )
+        ) : loadingPending ? (
+          <div className="py-20 flex flex-col items-center justify-center">
+            <Loader2 className="h-6 w-6 text-black animate-spin mb-2" />
+            <span className="text-xs text-zinc-500 font-bold uppercase tracking-wider">
+              Loading approval queue...
+            </span>
+          </div>
+        ) : pendingStaff.length === 0 ? (
+          <div className="py-20 px-6 text-center flex flex-col items-center justify-center">
+            <UserCheck className="h-10 w-10 text-zinc-300 mb-3" />
+            <h3 className="text-base font-bold text-[#0F172A]">
+              No pending approvals
+            </h3>
+            <p className="text-[#64748B] text-xs mt-1 font-semibold max-w-xs leading-relaxed">
+              All staff access requests are processed. There are no users
+              waiting for access.
+            </p>
+          </div>
+        ) : (
+          <div className="overflow-auto flex-1 min-h-0">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="border-b border-[#E2E8F0] text-[11px] md:text-xs uppercase font-bold tracking-wider text-[#717D7D] bg-white sticky top-0 z-10">
+                  <th className="py-4 px-4 font-bold select-none">
+                    STAFF NAME
+                  </th>
+                  <th className="py-4 px-4 font-bold select-none">POSITION</th>
+                  <th className="py-4 px-4 font-bold select-none">PRIORITY</th>
+                  <th className="py-4 px-4 font-bold select-none">EMAIL</th>
+                  <th className="py-4 px-4 font-bold select-none">PHONE</th>
+                  <th className="py-4 px-4 font-bold select-none">
+                    REQUEST DATE
+                  </th>
+                  <th className="py-4 px-4 font-bold text-right select-none">
+                    ACTIONS
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#E2E8F0]/70 text-xs md:text-sm text-[#0F172A]">
+                {pendingStaff.map((p) => (
+                  <tr
+                    key={p.id}
+                    onClick={() => handleOpenApprovalModal(p)}
+                    className="hover:bg-zinc-50/60 transition-colors cursor-pointer"
+                  >
+                    <td className="py-5 px-4 font-semibold text-[#0F172A]">
+                      {p.user_name || "New Staff"}
+                    </td>
+                    <td className="py-5 px-4 font-semibold text-[#0F172A]">
+                      {p.position || "Chef"}
+                    </td>
+                    <td className="py-5 px-4 font-semibold text-[#0F172A]">
+                      {p.priority || 1}
+                    </td>
+                    <td className="py-5 px-4 font-semibold text-[#0F172A]">
+                      {p.user_email}
+                    </td>
+                    <td className="py-5 px-4 font-semibold text-[#0F172A]">
+                      {p.user_phone || "-"}
+                    </td>
+                    <td className="py-5 px-4 font-semibold text-[#0F172A]">
+                      {new Date(p.created_at).toLocaleDateString()}
+                    </td>
+                    <td
+                      className="py-5 px-4 text-right"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <button
+                        onClick={() => handleOpenApprovalModal(p)}
+                        className="p-1.5 hover:bg-zinc-100 rounded-lg text-zinc-500 hover:text-black transition cursor-pointer"
+                      >
+                        <MoreVertical className="h-4 w-4" />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
 
       {isAddStaffOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-50 animate-fade-in p-4">
@@ -1529,19 +1437,25 @@ export default function StaffDirectoryPage() {
                 </span>
                 <div className="grid grid-cols-2 gap-4 text-xs">
                   <div>
-                    <span className="text-zinc-500 font-bold block">First Name</span>
+                    <span className="text-zinc-500 font-bold block">
+                      First Name
+                    </span>
                     <span className="text-zinc-900 font-extrabold mt-0.5 block">
                       {pendingStaffToApprove.first_name || "N/A"}
                     </span>
                   </div>
                   <div>
-                    <span className="text-zinc-500 font-bold block">Last Name</span>
+                    <span className="text-zinc-500 font-bold block">
+                      Last Name
+                    </span>
                     <span className="text-zinc-900 font-extrabold mt-0.5 block">
                       {pendingStaffToApprove.last_name || "N/A"}
                     </span>
                   </div>
                   <div>
-                    <span className="text-zinc-500 font-bold block">Preferred Name</span>
+                    <span className="text-zinc-500 font-bold block">
+                      Preferred Name
+                    </span>
                     <span className="text-zinc-900 font-extrabold mt-0.5 block">
                       {pendingStaffToApprove.user_name || "N/A"}
                     </span>
