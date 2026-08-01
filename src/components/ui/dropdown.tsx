@@ -60,7 +60,7 @@ export function Dropdown<T extends string | number>({
         onClick={() => setIsOpen(!isOpen)}
         className={`w-full flex justify-between items-center bg-white border border-zinc-200 text-xs text-zinc-700 hover:bg-zinc-50/50 transition-colors focus:outline-none focus:ring-1 focus:ring-[#0a2924] focus:border-[#0a2924] cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed ${triggerClassName}`}
       >
-        <span>{selectedOption ? selectedOption.label : placeholder}</span>
+        <span>{selectedOption ? selectedOption.label : value ? String(value) : placeholder}</span>
         <ChevronDown
           className={`h-4 w-4 text-zinc-400 transition-transform duration-200 ${
             isOpen ? "rotate-180" : ""
