@@ -53,6 +53,8 @@ export default function LocationsPage() {
   const [formType, setFormType] = useState<LocationType>("store");
   const [formAddress, setFormAddress] = useState("");
   const [formActive, setFormActive] = useState(true);
+  const [formIsWarehouse, setFormIsWarehouse] = useState(false);
+  const [formIsGlobal, setFormIsGlobal] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const [customTypeName, setCustomTypeName] = useState("");
@@ -90,6 +92,8 @@ export default function LocationsPage() {
     setFormType("store");
     setFormAddress("");
     setFormActive(true);
+    setFormIsWarehouse(false);
+    setFormIsGlobal(false);
     setCustomTypeName("");
     setIsCreatingCustomType(false);
     setShowDrawer(true);
@@ -105,6 +109,9 @@ export default function LocationsPage() {
     setFormType(loc.type);
     setFormAddress(loc.address || "");
     setFormActive(loc.isActive !== false);
+    setFormIsWarehouse(loc.isWarehouse || loc.type === "warehouse");
+    setFormIsGlobal(loc.isGlobal || false);
+
     if (typeIsDefault) {
       setIsCreatingCustomType(false);
       setCustomTypeName("");
@@ -204,14 +211,19 @@ export default function LocationsPage() {
     try {
       setSaving(true);
 
+      const isWarehouseFinal = formType === "warehouse" || formIsWarehouse;
       const locationData = {
         businessId: activeBusinessId,
         name: trimmedName,
         description: formDescription.trim(),
-        type: typeToSave,
+        type: isWarehouseFinal ? "warehouse" : typeToSave,
         address: trimmedAddress,
+        isWarehouse: isWarehouseFinal,
+        isGlobal: isWarehouseFinal ? formIsGlobal : false,
         isActive: formActive,
       };
+
+
 
       if (editId) {
         if (!isFormDirty()) {
@@ -633,8 +645,12 @@ export default function LocationsPage() {
                       } else {
                         setIsCreatingCustomType(false);
                         setFormType(val);
+                        if (val === "warehouse") {
+                          setFormIsWarehouse(true);
+                        }
                       }
                     }}
+
                     options={selectOptions}
                     className="w-full"
                     triggerClassName="rounded-xl py-2.5 px-3.5 font-bold text-zinc-950 focus:ring-black focus:border-black"
@@ -657,6 +673,75 @@ export default function LocationsPage() {
                   )}
                 </div>
 
+                {formType === "warehouse" ? (
+                  <div className="space-y-3 bg-zinc-50 p-3.5 rounded-xl border border-zinc-200">
+                    <div className="flex items-center gap-2">
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-50 text-emerald-800 text-xs font-bold border border-emerald-200">
+                        Central Warehouse Mode Active
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-[#64748B] font-medium">
+                      Blocks direct sales entry and enables inter-location stock transfers across hubs.
+                    </p>
+
+                    <label className="flex items-start gap-2.5 cursor-pointer pt-2 border-t border-zinc-200">
+                      <input
+                        type="checkbox"
+                        checked={formIsGlobal}
+                        onChange={(e) => setFormIsGlobal(e.target.checked)}
+                        className="mt-0.5 h-4 w-4 rounded border-zinc-300 text-black focus:ring-black"
+                      />
+                      <div>
+                        <span className="text-xs font-bold text-[#0F172A] block">
+                          Global / Cross-Business Warehouse
+                        </span>
+                        <span className="text-[11px] text-[#64748B]">
+                          Allows this warehouse to serve all businesses and store shared items.
+                        </span>
+                      </div>
+                    </label>
+                  </div>
+                ) : (
+                  <div className="space-y-3 bg-zinc-50 p-3.5 rounded-xl border border-zinc-200">
+                    <label className="flex items-start gap-2.5 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={formIsWarehouse}
+                        onChange={(e) => setFormIsWarehouse(e.target.checked)}
+                        className="mt-0.5 h-4 w-4 rounded border-zinc-300 text-black focus:ring-black"
+                      />
+                      <div>
+                        <span className="text-xs font-bold text-[#0F172A] block">
+                          Set as Warehouse / Central Hub
+                        </span>
+                        <span className="text-[11px] text-[#64748B]">
+                          Blocks direct sales entry and enables inter-location stock transfers.
+                        </span>
+                      </div>
+                    </label>
+
+                    {formIsWarehouse && (
+                      <label className="flex items-start gap-2.5 cursor-pointer pt-2 border-t border-zinc-200">
+                        <input
+                          type="checkbox"
+                          checked={formIsGlobal}
+                          onChange={(e) => setFormIsGlobal(e.target.checked)}
+                          className="mt-0.5 h-4 w-4 rounded border-zinc-300 text-black focus:ring-black"
+                        />
+                        <div>
+                          <span className="text-xs font-bold text-[#0F172A] block">
+                            Global / Cross-Business Warehouse
+                          </span>
+                          <span className="text-[11px] text-[#64748B]">
+                            Allows this warehouse to serve all businesses and store shared items.
+                          </span>
+                        </div>
+                      </label>
+                    )}
+                  </div>
+                )}
+
+
                 <div className="space-y-1.5">
                   <div className="flex justify-between items-center">
                     <label className="text-xs font-bold text-[#0F172A] uppercase tracking-wider block">
@@ -676,6 +761,7 @@ export default function LocationsPage() {
                     onChange={(e) => setFormAddress(e.target.value)}
                   />
                 </div>
+
 
                 {editId && (
                   <div className="flex items-center gap-2 pt-1">

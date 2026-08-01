@@ -203,11 +203,16 @@ class Location(SQLModel, table=True):
     description: Optional[str] = None
     type: str = Field(default="store")
     address: Optional[str] = None
+    is_warehouse: bool = Field(default=False)
+    is_global: bool = Field(default=False)
     is_active: bool = Field(default=True)
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
-    business_id: str = Field(foreign_key="businesses.id", ondelete="CASCADE")
-    business: Business = Relationship(back_populates="locations")
+    business_id: Optional[str] = Field(
+        default=None, foreign_key="businesses.id", ondelete="CASCADE"
+    )
+    business: Optional[Business] = Relationship(back_populates="locations")
+
 
 
 class StockItem(SQLModel, table=True):
@@ -455,6 +460,9 @@ class Delivery(SQLModel, table=True):
     business_id: str = Field(foreign_key="businesses.id", ondelete="CASCADE")
     supplier_id: str = Field(foreign_key="suppliers.id", ondelete="CASCADE")
     purchase_order_id: str = Field(foreign_key="purchase_orders.id", ondelete="CASCADE")
+    receiving_location_id: Optional[str] = Field(
+        default=None, foreign_key="locations.id", ondelete="SET NULL"
+    )
     delivery_number: str
     status: DeliveryStatus = Field(default=DeliveryStatus.received)
     delivery_date: datetime = Field(default_factory=datetime.utcnow)
@@ -467,6 +475,7 @@ class Delivery(SQLModel, table=True):
     business: Business = Relationship()
     supplier: Supplier = Relationship()
     purchase_order: PurchaseOrder = Relationship()
+    receiving_location: Optional[Location] = Relationship()
     items: List["DeliveryItem"] = Relationship(
         back_populates="delivery",
         sa_relationship_kwargs={"cascade": "all, delete-orphan"},
@@ -486,6 +495,60 @@ class DeliveryItem(SQLModel, table=True):
 
     delivery: Delivery = Relationship(back_populates="items")
     stock_item: StockItem = Relationship()
+
+
+class StockTransferStatus(str, Enum):
+    in_transit = "in_transit"
+    completed = "completed"
+    cancelled = "cancelled"
+
+
+class StockTransfer(SQLModel, table=True):
+    __tablename__ = "stock_transfers"
+
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
+    transfer_number: str
+    business_id: Optional[str] = Field(
+        default=None, foreign_key="businesses.id", ondelete="CASCADE"
+    )
+    from_location_id: str = Field(foreign_key="locations.id", ondelete="CASCADE")
+    to_location_id: str = Field(foreign_key="locations.id", ondelete="CASCADE")
+    status: StockTransferStatus = Field(default=StockTransferStatus.in_transit)
+    dispatched_by_id: Optional[str] = Field(
+        default=None, foreign_key="users.id", ondelete="SET NULL"
+    )
+    received_by_id: Optional[str] = Field(
+        default=None, foreign_key="users.id", ondelete="SET NULL"
+    )
+    dispatched_at: datetime = Field(default_factory=datetime.utcnow)
+    received_at: Optional[datetime] = Field(default=None)
+    notes: Optional[str] = None
+
+    from_location: Location = Relationship(
+        sa_relationship_kwargs={"primaryjoin": "StockTransfer.from_location_id == Location.id"}
+    )
+    to_location: Location = Relationship(
+        sa_relationship_kwargs={"primaryjoin": "StockTransfer.to_location_id == Location.id"}
+    )
+    items: List["StockTransferItem"] = Relationship(
+        back_populates="transfer",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"},
+    )
+
+
+class StockTransferItem(SQLModel, table=True):
+    __tablename__ = "stock_transfer_items"
+
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
+    transfer_id: str = Field(foreign_key="stock_transfers.id", ondelete="CASCADE")
+    stock_item_id: str = Field(foreign_key="stock_items.id", ondelete="CASCADE")
+    dispatched_qty: float
+    received_qty: Optional[float] = None
+    unit_cost: float = Field(default=0.0)
+
+    transfer: StockTransfer = Relationship(back_populates="items")
+    stock_item: StockItem = Relationship()
+
 
 
 class SaleStatus(str, Enum):

@@ -13,6 +13,7 @@
     "/dashboard/refill-planner",
     "/dashboard/purchase-orders",
     "/dashboard/deliveries",
+    "/dashboard/stock-transfers",
     "/dashboard/reconciliation",
     "/dashboard/staff-dashboard",
     "/dashboard/timesheet-entry",

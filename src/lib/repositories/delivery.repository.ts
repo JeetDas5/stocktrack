@@ -48,6 +48,7 @@ export const createDelivery = async (
   businessId: string,
   data: {
     purchaseOrderId: string;
+    receivingLocationId?: string;
     notes?: string;
     items: {
       stockItemId: string;
@@ -61,6 +62,7 @@ export const createDelivery = async (
     `/api/businesses/${businessId}/deliveries`,
     {
       purchase_order_id: data.purchaseOrderId,
+      receiving_location_id: data.receivingLocationId || null,
       notes: data.notes || null,
       items: data.items.map((i) => ({
         stock_item_id: i.stockItemId,
@@ -72,3 +74,4 @@ export const createDelivery = async (
   );
   return mapDelivery(response.data);
 };
+

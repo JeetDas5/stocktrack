@@ -19,7 +19,7 @@ import { getUserBusinesses } from "@/lib/repositories/business.repository";
 import {
   Layers01Icon,
   PackageIcon,
-  TruckDeliveryIcon,
+  DeliveryDelay01Icon,
   ChefHatIcon,
   CheckListIcon,
   Invoice01Icon,
@@ -54,6 +54,7 @@ import {
   BankIcon,
   ShieldIcon,
   Analytics03Icon,
+  DeliveryTruck02Icon,
 } from "@hugeicons/core-free-icons";
 
 interface SidebarSubLink {
@@ -469,7 +470,12 @@ export default function DashboardLayout({
     {
       name: "Deliveries",
       href: "/dashboard/deliveries",
-      icon: TruckDeliveryIcon,
+      icon: DeliveryDelay01Icon,
+    },
+    {
+      name: "Stock Transfers",
+      href: "/dashboard/stock-transfers",
+      icon: DeliveryTruck02Icon,
     },
   ];
 
@@ -600,7 +606,6 @@ export default function DashboardLayout({
     "/dashboard/profile",
     "/dashboard/square",
   ];
-
 
   const MODULE_ROUTES_SIDEBAR: Record<string, string[]> = {
     timesheet: [
@@ -1611,12 +1616,9 @@ export default function DashboardLayout({
                                 size={16}
                                 className="text-gray-dark shrink-0"
                               />
-                              <span className="truncate max-w-[70px] sm:max-w-[150px]">
+                              <span className="truncate max-w-[90px] sm:max-w-[180px]">
                                 {activeLocation?.name
-                                  ? activeLocation.name.length > 20
-                                    ? activeLocation.name.substring(0, 20) +
-                                      "..."
-                                    : activeLocation.name
+                                  ? `${activeLocation.name}${activeLocation.isWarehouse ? " (Warehouse)" : ""}`
                                   : "Select Location"}
                               </span>
                               <HugeiconsIcon
@@ -1627,7 +1629,7 @@ export default function DashboardLayout({
                             </button>
 
                             {showHeaderLocationDropdown && (
-                              <div className="absolute left-0 mt-1.5 w-52 bg-white border border-gray-soft rounded-xl shadow-xl overflow-hidden z-30 animate-fade-in">
+                              <div className="absolute left-0 mt-1.5 w-56 bg-white border border-gray-soft rounded-xl shadow-xl overflow-hidden z-30 animate-fade-in">
                                 <div className="max-h-56 overflow-y-auto py-1">
                                   {locations.map((loc) => {
                                     const isSelected =
@@ -1645,7 +1647,12 @@ export default function DashboardLayout({
                                             : "text-gray-dark hover:bg-gray-soft/30 hover:text-black"
                                         }`}
                                       >
-                                        <span>{loc.name}</span>
+                                        <span>
+                                          {loc.name}
+                                          {loc.isWarehouse
+                                            ? " (Warehouse)"
+                                            : ""}
+                                        </span>
                                         {isSelected && (
                                           <HugeiconsIcon
                                             icon={CheckIcon}
@@ -1657,6 +1664,7 @@ export default function DashboardLayout({
                                     );
                                   })}
                                 </div>
+
                                 <div className="border-t border-gray-soft p-1.5 bg-white">
                                   <a
                                     href="/dashboard/locations"

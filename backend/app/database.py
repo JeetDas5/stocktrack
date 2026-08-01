@@ -138,6 +138,25 @@ def init_db():
                 session.execute(text("ALTER TABLE timesheet_settings ADD COLUMN enable_projects BOOLEAN DEFAULT TRUE"))
                 session.commit()
 
+            # Check and add new columns dynamically to the locations table
+            loc_columns = [col['name'] for col in inspector.get_columns('locations')]
+            if "is_warehouse" not in loc_columns:
+                session.execute(text("ALTER TABLE locations ADD COLUMN is_warehouse BOOLEAN DEFAULT FALSE"))
+            if "is_global" not in loc_columns:
+                session.execute(text("ALTER TABLE locations ADD COLUMN is_global BOOLEAN DEFAULT FALSE"))
+            try:
+                session.execute(text("ALTER TABLE locations ALTER COLUMN business_id DROP NOT NULL"))
+            except Exception:
+                pass
+            session.commit()
+
+            # Check and add new columns dynamically to the deliveries table
+            del_columns = [col['name'] for col in inspector.get_columns('deliveries')]
+            if "receiving_location_id" not in del_columns:
+                session.execute(text("ALTER TABLE deliveries ADD COLUMN receiving_location_id VARCHAR"))
+            session.commit()
+
+
     except Exception as e:
         print(f"Database migration note: {e}")
 

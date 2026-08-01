@@ -62,8 +62,11 @@ def create_sale(
 
     if data.location_id:
         loc = session.get(Location, data.location_id)
-        if not loc or loc.business_id != business_id:
+        if not loc:
             raise HTTPException(status_code=404, detail="Location not found")
+        if loc.is_warehouse:
+            raise HTTPException(status_code=400, detail="Sales cannot be recorded directly from a warehouse location")
+
 
     sale_count = len(session.exec(select(Sale).where(
         Sale.business_id == business_id)).all())

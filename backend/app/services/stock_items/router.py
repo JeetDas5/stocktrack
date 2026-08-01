@@ -147,8 +147,9 @@ def create_business_stock_item(
             if not loc_id:
                 continue
             loc = session.get(Location, loc_id)
-            if not loc or loc.business_id != business_id:
+            if not loc or (loc.business_id and loc.business_id != business_id and not loc.is_global and not loc.is_warehouse):
                 continue
+
 
             storage_capacity = float(rule.get("storage_capacity", 0.0))
             reorder_level = float(rule.get("reorder_level", 0.0))
@@ -365,8 +366,9 @@ def get_location_stock_items(
     verify_user_permission(current_user, business_id, "stock_items.read", location_id=location_id, session=session)
 
     location = session.get(Location, location_id)
-    if not location or location.business_id != business_id:
+    if not location or (location.business_id and location.business_id != business_id and not location.is_global and not location.is_warehouse):
         raise HTTPException(status_code=404, detail="Location not found")
+
 
     sil_records = session.exec(select(StockItemLocation).where(
         StockItemLocation.location_id == location_id)).all()
@@ -511,8 +513,9 @@ def update_business_stock_item(
             if not loc_id:
                 continue
             loc = session.get(Location, loc_id)
-            if not loc or loc.business_id != business_id:
+            if not loc or (loc.business_id and loc.business_id != business_id and not loc.is_global and not loc.is_warehouse):
                 continue
+
 
             storage_capacity = float(rule.get("storage_capacity", 0.0))
             reorder_level = float(rule.get("reorder_level", 0.0))

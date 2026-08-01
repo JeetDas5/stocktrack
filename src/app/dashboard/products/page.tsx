@@ -703,7 +703,7 @@ export default function ProductsPage() {
                       <input
                         type="text"
                         maxLength={20}
-                        placeholder="e.g. PRD-0001 or RC-0001"
+                        placeholder="e.g. PRD-0001"
                         className="w-full bg-white border border-neutral-200 focus:border-neutral-900 focus:ring-4 focus:ring-neutral-900/5 rounded-xl py-2 px-3 text-xs font-semibold text-neutral-900 placeholder:text-neutral-400 focus:outline-none transition"
                         value={formCode}
                         onChange={(e) => setFormCode(e.target.value)}

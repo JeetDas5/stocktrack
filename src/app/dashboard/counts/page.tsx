@@ -71,8 +71,8 @@ export default function StockCountsPage() {
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
+
 
   const [stockItems, setStockItems] = useState<StockItem[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -153,7 +153,6 @@ export default function StockCountsPage() {
       if (!activeBusinessId) return;
       try {
         setLoading(true);
-        setError(null);
 
         const [itemsList, categoriesList] = await Promise.all([
           getStockItems(activeBusinessId),
@@ -217,13 +216,14 @@ export default function StockCountsPage() {
         }
       } catch (err) {
         console.error(err);
-        setError("Failed to load setup data.");
+        toast.error("Failed to load setup data.");
       } finally {
         setLoading(false);
       }
     }
     loadData();
   }, [activeBusinessId, activeLocationId]);
+
 
   useEffect(() => {
     if (!activeBusinessId || loading) return;
@@ -317,7 +317,6 @@ export default function StockCountsPage() {
     if (!activeBusinessId) return;
     try {
       setSaving(true);
-      setError(null);
 
       const itemsPayload = stockItems.map((item) => {
         const counts = itemCounts[item.id] || {
@@ -455,14 +454,15 @@ export default function StockCountsPage() {
       }
     } catch (err) {
       console.error(err);
-      setError(
+      toast.error(
         (err as { response?: { data?: { detail?: string } } }).response?.data
-          ?.detail || "Failed to submit stock count.",
+          ?.detail || "Failed to submit stock count."
       );
     } finally {
       setSaving(false);
     }
   };
+
 
   const locationFilteredItems = stockItems.filter((item) => {
     if (!activeLocationId) return true;
@@ -628,11 +628,6 @@ export default function StockCountsPage() {
           </div>
         </div>
 
-        {error && (
-          <div className="bg-rose-50 border border-rose-200 text-rose-600 text-xs rounded-2xl p-3 text-center font-bold shrink-0">
-            {error}
-          </div>
-        )}
 
         <div className="flex-1 min-h-0 flex flex-col bg-[#F5F5F5] md:bg-white overflow-hidden">
           <div className="hidden md:block border border-zinc-200 rounded-3xl shadow-2xs flex-1 min-h-0 overflow-y-auto">

@@ -167,6 +167,7 @@ def get_current_user(
                                         "stock-items",
                                         "stock-counts",
                                         "deliveries",
+                                        "stock-transfers",
                                         "suppliers",
                                         "recipes",
                                         "consumption",
@@ -200,6 +201,7 @@ def get_current_user(
                     "stock-items",
                     "stock-counts",
                     "deliveries",
+                    "stock-transfers",
                     "suppliers",
                     "recipes",
                     "consumption",
@@ -211,6 +213,7 @@ def get_current_user(
                     "inventory",
                 ):
                     is_module_allowed = "inventory" in user_modules
+
             else:
                 is_module_allowed = True
                 

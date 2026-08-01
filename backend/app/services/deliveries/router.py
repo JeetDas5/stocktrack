@@ -22,6 +22,7 @@ class DeliveryItemCreate(SQLModel):
 
 class DeliveryCreate(SQLModel):
     purchase_order_id: str
+    receiving_location_id: Optional[str] = None
     items: List[DeliveryItemCreate]
     notes: Optional[str] = None
 
@@ -36,7 +37,6 @@ def create_delivery(
     po = session.get(PurchaseOrder, data.purchase_order_id)
     if not po or po.business_id != business_id:
         raise HTTPException(status_code=404, detail="Purchase order not found")
-
 
     verify_user_permission(current_user, business_id, "deliveries.write", location_id=po.location_id, session=session)
 
@@ -59,11 +59,13 @@ def create_delivery(
         status_val = DeliveryStatus.partially_received
 
     total_amount = sum(item.received_quantity * item.unit_cost for item in data.items)
+    actual_receiving_loc = data.receiving_location_id or po.location_id
 
     delivery = Delivery(
         business_id=business_id,
         supplier_id=po.supplier_id,
         purchase_order_id=po.id,
+        receiving_location_id=actual_receiving_loc,
         delivery_number=delivery_number,
         status=status_val,
         notes=data.notes,
@@ -76,19 +78,19 @@ def create_delivery(
 
     for item in data.items:
         stock_item = session.get(StockItem, item.stock_item_id)
-        if not stock_item or stock_item.business_id != business_id:
+        if not stock_item:
             continue
 
-        if po.location_id:
+        if actual_receiving_loc:
             sil = session.exec(
                 select(StockItemLocation)
                 .where(StockItemLocation.stock_item_id == item.stock_item_id)
-                .where(StockItemLocation.location_id == po.location_id)
+                .where(StockItemLocation.location_id == actual_receiving_loc)
             ).first()
             if not sil:
                 sil = StockItemLocation(
                     stock_item_id=item.stock_item_id,
-                    location_id=po.location_id,
+                    location_id=actual_receiving_loc,
                     storage_capacity=100.0,
                     current_stock=item.received_quantity
                 )
