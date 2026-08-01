@@ -127,9 +127,10 @@ def create_purchase_order(
     location_id = None
     if data.location_id:
         loc = session.get(Location, data.location_id)
-        if not loc or loc.business_id != business_id:
+        if not loc or (loc.business_id and loc.business_id != business_id and not loc.is_global and not loc.is_warehouse):
             raise HTTPException(status_code=400, detail="Invalid location ID")
         location_id = data.location_id
+
 
     po_count = len(session.exec(select(PurchaseOrder).where(
         PurchaseOrder.business_id == business_id)).all())
@@ -297,9 +298,10 @@ def update_purchase_order(
             po.location_id = None
         else:
             loc = session.get(Location, data.location_id)
-            if not loc or loc.business_id != business_id:
+            if not loc or (loc.business_id and loc.business_id != business_id and not loc.is_global and not loc.is_warehouse):
                 raise HTTPException(status_code=400, detail="Invalid location ID")
             po.location_id = data.location_id
+
 
     if data.items is not None:
         for i in po.items:

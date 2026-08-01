@@ -14,16 +14,19 @@ export type LocationType = string;
 
 export interface Location {
   id: string;
-  businessId: string;
+  businessId?: string;
   name: string;
   type: LocationType;
   description?: string;
   address?: string;
+  isWarehouse?: boolean;
+  isGlobal?: boolean;
   isActive: boolean;
   createdAt: string;
 }
 
 export type BaseUnit = "kg" | "L" | "pcs";
+
 
 export interface LocationRule {
   id?: string;
@@ -274,6 +277,36 @@ export interface SalesImport {
   dateRange: string;
   createdAt: string;
 }
+
+export type StockTransferStatus = "in_transit" | "completed" | "cancelled";
+
+export interface StockTransferItem {
+  id?: string;
+  transferId?: string;
+  stockItemId: string;
+  stockItemName?: string;
+  dispatchedQty: number;
+  receivedQty?: number;
+  unitCost?: number;
+}
+
+export interface StockTransfer {
+  id: string;
+  transferNumber: string;
+  businessId?: string;
+  fromLocationId: string;
+  fromLocationName?: string;
+  toLocationId: string;
+  toLocationName?: string;
+  status: StockTransferStatus;
+  dispatchedById?: string;
+  receivedById?: string;
+  dispatchedAt: string;
+  receivedAt?: string;
+  notes?: string;
+  items: StockTransferItem[];
+}
+
 
 
 

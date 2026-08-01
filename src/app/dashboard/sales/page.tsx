@@ -85,10 +85,13 @@ export default function SalesEntryPage() {
         getUserBusinesses([]),
       ]);
 
-      const activeLocs = locList.filter((l) => l.isActive !== false);
+      const activeLocs = locList.filter(
+        (l) => l.isActive !== false && !l.isWarehouse && l.type !== "warehouse"
+      );
       setLocations(activeLocs);
       setRecipes(recipeList.filter((r: Recipe) => r.isActive !== false));
       setBusinesses(busList);
+
 
       if (
         activeLocationId &&

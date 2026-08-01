@@ -14,6 +14,8 @@ class LocationCreate(SQLModel):
     description: Optional[str] = None
     type: str = "store"
     address: Optional[str] = None
+    is_warehouse: bool = False
+    is_global: bool = False
     is_active: bool = True
 
 
@@ -40,7 +42,7 @@ def create_business_location(
     **Create Location**
 
     - **business_id**: The unique identifier of the parent business.
-    - **data**: Location attributes (name, description, type, address, active status).
+    - **data**: Location attributes (name, description, type, address, is_warehouse, is_global, active status).
     """
 
     verify_user_permission(current_user, business_id, "locations.write", session=session)
@@ -58,10 +60,12 @@ def create_business_location(
     location = Location(
         name=data.name.strip(),
         description=data.description,
-        type=data.type,
+        type="warehouse" if data.is_warehouse else data.type,
         address=data.address,
+        is_warehouse=data.is_warehouse,
+        is_global=data.is_global,
         is_active=data.is_active,
-        business_id=business_id
+        business_id=None if data.is_global else business_id
     )
     session.add(location)
     session.commit()
@@ -73,7 +77,7 @@ def create_business_location(
     "/api/businesses/{business_id}/locations",
     response_model=List[Location],
     summary="List all locations",
-    description="Retrieves all operational locations mapped under the designated business.",
+    description="Retrieves all operational locations mapped under the designated business plus global central warehouses.",
     responses={
         200: {"description": "List of locations successfully retrieved."},
         403: {"description": "User is not authorized to access this business."},
@@ -93,7 +97,9 @@ def get_business_locations(
 
     allowed_locs = get_allowed_locations(current_user, business_id, "locations.read", session)
 
-    statement = select(Location).where(Location.business_id == business_id)
+    statement = select(Location).where(
+        (Location.business_id == business_id) | (Location.is_global == True) | (Location.is_warehouse == True)
+    )
     if allowed_locs is not None:
         statement = statement.where(Location.id.in_(allowed_locs))
     return session.exec(statement).all()
@@ -103,7 +109,7 @@ def get_business_locations(
     "/api/businesses/{business_id}/locations/{location_id}",
     response_model=Location,
     summary="Update a location",
-    description="Updates structural attributes (name, type, address, etc.) for a specific location within a business.",
+    description="Updates structural attributes (name, type, address, is_warehouse, is_global, etc.) for a specific location.",
     responses={
         200: {"description": "Location details successfully updated."},
         403: {"description": "User is not authorized to edit this business."},
@@ -127,25 +133,28 @@ def update_business_location(
     verify_user_permission(current_user, business_id, "locations.write", location_id=location_id, session=session)
 
     location = session.get(Location, location_id)
-    if not location or location.business_id != business_id:
+    if not location:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Location not found")
 
     existing = session.exec(
         select(Location).where(
-            Location.business_id == business_id,
             Location.id != location_id,
             func.lower(Location.name) == data.name.strip().lower()
         )
     ).first()
     if existing:
         raise HTTPException(
-            status_code=409, detail=f"A location with the name '{data.name.strip()}' already exists in this business")
+            status_code=409, detail=f"A location with the name '{data.name.strip()}' already exists")
 
     location.name = data.name.strip()
     location.description = data.description
-    location.type = data.type
+    location.type = "warehouse" if data.is_warehouse else data.type
     location.address = data.address
+    location.is_warehouse = data.is_warehouse
+    location.is_global = data.is_global
     location.is_active = data.is_active
+    if data.is_global:
+        location.business_id = None
 
     session.add(location)
     session.commit()
@@ -178,7 +187,9 @@ def delete_business_location(
     verify_user_permission(current_user, business_id, "locations.write", location_id=location_id, session=session)
 
     location = session.get(Location, location_id)
-    if not location or location.business_id != business_id:
+    if not location:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Location not found")
+    if location.business_id and location.business_id != business_id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Location not found")
 
     session.delete(location)
@@ -212,7 +223,10 @@ def get_location(
     verify_user_permission(current_user, business_id, "locations.read", location_id=location_id, session=session)
 
     location = session.get(Location, location_id)
-    if not location or location.business_id != business_id:
+    if not location:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Location not found")
+    if location.business_id and location.business_id != business_id and not location.is_global and not location.is_warehouse:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Location not found")
     return location
+
 

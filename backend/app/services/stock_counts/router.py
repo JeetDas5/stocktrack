@@ -95,9 +95,10 @@ def create_business_stock_count(
     location_name = None
     if data.location_id:
         loc = session.get(Location, data.location_id)
-        if not loc or loc.business_id != business_id:
+        if not loc or (loc.business_id and loc.business_id != business_id and not loc.is_global and not loc.is_warehouse):
             raise HTTPException(status_code=400, detail="Invalid location ID")
         location_name = loc.name
+
 
     count_sess = StockCountSession(
         business_id=business_id,
@@ -412,9 +413,10 @@ def update_business_stock_count(
 
     if data.location_id:
         loc = session.get(Location, data.location_id)
-        if not loc or loc.business_id != business_id:
+        if not loc or (loc.business_id and loc.business_id != business_id and not loc.is_global and not loc.is_warehouse):
             raise HTTPException(status_code=400, detail="Invalid location ID")
         count_sess.location_id = data.location_id
+
 
     count_sess.count_type = data.count_type
     count_sess.count_date = data.count_date

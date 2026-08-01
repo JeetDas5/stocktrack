@@ -1,3 +1,5 @@
+# AGENTS.md
+
 ## NexBrix Development Guidelines
 
 Follow these rules for every change made to the project.

@@ -40,6 +40,7 @@ const MODULE_ROUTES: Record<string, string[]> = {
     "/dashboard/refill-planner",
     "/dashboard/purchase-orders",
     "/dashboard/deliveries",
+    "/dashboard/stock-transfers",
     "/dashboard/reconciliation",
     "/dashboard/sales",
     "/dashboard/sales-imports",
