@@ -75,14 +75,6 @@ export default function StockItemsPage() {
     }[]
   >([]);
 
-  const [reorderOption, setReorderOption] = useState<"same" | "different">(
-    "same",
-  );
-  const [sameCapacity, setSameCapacity] = useState("");
-  const [sameCapacityUnit, setSameCapacityUnit] = useState("Each");
-  const [sameReorder, setSameReorder] = useState("");
-  const [sameReorderUnit, setSameReorderUnit] = useState("Each");
-  const [sameCurrentStock, setSameCurrentStock] = useState("");
 
   const [locationRulesMap, setLocationRulesMap] = useState<
     Record<
@@ -182,13 +174,6 @@ export default function StockItemsPage() {
     setFormCostPerBaseUnit("");
     setCountingOptions([]);
 
-    setReorderOption("same");
-    setSameCapacity("");
-    setSameCapacityUnit("pcs");
-    setSameReorder("");
-    setSameReorderUnit("pcs");
-    setSameCurrentStock("");
-
     const initialRules: Record<
       string,
       {
@@ -229,46 +214,6 @@ export default function StockItemsPage() {
       item.costPerBaseUnit ? String(item.costPerBaseUnit) : "",
     );
     setCountingOptions(item.countingOptions || []);
-
-    const hasDifferentRules =
-      item.locationRules &&
-      item.locationRules.length > 1 &&
-      item.locationRules.some(
-        (r, _, arr) =>
-          r.storageCapacity !== arr[0].storageCapacity ||
-          r.reorderLevel !== arr[0].reorderLevel,
-      );
-
-    if (hasDifferentRules) {
-      setReorderOption("different");
-      setSameCapacity("");
-      setSameCapacityUnit(item.baseUnit || "pcs");
-      setSameReorder("");
-      setSameReorderUnit(item.baseUnit || "pcs");
-      setSameCurrentStock("");
-    } else {
-      setReorderOption("same");
-      const firstRule = item.locationRules?.[0];
-      setSameCapacity(
-        firstRule?.storageCapacity !== undefined
-          ? String(firstRule.storageCapacity)
-          : "",
-      );
-      setSameCapacityUnit(
-        firstRule?.storageCapacityUnit || item.baseUnit || "pcs",
-      );
-      setSameReorder(
-        firstRule?.reorderLevel !== undefined
-          ? String(firstRule.reorderLevel)
-          : "",
-      );
-      setSameReorderUnit(firstRule?.reorderLevelUnit || item.baseUnit || "pcs");
-      setSameCurrentStock(
-        firstRule?.currentStock !== undefined
-          ? String(firstRule.currentStock)
-          : "",
-      );
-    }
 
     const rulesMap: Record<
       string,
@@ -353,14 +298,32 @@ export default function StockItemsPage() {
         currentStock: number;
       }[] = [];
 
-      if (reorderOption === "same") {
-        const capConverted = getConvertedValue(sameCapacity, sameCapacityUnit);
-        const reoConverted = getConvertedValue(sameReorder, sameReorderUnit);
-        const stockConverted = parseFloat(sameCurrentStock) || 0;
+      locations
+        .filter((loc) => selectedLocations.includes(loc.id))
+        .forEach((loc) => {
+          const rule = locationRulesMap[loc.id];
+          if (rule) {
+            const selectedCapUnit = dynamicUnits.includes(
+              rule.storageCapacityUnit,
+            )
+              ? rule.storageCapacityUnit
+              : dynamicUnits[0];
+            const selectedReoUnit = dynamicUnits.includes(
+              rule.reorderLevelUnit,
+            )
+              ? rule.reorderLevelUnit
+              : dynamicUnits[0];
 
-        locations
-          .filter((loc) => selectedLocations.includes(loc.id))
-          .forEach((loc) => {
+            const capConverted = getConvertedValue(
+              rule.storageCapacity,
+              selectedCapUnit,
+            );
+            const reoConverted = getConvertedValue(
+              rule.reorderLevel,
+              selectedReoUnit,
+            );
+            const stockConverted = parseFloat(rule.currentStock) || 0;
+
             rulesPayload.push({
               locationId: loc.id,
               storageCapacity: capConverted,
@@ -369,45 +332,8 @@ export default function StockItemsPage() {
               reorderLevelUnit: formBaseUnit,
               currentStock: stockConverted,
             });
-          });
-      } else {
-        locations
-          .filter((loc) => selectedLocations.includes(loc.id))
-          .forEach((loc) => {
-            const rule = locationRulesMap[loc.id];
-            if (rule) {
-              const selectedCapUnit = dynamicUnits.includes(
-                rule.storageCapacityUnit,
-              )
-                ? rule.storageCapacityUnit
-                : dynamicUnits[0];
-              const selectedReoUnit = dynamicUnits.includes(
-                rule.reorderLevelUnit,
-              )
-                ? rule.reorderLevelUnit
-                : dynamicUnits[0];
-
-              const capConverted = getConvertedValue(
-                rule.storageCapacity,
-                selectedCapUnit,
-              );
-              const reoConverted = getConvertedValue(
-                rule.reorderLevel,
-                selectedReoUnit,
-              );
-              const stockConverted = parseFloat(rule.currentStock) || 0;
-
-              rulesPayload.push({
-                locationId: loc.id,
-                storageCapacity: capConverted,
-                storageCapacityUnit: formBaseUnit,
-                reorderLevel: reoConverted,
-                reorderLevelUnit: formBaseUnit,
-                currentStock: stockConverted,
-              });
-            }
-          });
-      }
+          }
+        });
 
       const itemData = {
         businessId: activeBusinessId,
