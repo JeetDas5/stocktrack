@@ -84,5 +84,7 @@ export interface PendingStaffAssignment {
   created_at: string;
   first_name?: string | null;
   last_name?: string | null;
+  position?: string | null;
+  priority?: number | null;
 }
 

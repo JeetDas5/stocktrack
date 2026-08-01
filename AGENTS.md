@@ -20,6 +20,8 @@ Follow these rules for every change made to the project.
   Instead, derive the value directly or use `useMemo` when needed.
 - Use `useEffect` only for synchronizing with external systems (API calls, subscriptions, timers, etc.).
 
+- Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended
+
 ### UI & Design
 
 - Follow the existing **NexBrix design system and color schema**.
