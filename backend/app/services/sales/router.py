@@ -10,7 +10,7 @@ from app.models import (
     User, StockItem, Location, Sale, SaleItem, SaleStatus,
     StockItemLocation, Recipe, SalesImport
 )
-from app.services.auth.dependencies import get_current_user, verify_user_permission, get_allowed_locations
+from app.services.auth.dependencies import get_current_user, verify_user_permission, get_allowed_locations, is_location_accessible
 
 
 router = APIRouter(tags=["Sales"])
@@ -62,7 +62,7 @@ def create_sale(
 
     if data.location_id:
         loc = session.get(Location, data.location_id)
-        if not loc:
+        if not is_location_accessible(session, loc, business_id):
             raise HTTPException(status_code=404, detail="Location not found")
         if loc.is_warehouse:
             raise HTTPException(status_code=400, detail="Sales cannot be recorded directly from a warehouse location")

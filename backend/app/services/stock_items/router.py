@@ -8,7 +8,7 @@ from app.models import (
     User, Category, Location, Supplier, StockItem,
     StockItemLocation, CountingOption
 )
-from app.services.auth.dependencies import get_current_user, verify_user_permission, get_allowed_locations
+from app.services.auth.dependencies import get_current_user, verify_user_permission, get_allowed_locations, is_location_accessible
 
 router = APIRouter(tags=["Stock Items"])
 
@@ -147,7 +147,7 @@ def create_business_stock_item(
             if not loc_id:
                 continue
             loc = session.get(Location, loc_id)
-            if not loc or (loc.business_id and loc.business_id != business_id and not loc.is_global and not loc.is_warehouse):
+            if not is_location_accessible(session, loc, business_id):
                 continue
 
 
@@ -366,7 +366,7 @@ def get_location_stock_items(
     verify_user_permission(current_user, business_id, "stock_items.read", location_id=location_id, session=session)
 
     location = session.get(Location, location_id)
-    if not location or (location.business_id and location.business_id != business_id and not location.is_global and not location.is_warehouse):
+    if not is_location_accessible(session, location, business_id):
         raise HTTPException(status_code=404, detail="Location not found")
 
 
@@ -513,7 +513,7 @@ def update_business_stock_item(
             if not loc_id:
                 continue
             loc = session.get(Location, loc_id)
-            if not loc or (loc.business_id and loc.business_id != business_id and not loc.is_global and not loc.is_warehouse):
+            if not is_location_accessible(session, loc, business_id):
                 continue
 
 

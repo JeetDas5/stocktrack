@@ -8,7 +8,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlmodel import Session, select
 
 from app.database import get_session
-from app.models import User, SessionTable, Business, UserAssignment
+from app.models import User, SessionTable, Business, UserAssignment, Location
 from app.services.auth.utils import decode_access_token
 
 security = HTTPBearer(auto_error=False)
@@ -337,5 +337,36 @@ def get_allowed_locations(
                 allowed_locs.append(ass.location_id)
 
     return allowed_locs
+
+
+def get_owner_business_ids(session: Session, business_id: str) -> List[str]:
+    """
+    Returns all business IDs owned by the creator of the given business_id.
+    """
+    business = session.get(Business, business_id)
+    if not business or not business.created_by_id:
+        return [business_id]
+
+    owner_businesses = session.exec(
+        select(Business.id).where(Business.created_by_id == business.created_by_id)
+    ).all()
+    return list(owner_businesses) if owner_businesses else [business_id]
+
+
+def is_location_accessible(session: Session, loc: Optional[Location], business_id: str) -> bool:
+    """
+    Returns True if loc belongs to business_id, OR if loc is a global/warehouse location
+    belonging to one of the businesses owned by the same business owner.
+    """
+    if not loc:
+        return False
+    if loc.business_id == business_id:
+        return True
+    if loc.is_global or loc.is_warehouse:
+        owner_biz_ids = get_owner_business_ids(session, business_id)
+        if loc.business_id is None or loc.business_id in owner_biz_ids:
+            return True
+    return False
+
 
 

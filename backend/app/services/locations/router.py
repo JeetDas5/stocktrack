@@ -4,7 +4,13 @@ from sqlmodel import Session, select, SQLModel, func
 
 from app.database import get_session
 from app.models import User, Location
-from app.services.auth.dependencies import get_current_user, verify_user_permission, get_allowed_locations
+from app.services.auth.dependencies import (
+    get_current_user,
+    verify_user_permission,
+    get_allowed_locations,
+    get_owner_business_ids,
+    is_location_accessible,
+)
 
 router = APIRouter(tags=["Locations"])
 
@@ -47,9 +53,11 @@ def create_business_location(
 
     verify_user_permission(current_user, business_id, "locations.write", session=session)
 
+    owner_biz_ids = get_owner_business_ids(session, business_id)
+
     existing = session.exec(
         select(Location).where(
-            Location.business_id == business_id,
+            (Location.business_id.in_(owner_biz_ids)) | (Location.business_id == None),
             func.lower(Location.name) == data.name.strip().lower()
         )
     ).first()
@@ -65,7 +73,7 @@ def create_business_location(
         is_warehouse=data.is_warehouse,
         is_global=data.is_global,
         is_active=data.is_active,
-        business_id=None if data.is_global else business_id
+        business_id=business_id
     )
     session.add(location)
     session.commit()
@@ -77,7 +85,7 @@ def create_business_location(
     "/api/businesses/{business_id}/locations",
     response_model=List[Location],
     summary="List all locations",
-    description="Retrieves all operational locations mapped under the designated business plus global central warehouses.",
+    description="Retrieves all operational locations mapped under the designated business plus global central warehouses belonging to the owner.",
     responses={
         200: {"description": "List of locations successfully retrieved."},
         403: {"description": "User is not authorized to access this business."},
@@ -96,9 +104,14 @@ def get_business_locations(
     """
 
     allowed_locs = get_allowed_locations(current_user, business_id, "locations.read", session)
+    owner_biz_ids = get_owner_business_ids(session, business_id)
 
     statement = select(Location).where(
-        (Location.business_id == business_id) | (Location.is_global == True) | (Location.is_warehouse == True)
+        (Location.business_id == business_id) |
+        (
+            ((Location.is_global == True) | (Location.is_warehouse == True)) &
+            ((Location.business_id.in_(owner_biz_ids)) | (Location.business_id == None))
+        )
     )
     if allowed_locs is not None:
         statement = statement.where(Location.id.in_(allowed_locs))
@@ -133,18 +146,22 @@ def update_business_location(
     verify_user_permission(current_user, business_id, "locations.write", location_id=location_id, session=session)
 
     location = session.get(Location, location_id)
-    if not location:
+    if not is_location_accessible(session, location, business_id):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Location not found")
+
+    owner_biz_ids = get_owner_business_ids(session, business_id)
 
     existing = session.exec(
         select(Location).where(
             Location.id != location_id,
+            (Location.business_id.in_(owner_biz_ids)) | (Location.business_id == None),
             func.lower(Location.name) == data.name.strip().lower()
         )
     ).first()
+
     if existing:
         raise HTTPException(
-            status_code=409, detail=f"A location with the name '{data.name.strip()}' already exists")
+            status_code=409, detail=f"A location with the name '{data.name.strip()}' already exists in this business")
 
     location.name = data.name.strip()
     location.description = data.description
@@ -153,8 +170,8 @@ def update_business_location(
     location.is_warehouse = data.is_warehouse
     location.is_global = data.is_global
     location.is_active = data.is_active
-    if data.is_global:
-        location.business_id = None
+    if not location.business_id:
+        location.business_id = business_id
 
     session.add(location)
     session.commit()
@@ -187,9 +204,7 @@ def delete_business_location(
     verify_user_permission(current_user, business_id, "locations.write", location_id=location_id, session=session)
 
     location = session.get(Location, location_id)
-    if not location:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Location not found")
-    if location.business_id and location.business_id != business_id:
+    if not is_location_accessible(session, location, business_id):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Location not found")
 
     session.delete(location)
@@ -223,9 +238,7 @@ def get_location(
     verify_user_permission(current_user, business_id, "locations.read", location_id=location_id, session=session)
 
     location = session.get(Location, location_id)
-    if not location:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Location not found")
-    if location.business_id and location.business_id != business_id and not location.is_global and not location.is_warehouse:
+    if not is_location_accessible(session, location, business_id):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Location not found")
     return location
 

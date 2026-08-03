@@ -8,7 +8,7 @@ from app.models import (
     User, Location, StockItem, StockCountSession, StockCountItem,
     StockCountStatus, StockItemLocation
 )
-from app.services.auth.dependencies import get_current_user, verify_user_permission, get_allowed_locations
+from app.services.auth.dependencies import get_current_user, verify_user_permission, get_allowed_locations, is_location_accessible
 
 router = APIRouter(tags=["Stock Counts"])
 
@@ -95,7 +95,7 @@ def create_business_stock_count(
     location_name = None
     if data.location_id:
         loc = session.get(Location, data.location_id)
-        if not loc or (loc.business_id and loc.business_id != business_id and not loc.is_global and not loc.is_warehouse):
+        if not is_location_accessible(session, loc, business_id):
             raise HTTPException(status_code=400, detail="Invalid location ID")
         location_name = loc.name
 
@@ -413,7 +413,7 @@ def update_business_stock_count(
 
     if data.location_id:
         loc = session.get(Location, data.location_id)
-        if not loc or (loc.business_id and loc.business_id != business_id and not loc.is_global and not loc.is_warehouse):
+        if not is_location_accessible(session, loc, business_id):
             raise HTTPException(status_code=400, detail="Invalid location ID")
         count_sess.location_id = data.location_id
 
