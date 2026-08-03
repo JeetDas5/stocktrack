@@ -25,12 +25,47 @@ interface AddressAutocompleteInputProps {
 
 interface SuggestionItem {
   id: string;
-  addressLine1: string;
-  city: string;
-  stateProvince: string;
-  postalCode: string;
-  country: string;
+  mainText: string;
+  secondaryText: string;
   formatted: string;
+  isGooglePlace?: boolean;
+  details?: AddressDetails;
+}
+
+declare global {
+  interface Window {
+    google?: any;
+  }
+}
+
+let googleScriptLoadingPromise: Promise<void> | null = null;
+
+function loadGoogleMapsSdk(apiKey: string): Promise<void> {
+  if (typeof window === "undefined") return Promise.reject();
+  if (window.google?.maps?.places) return Promise.resolve();
+
+  if (!googleScriptLoadingPromise) {
+    googleScriptLoadingPromise = new Promise((resolve, reject) => {
+      const scriptId = "google-maps-js-sdk";
+      const existingScript = document.getElementById(scriptId);
+      if (existingScript) {
+        existingScript.addEventListener("load", () => resolve());
+        existingScript.addEventListener("error", (err) => reject(err));
+        return;
+      }
+
+      const script = document.createElement("script");
+      script.id = scriptId;
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
+      script.async = true;
+      script.defer = true;
+      script.onload = () => resolve();
+      script.onerror = (err) => reject(err);
+      document.head.appendChild(script);
+    });
+  }
+
+  return googleScriptLoadingPromise;
 }
 
 export function AddressAutocompleteInput({
@@ -47,8 +82,37 @@ export function AddressAutocompleteInput({
   const [loading, setLoading] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState<number>(-1);
+  const [isGooglePowered, setIsGooglePowered] = useState(false);
+
   const containerRef = useRef<HTMLDivElement>(null);
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  const autocompleteServiceRef = useRef<any>(null);
+  const placesServiceRef = useRef<any>(null);
+
+  // Initialize Google Maps services
+  useEffect(() => {
+    const apiKey =
+      process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ||
+      process.env.NEXT_PUBLIC_GOOGLE_PLACES_API_KEY;
+
+    if (!apiKey) return;
+
+    loadGoogleMapsSdk(apiKey)
+      .then(() => {
+        if (window.google?.maps?.places) {
+          setIsGooglePowered(true);
+          autocompleteServiceRef.current =
+            new window.google.maps.places.AutocompleteService();
+          const dummyDiv = document.createElement("div");
+          placesServiceRef.current =
+            new window.google.maps.places.PlacesService(dummyDiv);
+        }
+      })
+      .catch((err) => {
+        console.warn("Failed to load Google Maps Places SDK, falling back to OSM", err);
+      });
+  }, []);
 
   // Close dropdown on click outside
   useEffect(() => {
@@ -76,63 +140,51 @@ export function AddressAutocompleteInput({
 
     setLoading(true);
 
-    const geoapifyKey = process.env.NEXT_PUBLIC_GEOAPIFY_API_KEY;
+    // 1. Try Google Maps Places Autocomplete if service is ready
+    if (autocompleteServiceRef.current && window.google?.maps?.places) {
+      try {
+        autocompleteServiceRef.current.getPlacePredictions(
+          {
+            input: query,
+            types: ["geocode", "establishment"],
+          },
+          (predictions: any[], status: any) => {
+            if (
+              status === window.google.maps.places.PlacesServiceStatus.OK &&
+              predictions &&
+              predictions.length > 0
+            ) {
+              const googleItems: SuggestionItem[] = predictions.map((p) => ({
+                id: p.place_id,
+                mainText: p.structured_formatting?.main_text || p.description,
+                secondaryText: p.structured_formatting?.secondary_text || "",
+                formatted: p.description,
+                isGooglePlace: true,
+              }));
 
-    try {
-      if (geoapifyKey) {
-        const url = `https://api.geoapify.com/v1/geocode/autocomplete?text=${encodeURIComponent(
-          query
-        )}&apiKey=${geoapifyKey}`;
-        const res = await fetch(url);
-        if (res.ok) {
-          const data = await res.json();
-          const items: SuggestionItem[] = (data.features || []).map(
-            (feat: any, idx: number) => {
-              const props = feat.properties || {};
-              let line1 = props.address_line1;
-              if (!line1 && (props.housenumber || props.street)) {
-                line1 = [props.housenumber, props.street]
-                  .filter(Boolean)
-                  .join(" ");
-              }
-              if (!line1) {
-                line1 = props.name || props.street || props.formatted || query;
-              }
-
-              const city =
-                props.city ||
-                props.municipality ||
-                props.town ||
-                props.village ||
-                props.suburb ||
-                props.county ||
-                "";
-              const state = props.state || props.region || props.state_code || "";
-              const postalCode = props.postcode || "";
-              const country = props.country || "";
-
-              return {
-                id: props.place_id || `geoapify-${idx}`,
-                addressLine1: line1,
-                city,
-                stateProvince: state,
-                postalCode,
-                country,
-                formatted: props.formatted || line1,
-              };
+              setSuggestions(googleItems);
+              setIsGooglePowered(true);
+              setIsOpen(true);
+              setLoading(false);
+              return;
             }
-          );
 
-          if (items.length > 0) {
-            setSuggestions(items);
-            setIsOpen(true);
-            setLoading(false);
-            return;
+            // Fallback to OSM if Google predictions status is zero results or errored
+            fetchOsmFallback(query);
           }
-        }
+        );
+        return;
+      } catch (err) {
+        console.error("Google Places prediction error:", err);
       }
+    }
 
-      // Fallback: Photon (OpenStreetMap) if no key or no results from Geoapify
+    // 2. Fallback to OpenStreetMap / Photon
+    fetchOsmFallback(query);
+  }, []);
+
+  const fetchOsmFallback = async (query: string) => {
+    try {
       const photonUrl = `https://photon.komoot.io/api/?q=${encodeURIComponent(
         query
       )}&limit=5`;
@@ -157,30 +209,37 @@ export function AddressAutocompleteInput({
 
             return {
               id: `photon-${idx}-${props.osm_id || idx}`,
-              addressLine1: line1,
-              city,
-              stateProvince: state,
-              postalCode,
-              country,
+              mainText: line1,
+              secondaryText: subtitle,
               formatted,
+              isGooglePlace: false,
+              details: {
+                addressLine1: line1,
+                city,
+                stateProvince: state,
+                postalCode,
+                country,
+                formattedAddress: formatted,
+              },
             };
           }
         );
 
         setSuggestions(items);
+        setIsGooglePowered(false);
         setIsOpen(items.length > 0);
       } else {
         setSuggestions([]);
         setIsOpen(false);
       }
     } catch (err) {
-      console.error("Address autocomplete fetch error:", err);
+      console.error("OSM autocomplete error:", err);
       setSuggestions([]);
       setIsOpen(false);
     } finally {
       setLoading(false);
     }
-  }, []);
+  };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
@@ -202,18 +261,101 @@ export function AddressAutocompleteInput({
     }
   };
 
-  const handleSelectSuggestion = (item: SuggestionItem) => {
-    onAddressSelect({
-      addressLine1: item.addressLine1,
-      city: item.city,
-      stateProvince: item.stateProvince,
-      postalCode: item.postalCode,
-      country: item.country,
-      formattedAddress: item.formatted,
+  const parseGooglePlaceDetails = (place: any, fallbackFormatted: string): AddressDetails => {
+    const components = place.address_components || [];
+    let streetNumber = "";
+    let route = "";
+    let city = "";
+    let state = "";
+    let postalCode = "";
+    let country = "";
+
+    components.forEach((c: any) => {
+      const types: string[] = c.types || [];
+      if (types.includes("street_number")) {
+        streetNumber = c.long_name || c.short_name;
+      } else if (types.includes("route")) {
+        route = c.long_name || c.short_name;
+      } else if (
+        types.includes("locality") ||
+        types.includes("postal_town") ||
+        types.includes("sublocality_level_1")
+      ) {
+        if (!city) city = c.long_name || c.short_name;
+      } else if (types.includes("administrative_area_level_1")) {
+        state = c.long_name || c.short_name;
+      } else if (types.includes("postal_code")) {
+        postalCode = c.long_name || c.short_name;
+      } else if (types.includes("country")) {
+        country = c.long_name || c.short_name;
+      }
     });
-    setIsOpen(false);
-    setSuggestions([]);
-    setSelectedIndex(-1);
+
+    const addressLine1 =
+      [streetNumber, route].filter(Boolean).join(" ") ||
+      place.name ||
+      fallbackFormatted;
+
+    return {
+      addressLine1,
+      city,
+      stateProvince: state,
+      postalCode,
+      country,
+      formattedAddress: place.formatted_address || fallbackFormatted,
+    };
+  };
+
+  const handleSelectSuggestion = (item: SuggestionItem) => {
+    if (item.isGooglePlace && placesServiceRef.current) {
+      setLoading(true);
+      placesServiceRef.current.getDetails(
+        {
+          placeId: item.id,
+          fields: ["address_components", "formatted_address", "name"],
+        },
+        (place: any, status: any) => {
+          setLoading(false);
+          if (
+            status === window.google.maps.places.PlacesServiceStatus.OK &&
+            place
+          ) {
+            const details = parseGooglePlaceDetails(place, item.formatted);
+            onAddressSelect(details);
+          } else {
+            // Fallback if details lookup fails
+            onAddressSelect({
+              addressLine1: item.mainText,
+              city: "",
+              stateProvince: "",
+              postalCode: "",
+              country: "",
+              formattedAddress: item.formatted,
+            });
+          }
+          setIsOpen(false);
+          setSuggestions([]);
+          setSelectedIndex(-1);
+        }
+      );
+    } else if (item.details) {
+      onAddressSelect(item.details);
+      setIsOpen(false);
+      setSuggestions([]);
+      setSelectedIndex(-1);
+    } else {
+      onAddressSelect({
+        addressLine1: item.mainText,
+        city: "",
+        stateProvince: "",
+        postalCode: "",
+        country: "",
+        formattedAddress: item.formatted,
+      });
+      setIsOpen(false);
+      setSuggestions([]);
+      setSelectedIndex(-1);
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -274,7 +416,7 @@ export function AddressAutocompleteInput({
                 setSuggestions([]);
                 setIsOpen(false);
               }}
-              className="text-zinc-400 hover:text-zinc-600 transition-colors p-0.5"
+              className="text-zinc-400 hover:text-zinc-600 transition-colors p-0.5 cursor-pointer"
             >
               <X className="h-3.5 w-3.5" />
             </button>
@@ -287,21 +429,12 @@ export function AddressAutocompleteInput({
           <div className="px-3 py-1.5 text-[10px] font-bold tracking-wider text-zinc-400 uppercase border-b border-zinc-100 flex items-center justify-between">
             <span>Address Suggestions</span>
             <span className="text-[9px] font-semibold text-zinc-400">
-              Powered by Geoapify
+              {isGooglePowered ? "Powered by Google Maps" : "Powered by OpenStreetMap"}
             </span>
           </div>
 
           {suggestions.map((item, idx) => {
             const isSelected = idx === selectedIndex;
-            const subtitle = [
-              item.city,
-              item.stateProvince,
-              item.postalCode,
-              item.country,
-            ]
-              .filter(Boolean)
-              .join(", ");
-
             return (
               <button
                 key={item.id}
@@ -315,11 +448,11 @@ export function AddressAutocompleteInput({
                 <MapPin className="h-4 w-4 text-[#0a2924] shrink-0 mt-0.5" />
                 <div className="min-w-0 flex-1">
                   <p className="text-xs font-bold text-zinc-900 truncate">
-                    {item.addressLine1}
+                    {item.mainText}
                   </p>
-                  {subtitle && (
+                  {item.secondaryText && (
                     <p className="text-[11px] text-zinc-500 truncate">
-                      {subtitle}
+                      {item.secondaryText}
                     </p>
                   )}
                 </div>
