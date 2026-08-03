@@ -73,7 +73,6 @@ export default function StockCountsPage() {
   const [saving, setSaving] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
 
-
   const [stockItems, setStockItems] = useState<StockItem[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
 
@@ -223,7 +222,6 @@ export default function StockCountsPage() {
     }
     loadData();
   }, [activeBusinessId, activeLocationId]);
-
 
   useEffect(() => {
     if (!activeBusinessId || loading) return;
@@ -456,13 +454,12 @@ export default function StockCountsPage() {
       console.error(err);
       toast.error(
         (err as { response?: { data?: { detail?: string } } }).response?.data
-          ?.detail || "Failed to submit stock count."
+          ?.detail || "Failed to submit stock count.",
       );
     } finally {
       setSaving(false);
     }
   };
-
 
   const locationFilteredItems = stockItems.filter((item) => {
     if (!activeLocationId) return true;
@@ -513,25 +510,21 @@ export default function StockCountsPage() {
   return (
     <div className="flex flex-col bg-[#F5F5F5] md:bg-white h-full w-full relative select-none">
       <div className="flex-1 min-w-0 flex flex-col space-y-3 min-h-0 w-full max-w-full">
-        <div className="bg-white border border-neutral-200 rounded-3xl py-4 px-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 shadow-sm">
+        <div className="bg-white border border-neutral-200 rounded-3xl py-4 px-6 flex flex-row justify-between items-start sm:items-center gap-4 shadow-sm">
           <h1 className="text-[24px] font-bold text-neutral-900 tracking-tight">
             Stock Counts
           </h1>
 
-          <div className="flex flex-col md:flex-row items-end md:items-center gap-1 md:gap-4">
+          <div className="flex flex-col md:flex-row items-end md:items-end gap-1 md:gap-4">
             <span className="text-[10px] md:text-[11px] font-bold text-zinc-500 uppercase tracking-wider whitespace-nowrap">
-              {countedItemsCount} of {totalItemsCount} items counted
+              {countedItemsCount} of {totalItemsCount} <br /> items counted (
+              {completionPercent}%)
             </span>
-            <div className="flex items-center gap-2">
-              <div className="w-24 md:w-48 bg-zinc-100 h-1.5 rounded-full overflow-hidden border border-zinc-200/50 shrink-0">
-                <div
-                  className="bg-[#16A34A] h-full rounded-full transition-all duration-500"
-                  style={{ width: `${completionPercent}%` }}
-                />
-              </div>
-              <span className="text-[10px] md:text-xs font-bold text-zinc-400 whitespace-nowrap">
-                ({completionPercent}%)
-              </span>
+            <div className="w-32 md:w-48 bg-zinc-100 h-1.5 rounded-full overflow-hidden border border-zinc-200/50 shrink-0 mb-1">
+              <div
+                className="bg-[#16A34A] h-full rounded-full transition-all duration-500"
+                style={{ width: `${completionPercent}%` }}
+              />
             </div>
           </div>
         </div>
@@ -627,7 +620,6 @@ export default function StockCountsPage() {
             </div>
           </div>
         </div>
-
 
         <div className="flex-1 min-h-0 flex flex-col bg-[#F5F5F5] md:bg-white overflow-hidden">
           <div className="hidden md:block border border-zinc-200 rounded-3xl shadow-2xs flex-1 min-h-0 overflow-y-auto">
@@ -863,9 +855,9 @@ export default function StockCountsPage() {
                       <h3 className="text-[15px] font-bold text-zinc-900 truncate">
                         {item.name}
                       </h3>
-                      <span className="bg-[#E8F5E2] text-[#2D6A2D] text-[11px] font-bold px-3 py-1 rounded-full whitespace-nowrap shrink-0">
+                      <span className="bg-[#e8eae9] text-black text-[11px] px-3 py-1 rounded-full whitespace-nowrap shrink-0">
                         Total:{" "}
-                        <span className="font-extrabold">
+                        <span className="font-bold">
                           {totalBaseQty} {item.baseUnit}
                         </span>
                       </span>
