@@ -642,11 +642,16 @@ export default function LocationsPage() {
                       if (val === "CREATE_NEW_CUSTOM") {
                         setIsCreatingCustomType(true);
                         setFormType("CREATE_NEW_CUSTOM");
+                        setFormIsWarehouse(false);
+                        setFormIsGlobal(false);
                       } else {
                         setIsCreatingCustomType(false);
                         setFormType(val);
                         if (val === "warehouse") {
                           setFormIsWarehouse(true);
+                        } else {
+                          setFormIsWarehouse(false);
+                          setFormIsGlobal(false);
                         }
                       }
                     }}
@@ -673,7 +678,7 @@ export default function LocationsPage() {
                   )}
                 </div>
 
-                {formType === "warehouse" ? (
+                {formType === "warehouse" && (
                   <div className="space-y-3 bg-zinc-50 p-3.5 rounded-xl border border-zinc-200">
                     <div className="flex items-center gap-2">
                       <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-50 text-emerald-800 text-xs font-bold border border-emerald-200">
@@ -700,44 +705,6 @@ export default function LocationsPage() {
                         </span>
                       </div>
                     </label>
-                  </div>
-                ) : (
-                  <div className="space-y-3 bg-zinc-50 p-3.5 rounded-xl border border-zinc-200">
-                    <label className="flex items-start gap-2.5 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={formIsWarehouse}
-                        onChange={(e) => setFormIsWarehouse(e.target.checked)}
-                        className="mt-0.5 h-4 w-4 rounded border-zinc-300 text-black focus:ring-black"
-                      />
-                      <div>
-                        <span className="text-xs font-bold text-[#0F172A] block">
-                          Set as Warehouse / Central Hub
-                        </span>
-                        <span className="text-[11px] text-[#64748B]">
-                          Blocks direct sales entry and enables inter-location stock transfers.
-                        </span>
-                      </div>
-                    </label>
-
-                    {formIsWarehouse && (
-                      <label className="flex items-start gap-2.5 cursor-pointer pt-2 border-t border-zinc-200">
-                        <input
-                          type="checkbox"
-                          checked={formIsGlobal}
-                          onChange={(e) => setFormIsGlobal(e.target.checked)}
-                          className="mt-0.5 h-4 w-4 rounded border-zinc-300 text-black focus:ring-black"
-                        />
-                        <div>
-                          <span className="text-xs font-bold text-[#0F172A] block">
-                            Global / Cross-Business Warehouse
-                          </span>
-                          <span className="text-[11px] text-[#64748B]">
-                            Allows this warehouse to serve all businesses and store shared items.
-                          </span>
-                        </div>
-                      </label>
-                    )}
                   </div>
                 )}
 

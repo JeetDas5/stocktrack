@@ -8,7 +8,7 @@ from app.models import (
     User, Location, StockItem, Supplier, StockItemLocation,
     PurchaseOrder, PurchaseOrderItem, PurchaseOrderStatus
 )
-from app.services.auth.dependencies import get_current_user, verify_user_permission, get_allowed_locations
+from app.services.auth.dependencies import get_current_user, verify_user_permission, get_allowed_locations, is_location_accessible
 
 router = APIRouter(tags=["Purchase Orders"])
 
@@ -127,7 +127,7 @@ def create_purchase_order(
     location_id = None
     if data.location_id:
         loc = session.get(Location, data.location_id)
-        if not loc or (loc.business_id and loc.business_id != business_id and not loc.is_global and not loc.is_warehouse):
+        if not is_location_accessible(session, loc, business_id):
             raise HTTPException(status_code=400, detail="Invalid location ID")
         location_id = data.location_id
 
@@ -298,7 +298,7 @@ def update_purchase_order(
             po.location_id = None
         else:
             loc = session.get(Location, data.location_id)
-            if not loc or (loc.business_id and loc.business_id != business_id and not loc.is_global and not loc.is_warehouse):
+            if not is_location_accessible(session, loc, business_id):
                 raise HTTPException(status_code=400, detail="Invalid location ID")
             po.location_id = data.location_id
 
