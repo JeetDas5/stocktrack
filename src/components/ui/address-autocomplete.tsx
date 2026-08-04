@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { MapPin, Loader2, X } from "lucide-react";
@@ -5,6 +6,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 
 export interface AddressDetails {
   addressLine1: string;
+  addressLine2?: string;
   city: string;
   stateProvince: string;
   postalCode: string;
@@ -56,7 +58,7 @@ function loadGoogleMapsSdk(apiKey: string): Promise<void> {
 
       const script = document.createElement("script");
       script.id = scriptId;
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&v=weekly`;
       script.async = true;
       script.defer = true;
       script.onload = () => resolve();
@@ -102,19 +104,33 @@ export function AddressAutocompleteInput({
       .then(() => {
         if (window.google?.maps?.places) {
           setIsGooglePowered(true);
-          autocompleteServiceRef.current =
-            new window.google.maps.places.AutocompleteService();
-          const dummyDiv = document.createElement("div");
-          placesServiceRef.current =
-            new window.google.maps.places.PlacesService(dummyDiv);
+          try {
+            if (window.google.maps.places.AutocompleteService) {
+              autocompleteServiceRef.current =
+                new window.google.maps.places.AutocompleteService();
+            }
+          } catch {
+            // Ignore if legacy AutocompleteService is disabled
+          }
+          try {
+            if (window.google.maps.places.PlacesService) {
+              const dummyDiv = document.createElement("div");
+              placesServiceRef.current =
+                new window.google.maps.places.PlacesService(dummyDiv);
+            }
+          } catch {
+            // Ignore if legacy PlacesService is disabled
+          }
         }
       })
       .catch((err) => {
-        console.warn("Failed to load Google Maps Places SDK, falling back to OSM", err);
+        console.warn(
+          "Failed to load Google Maps Places SDK, falling back to OSM",
+          err,
+        );
       });
   }, []);
 
-  // Close dropdown on click outside
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (
@@ -140,7 +156,68 @@ export function AddressAutocompleteInput({
 
     setLoading(true);
 
-    // 1. Try Google Maps Places Autocomplete if service is ready
+    // 1. Try New Google Maps Places AutocompleteSuggestion API first
+    let AutocompleteSuggestionClass: any =
+      window.google?.maps?.places?.AutocompleteSuggestion;
+    if (
+      !AutocompleteSuggestionClass?.fetchAutocompletePredictions &&
+      window.google?.maps?.importLibrary
+    ) {
+      try {
+        const placesLib = await window.google.maps.importLibrary("places");
+        if (placesLib?.AutocompleteSuggestion) {
+          AutocompleteSuggestionClass = placesLib.AutocompleteSuggestion;
+        }
+      } catch {
+        // Ignore if importLibrary fails
+      }
+    }
+
+    if (
+      typeof AutocompleteSuggestionClass?.fetchAutocompletePredictions ===
+      "function"
+    ) {
+      try {
+        const res =
+          await AutocompleteSuggestionClass.fetchAutocompletePredictions({
+            input: query,
+            includedPrimaryTypes: ["geocode", "establishment"],
+          });
+
+        const newSuggestions = res?.suggestions || [];
+
+        if (newSuggestions && newSuggestions.length > 0) {
+          const googleItems: SuggestionItem[] = newSuggestions.map((s: any) => {
+            const pred = s.placePrediction;
+            const mainText = pred?.mainText?.text || pred?.text?.text || "";
+            const secondaryText = pred?.secondaryText?.text || "";
+            const formatted =
+              pred?.text?.text ||
+              (secondaryText ? `${mainText}, ${secondaryText}` : mainText);
+            return {
+              id: pred?.placeId || Math.random().toString(),
+              mainText,
+              secondaryText,
+              formatted,
+              isGooglePlace: true,
+            };
+          });
+
+          setSuggestions(googleItems);
+          setIsGooglePowered(true);
+          setIsOpen(true);
+          setLoading(false);
+          return;
+        }
+      } catch (err) {
+        console.warn(
+          "Google Places AutocompleteSuggestion error, trying legacy fallback:",
+          err,
+        );
+      }
+    }
+
+    // 2. Try legacy Google Maps Places AutocompleteService fallback
     if (autocompleteServiceRef.current && window.google?.maps?.places) {
       try {
         autocompleteServiceRef.current.getPlacePredictions(
@@ -149,11 +226,9 @@ export function AddressAutocompleteInput({
             types: ["geocode", "establishment"],
           },
           (predictions: any[], status: any) => {
-            if (
-              status === window.google.maps.places.PlacesServiceStatus.OK &&
-              predictions &&
-              predictions.length > 0
-            ) {
+            const okStatus =
+              window.google?.maps?.places?.PlacesServiceStatus?.OK || "OK";
+            if (status === okStatus && predictions && predictions.length > 0) {
               const googleItems: SuggestionItem[] = predictions.map((p) => ({
                 id: p.place_id,
                 mainText: p.structured_formatting?.main_text || p.description,
@@ -171,22 +246,22 @@ export function AddressAutocompleteInput({
 
             // Fallback to OSM if Google predictions status is zero results or errored
             fetchOsmFallback(query);
-          }
+          },
         );
         return;
       } catch (err) {
-        console.error("Google Places prediction error:", err);
+        console.error("Google Places legacy prediction error:", err);
       }
     }
 
-    // 2. Fallback to OpenStreetMap / Photon
+    // 3. Fallback to OpenStreetMap / Photon
     fetchOsmFallback(query);
   }, []);
 
   const fetchOsmFallback = async (query: string) => {
     try {
       const photonUrl = `https://photon.komoot.io/api/?q=${encodeURIComponent(
-        query
+        query,
       )}&limit=5`;
       const res = await fetch(photonUrl);
       if (res.ok) {
@@ -194,15 +269,20 @@ export function AddressAutocompleteInput({
         const items: SuggestionItem[] = (data.features || []).map(
           (feat: any, idx: number) => {
             const props = feat.properties || {};
-            let line1 = [props.housenumber, props.street].filter(Boolean).join(" ");
+            let line1 = [props.housenumber, props.street]
+              .filter(Boolean)
+              .join(" ");
             if (!line1) line1 = props.name || props.street || query;
 
             const city = props.city || props.town || props.district || "";
             const state = props.state || "";
             const postalCode = props.postcode || "";
             const country = props.country || "";
+            const line2 =
+              props.housename ||
+              (props.city && props.suburb ? props.suburb : "");
 
-            const subtitle = [city, state, postalCode, country]
+            const subtitle = [line2, city, state, postalCode, country]
               .filter(Boolean)
               .join(", ");
             const formatted = subtitle ? `${line1}, ${subtitle}` : line1;
@@ -215,6 +295,7 @@ export function AddressAutocompleteInput({
               isGooglePlace: false,
               details: {
                 addressLine1: line1,
+                addressLine2: line2,
                 city,
                 stateProvince: state,
                 postalCode,
@@ -222,7 +303,7 @@ export function AddressAutocompleteInput({
                 formattedAddress: formatted,
               },
             };
-          }
+          },
         );
 
         setSuggestions(items);
@@ -261,10 +342,19 @@ export function AddressAutocompleteInput({
     }
   };
 
-  const parseGooglePlaceDetails = (place: any, fallbackFormatted: string): AddressDetails => {
-    const components = place.address_components || [];
+  const parseGooglePlaceDetails = (
+    place: any,
+    fallbackFormatted: string,
+  ): AddressDetails => {
+    const components =
+      place.addressComponents || place.address_components || [];
     let streetNumber = "";
     let route = "";
+    let subpremise = "";
+    let premise = "";
+    let floor = "";
+    let room = "";
+    let sublocality2 = "";
     let city = "";
     let state = "";
     let postalCode = "";
@@ -272,72 +362,172 @@ export function AddressAutocompleteInput({
 
     components.forEach((c: any) => {
       const types: string[] = c.types || [];
+      const name =
+        c.longText || c.long_name || c.shortText || c.short_name || "";
       if (types.includes("street_number")) {
-        streetNumber = c.long_name || c.short_name;
+        streetNumber = name;
       } else if (types.includes("route")) {
-        route = c.long_name || c.short_name;
+        route = name;
+      } else if (types.includes("subpremise")) {
+        subpremise = name;
+      } else if (types.includes("premise")) {
+        premise = name;
+      } else if (types.includes("floor")) {
+        floor = name;
+      } else if (types.includes("room")) {
+        room = name;
+      } else if (types.includes("sublocality_level_2")) {
+        sublocality2 = name;
       } else if (
         types.includes("locality") ||
         types.includes("postal_town") ||
         types.includes("sublocality_level_1")
       ) {
-        if (!city) city = c.long_name || c.short_name;
+        if (!city) city = name;
       } else if (types.includes("administrative_area_level_1")) {
-        state = c.long_name || c.short_name;
+        state = name;
       } else if (types.includes("postal_code")) {
-        postalCode = c.long_name || c.short_name;
+        postalCode = name;
       } else if (types.includes("country")) {
-        country = c.long_name || c.short_name;
+        country = name;
       }
     });
 
+    const formatSubpremise = (val: string) => {
+      if (!val) return "";
+      if (/^(apt|suite|ste|unit|rm|room|#)/i.test(val)) return val;
+      if (/^\d+[a-z]?$/i.test(val)) return `Unit ${val}`;
+      return val;
+    };
+
+    const formatFloor = (val: string) => {
+      if (!val) return "";
+      if (/^(floor|fl|level|lvl)/i.test(val)) return val;
+      return `Floor ${val}`;
+    };
+
+    const formatRoom = (val: string) => {
+      if (!val) return "";
+      if (/^(room|rm)/i.test(val)) return val;
+      return `Room ${val}`;
+    };
+
+    const line2Parts = [
+      formatSubpremise(subpremise),
+      formatRoom(room),
+      formatFloor(floor),
+      premise,
+      sublocality2,
+    ].filter(Boolean);
+
     const addressLine1 =
       [streetNumber, route].filter(Boolean).join(" ") ||
+      place.displayName ||
       place.name ||
       fallbackFormatted;
 
+    const addressLine2 = line2Parts.join(", ");
+
     return {
       addressLine1,
+      addressLine2,
       city,
       stateProvince: state,
       postalCode,
       country,
-      formattedAddress: place.formatted_address || fallbackFormatted,
+      formattedAddress:
+        place.formattedAddress || place.formatted_address || fallbackFormatted,
     };
   };
 
-  const handleSelectSuggestion = (item: SuggestionItem) => {
-    if (item.isGooglePlace && placesServiceRef.current) {
+  const handleSelectSuggestion = async (item: SuggestionItem) => {
+    if (item.isGooglePlace) {
       setLoading(true);
-      placesServiceRef.current.getDetails(
-        {
-          placeId: item.id,
-          fields: ["address_components", "formatted_address", "name"],
-        },
-        (place: any, status: any) => {
-          setLoading(false);
-          if (
-            status === window.google.maps.places.PlacesServiceStatus.OK &&
-            place
-          ) {
-            const details = parseGooglePlaceDetails(place, item.formatted);
-            onAddressSelect(details);
-          } else {
-            // Fallback if details lookup fails
-            onAddressSelect({
-              addressLine1: item.mainText,
-              city: "",
-              stateProvince: "",
-              postalCode: "",
-              country: "",
-              formattedAddress: item.formatted,
-            });
+
+      // 1. Try New google.maps.places.Place API first
+      let PlaceClass: any = window.google?.maps?.places?.Place;
+      if (!PlaceClass && window.google?.maps?.importLibrary) {
+        try {
+          const placesLib = await window.google.maps.importLibrary("places");
+          if (placesLib?.Place) {
+            PlaceClass = placesLib.Place;
           }
+        } catch {
+          // Ignore
+        }
+      }
+
+      if (PlaceClass) {
+        try {
+          const place = new PlaceClass({ id: item.id });
+          await place.fetchFields({
+            fields: ["addressComponents", "formattedAddress", "displayName"],
+          });
+
+          const details = parseGooglePlaceDetails(place, item.formatted);
+          onAddressSelect(details);
           setIsOpen(false);
           setSuggestions([]);
           setSelectedIndex(-1);
+          setLoading(false);
+          return;
+        } catch (err) {
+          console.warn(
+            "New google.maps.places.Place fetchFields error, trying legacy fallback:",
+            err,
+          );
         }
-      );
+      }
+
+      // 2. Try Legacy PlacesService getDetails fallback
+      if (placesServiceRef.current) {
+        placesServiceRef.current.getDetails(
+          {
+            placeId: item.id,
+            fields: ["address_components", "formatted_address", "name"],
+          },
+          (place: any, status: any) => {
+            setLoading(false);
+            const okStatus =
+              window.google?.maps?.places?.PlacesServiceStatus?.OK || "OK";
+            if (status === okStatus && place) {
+              const details = parseGooglePlaceDetails(place, item.formatted);
+
+              onAddressSelect(details);
+            } else {
+              // Fallback if details lookup fails
+              onAddressSelect({
+                addressLine1: item.mainText,
+                addressLine2: "",
+                city: "",
+                stateProvince: "",
+                postalCode: "",
+                country: "",
+                formattedAddress: item.formatted,
+              });
+            }
+            setIsOpen(false);
+            setSuggestions([]);
+            setSelectedIndex(-1);
+          },
+        );
+        return;
+      }
+
+      // Fallback if no place details service works
+      setLoading(false);
+      onAddressSelect({
+        addressLine1: item.mainText,
+        addressLine2: "",
+        city: "",
+        stateProvince: "",
+        postalCode: "",
+        country: "",
+        formattedAddress: item.formatted,
+      });
+      setIsOpen(false);
+      setSuggestions([]);
+      setSelectedIndex(-1);
     } else if (item.details) {
       onAddressSelect(item.details);
       setIsOpen(false);
@@ -346,6 +536,7 @@ export function AddressAutocompleteInput({
     } else {
       onAddressSelect({
         addressLine1: item.mainText,
+        addressLine2: "",
         city: "",
         stateProvince: "",
         postalCode: "",
@@ -364,12 +555,12 @@ export function AddressAutocompleteInput({
     if (e.key === "ArrowDown") {
       e.preventDefault();
       setSelectedIndex((prev) =>
-        prev < suggestions.length - 1 ? prev + 1 : 0
+        prev < suggestions.length - 1 ? prev + 1 : 0,
       );
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
       setSelectedIndex((prev) =>
-        prev > 0 ? prev - 1 : suggestions.length - 1
+        prev > 0 ? prev - 1 : suggestions.length - 1,
       );
     } else if (e.key === "Enter") {
       if (selectedIndex >= 0 && selectedIndex < suggestions.length) {
@@ -429,7 +620,9 @@ export function AddressAutocompleteInput({
           <div className="px-3 py-1.5 text-[10px] font-bold tracking-wider text-zinc-400 uppercase border-b border-zinc-100 flex items-center justify-between">
             <span>Address Suggestions</span>
             <span className="text-[9px] font-semibold text-zinc-400">
-              {isGooglePowered ? "Powered by Google Maps" : "Powered by OpenStreetMap"}
+              {isGooglePowered
+                ? "Powered by Google Maps"
+                : "Powered by OpenStreetMap"}
             </span>
           </div>
 
@@ -442,7 +635,9 @@ export function AddressAutocompleteInput({
                 onClick={() => handleSelectSuggestion(item)}
                 onMouseEnter={() => setSelectedIndex(idx)}
                 className={`w-full text-left px-3.5 py-2 flex items-start gap-2.5 transition-colors cursor-pointer ${
-                  isSelected ? "bg-zinc-100/80 text-[#0F172A]" : "hover:bg-zinc-50 text-zinc-700"
+                  isSelected
+                    ? "bg-zinc-100/80 text-[#0F172A]"
+                    : "hover:bg-zinc-50 text-zinc-700"
                 }`}
               >
                 <MapPin className="h-4 w-4 text-[#0a2924] shrink-0 mt-0.5" />
