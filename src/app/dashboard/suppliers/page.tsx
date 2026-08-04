@@ -28,7 +28,6 @@ import {
   Mail,
   Phone,
   User as UserIcon,
-  MapPin,
 } from "lucide-react";
 import { Business } from "@/types/business";
 
@@ -109,6 +108,9 @@ export default function SuppliersPage() {
   const handleAddressSelect = (details: AddressDetails) => {
     if (details.addressLine1) {
       setFormAddressLine1(details.addressLine1);
+    }
+    if (details.addressLine2 !== undefined) {
+      setFormAddressLine2(details.addressLine2);
     }
     if (details.city) {
       setFormCity(details.city);
