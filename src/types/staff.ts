@@ -17,6 +17,7 @@ export interface Staff {
   reportingTo?: string | null;
   startDate?: string | null;
   employmentType?: string | null;
+  dateOfBirth?: string | null;
 }
 
 export interface StaffCreateInput {
