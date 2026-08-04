@@ -25,6 +25,7 @@ interface BackendStaff {
   reporting_to?: string | null;
   start_date?: string | null;
   employment_type?: string | null;
+  date_of_birth?: string | null;
 }
 
 export const getMyStaffProfile = async (businessId: string): Promise<Staff> => {
@@ -54,6 +55,7 @@ export const getMyStaffProfile = async (businessId: string): Promise<Staff> => {
     reportingTo: s.reporting_to,
     startDate: s.start_date,
     employmentType: s.employment_type,
+    dateOfBirth: s.date_of_birth || null,
   };
 };
 
@@ -83,6 +85,7 @@ export const getStaffMembers = async (businessId: string): Promise<Staff[]> => {
     reportingTo: s.reporting_to,
     startDate: s.start_date,
     employmentType: s.employment_type,
+    dateOfBirth: s.date_of_birth || null,
   }));
 };
 
@@ -123,6 +126,7 @@ export const createStaff = async (
     reportingTo: s.reporting_to,
     startDate: s.start_date,
     employmentType: s.employment_type,
+    dateOfBirth: s.date_of_birth || null,
   };
 };
 
@@ -168,6 +172,7 @@ export const updateStaff = async (
     reportingTo: s.reporting_to,
     startDate: s.start_date,
     employmentType: s.employment_type,
+    dateOfBirth: s.date_of_birth || null,
   };
 };
 

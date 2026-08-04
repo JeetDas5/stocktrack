@@ -237,6 +237,7 @@ export default function StaffDirectoryPage() {
   const [editName, setEditName] = useState("");
   const [editEmail, setEditEmail] = useState("");
   const [editPhone, setEditPhone] = useState("");
+  const [editDob, setEditDob] = useState("");
   const [editRole, setEditRole] = useState("staff");
   const [editStatus, setEditStatus] = useState<"Active" | "Inactive">("Active");
   const [editLocations, setEditLocations] = useState<string[]>([]);
@@ -788,6 +789,7 @@ export default function StaffDirectoryPage() {
     setEditName(staff.name);
     setEditEmail(staff.email);
     setEditPhone(staff.phone);
+    setEditDob(staff.dateOfBirth ? staff.dateOfBirth.split("T")[0] : "");
     setEditRole(staff.role);
     setEditStatus(staff.status);
     setEditLocations(staff.locations?.map((l) => l.id) || []);
@@ -1908,6 +1910,18 @@ export default function StaffDirectoryPage() {
                     onChange={(e) => setEditPhone(e.target.value)}
                     disabled={isRestrictedAdmin}
                     className="w-full bg-white border border-zinc-200 focus:border-black rounded-xl py-2 px-3 text-xs font-semibold text-zinc-950 focus:outline-none focus:ring-1 focus:ring-black disabled:bg-zinc-100 disabled:text-zinc-500 disabled:cursor-not-allowed"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-extrabold text-zinc-500 uppercase block mb-1">
+                    Date of Birth
+                  </label>
+                  <input
+                    type="text"
+                    value={editDob || "N/A"}
+                    disabled
+                    readOnly
+                    className="w-full bg-zinc-100 border border-zinc-200 rounded-xl py-2 px-3 text-xs font-semibold text-zinc-500 cursor-not-allowed select-none"
                   />
                 </div>
                 <div>

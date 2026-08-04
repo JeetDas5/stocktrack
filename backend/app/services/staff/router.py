@@ -52,6 +52,7 @@ class StaffOut(SQLModel):
     reporting_to: Optional[str] = None
     start_date: Optional[str] = None
     employment_type: Optional[str] = None
+    date_of_birth: Optional[str] = None
 
 
 @router.post("/api/businesses/{business_id}/staff", response_model=StaffOut, status_code=status.HTTP_201_CREATED)
@@ -198,7 +199,8 @@ def create_staff(
         hourly_rate=hourly_rate,
         reporting_to=reporting_to,
         start_date=start_date,
-        employment_type=user.employment_type
+        employment_type=user.employment_type,
+        date_of_birth=user.date_of_birth
     )
 
 
@@ -283,7 +285,8 @@ def get_my_staff_profile(
         hourly_rate=hourly_rate,
         reporting_to=reporting_to,
         start_date=start_date,
-        employment_type=current_user.employment_type
+        employment_type=current_user.employment_type,
+        date_of_birth=current_user.date_of_birth
     )
 
 
@@ -383,7 +386,8 @@ def get_staff_members(
             hourly_rate=hourly_rate,
             reporting_to=reporting_to,
             start_date=start_date,
-            employment_type=user.employment_type
+            employment_type=user.employment_type,
+            date_of_birth=user.date_of_birth
         ))
 
     return out
@@ -624,7 +628,8 @@ def update_staff(
         hourly_rate=hourly_rate,
         reporting_to=reporting_to,
         start_date=start_date,
-        employment_type=user.employment_type
+        employment_type=user.employment_type,
+        date_of_birth=user.date_of_birth
     )
 
 
