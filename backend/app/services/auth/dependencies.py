@@ -355,14 +355,14 @@ def get_owner_business_ids(session: Session, business_id: str) -> List[str]:
 
 def is_location_accessible(session: Session, loc: Optional[Location], business_id: str) -> bool:
     """
-    Returns True if loc belongs to business_id, OR if loc is a global/warehouse location
+    Returns True if loc belongs to business_id, OR if loc is a global location
     belonging to one of the businesses owned by the same business owner.
     """
     if not loc:
         return False
     if loc.business_id == business_id:
         return True
-    if loc.is_global or loc.is_warehouse:
+    if loc.is_global:
         owner_biz_ids = get_owner_business_ids(session, business_id)
         if loc.business_id is None or loc.business_id in owner_biz_ids:
             return True

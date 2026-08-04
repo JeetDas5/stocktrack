@@ -109,7 +109,7 @@ def get_business_locations(
     statement = select(Location).where(
         (Location.business_id == business_id) |
         (
-            ((Location.is_global == True) | (Location.is_warehouse == True)) &
+            (Location.is_global == True) &
             ((Location.business_id.in_(owner_biz_ids)) | (Location.business_id == None))
         )
     )

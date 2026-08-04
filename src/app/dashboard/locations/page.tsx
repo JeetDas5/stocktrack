@@ -477,9 +477,22 @@ export default function LocationsPage() {
                           {activeBusiness?.name || "Active"}
                         </td>
                         <td className="py-4 px-6">
-                          <span className="bg-zinc-100 text-[#0F172A] px-2.5 py-1 rounded-md font-bold text-[10px] uppercase tracking-wider">
-                            {getLocTypeLabel(loc.type)}
-                          </span>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="bg-zinc-100 text-[#0F172A] px-2.5 py-1 rounded-md font-bold text-[10px] uppercase tracking-wider">
+                              {getLocTypeLabel(loc.type)}
+                            </span>
+                            {(loc.isWarehouse || loc.type === "warehouse") && (
+                              loc.isGlobal ? (
+                                <span className="bg-emerald-50 text-emerald-700 border border-emerald-200/80 px-2 py-0.5 rounded-md font-bold text-[10px] uppercase tracking-wider">
+                                  Global
+                                </span>
+                              ) : (
+                                <span className="bg-zinc-100 text-zinc-600 border border-zinc-200 px-2 py-0.5 rounded-md font-bold text-[10px] uppercase tracking-wider">
+                                  Business Only
+                                </span>
+                              )
+                            )}
+                          </div>
                         </td>
                         <td className="py-4 px-6 text-[#64748B] font-bold max-w-xs truncate">
                           {loc.address}
@@ -701,7 +714,7 @@ export default function LocationsPage() {
                           Global / Cross-Business Warehouse
                         </span>
                         <span className="text-[11px] text-[#64748B]">
-                          Allows this warehouse to serve all businesses and store shared items.
+                          Allows this warehouse to serve all businesses. If left unchecked, this warehouse is available to this business only.
                         </span>
                       </div>
                     </label>
