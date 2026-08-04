@@ -129,6 +129,8 @@ export default function LocationsPage() {
     type: formType,
     address: formAddress.trim(),
     isActive: formActive,
+    isWarehouse: formType === "warehouse" || formIsWarehouse,
+    isGlobal: formIsGlobal,
   });
 
   const isFormDirty = () => {
@@ -139,12 +141,17 @@ export default function LocationsPage() {
       const currentLocation = locations.find((loc) => loc.id === editId);
       if (!currentLocation) return true;
 
+      const origIsWarehouse = currentLocation.isWarehouse || currentLocation.type === "warehouse";
+      const origIsGlobal = currentLocation.isGlobal || false;
+
       return (
         current.name !== currentLocation.name ||
         current.description !== (currentLocation.description || "") ||
         typeToCompare !== currentLocation.type ||
         current.address !== (currentLocation.address || "") ||
-        current.isActive !== (currentLocation.isActive !== false)
+        current.isActive !== (currentLocation.isActive !== false) ||
+        current.isWarehouse !== origIsWarehouse ||
+        current.isGlobal !== origIsGlobal
       );
     }
 
@@ -153,7 +160,9 @@ export default function LocationsPage() {
       current.description !== "" ||
       typeToCompare !== "store" ||
       current.address !== "" ||
-      current.isActive !== true
+      current.isActive !== true ||
+      current.isWarehouse !== false ||
+      current.isGlobal !== false
     );
   };
 
