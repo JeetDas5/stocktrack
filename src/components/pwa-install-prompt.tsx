@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useState, useEffect } from "react";
-import { Download, X, Share, PlusSquare, Smartphone, Sparkles, CheckCircle2 } from "lucide-react";
+import { Download, X, Share, PlusSquare } from "lucide-react";
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -10,7 +10,8 @@ interface BeforeInstallPromptEvent extends Event {
 }
 
 export function PwaInstallPrompt() {
-  const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
+  const [deferredPrompt, setDeferredPrompt] =
+    useState<BeforeInstallPromptEvent | null>(null);
   const [showPrompt, setShowPrompt] = useState(false);
   const [isIos, setIsIos] = useState(false);
   const [showIosInstructions, setShowIosInstructions] = useState(false);
@@ -40,9 +41,13 @@ export function PwaInstallPrompt() {
         });
     }
 
-    // 3. Detect iOS
+    // 3. Detect iOS & Mobile
     const userAgent = window.navigator.userAgent.toLowerCase();
     const iosDetected = /iphone|ipad|ipod/.test(userAgent);
+    const isMobileDevice =
+      /android|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(
+        userAgent
+      ) || window.innerWidth <= 768;
     setIsIos(iosDetected);
 
     // 4. Handle beforeinstallprompt event (Chrome, Edge, Android)
@@ -51,10 +56,16 @@ export function PwaInstallPrompt() {
       const promptEvent = e as BeforeInstallPromptEvent;
       setDeferredPrompt(promptEvent);
 
+      // Only show popup automatically on mobile devices
+      if (!isMobileDevice) return;
+
       // Check if user dismissed prompt recently (within 7 days)
       const lastDismissed = localStorage.getItem("nexbrix_pwa_dismissed_at");
       const sevenDays = 7 * 24 * 60 * 60 * 1000;
-      if (!lastDismissed || Date.now() - parseInt(lastDismissed, 10) > sevenDays) {
+      if (
+        !lastDismissed ||
+        Date.now() - parseInt(lastDismissed, 10) > sevenDays
+      ) {
         setShowPrompt(true);
       }
     };
@@ -83,7 +94,10 @@ export function PwaInstallPrompt() {
     window.addEventListener("show-pwa-install-prompt", handleManualShow);
 
     return () => {
-      window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+      window.removeEventListener(
+        "beforeinstallprompt",
+        handleBeforeInstallPrompt,
+      );
       window.removeEventListener("appinstalled", handleAppInstalled);
       window.removeEventListener("show-pwa-install-prompt", handleManualShow);
     };
@@ -98,7 +112,9 @@ export function PwaInstallPrompt() {
 
     if (!deferredPrompt) {
       // Fallback instructions if prompt isn't directly available
-      alert("To install NexBrix, open your browser menu (⋮ or ⋯) and select 'Add to Home Screen' or 'Install App'.");
+      alert(
+        "To install NexBrix, open your browser menu (⋮ or ⋯) and select 'Add to Home Screen' or 'Install App'.",
+      );
       return;
     }
 
@@ -127,11 +143,10 @@ export function PwaInstallPrompt() {
 
   return (
     <>
-      {/* Main Floating Banner Prompt */}
       {showPrompt && (
         <div className="fixed bottom-5 left-5 right-5 sm:left-auto sm:right-6 sm:max-w-md z-50 animate-in fade-in slide-in-from-bottom-6 duration-300">
           <div className="relative overflow-hidden rounded-2xl border border-neutral-800 bg-neutral-950 p-5 text-white shadow-2xl backdrop-blur-xl">
-            {/* Ambient Background Gradient Glow */}
+           
             <div className="absolute -top-12 -right-12 h-32 w-32 rounded-full bg-blue-600/20 blur-2xl pointer-events-none" />
             <div className="absolute -bottom-12 -left-12 h-32 w-32 rounded-full bg-indigo-600/20 blur-2xl pointer-events-none" />
 
@@ -144,7 +159,7 @@ export function PwaInstallPrompt() {
             </button>
 
             <div className="flex items-start gap-4">
-              <div className="relative flex-shrink-0">
+              <div className="relative shrink-0">
                 <div className="h-12 w-12 rounded-xl overflow-hidden bg-neutral-900 border border-neutral-700/80 flex items-center justify-center p-1 shadow-md">
                   <Image
                     src="/homescreen/android-chrome-192x192.png"
@@ -154,9 +169,6 @@ export function PwaInstallPrompt() {
                     className="rounded-lg object-cover"
                   />
                 </div>
-                <span className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-blue-600 text-[10px] font-bold text-white ring-2 ring-neutral-950">
-                  <Sparkles className="h-3 w-3" />
-                </span>
               </div>
 
               <div className="flex-1 min-w-0 pr-4">
@@ -166,7 +178,8 @@ export function PwaInstallPrompt() {
                   </h3>
                 </div>
                 <p className="mt-1 text-xs text-neutral-400 leading-relaxed">
-                  Install our app for a faster full-screen experience and instant access.
+                  Install our app for a faster full-screen experience and
+                  instant access.
                 </p>
               </div>
             </div>
@@ -190,7 +203,6 @@ export function PwaInstallPrompt() {
         </div>
       )}
 
-      {/* iOS Safari Step-by-Step Modal */}
       {showIosInstructions && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
           <div className="relative w-full max-w-sm rounded-3xl border border-neutral-800 bg-neutral-950 p-6 text-white shadow-2xl animate-in slide-in-from-bottom-8 duration-300">
@@ -212,47 +224,64 @@ export function PwaInstallPrompt() {
                 />
               </div>
               <div>
-                <h3 className="text-base font-semibold text-white">Install on iPhone / iPad</h3>
-                <p className="text-xs text-neutral-400">Follow these simple steps in Safari</p>
+                <h3 className="text-base font-semibold text-white">
+                  Install on iPhone / iPad
+                </h3>
+                <p className="text-xs text-neutral-400">
+                  Follow these simple steps in Safari
+                </p>
               </div>
             </div>
 
             <div className="mt-5 space-y-3.5 text-xs">
               <div className="flex items-start gap-3 rounded-2xl bg-neutral-900/80 border border-neutral-800 p-3.5">
-                <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-blue-600/20 text-blue-400 font-bold">
+                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-blue-600/20 text-blue-400 font-bold">
                   1
                 </div>
                 <div className="pt-0.5">
                   <p className="font-medium text-neutral-200">
-                    Tap the <span className="font-semibold text-white">Share</span> button
+                    Tap the{" "}
+                    <span className="font-semibold text-white">Share</span>{" "}
+                    button
                   </p>
                   <p className="mt-0.5 text-neutral-400 text-[11px] flex items-center gap-1">
-                    Look for <Share className="inline h-3.5 w-3.5 text-blue-400" /> at the bottom or top bar of Safari.
+                    Look for{" "}
+                    <Share className="inline h-3.5 w-3.5 text-blue-400" /> at
+                    the bottom or top bar of Safari.
                   </p>
                 </div>
               </div>
 
               <div className="flex items-start gap-3 rounded-2xl bg-neutral-900/80 border border-neutral-800 p-3.5">
-                <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-blue-600/20 text-blue-400 font-bold">
+                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-blue-600/20 text-blue-400 font-bold">
                   2
                 </div>
                 <div className="pt-0.5">
                   <p className="font-medium text-neutral-200">
-                    Scroll & tap <span className="font-semibold text-white">&quot;Add to Home Screen&quot;</span>
+                    Scroll & tap{" "}
+                    <span className="font-semibold text-white">
+                      &quot;Add to Home Screen&quot;
+                    </span>
                   </p>
                   <p className="mt-0.5 text-neutral-400 text-[11px] flex items-center gap-1">
-                    Find <PlusSquare className="inline h-3.5 w-3.5 text-blue-400" /> in the share options list.
+                    Find{" "}
+                    <PlusSquare className="inline h-3.5 w-3.5 text-blue-400" />{" "}
+                    in the share options list.
                   </p>
                 </div>
               </div>
 
               <div className="flex items-start gap-3 rounded-2xl bg-neutral-900/80 border border-neutral-800 p-3.5">
-                <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-blue-600/20 text-blue-400 font-bold">
+                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-blue-600/20 text-blue-400 font-bold">
                   3
                 </div>
                 <div className="pt-0.5">
                   <p className="font-medium text-neutral-200">
-                    Tap <span className="font-semibold text-white">&quot;Add&quot;</span> in top right
+                    Tap{" "}
+                    <span className="font-semibold text-white">
+                      &quot;Add&quot;
+                    </span>{" "}
+                    in top right
                   </p>
                   <p className="mt-0.5 text-neutral-400 text-[11px]">
                     NexBrix will be installed directly on your home screen!
