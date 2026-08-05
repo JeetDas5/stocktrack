@@ -3,7 +3,6 @@ from pathlib import Path
 from dotenv import load_dotenv
 from sqlalchemy import text, inspect
 from sqlmodel import create_engine, SQLModel, Session
-import app.models  # Ensure models are loaded into SQLModel metadata
 
 
 env_path = Path(__file__).resolve().parent.parent.parent / ".env"
@@ -31,20 +30,38 @@ engine = create_engine(
 )
 
 
+def _add_columns_if_missing(session, inspector, table: str, columns: dict[str, str]) -> None:
+    """Add columns to *table* only if they don't already exist.
+
+    Args:
+        session:   Active SQLModel session.
+        inspector: SQLAlchemy Inspector bound to the engine.
+        table:     Table name to alter.
+        columns:   Mapping of {column_name: SQL_type}.
+    """
+    existing = {col["name"] for col in inspector.get_columns(table)}
+    mutated = False
+    for col_name, col_type in columns.items():
+        if col_name not in existing:
+            session.execute(text(f"ALTER TABLE {table} ADD COLUMN {col_name} {col_type}"))
+            mutated = True
+    if mutated:
+        session.commit()
+
 
 def init_db():
     SQLModel.metadata.create_all(engine)
     try:
         with Session(engine) as session:
+            inspector = inspect(engine)
+
+            # One-off DDL tweaks
             session.execute(text("ALTER TABLE timesheets ADD COLUMN IF NOT EXISTS project VARCHAR"))
             session.execute(text("ALTER TABLE users ALTER COLUMN role SET DEFAULT 'staff'"))
             session.commit()
-            
-            # Check and add new profile columns dynamically to the users table
-            inspector = inspect(engine)
-            columns = [col['name'] for col in inspector.get_columns('users')]
-            
-            new_columns = {
+
+            # ── users ────────────────────────────────────────────────────────
+            _add_columns_if_missing(session, inspector, "users", {
                 "first_name": "VARCHAR",
                 "last_name": "VARCHAR",
                 "gender": "VARCHAR",
@@ -75,87 +92,49 @@ def init_db():
                 "employment_type": "VARCHAR",
                 "modules": "JSON",
                 "start_date": "TIMESTAMP",
-                "is_internal": "BOOLEAN"
-            }
-            
-            mutated = False
-            for col_name, col_type in new_columns.items():
-                if col_name not in columns:
-                    session.execute(text(f"ALTER TABLE users ADD COLUMN {col_name} {col_type}"))
-                    mutated = True
-            if mutated:
-                session.commit()
+                "is_internal": "BOOLEAN",
+            })
 
-            # Check and add new columns dynamically to the staff_invitations table
-            inv_columns = [col['name'] for col in inspector.get_columns('staff_invitations')]
-            new_inv_columns = {
+            # ── staff_invitations ─────────────────────────────────────────────
+            _add_columns_if_missing(session, inspector, "staff_invitations", {
                 "email": "VARCHAR",
-                "modules": "JSON"
-            }
-            inv_mutated = False
-            for col_name, col_type in new_inv_columns.items():
-                if col_name not in inv_columns:
-                    session.execute(text(f"ALTER TABLE staff_invitations ADD COLUMN {col_name} {col_type}"))
-                    inv_mutated = True
-            if inv_mutated:
-                session.commit()
+                "modules": "JSON",
+            })
 
-            # Check and add new columns dynamically to the user_assignments table
-            ass_columns = [col['name'] for col in inspector.get_columns('user_assignments')]
-            new_ass_columns = {
+            # ── user_assignments ──────────────────────────────────────────────
+            _add_columns_if_missing(session, inspector, "user_assignments", {
                 "hourly_rate": "FLOAT",
                 "reporting_to": "VARCHAR",
-                "start_date": "VARCHAR"
-            }
-            ass_mutated = False
-            for col_name, col_type in new_ass_columns.items():
-                if col_name not in ass_columns:
-                    session.execute(text(f"ALTER TABLE user_assignments ADD COLUMN {col_name} {col_type}"))
-                    ass_mutated = True
-            if ass_mutated:
-                session.commit()
+                "start_date": "VARCHAR",
+            })
 
-            # Check and add new columns dynamically to the businesses table
-            bus_columns = [col['name'] for col in inspector.get_columns('businesses')]
-            new_bus_columns = {
+            # ── businesses ────────────────────────────────────────────────────
+            _add_columns_if_missing(session, inspector, "businesses", {
                 "terms_url": "VARCHAR",
-                "terms_name": "VARCHAR"
-            }
-            bus_mutated = False
-            for col_name, col_type in new_bus_columns.items():
-                if col_name not in bus_columns:
-                    session.execute(text(f"ALTER TABLE businesses ADD COLUMN {col_name} {col_type}"))
-                    bus_mutated = True
-            if bus_mutated:
-                session.commit()
+                "terms_name": "VARCHAR",
+            })
 
-            # Check and add projects and enable_projects columns dynamically to timesheet_settings table
-            ts_columns = [col['name'] for col in inspector.get_columns('timesheet_settings')]
-            if "projects" not in ts_columns:
-                session.execute(text("ALTER TABLE timesheet_settings ADD COLUMN projects JSON DEFAULT '[]'"))
-                session.commit()
-            if "enable_projects" not in ts_columns:
-                session.execute(text("ALTER TABLE timesheet_settings ADD COLUMN enable_projects BOOLEAN DEFAULT TRUE"))
-                session.commit()
+            # ── timesheet_settings ────────────────────────────────────────────
+            _add_columns_if_missing(session, inspector, "timesheet_settings", {
+                "projects": "JSON DEFAULT '[]'",
+                "enable_projects": "BOOLEAN DEFAULT TRUE",
+            })
 
-            # Check and add new columns dynamically to the locations table
-            loc_columns = [col['name'] for col in inspector.get_columns('locations')]
-            if "is_warehouse" not in loc_columns:
-                session.execute(text("ALTER TABLE locations ADD COLUMN is_warehouse BOOLEAN DEFAULT FALSE"))
-            if "is_global" not in loc_columns:
-                session.execute(text("ALTER TABLE locations ADD COLUMN is_global BOOLEAN DEFAULT FALSE"))
+            # ── locations ─────────────────────────────────────────────────────
+            _add_columns_if_missing(session, inspector, "locations", {
+                "is_warehouse": "BOOLEAN DEFAULT FALSE",
+                "is_global": "BOOLEAN DEFAULT FALSE",
+            })
             try:
                 session.execute(text("ALTER TABLE locations ALTER COLUMN business_id DROP NOT NULL"))
+                session.commit()
             except Exception:
-                pass
-            session.commit()
+                pass  # Column is already nullable — nothing to do.
 
-            # Check and add new columns dynamically to the deliveries table
-            del_columns = [col['name'] for col in inspector.get_columns('deliveries')]
-            if "receiving_location_id" not in del_columns:
-                session.execute(text("ALTER TABLE deliveries ADD COLUMN receiving_location_id VARCHAR"))
-            session.commit()
-
+            # ── deliveries ────────────────────────────────────────────────────
+            _add_columns_if_missing(session, inspector, "deliveries", {
+                "receiving_location_id": "VARCHAR",
+            })
 
     except Exception as e:
         print(f"Database migration note: {e}")
