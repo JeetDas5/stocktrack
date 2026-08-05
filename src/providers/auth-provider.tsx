@@ -134,6 +134,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     } else if (session === null && !sessionLoading) {
       localStorage.removeItem("nexbrix_token");
       localStorage.removeItem("nexbrix_active_business_id");
+      localStorage.removeItem("nexbrix_pwa_dismissed_at");
+      localStorage.removeItem("nexbrix_pwa_cancelled");
       setProfile(null);
     }
   }, [session, sessionLoading]);
@@ -181,6 +183,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     localStorage.removeItem("nexbrix_active_location_id");
     localStorage.removeItem("nexbrix_impersonated_user_id");
     localStorage.removeItem("nexbrix_super_admin_readonly");
+    localStorage.removeItem("nexbrix_pwa_dismissed_at");
+    localStorage.removeItem("nexbrix_pwa_cancelled");
     setSession(null);
     setProfile(null);
   }, []);
