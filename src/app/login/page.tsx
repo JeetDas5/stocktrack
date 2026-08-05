@@ -219,6 +219,9 @@ export default function LoginPage() {
                       <KeyRound className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400" />
                       <input
                         type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        autoComplete="one-time-code"
                         value={otp}
                         onChange={(e) => {
                           const val = e.target.value
