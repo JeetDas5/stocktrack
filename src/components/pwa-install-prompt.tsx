@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/set-state-in-effect */
 "use client";
 
 import Image from "next/image";
@@ -265,10 +266,11 @@ export function PwaInstallPrompt() {
               </div>
               <div>
                 <h3 className="text-base font-semibold text-white">
-                  Install on iPhone / iPad
+                  Welcome to NexBrix!
                 </h3>
                 <p className="text-xs text-neutral-400">
-                  Follow these simple steps in Safari
+                  For faster access and an app-like experience, add NexBrix to
+                  your Home Screen
                 </p>
               </div>
             </div>
