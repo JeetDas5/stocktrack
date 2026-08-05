@@ -4,18 +4,12 @@ import Link from "next/link";
 import { toast } from "sonner";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import {
-  Mail,
-  Loader2,
-  ArrowRight,
-  Sparkles,
-  KeyRound,
-} from "lucide-react";
+import { Mail, Loader2, ArrowRight, Sparkles, KeyRound } from "lucide-react";
 
 import { useAuth } from "@/providers/auth-provider";
-import { sendOtp, verifyOtp } from "@/lib/services/auth.service";
 import { signInWithGoogle } from "@/lib/services/sign-in";
 import { Reveal, RevealText } from "@/components/site/Reveal";
+import { sendOtp, verifyOtp } from "@/lib/services/auth.service";
 import { getPostLoginRedirect } from "@/lib/auth/get-post-login-redirect";
 
 export default function LoginPage() {
@@ -73,10 +67,13 @@ export default function LoginPage() {
     }
   };
 
-  const handleVerifyOtp = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleVerifyOtp = async (
+    e?: React.FormEvent,
+    codeToVerify?: string,
+  ) => {
+    if (e) e.preventDefault();
     const trimmedEmail = email.trim();
-    const trimmedOtp = otp.trim();
+    const trimmedOtp = (codeToVerify ?? otp).trim();
 
     if (!trimmedOtp || trimmedOtp.length !== 6) {
       toast.error("Please enter a valid 6-digit verification code.");
@@ -145,8 +142,8 @@ export default function LoginPage() {
             </h1>
             <Reveal delay={0.4}>
               <p className="mt-8 max-w-md text-[17px] leading-relaxed text-neutral-600">
-                Sign in to your NexBrix workspace. Enter your email to receive
-                a secure verification code or continue using Google.
+                Sign in to your NexBrix workspace. Enter your email to receive a
+                secure verification code or continue using Google.
               </p>
             </Reveal>
             <Reveal delay={0.5}>
@@ -223,9 +220,15 @@ export default function LoginPage() {
                       <input
                         type="text"
                         value={otp}
-                        onChange={(e) =>
-                          setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))
-                        }
+                        onChange={(e) => {
+                          const val = e.target.value
+                            .replace(/\D/g, "")
+                            .slice(0, 6);
+                          setOtp(val);
+                          if (val.length === 6 && !loading) {
+                            handleVerifyOtp(undefined, val);
+                          }
+                        }}
                         required
                         placeholder="123456"
                         disabled={loading}
@@ -297,7 +300,11 @@ export default function LoginPage() {
                     disabled={loading}
                     className="w-full inline-flex items-center justify-center gap-3 bg-white text-neutral-900 px-6 py-3.5 rounded-xl text-[15px] font-medium border border-neutral-200 hover:border-neutral-300 hover:bg-neutral-50 transition-colors disabled:opacity-60"
                   >
-                    <svg className="w-5 h-5" viewBox="0 0 24 24" aria-hidden="true">
+                    <svg
+                      className="w-5 h-5"
+                      viewBox="0 0 24 24"
+                      aria-hidden="true"
+                    >
                       <path
                         fill="#4285F4"
                         d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.75h3.57c2.08-1.92 3.28-4.74 3.28-8.07z"
