@@ -15,14 +15,22 @@ import {
 
 import { useAuth } from "@/providers/auth-provider";
 import { sendOtp, verifyOtp } from "@/lib/services/auth.service";
-import { updateMeProfile } from "@/lib/repositories/user.repository";
 import { authClient } from "@/lib/auth/auth-client";
-import { getStaffInvitation, registerStaffInvitation } from "@/lib/repositories/staff.repository";
+import {
+  getStaffInvitation,
+  registerStaffInvitation,
+} from "@/lib/repositories/staff.repository";
 import { Reveal, RevealText } from "@/components/site/Reveal";
 
 export default function SignupPage() {
   const router = useRouter();
-  const { refreshProfile, fetchSession, loading: authLoading, user, profile } = useAuth();
+  const {
+    refreshProfile,
+    fetchSession,
+    loading: authLoading,
+    user,
+    profile,
+  } = useAuth();
 
   const [email, setEmail] = useState("");
   const [fullName, setFullName] = useState("");
@@ -51,7 +59,6 @@ export default function SignupPage() {
     };
   }, [timer]);
 
-  // Validate token query parameter immediately on load
   useEffect(() => {
     async function validateToken() {
       const searchParams = new URLSearchParams(window.location.search);
@@ -65,13 +72,19 @@ export default function SignupPage() {
         setValidatingToken(true);
         const invite = await getStaffInvitation(tokenVal);
         if (invite.status === "expired" || invite.status === "completed") {
-          setInviteError("This invitation link has expired or has already been used.");
+          setInviteError(
+            "This invitation link has expired or has already been used.",
+          );
         } else if (invite.email) {
           setEmail(invite.email);
           setIsEmailLocked(true);
         }
       } catch (err) {
-        setInviteError("The invitation token is invalid or does not exist.");
+        setInviteError(
+          err instanceof Error
+            ? err.message
+            : "The invitation token is invalid or does not exist.",
+        );
       } finally {
         setValidatingToken(false);
       }
@@ -79,16 +92,25 @@ export default function SignupPage() {
     validateToken();
   }, [router]);
 
-  // Once authenticated (from OTP or Google), complete invitation registration automatically!
   useEffect(() => {
     const currentToken = token;
-    if (!authLoading && user && profile && currentToken && !registrationStarted.current) {
+    if (
+      !authLoading &&
+      user &&
+      profile &&
+      currentToken &&
+      !registrationStarted.current
+    ) {
       registrationStarted.current = true;
       async function autoRegister() {
         try {
           setLoading(true);
           await registerStaffInvitation(currentToken as string, {
-            name: fullName.trim() || profile?.fullName || (user?.displayName ?? "") || "Owner",
+            name:
+              fullName.trim() ||
+              profile?.fullName ||
+              (user?.displayName ?? "") ||
+              "Owner",
             phone: profile?.phone || "",
           });
           toast.success("Account registration completed successfully!");
@@ -97,13 +119,16 @@ export default function SignupPage() {
           router.replace("/dashboard/profile");
         } catch (err) {
           console.error("Failed to complete automatic registration:", err);
-          setInviteError("Failed to link your account to the invitation. Please try again.");
+          setInviteError(
+            "Failed to link your account to the invitation. Please try again.",
+          );
         } finally {
           setLoading(false);
         }
       }
       autoRegister();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authLoading, user, profile, token, router]);
 
   const handleSendOtp = async (e?: React.FormEvent) => {
@@ -264,8 +289,8 @@ export default function SignupPage() {
             </h1>
             <Reveal delay={0.4}>
               <p className="mt-8 max-w-md text-[17px] leading-relaxed text-neutral-600">
-                Sign up for your NexBrix workspace. Enter your name and email
-                to receive a secure verification code.
+                Sign up for your NexBrix workspace. Enter your name and email to
+                receive a secure verification code.
               </p>
             </Reveal>
             <Reveal delay={0.5}>

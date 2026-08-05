@@ -46,6 +46,8 @@ export const logoutUser = async () => {
     localStorage.removeItem("nexbrix_active_location_id");
     localStorage.removeItem("nexbrix_impersonated_user_id");
     localStorage.removeItem("nexbrix_super_admin_readonly");
+    localStorage.removeItem("nexbrix_pwa_dismissed_at");
+    localStorage.removeItem("nexbrix_pwa_cancelled");
   }
 };
 
