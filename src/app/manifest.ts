@@ -4,8 +4,9 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "NexBrix — Business Operating System",
     short_name: "NexBrix",
-    description: "Business Operating System for Small Businesses. Manage workforce, inventory, and operations from a single platform.",
-    start_url: "/",
+    description:
+      "Business Operating System for Small Businesses. Manage workforce, inventory, and operations from a single platform.",
+    start_url: "/dashboard/timesheet-entry",
     display: "standalone",
     background_color: "#ffffff",
     theme_color: "#0f172a",
