@@ -24,14 +24,34 @@ export function PwaInstallPrompt() {
   const [cancelled, setCancelled] = useState(false);
 
   useEffect(() => {
-    // 1. Check if already cancelled or installed in localStorage
+    // 1. Check if already cancelled in last 7 days or installed in localStorage
     if (typeof window !== "undefined") {
-      const isCancelled =
-        localStorage.getItem("nexbrix_pwa_cancelled") === "true";
       const isAlreadyInstalled =
         localStorage.getItem("nexbrix_pwa_installed") === "true";
-      setCancelled(isCancelled);
       setInstalled(isAlreadyInstalled);
+
+      const isCancelledFlag =
+        localStorage.getItem("nexbrix_pwa_cancelled") === "true";
+      const dismissedAtStr = localStorage.getItem("nexbrix_pwa_dismissed_at");
+
+      if (isCancelledFlag || dismissedAtStr) {
+        const dismissedAt = dismissedAtStr ? parseInt(dismissedAtStr, 10) : 0;
+        const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+        const now = Date.now();
+
+        if (dismissedAt && now - dismissedAt < SEVEN_DAYS_MS) {
+          setCancelled(true);
+        } else if (!dismissedAt && isCancelledFlag) {
+          localStorage.setItem("nexbrix_pwa_dismissed_at", now.toString());
+          setCancelled(true);
+        } else {
+          localStorage.removeItem("nexbrix_pwa_cancelled");
+          localStorage.removeItem("nexbrix_pwa_dismissed_at");
+          setCancelled(false);
+        }
+      } else {
+        setCancelled(false);
+      }
     }
 
     // 2. Check if running in Standalone mode (already installed as PWA)
@@ -164,6 +184,7 @@ export function PwaInstallPrompt() {
     setShowIosInstructions(false);
     setCancelled(true);
     localStorage.setItem("nexbrix_pwa_cancelled", "true");
+    localStorage.setItem("nexbrix_pwa_dismissed_at", Date.now().toString());
   };
 
   // Conditions to hide popup completely:
