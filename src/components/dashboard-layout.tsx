@@ -55,6 +55,8 @@ import {
   ShieldIcon,
   Analytics03Icon,
   DeliveryTruck02Icon,
+  ShoppingCart01Icon,
+  PieChart02Icon,
 } from "@hugeicons/core-free-icons";
 
 interface SidebarSubLink {
@@ -501,7 +503,7 @@ export default function DashboardLayout({
     {
       name: "Consumption",
       href: "/dashboard/consumption",
-      icon: Analytics01Icon,
+      icon: PieChart02Icon,
     },
     {
       name: "Reconciliation",
