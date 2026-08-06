@@ -439,7 +439,11 @@ def get_timesheets(
     timesheets = session.exec(stmt).all()
 
     out = []
+    seen_ids = set()
     for ts in timesheets:
+        if ts.id in seen_ids:
+            continue
+        seen_ids.add(ts.id)
         out.append(
             TimesheetOut(
                 id=ts.id,
@@ -908,7 +912,11 @@ def get_timesheet_reports(
     timesheets = session.exec(stmt).all()
 
     out = []
+    seen_ids = set()
     for ts in timesheets:
+        if ts.id in seen_ids:
+            continue
+        seen_ids.add(ts.id)
         is_day_off = (ts.start_time.strip() in ("00:00", "00:00:00")) and (
             ts.end_time.strip() in ("00:00", "00:00:00")
         )

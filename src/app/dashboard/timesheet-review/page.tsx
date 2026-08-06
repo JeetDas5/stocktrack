@@ -140,7 +140,13 @@ export default function TimesheetReviewPage() {
         Promise.all(bizList.map((b) => getLocations(b.id).catch(() => []))),
       ]);
 
-      setTimesheets(tsList);
+      const uniqueTsMap = new Map();
+      tsList.forEach((t) => {
+        if (!uniqueTsMap.has(t.id)) {
+          uniqueTsMap.set(t.id, t);
+        }
+      });
+      setTimesheets(Array.from(uniqueTsMap.values()));
 
       const uniqueStaffMap = new Map();
       staffResults.flat().forEach((s) => {
@@ -731,7 +737,6 @@ export default function TimesheetReviewPage() {
   const isModalEditable = useMemo(() => {
     if (!editingTimesheet) return false;
 
-    // 1. Payroll period lock check
     if (
       settings?.lock_timesheets_before_date &&
       settings?.lock_payroll_period_date &&
@@ -740,7 +745,6 @@ export default function TimesheetReviewPage() {
       return false;
     }
 
-    // 2. Approved lock check
     if (
       editingTimesheet.status === "approved" &&
       settings?.allow_managers_edit_approved === false
@@ -801,8 +805,8 @@ export default function TimesheetReviewPage() {
     selectableIds.every((id) => selectedIds.includes(id));
 
   return (
-    <div className="flex flex-col bg-white h-auto md:h-[85vh] min-h-0 relative pb-4">
-      <div className="flex-1 min-h-0 flex flex-col space-y-4 pr-0 lg:pr-4">
+    <div className="pb-6 bg-white min-h-[85vh] relative">
+      <div className="max-w-7xl mx-auto space-y-4">
         <div className="bg-white border border-neutral-200 rounded-3xl py-4 px-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 shadow-sm">
           <h1 className="text-[24px] font-bold text-neutral-900 tracking-tight">
             Timesheet Review
@@ -832,7 +836,6 @@ export default function TimesheetReviewPage() {
           </div>
 
           <div className="flex flex-col sm:flex-row gap-2.5 items-center w-full sm:w-auto relative flex-wrap">
-            {/* Business Dropdown */}
             <div className="w-full sm:w-36">
               <Select
                 value={filterBusiness}
@@ -981,10 +984,9 @@ export default function TimesheetReviewPage() {
           )}
         </div>
 
-        {/* Main Table Container */}
-        <div className="bg-white border border-neutral-200 rounded-3xl shadow-2xs overflow-hidden flex-1 min-h-0 flex flex-col">
+        <div className="bg-white border border-neutral-200 rounded-3xl overflow-hidden shadow-2xs flex flex-col">
           <div
-            className="overflow-auto flex-1 min-h-0"
+            className="overflow-auto max-h-[600px]"
             onScroll={(e) => {
               const container = e.currentTarget;
               if (
@@ -1000,9 +1002,7 @@ export default function TimesheetReviewPage() {
             <table className="w-full text-left border-collapse min-w-[1000px]">
               <thead>
                 <tr className="border-b border-neutral-200 text-[11px] uppercase font-semibold tracking-wider text-neutral-550 bg-white sticky top-0 z-10">
-                  <th className="py-4 px-6 w-10">
-                    {/* Checkbox spacer column */}
-                  </th>
+                  <th className="py-4 px-6 w-10"></th>
                   <th className="py-4 px-6 font-semibold">STAFF NAME</th>
                   <th className="py-4 px-6 font-semibold">DATE</th>
                   <th className="py-4 px-6 font-semibold">BUSINESS</th>
@@ -1018,7 +1018,7 @@ export default function TimesheetReviewPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-neutral-200 text-xs text-neutral-800 bg-white">
-                {paginatedTimesheets.map((ts) => {
+                {paginatedTimesheets.map((ts, index) => {
                   const isRowSelected = selectedIds.includes(ts.id);
                   const isPending = ts.status === "submitted";
                   const isEdited = ts.status === "edited";
@@ -1050,7 +1050,7 @@ export default function TimesheetReviewPage() {
 
                   return (
                     <tr
-                      key={ts.id}
+                      key={`${ts.id}-${index}`}
                       onClick={(e) => {
                         const target = e.target as HTMLElement;
                         if (
@@ -1207,8 +1207,7 @@ export default function TimesheetReviewPage() {
             </table>
           </div>
 
-          {/* Pagination Container */}
-          <div className="bg-neutral-50/50 border-t border-neutral-200 py-4 px-6 flex flex-col sm:flex-row justify-between items-center gap-4 text-xs text-neutral-500 font-semibold sticky bottom-0 z-10">
+          <div className="bg-neutral-50/10 border-t border-neutral-200 py-3.5 px-6 flex flex-col sm:flex-row justify-between items-center gap-4 text-xs text-neutral-500 font-semibold">
             <span>
               Showing {Math.min(displayLimit, filteredTimesheets.length)} of{" "}
               {filteredTimesheets.length} timesheets
@@ -1236,7 +1235,6 @@ export default function TimesheetReviewPage() {
         </div>
       </div>
 
-      {/* Edit Timesheet Modal */}
       {editingTimesheet && (
         <div className="fixed inset-0 bg-neutral-950/40 backdrop-blur-xs flex items-center justify-center z-50 p-4">
           <div className="bg-white border border-neutral-200 rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden animate-scale-in">
