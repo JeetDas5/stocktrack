@@ -494,10 +494,11 @@ export default function DashboardLayout({
       icon: FileImportIcon,
     },
     {
-      name: "Square POS",
+      name: "Square Up Integration",
       href: "/dashboard/square",
       icon: Building01Icon,
     },
+
   ];
 
   const reportsLinks: SidebarLink[] = [

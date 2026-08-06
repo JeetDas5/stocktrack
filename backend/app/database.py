@@ -124,7 +124,9 @@ def init_db():
             _add_columns_if_missing(session, inspector, "locations", {
                 "is_warehouse": "BOOLEAN DEFAULT FALSE",
                 "is_global": "BOOLEAN DEFAULT FALSE",
+                "square_location_id": "VARCHAR",
             })
+
             try:
                 session.execute(text("ALTER TABLE locations ALTER COLUMN business_id DROP NOT NULL"))
                 session.commit()

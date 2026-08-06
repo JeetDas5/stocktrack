@@ -35,6 +35,7 @@ class Location(SQLModel, table=True):
     is_warehouse: bool = Field(default=False)
     is_global: bool = Field(default=False)
     is_active: bool = Field(default=True)
+    square_location_id: Optional[str] = Field(default=None, index=True)
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
     business_id: Optional[str] = Field(

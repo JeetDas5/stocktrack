@@ -46,7 +46,7 @@ export default function NotFound() {
         </div>
 
         <p className="text-center text-[10px] font-extrabold text-zinc-400 mt-6 uppercase tracking-widest">
-          StockTrack
+          NexBrix
         </p>
       </div>
     </div>
