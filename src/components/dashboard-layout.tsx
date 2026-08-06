@@ -599,14 +599,6 @@ export default function DashboardLayout({
   const allowedHrefs =
     sidebarPermissions[userRole as keyof typeof sidebarPermissions] || [];
 
-  const COMMON_ROUTES = [
-    "/dashboard",
-    "/dashboard/business",
-    "/dashboard/locations",
-    "/dashboard/profile",
-    "/dashboard/square",
-  ];
-
   const MODULE_ROUTES_SIDEBAR: Record<string, string[]> = {
     timesheet: [
       "/dashboard/team-members",
@@ -632,10 +624,12 @@ export default function DashboardLayout({
       "/dashboard/refill-planner",
       "/dashboard/purchase-orders",
       "/dashboard/deliveries",
+      "/dashboard/stock-transfers",
       "/dashboard/reconciliation",
       "/dashboard/sales",
       "/dashboard/sales-imports",
       "/dashboard/consumption",
+      "/dashboard/square",
     ],
   };
 
@@ -652,8 +646,16 @@ export default function DashboardLayout({
     if (!hasRolePermission) return false;
 
     // Common routes are always accessible (no module needed)
-    if (COMMON_ROUTES.some((r) => href === r || href.startsWith(r + "/")))
-      return true;
+    // NOTE: "/dashboard" uses exact match only to avoid matching all /dashboard/* sub-routes
+    const isCommonRoute =
+      href === "/dashboard" ||
+      href === "/dashboard/business" ||
+      href.startsWith("/dashboard/business/") ||
+      href === "/dashboard/locations" ||
+      href.startsWith("/dashboard/locations/") ||
+      href === "/dashboard/profile" ||
+      href.startsWith("/dashboard/profile/");
+    if (isCommonRoute) return true;
 
     // Module routes require the corresponding module to be enabled
     const modules = profile?.modules || [];
@@ -687,6 +689,37 @@ export default function DashboardLayout({
   const filteredInventorySetupLinks = filterSidebarLinks(inventorySetupLinks);
   const filteredStaffLinks = filterSidebarLinks(staffLinks);
   const filteredAccountLinks = filterSidebarLinks(accountLinks);
+
+  // if (typeof window !== "undefined" && profile) {
+  //   const testRoutes = ["/dashboard/counts", "/dashboard/sales", "/dashboard/consumption", "/dashboard/stock-items"];
+  //   const modules = profile?.modules || [];
+  //   const allowedHrefsDebug = sidebarPermissions[profile.role as keyof typeof sidebarPermissions] || [];
+  //   console.group("[SIDEBAR DEBUG]");
+  //   console.log("email:", profile?.email);
+  //   console.log("role:", profile?.role);
+  //   console.log("modules:", modules);
+  //   console.log("allowedHrefs for role:", allowedHrefsDebug);
+  //   console.log("allowedHrefs includes '*'?", allowedHrefsDebug.includes("*"));
+  //   testRoutes.forEach((route) => {
+  //     const hasRolePermission =
+  //       allowedHrefsDebug.includes("*") ||
+  //       allowedHrefsDebug.some((h: string) => route === h || route.startsWith(h + "/"));
+  //     const isCommon =
+  //       route === "/dashboard" ||
+  //       route === "/dashboard/business" || route.startsWith("/dashboard/business/") ||
+  //       route === "/dashboard/locations" || route.startsWith("/dashboard/locations/") ||
+  //       route === "/dashboard/profile" || route.startsWith("/dashboard/profile/");
+  //     const hasModule = modules.some((mod: string) =>
+  //       (MODULE_ROUTES_SIDEBAR[mod] || []).includes(route)
+  //     );
+  //     console.log(`${route}: roleOK=${hasRolePermission}, isCommon=${isCommon}, hasModule=${hasModule}, allowed=${isLinkAllowed(route)}`);
+  //   });
+  //   console.log("filteredInventoryLinks:", filteredInventoryLinks.length);
+  //   console.log("filteredSalesLinks:", filteredSalesLinks.length);
+  //   console.log("filteredReportsLinks:", filteredReportsLinks.length);
+  //   console.log("filteredInventorySetupLinks:", filteredInventorySetupLinks.length);
+  //   console.groupEnd();
+  // };
 
   const flatSidebarLinks: SidebarLink[] = [];
   const otherLinks = [

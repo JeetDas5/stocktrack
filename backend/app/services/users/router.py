@@ -23,6 +23,18 @@ def create_user_profile(user_data: User, session: Session = Depends(get_session)
         session.commit()
         session.refresh(existing)
         return existing
+        
+    if not user_data.modules and user_data.email:
+        invite = session.exec(
+            select(StaffInvitation).where(
+                StaffInvitation.email.ilike(user_data.email.strip())
+            )
+        ).first()
+        if invite and invite.modules:
+            user_data.modules = invite.modules
+        elif user_data.role != "super_admin":
+            user_data.modules = ["timesheet"]
+
     session.add(user_data)
     session.commit()
     session.refresh(user_data)
@@ -134,6 +146,39 @@ def get_me(
         ).first()
         is_approved = active_assignment is not None
 
+    user_modules = current_user.modules or []
+    if not user_modules:
+        if current_user.role in ("staff", "manager"):
+            active_assignment = session.exec(
+                select(UserAssignment).where(
+                    UserAssignment.user_id == current_user.id,
+                    UserAssignment.is_active == True
+                )
+            ).first()
+            if active_assignment and active_assignment.business_id:
+                biz = session.get(Business, active_assignment.business_id)
+                if biz and biz.created_by_id:
+                    owner = session.get(User, biz.created_by_id)
+                    if owner and owner.modules:
+                        user_modules = owner.modules
+        if not user_modules and current_user.email:
+            invite = session.exec(
+                select(StaffInvitation).where(
+                    StaffInvitation.email.ilike(current_user.email.strip())
+                )
+            ).first()
+            if invite and invite.modules:
+                user_modules = invite.modules
+                current_user.modules = invite.modules
+                session.add(current_user)
+                session.commit()
+
+        if not user_modules and current_user.role != "super_admin":
+            user_modules = ["timesheet"]
+            current_user.modules = ["timesheet"]
+            session.add(current_user)
+            session.commit()
+
     reports_to_name = None
     if current_user.reports_to:
         manager = session.get(User, current_user.reports_to)
@@ -182,7 +227,7 @@ def get_me(
         position=current_user.position,
         reports_to=reports_to_name,
         employment_type=current_user.employment_type,
-        modules=current_user.modules or []
+        modules=user_modules
     )
 
 
@@ -545,6 +590,31 @@ def list_all_users_for_super_admin(
     return out
 
 
+class SuperAdminUserModulesUpdate(SQLModel):
+    modules: List[str]
+
+
+@router.put("/api/super-admin/users/{user_id}/modules")
+def update_user_modules_for_super_admin(
+    user_id: str,
+    data: SuperAdminUserModulesUpdate,
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session)
+):
+    if current_user.role != "super_admin":
+        raise HTTPException(status_code=403, detail="Only super admin can access this resource")
+        
+    user = session.get(User, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+        
+    user.modules = data.modules
+    session.add(user)
+    session.commit()
+    session.refresh(user)
+    return {"message": "User modules updated successfully", "id": user.id, "modules": user.modules}
+
+
 class SuperAdminInvitationCreate(SQLModel):
     email: str
     modules: List[str]
@@ -709,9 +779,9 @@ def update_super_admin_invitation(
     invite.modules = data.modules
     session.add(invite)
     
-    # If the invitation is completed, we should also update the created User
-    if invite.status == "completed" and invite.email:
-        user = session.exec(select(User).where(User.email == invite.email.lower().strip())).first()
+    # Update the created User with the new module list
+    if invite.email:
+        user = session.exec(select(User).where(User.email.ilike(invite.email.strip()))).first()
         if user:
             user.modules = data.modules
             session.add(user)
