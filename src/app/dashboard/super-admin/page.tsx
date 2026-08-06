@@ -58,7 +58,7 @@ interface ExternalLead {
 }
 
 export default function SuperAdminPage() {
-  const { profile, loading: authLoading } = useAuth();
+  const { profile, loading: authLoading, refreshProfile } = useAuth();
   const router = useRouter();
 
   const [email, setEmail] = useState("");
