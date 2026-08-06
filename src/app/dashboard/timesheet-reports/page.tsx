@@ -201,6 +201,13 @@ export default function TimesheetReportsPage() {
       (r) =>
         r.totalHours > 0 && !(r.startTime === "00:00" && r.endTime === "00:00"),
     );
+    const uniqueMap = new Map();
+    data.forEach((r) => {
+      if (!uniqueMap.has(r.id)) {
+        uniqueMap.set(r.id, r);
+      }
+    });
+    data = Array.from(uniqueMap.values());
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       data = data.filter(
@@ -851,9 +858,9 @@ export default function TimesheetReportsPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-neutral-200 text-xs text-neutral-800 bg-white">
-                  {paginatedReports.map((r) => (
+                  {paginatedReports.map((r, index) => (
                     <tr
-                      key={r.id}
+                      key={`${r.id}-${index}`}
                       className="hover:bg-neutral-50/30 transition-colors text-center"
                     >
                       {visibleColumns.staffName && (

@@ -27,12 +27,28 @@ export const metadata: Metadata = {
 
   icons: {
     icon: [
-      { url: "/homescreen/favicon-32x32.png", sizes: "32x32", type: "image/png" },
-      { url: "/homescreen/favicon-16x16.png", sizes: "16x16", type: "image/png" },
-      { url: "/homescreen/android-chrome-192x192.png", sizes: "192x192", type: "image/png" },
+      {
+        url: "/homescreen/favicon-32x32.png",
+        sizes: "32x32",
+        type: "image/png",
+      },
+      {
+        url: "/homescreen/favicon-16x16.png",
+        sizes: "16x16",
+        type: "image/png",
+      },
+      {
+        url: "/homescreen/android-chrome-192x192.png",
+        sizes: "192x192",
+        type: "image/png",
+      },
     ],
     apple: [
-      { url: "/homescreen/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
+      {
+        url: "/homescreen/apple-touch-icon.png",
+        sizes: "180x180",
+        type: "image/png",
+      },
     ],
   },
   appleWebApp: {
@@ -46,6 +62,7 @@ export const metadata: Metadata = {
     description:
       "One platform to manage workforce, inventory, and business operations.",
     type: "website",
+    url: "https://nexbrix.com.au",
   },
 };
 
@@ -64,10 +81,9 @@ export default function RootLayout({
         <AuthProvider>
           <LayoutWrapper>{children}</LayoutWrapper>
           <PwaInstallPrompt />
-          <Toaster position="bottom-right" duration={3000} richColors />
+          <Toaster position="bottom-right" duration={5000} richColors />
         </AuthProvider>
       </body>
     </html>
   );
 }
-
