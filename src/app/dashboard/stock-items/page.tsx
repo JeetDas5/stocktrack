@@ -14,17 +14,20 @@ import {
   Supplier,
   Location,
   BaseUnit,
+  OrderingMethod,
 } from "@/types/inventory";
-import { Package, Plus, Search, X, Loader2, Trash2, Edit2 } from "lucide-react";
+import { Package, Plus, Search, X, Loader2, Trash2, Edit2, Phone, Mail, Globe } from "lucide-react";
 import {
   createStockItem,
   getStockItems,
   updateStockItem,
   deleteStockItem,
 } from "@/lib/repositories/stock-item.repository";
-import { getCategories } from "@/lib/repositories/category.repository";
-import { getSuppliers } from "@/lib/repositories/supplier.repository";
+import { getCategories, createCategory } from "@/lib/repositories/category.repository";
+import { getSuppliers, createSupplier } from "@/lib/repositories/supplier.repository";
 import { getLocations } from "@/lib/repositories/location.repository";
+import { AddressAutocompleteInput, AddressDetails } from "@/components/ui/address-autocomplete";
+import { Dropdown } from "@/components/ui/dropdown";
 import {
   Select,
   SelectContent,
@@ -33,6 +36,31 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+
+const COUNTRY_OPTIONS = [
+  { value: "Australia", label: "Australia" },
+  { value: "United States", label: "United States" },
+  { value: "Canada", label: "Canada" },
+  { value: "India", label: "India" },
+  { value: "United Kingdom", label: "United Kingdom" },
+  { value: "Germany", label: "Germany" },
+  { value: "France", label: "France" },
+  { value: "Singapore", label: "Singapore" },
+  { value: "Japan", label: "Japan" },
+] as const;
+
+const ORDERING_METHOD_OPTIONS = [
+  { value: "none", label: "Select ordering method (Optional)" },
+  { value: "email", label: "Email" },
+  { value: "phone", label: "Phone" },
+  { value: "website", label: "Website" },
+  { value: "manual", label: "Manual" },
+] as const;
+
+const FORM_STATUS_OPTIONS = [
+  { value: "active", label: "Active" },
+  { value: "inactive", label: "Inactive" },
+] as const;
 
 export default function StockItemsPage() {
   const { activeBusinessId } = useBusinessStore();
@@ -95,6 +123,152 @@ export default function StockItemsPage() {
     Record<string, boolean>
   >({});
   const [selectedLocations, setSelectedLocations] = useState<string[]>([]);
+
+  // Quick-create Category state
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
+  const [catFormName, setCatFormName] = useState("");
+  const [catFormDescription, setCatFormDescription] = useState("");
+  const [catFormStatus, setCatFormStatus] = useState<"active" | "inactive">("active");
+  const [catSaving, setCatSaving] = useState(false);
+
+  // Quick-create Supplier state
+  const [showSupplierModal, setShowSupplierModal] = useState(false);
+  const [supFormName, setSupFormName] = useState("");
+  const [supFormContactPerson, setSupFormContactPerson] = useState("");
+  const [supFormPhone, setSupFormPhone] = useState("");
+  const [supFormEmail, setSupFormEmail] = useState("");
+  const [supFormAddressLine1, setSupFormAddressLine1] = useState("");
+  const [supFormAddressLine2, setSupFormAddressLine2] = useState("");
+  const [supFormCity, setSupFormCity] = useState("");
+  const [supFormStateProvince, setSupFormStateProvince] = useState("");
+  const [supFormPostalCode, setSupFormPostalCode] = useState("");
+  const [supFormCountry, setSupFormCountry] = useState("Australia");
+  const [supFormOrderingMethod, setSupFormOrderingMethod] = useState<OrderingMethod | "none">("none");
+  const [supFormWebsite, setSupFormWebsite] = useState("");
+  const [supFormNotes, setSupFormNotes] = useState("");
+  const [supFormActive, setSupFormActive] = useState(true);
+  const [supSaving, setSupSaving] = useState(false);
+
+  const handleAddressSelect = (details: AddressDetails) => {
+    if (details.addressLine1) setSupFormAddressLine1(details.addressLine1);
+    if (details.addressLine2 !== undefined) setSupFormAddressLine2(details.addressLine2);
+    if (details.city) setSupFormCity(details.city);
+    if (details.stateProvince) setSupFormStateProvince(details.stateProvince);
+    if (details.postalCode) setSupFormPostalCode(details.postalCode);
+    if (details.country) {
+      const matched = COUNTRY_OPTIONS.find(
+        (opt) => opt.value.toLowerCase() === details.country.toLowerCase()
+      );
+      if (matched) {
+        setSupFormCountry(matched.value);
+      } else {
+        setSupFormCountry(details.country);
+      }
+    }
+  };
+
+  const handleQuickCreateCategory = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmedName = catFormName.trim();
+    if (!activeBusinessId || !trimmedName) {
+      toast.error("Category name is required.");
+      return;
+    }
+    if (trimmedName.length > 100) {
+      toast.error("Category name must be 100 characters or less.");
+      return;
+    }
+    if (!/[a-zA-Z]/.test(trimmedName)) {
+      toast.error("Category name cannot contain only numbers or special characters.");
+      return;
+    }
+    const trimmedDesc = catFormDescription.trim();
+    if (trimmedDesc && trimmedDesc.length > 250) {
+      toast.error("Category description must be 250 characters or less.");
+      return;
+    }
+
+    try {
+      setCatSaving(true);
+      const newCat = await createCategory(activeBusinessId, {
+        businessId: activeBusinessId,
+        name: trimmedName,
+        description: trimmedDesc || undefined,
+        icon: "other",
+        status: catFormStatus,
+      });
+
+      toast.success(`Category "${newCat.name}" created successfully!`);
+      setCategories((prev) => [...prev, newCat]);
+      setFormCategoryId(newCat.id);
+      if (validationErrors.categoryId) {
+        setValidationErrors((prev) => ({ ...prev, categoryId: false }));
+      }
+      setShowCategoryModal(false);
+    } catch (err: any) {
+      console.error(err);
+      toast.error("Failed to create category. Please try again.");
+    } finally {
+      setCatSaving(false);
+    }
+  };
+
+  const handleQuickCreateSupplier = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmedName = supFormName.trim();
+    if (!activeBusinessId || !trimmedName) {
+      toast.error("Supplier name is required.");
+      return;
+    }
+    if (trimmedName.length > 100) {
+      toast.error("Supplier name must be 100 characters or less.");
+      return;
+    }
+    const trimmedAddr = supFormAddressLine1.trim();
+    if (!trimmedAddr) {
+      toast.error("Address Line 1 is required.");
+      return;
+    }
+    const trimmedCity = supFormCity.trim();
+    if (!trimmedCity) {
+      toast.error("City is required.");
+      return;
+    }
+
+    try {
+      setSupSaving(true);
+      const newSup = await createSupplier(activeBusinessId, {
+        businessId: activeBusinessId,
+        name: trimmedName,
+        contactPerson: supFormContactPerson.trim() || undefined,
+        phone: supFormPhone.trim() || undefined,
+        email: supFormEmail.trim() || undefined,
+        addressLine1: trimmedAddr,
+        addressLine2: supFormAddressLine2.trim() || undefined,
+        city: trimmedCity,
+        stateProvince: supFormStateProvince.trim() || undefined,
+        postalCode: supFormPostalCode.trim() || undefined,
+        country: supFormCountry,
+        website: supFormWebsite.trim() || undefined,
+        notes: supFormNotes.trim() || undefined,
+        orderingMethod: supFormOrderingMethod === "none" ? undefined : supFormOrderingMethod,
+        isActive: supFormActive,
+      });
+
+      toast.success(`Supplier "${newSup.name}" created successfully!`);
+      setSuppliers((prev) => [...prev, newSup]);
+      setFormSupplierId(newSup.id);
+      if (validationErrors.supplierId) {
+        setValidationErrors((prev) => ({ ...prev, supplierId: false }));
+      }
+      setShowSupplierModal(false);
+    } catch (err: any) {
+      console.error(err);
+      toast.error("Failed to create supplier. Please try again.");
+    } finally {
+      setSupSaving(false);
+    }
+  };
 
   const dynamicUnits: string[] = [];
   if (formBaseUnit) {
@@ -776,9 +950,24 @@ export default function StockItemsPage() {
 
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1.5">
-                      <label className="text-[10px] font-bold text-neutral-700 uppercase tracking-wider block">
-                        Category <span className="text-rose-500">*</span>
-                      </label>
+                      <div className="flex items-center justify-between">
+                        <label className="text-[10px] font-bold text-neutral-700 uppercase tracking-wider block">
+                          Category <span className="text-rose-500">*</span>
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCatFormName("");
+                            setCatFormDescription("");
+                            setCatFormStatus("active");
+                            setShowCategoryModal(true);
+                          }}
+                          className="text-[10px] font-bold text-[#0a2924] hover:underline flex items-center gap-1 cursor-pointer"
+                        >
+                          <Plus className="h-3 w-3" />
+                          <span>Create New</span>
+                        </button>
+                      </div>
                       <Select
                         value={formCategoryId}
                         onValueChange={(val) => {
@@ -816,9 +1005,35 @@ export default function StockItemsPage() {
                     </div>
 
                     <div className="space-y-1.5">
-                      <label className="text-[10px] font-bold text-neutral-700 uppercase tracking-wider block">
-                        Supplier <span className="text-rose-500">*</span>
-                      </label>
+                      <div className="flex items-center justify-between">
+                        <label className="text-[10px] font-bold text-neutral-700 uppercase tracking-wider block">
+                          Supplier <span className="text-rose-500">*</span>
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSupFormName("");
+                            setSupFormContactPerson("");
+                            setSupFormPhone("");
+                            setSupFormEmail("");
+                            setSupFormAddressLine1("");
+                            setSupFormAddressLine2("");
+                            setSupFormCity("");
+                            setSupFormStateProvince("");
+                            setSupFormPostalCode("");
+                            setSupFormCountry("Australia");
+                            setSupFormOrderingMethod("none");
+                            setSupFormWebsite("");
+                            setSupFormNotes("");
+                            setSupFormActive(true);
+                            setShowSupplierModal(true);
+                          }}
+                          className="text-[10px] font-bold text-[#0a2924] hover:underline flex items-center gap-1 cursor-pointer"
+                        >
+                          <Plus className="h-3 w-3" />
+                          <span>Create New</span>
+                        </button>
+                      </div>
                       <Select
                         value={formSupplierId}
                         onValueChange={(val) => {
@@ -1210,6 +1425,429 @@ export default function StockItemsPage() {
         onConfirm={handleConfirmDelete}
         onCancel={() => setDeleteTarget(null)}
       />
+
+      {/* Quick-Create Category Modal */}
+      {showCategoryModal && (
+        <div className="fixed inset-0 z-80 flex items-center justify-center p-4">
+          <div
+            className="fixed inset-0 bg-black/40 backdrop-blur-xs animate-fade-in"
+            onClick={() => setShowCategoryModal(false)}
+          />
+          <div className="relative bg-white border border-zinc-100 rounded-3xl shadow-2xl w-full max-w-md overflow-hidden z-10 animate-scale-in">
+            <div className="p-6 border-b border-zinc-100 flex justify-between items-start bg-zinc-50/50">
+              <div>
+                <h3 className="text-base font-bold text-zinc-900 tracking-tight">
+                  Add New Category
+                </h3>
+                <p className="text-zinc-500 text-xs font-semibold mt-0.5">
+                  Create a category to assign to this stock item.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowCategoryModal(false)}
+                className="p-1.5 rounded-full hover:bg-zinc-200/60 text-zinc-400 hover:text-zinc-700 transition-colors cursor-pointer"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleQuickCreateCategory} className="p-6 space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-zinc-900 block">
+                  Category Name <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  maxLength={100}
+                  placeholder="Enter category name"
+                  className="w-full bg-white border border-zinc-300 focus:border-[#0a2924] rounded-xl py-2.5 px-3.5 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#0a2924] transition-all"
+                  value={catFormName}
+                  onChange={(e) => setCatFormName(e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <div className="flex justify-between items-center">
+                  <label className="text-xs font-bold text-zinc-900 block">
+                    Description (Optional)
+                  </label>
+                  <span className="text-[10px] text-zinc-400 font-bold">
+                    {catFormDescription.length}/250
+                  </span>
+                </div>
+                <textarea
+                  maxLength={250}
+                  placeholder="Enter description"
+                  rows={3}
+                  className="w-full bg-white border border-zinc-300 focus:border-[#0a2924] rounded-xl py-2.5 px-3.5 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#0a2924] transition-all resize-none"
+                  value={catFormDescription}
+                  onChange={(e) => setCatFormDescription(e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-zinc-900 block">
+                  Status <span className="text-rose-500">*</span>
+                </label>
+                <Dropdown
+                  value={catFormStatus}
+                  onChange={(val) => setCatFormStatus(val as "active" | "inactive")}
+                  options={FORM_STATUS_OPTIONS}
+                  className="w-full"
+                  triggerClassName="border-zinc-300 rounded-xl py-2.5 px-3.5 font-bold text-zinc-900"
+                  optionClassName="font-bold text-zinc-900"
+                />
+              </div>
+
+              <div className="border-t border-zinc-100 pt-4 flex items-center justify-end gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setShowCategoryModal(false)}
+                  className="bg-white border border-zinc-300 hover:bg-zinc-100 text-zinc-700 px-5 py-2.5 rounded-full text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={catSaving}
+                  className="bg-[#0a2924] hover:bg-[#071d1a] disabled:bg-[#0a2924]/60 text-white px-5 py-2.5 rounded-full text-xs font-bold uppercase tracking-wider shadow-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  {catSaving ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    "Create Category"
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Quick-Create Supplier Modal */}
+      {showSupplierModal && (
+        <div className="fixed inset-0 z-80 flex items-center justify-center p-4">
+          <div
+            className="fixed inset-0 bg-black/40 backdrop-blur-xs animate-fade-in"
+            onClick={() => setShowSupplierModal(false)}
+          />
+          <div className="relative bg-white border border-zinc-100 rounded-3xl shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden z-10 animate-scale-in">
+            <div className="p-6 border-b border-zinc-100 flex justify-between items-start bg-zinc-50/50 shrink-0">
+              <div>
+                <h3 className="text-base font-bold text-zinc-900 tracking-tight">
+                  Add New Supplier
+                </h3>
+                <p className="text-zinc-500 text-xs font-semibold mt-0.5">
+                  Enter details to add a new supplier for this business.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowSupplierModal(false)}
+                className="p-1.5 rounded-full hover:bg-zinc-200/60 text-zinc-400 hover:text-zinc-700 transition-colors cursor-pointer"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleQuickCreateSupplier} className="p-6 overflow-y-auto space-y-5 flex-1">
+              <div className="space-y-4">
+                <div className="border-b border-zinc-100 pb-1">
+                  <span className="text-[10px] font-extrabold tracking-widest text-zinc-400 uppercase">
+                    General Information
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-zinc-900 block">
+                      Supplier Name <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      maxLength={100}
+                      placeholder="Enter supplier name"
+                      className="w-full bg-white border border-zinc-300 focus:border-[#0a2924] rounded-xl py-2.5 px-3.5 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#0a2924] transition-all"
+                      value={supFormName}
+                      onChange={(e) => setSupFormName(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-zinc-900 block">
+                      Contact Person
+                    </label>
+                    <input
+                      type="text"
+                      maxLength={100}
+                      placeholder="Enter contact name"
+                      className="w-full bg-white border border-zinc-300 focus:border-[#0a2924] rounded-xl py-2.5 px-3.5 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#0a2924] transition-all"
+                      value={supFormContactPerson}
+                      onChange={(e) => setSupFormContactPerson(e.target.value)}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div className="border-b border-zinc-100 pb-1">
+                  <span className="text-[10px] font-extrabold tracking-widest text-zinc-400 uppercase">
+                    Contact Information
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-zinc-900 block">
+                      Phone
+                    </label>
+                    <div className="relative">
+                      <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-zinc-400">
+                        <Phone className="h-4 w-4" />
+                      </span>
+                      <input
+                        type="tel"
+                        maxLength={20}
+                        placeholder="Enter phone number"
+                        className="w-full bg-white border border-zinc-300 focus:border-[#0a2924] rounded-xl py-2.5 pl-10 pr-3.5 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#0a2924] transition-all"
+                        value={supFormPhone}
+                        onChange={(e) =>
+                          setSupFormPhone(e.target.value.replace(/[^0-9+\-\s]/g, ""))
+                        }
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-zinc-900 block">
+                      Email
+                    </label>
+                    <div className="relative">
+                      <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-zinc-400">
+                        <Mail className="h-4 w-4" />
+                      </span>
+                      <input
+                        type="email"
+                        maxLength={100}
+                        placeholder="Enter email address"
+                        className="w-full bg-white border border-zinc-300 focus:border-[#0a2924] rounded-xl py-2.5 pl-10 pr-3.5 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#0a2924] transition-all"
+                        value={supFormEmail}
+                        onChange={(e) => setSupFormEmail(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div className="border-b border-zinc-100 pb-1">
+                  <span className="text-[10px] font-extrabold tracking-widest text-zinc-400 uppercase">
+                    Address
+                  </span>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-zinc-900 block">
+                    Address Line 1 <span className="text-rose-500">*</span>
+                  </label>
+                  <AddressAutocompleteInput
+                    required
+                    maxLength={100}
+                    placeholder="Start typing address (e.g. 123 Main St)..."
+                    value={supFormAddressLine1}
+                    onChange={setSupFormAddressLine1}
+                    onAddressSelect={handleAddressSelect}
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-zinc-900 block">
+                    Address Line 2 (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    maxLength={100}
+                    placeholder="Apartment, suite, unit, building, floor, etc."
+                    className="w-full bg-white border border-zinc-300 focus:border-[#0a2924] rounded-xl py-2.5 px-3.5 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#0a2924] transition-all"
+                    value={supFormAddressLine2}
+                    onChange={(e) => setSupFormAddressLine2(e.target.value)}
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-zinc-900 block">
+                      City <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      maxLength={50}
+                      placeholder="Enter city"
+                      className="w-full bg-white border border-zinc-300 focus:border-[#0a2924] rounded-xl py-2.5 px-3.5 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#0a2924] transition-all"
+                      value={supFormCity}
+                      onChange={(e) => setSupFormCity(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-zinc-900 block">
+                      State / Province
+                    </label>
+                    <input
+                      type="text"
+                      maxLength={50}
+                      placeholder="Enter state / province"
+                      className="w-full bg-white border border-zinc-300 focus:border-[#0a2924] rounded-xl py-2.5 px-3.5 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#0a2924] transition-all"
+                      value={supFormStateProvince}
+                      onChange={(e) => setSupFormStateProvince(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-zinc-900 block">
+                      Postal Code
+                    </label>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      maxLength={10}
+                      placeholder="Enter postal code"
+                      className="w-full bg-white border border-zinc-300 focus:border-[#0a2924] rounded-xl py-2.5 px-3.5 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#0a2924] transition-all"
+                      value={supFormPostalCode}
+                      onChange={(e) =>
+                        setSupFormPostalCode(e.target.value.replace(/\D/g, ""))
+                      }
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-zinc-900 block">
+                      Country <span className="text-rose-500">*</span>
+                    </label>
+                    <Dropdown
+                      value={supFormCountry}
+                      onChange={setSupFormCountry}
+                      options={COUNTRY_OPTIONS}
+                      className="w-full"
+                      triggerClassName="border-zinc-300 rounded-xl py-2.5 px-3.5 font-bold text-zinc-900"
+                      optionClassName="font-bold text-zinc-900"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div className="border-b border-zinc-100 pb-1">
+                  <span className="text-[10px] font-extrabold tracking-widest text-zinc-400 uppercase">
+                    Additional Information (Optional)
+                  </span>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-zinc-900 block">
+                    Ordering Method
+                  </label>
+                  <Dropdown
+                    value={supFormOrderingMethod}
+                    onChange={(val) =>
+                      setSupFormOrderingMethod(val as OrderingMethod | "none")
+                    }
+                    options={ORDERING_METHOD_OPTIONS}
+                    className="w-full"
+                    triggerClassName="border-zinc-300 rounded-xl py-2.5 px-3.5 font-bold text-zinc-900"
+                    optionClassName="font-bold text-zinc-900"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-zinc-900 block">
+                    Website
+                  </label>
+                  <div className="relative">
+                    <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-zinc-400">
+                      <Globe className="h-4 w-4" />
+                    </span>
+                    <input
+                      type="url"
+                      maxLength={200}
+                      placeholder="Enter website URL"
+                      className="w-full bg-white border border-zinc-300 focus:border-[#0a2924] rounded-xl py-2.5 pl-10 pr-3.5 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#0a2924] transition-all"
+                      value={supFormWebsite}
+                      onChange={(e) => setSupFormWebsite(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <div className="flex justify-between items-center">
+                    <label className="text-xs font-bold text-zinc-900 block">
+                      Notes
+                    </label>
+                    <span className="text-[10px] font-bold text-zinc-400">
+                      {supFormNotes.length} / 250
+                    </span>
+                  </div>
+                  <textarea
+                    maxLength={250}
+                    placeholder="Enter notes (optional)"
+                    rows={3}
+                    className="w-full bg-white border border-zinc-300 focus:border-[#0a2924] rounded-xl py-2.5 px-3.5 text-xs text-zinc-950 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-[#0a2924] transition-all resize-none shadow-xs"
+                    value={supFormNotes}
+                    onChange={(e) => setSupFormNotes(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1.5 pt-2">
+                <label className="text-xs font-bold text-zinc-900 block">
+                  Status <span className="text-rose-500">*</span>
+                </label>
+                <Dropdown
+                  value={supFormActive ? "active" : "inactive"}
+                  onChange={(val) => setSupFormActive(val === "active")}
+                  options={FORM_STATUS_OPTIONS}
+                  className="w-full"
+                  triggerClassName="border-zinc-300 rounded-xl py-2.5 px-3.5 font-bold text-zinc-900"
+                  optionClassName="font-bold text-zinc-900"
+                />
+              </div>
+
+              <div className="border-t border-zinc-100 pt-4 flex items-center justify-end gap-2.5 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setShowSupplierModal(false)}
+                  className="bg-white border border-zinc-300 hover:bg-zinc-100 text-zinc-700 px-5 py-2.5 rounded-full text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={supSaving}
+                  className="bg-[#0a2924] hover:bg-[#071d1a] disabled:bg-[#0a2924]/60 text-white px-5 py-2.5 rounded-full text-xs font-bold uppercase tracking-wider shadow-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  {supSaving ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    "Create Supplier"
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
