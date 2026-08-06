@@ -55,6 +55,9 @@ import {
   ShieldIcon,
   Analytics03Icon,
   DeliveryTruck02Icon,
+  ShoppingCart01Icon,
+  PieChart02Icon,
+  MilkOatIcon,
 } from "@hugeicons/core-free-icons";
 
 interface SidebarSubLink {
@@ -501,7 +504,7 @@ export default function DashboardLayout({
     {
       name: "Consumption",
       href: "/dashboard/consumption",
-      icon: Analytics01Icon,
+      icon: PieChart02Icon,
     },
     {
       name: "Reconciliation",
@@ -516,7 +519,7 @@ export default function DashboardLayout({
   ];
 
   const inventorySetupLinks: SidebarLink[] = [
-    { name: "Stock Items", href: "/dashboard/stock-items", icon: PackageIcon },
+    { name: "Stock Items", href: "/dashboard/stock-items", icon: MilkOatIcon },
     { name: "Categories", href: "/dashboard/categories", icon: Layers01Icon },
     {
       name: "Suppliers",
