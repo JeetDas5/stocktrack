@@ -27,7 +27,18 @@ import {
   updateOwnerInvitation,
   listExternalLeads,
   deleteExternalLead,
+  listSuperAdminUsers,
+  updateUserModulesForSuperAdmin,
 } from "@/lib/repositories/user.repository";
+
+interface RegisteredUser {
+  id: string;
+  email: string;
+  name: string | null;
+  role: string;
+  modules: string[];
+  created_at: string;
+}
 
 interface Invitation {
   id: string;
@@ -47,7 +58,7 @@ interface ExternalLead {
 }
 
 export default function SuperAdminPage() {
-  const { profile, loading: authLoading } = useAuth();
+  const { profile, loading: authLoading, refreshProfile } = useAuth();
   const router = useRouter();
 
   const [email, setEmail] = useState("");
@@ -66,6 +77,12 @@ export default function SuperAdminPage() {
   const [leads, setLeads] = useState<ExternalLead[]>([]);
   const [loadingLeads, setLoadingLeads] = useState(true);
 
+  const [registeredUsers, setRegisteredUsers] = useState<RegisteredUser[]>([]);
+  const [loadingUsers, setLoadingUsers] = useState(true);
+  const [editingUserId, setEditingUserId] = useState<string | null>(null);
+  const [userEditModules, setUserEditModules] = useState<string[]>([]);
+  const [savingUserModules, setSavingUserModules] = useState(false);
+
   // Security guard at the page level
   useEffect(() => {
     if (!authLoading) {
@@ -74,6 +91,19 @@ export default function SuperAdminPage() {
       }
     }
   }, [profile, authLoading, router]);
+
+  const loadRegisteredUsers = async () => {
+    try {
+      setLoadingUsers(true);
+      const data = await listSuperAdminUsers();
+      setRegisteredUsers(data);
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to load registered users.");
+    } finally {
+      setLoadingUsers(false);
+    }
+  };
 
   const loadInvitations = async () => {
     try {
@@ -101,6 +131,24 @@ export default function SuperAdminPage() {
     }
   };
 
+  const handleSaveUserModules = async (userId: string) => {
+    try {
+      setSavingUserModules(true);
+      await updateUserModulesForSuperAdmin(userId, userEditModules);
+      toast.success("User module access updated successfully.");
+      setEditingUserId(null);
+      if (profile && profile.uid === userId) {
+        await refreshProfile();
+      }
+      await loadRegisteredUsers();
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to update user modules.");
+    } finally {
+      setSavingUserModules(false);
+    }
+  };
+
   const handleDeleteLead = async (leadId: string) => {
     try {
       await deleteExternalLead(leadId);
@@ -117,6 +165,7 @@ export default function SuperAdminPage() {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       loadInvitations();
       loadLeads();
+      loadRegisteredUsers();
     }
   }, [profile]);
 
@@ -206,6 +255,7 @@ export default function SuperAdminPage() {
       await updateOwnerInvitation(inviteId, editModules);
       toast.success("Module access updated successfully.");
       setEditingInviteId(null);
+      await refreshProfile();
       await loadInvitations();
     } catch (err) {
       console.error(err);
@@ -548,6 +598,148 @@ export default function SuperAdminPage() {
             )}
           </div>
         </div>
+      </div>
+
+      {/* Registered Users Module Management section */}
+      <div className="mt-8 bg-white border border-neutral-200 rounded-3xl p-6 shadow-sm">
+        <h2 className="text-base font-bold text-neutral-900 mb-1">
+          Registered Users Module Subscriptions
+        </h2>
+        <p className="text-neutral-400 text-[10px] font-bold tracking-wide uppercase mb-6">
+          View and directly configure active module access for all registered user accounts
+        </p>
+
+        {loadingUsers ? (
+          <div className="py-16 flex flex-col items-center justify-center bg-white border border-neutral-100 rounded-2xl">
+            <Loader2 className="h-6 w-6 text-black animate-spin mb-2" />
+            <span className="text-[11px] text-neutral-400 font-bold uppercase tracking-wider">
+              Loading user accounts...
+            </span>
+          </div>
+        ) : registeredUsers.length === 0 ? (
+          <div className="bg-neutral-50/50 border border-neutral-200/60 rounded-2xl py-12 px-6 text-center flex flex-col items-center justify-center">
+            <Building className="h-8 w-8 text-neutral-300 mb-2" />
+            <h3 className="text-xs font-extrabold text-neutral-950 uppercase tracking-wider">
+              No registered user accounts found
+            </h3>
+          </div>
+        ) : (
+          <div className="border border-neutral-200 rounded-2xl overflow-hidden bg-white">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-neutral-50 border-b border-neutral-200 text-[10px] font-extrabold uppercase text-neutral-500 tracking-wider">
+                    <th className="py-3.5 px-6">User / Email</th>
+                    <th className="py-3.5 px-6">Role</th>
+                    <th className="py-3.5 px-6">Subscribed Modules</th>
+                    <th className="py-3.5 px-6 text-right">Manage Modules</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-neutral-100 text-xs font-semibold text-neutral-700">
+                  {registeredUsers.map((u) => {
+                    const isEditingThisUser = editingUserId === u.id;
+                    return (
+                      <tr key={u.id} className="hover:bg-neutral-50/50 transition-colors">
+                        <td className="py-4 px-6">
+                          <span className="text-neutral-950 font-bold block">{u.name || "Unnamed User"}</span>
+                          <span className="font-mono text-neutral-500 text-[11px] block mt-0.5">{u.email}</span>
+                        </td>
+                        <td className="py-4 px-6">
+                          <span className="uppercase text-[10px] font-extrabold text-neutral-600 bg-neutral-100 px-2 py-0.5 rounded border border-neutral-200">
+                            {u.role}
+                          </span>
+                        </td>
+                        <td className="py-4 px-6">
+                          {isEditingThisUser ? (
+                            <div className="flex flex-wrap gap-2">
+                              {["timesheet", "roster", "inventory"].map((modName) => (
+                                <label
+                                  key={modName}
+                                  className={`flex items-center gap-1 px-2 py-1 rounded border text-[10px] font-bold uppercase cursor-pointer select-none transition ${
+                                    userEditModules.includes(modName)
+                                      ? "bg-black text-white border-black"
+                                      : "bg-neutral-50 text-neutral-500 border-neutral-200 hover:bg-neutral-100"
+                                  }`}
+                                >
+                                  <input
+                                    type="checkbox"
+                                    className="hidden"
+                                    checked={userEditModules.includes(modName)}
+                                    onChange={() => {
+                                      if (userEditModules.includes(modName)) {
+                                        setUserEditModules(userEditModules.filter((m) => m !== modName));
+                                      } else {
+                                        setUserEditModules([...userEditModules, modName]);
+                                      }
+                                    }}
+                                  />
+                                  {modName}
+                                </label>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="flex flex-wrap gap-1">
+                              {(u.modules || []).length === 0 ? (
+                                <span className="text-[10px] text-neutral-400 italic">None assigned</span>
+                              ) : (
+                                u.modules.map((m) => (
+                                  <span
+                                    key={m}
+                                    className="text-[9px] font-bold text-neutral-800 bg-neutral-100 border border-neutral-200 px-1.5 py-0.5 rounded uppercase"
+                                  >
+                                    {m}
+                                  </span>
+                                ))
+                              )}
+                            </div>
+                          )}
+                        </td>
+                        <td className="py-4 px-6 text-right">
+                          {isEditingThisUser ? (
+                            <div className="flex items-center justify-end gap-2">
+                              <button
+                                onClick={() => handleSaveUserModules(u.id)}
+                                disabled={savingUserModules}
+                                className="bg-black hover:bg-neutral-800 text-white text-[10px] font-bold uppercase tracking-wide px-3 py-1.5 rounded-lg flex items-center gap-1 disabled:opacity-50 transition cursor-pointer"
+                              >
+                                {savingUserModules ? (
+                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                ) : (
+                                  <Save className="h-3 w-3" />
+                                )}
+                                Save
+                              </button>
+                              <button
+                                onClick={() => setEditingUserId(null)}
+                                disabled={savingUserModules}
+                                className="bg-white hover:bg-neutral-50 text-neutral-600 border border-neutral-200 text-[10px] font-bold uppercase tracking-wide px-3 py-1.5 rounded-lg flex items-center gap-1 disabled:opacity-50 transition cursor-pointer"
+                              >
+                                <X className="h-3 w-3" />
+                                Cancel
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => {
+                                setEditingUserId(u.id);
+                                setUserEditModules(u.modules || []);
+                              }}
+                              className="bg-white hover:bg-neutral-50 text-neutral-700 hover:text-black rounded-lg p-2 border border-neutral-200 cursor-pointer transition inline-flex items-center gap-1.5 text-xs font-bold"
+                              title="Edit User Modules"
+                            >
+                              <Edit2 className="h-3.5 w-3.5" />
+                              Edit Modules
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* External User Leads / failed login capture section */}

@@ -131,6 +131,19 @@ def get_current_user(
             is_module_allowed = False
             
             user_modules = user.modules or []
+            if not user_modules and user.role in ("staff", "manager"):
+                active_assignment = session.exec(
+                    select(UserAssignment).where(
+                        UserAssignment.user_id == user.id,
+                        UserAssignment.is_active == True
+                    )
+                ).first()
+                if active_assignment and active_assignment.business_id:
+                    biz = session.get(Business, active_assignment.business_id)
+                    if biz and biz.created_by_id:
+                        owner = session.get(User, biz.created_by_id)
+                        if owner and owner.modules:
+                            user_modules = owner.modules
             
             if len(parts) >= 2 and parts[0] == "api":
                 resource = parts[1]

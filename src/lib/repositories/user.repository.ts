@@ -234,4 +234,14 @@ export const deleteExternalLead = async (leadId: string): Promise<any> => {
   return response.data;
 };
 
+export const listSuperAdminUsers = async (): Promise<any[]> => {
+  const response = await api.get("/api/super-admin/users");
+  return response.data;
+};
+
+export const updateUserModulesForSuperAdmin = async (userId: string, modules: string[]): Promise<any> => {
+  const response = await api.put(`/api/super-admin/users/${userId}/modules`, { modules });
+  return response.data;
+};
+
 

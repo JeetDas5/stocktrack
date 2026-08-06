@@ -45,6 +45,7 @@ const MODULE_ROUTES: Record<string, string[]> = {
     "/dashboard/sales",
     "/dashboard/sales-imports",
     "/dashboard/consumption",
+    "/dashboard/square",
   ],
 };
 
