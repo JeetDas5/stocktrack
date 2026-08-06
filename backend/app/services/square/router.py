@@ -1,18 +1,23 @@
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlmodel import Session, select
 
 from app.database import get_session
-from app.models import User, SquareToken
+from app.models import User, SquareToken, SquareImportHistory
 from app.services.auth.dependencies import get_current_user
 from app.services.square.service import (
     get_square_authorize_url,
     exchange_code_for_tokens,
     refresh_square_tokens,
     fetch_square_catalog,
+    fetch_square_locations,
     get_square_environment,
+)
+from app.services.square.importer import (
+    preview_square_location_import,
+    execute_square_location_import,
 )
 
 router = APIRouter(prefix="/api/square", tags=["Square Integration"])
@@ -21,6 +26,12 @@ router = APIRouter(prefix="/api/square", tags=["Square Integration"])
 class CallbackRequest(BaseModel):
     business_id: str
     code: str
+
+
+class ExecuteLocationImportRequest(BaseModel):
+    business_id: str
+    items: List[Dict[str, Any]]
+
 
 
 @router.get("/authorize-url")
@@ -208,3 +219,108 @@ def get_catalog_list(
         return catalog_data
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.get("/locations")
+def get_square_locations_endpoint(
+    business_id: str = Query(...),
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """
+    Fetches raw location list from Square API for the connected merchant account.
+    """
+    statement = select(SquareToken).where(SquareToken.business_id == business_id)
+    token_record = session.exec(statement).first()
+
+    if not token_record or not token_record.access_token:
+        raise HTTPException(
+            status_code=400,
+            detail="Square account is not connected. Please connect your Square account first.",
+        )
+
+    try:
+        data = fetch_square_locations(
+            access_token=token_record.access_token,
+            env=token_record.environment,
+        )
+        return data
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/import/locations/preview")
+def preview_locations_import_endpoint(
+    business_id: str = Query(...),
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """
+    Fetches locations from Square and returns field mapping + duplicate detection analysis.
+    """
+    statement = select(SquareToken).where(SquareToken.business_id == business_id)
+    token_record = session.exec(statement).first()
+
+    if not token_record or not token_record.access_token:
+        raise HTTPException(
+            status_code=400,
+            detail="Square account is not connected. Please connect your Square account first.",
+        )
+
+    try:
+        raw = fetch_square_locations(
+            access_token=token_record.access_token,
+            env=token_record.environment,
+        )
+        sq_locations = raw.get("locations", [])
+        analysis = preview_square_location_import(
+            session=session,
+            business_id=business_id,
+            square_locations=sq_locations,
+        )
+        return analysis
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/import/locations")
+def execute_locations_import_endpoint(
+    payload: ExecuteLocationImportRequest,
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """
+    Executes location import/sync based on user's duplicate resolution rules.
+    """
+    if not payload.business_id or not payload.items:
+        raise HTTPException(status_code=400, detail="business_id and items are required")
+
+    try:
+        res = execute_square_location_import(
+            session=session,
+            business_id=payload.business_id,
+            user_id=current_user.id,
+            items_to_import=payload.items,
+        )
+        return res
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.get("/import/history")
+def get_import_history_endpoint(
+    business_id: str = Query(...),
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """
+    Returns audit history log for imports performed for the specified business.
+    """
+    stmt = (
+        select(SquareImportHistory)
+        .where(SquareImportHistory.business_id == business_id)
+        .order_by(SquareImportHistory.created_at.desc())
+    )
+    records = session.exec(stmt).all()
+    return {"history": records}
+

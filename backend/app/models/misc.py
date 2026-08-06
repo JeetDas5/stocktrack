@@ -2,6 +2,7 @@ import uuid
 from datetime import datetime
 from typing import Optional
 from sqlmodel import Field, SQLModel
+from sqlalchemy import Column, JSON
 
 
 class ContactMessage(SQLModel, table=True):
@@ -43,3 +44,19 @@ class SquareToken(SQLModel, table=True):
     environment: str = Field(default="sandbox")
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class SquareImportHistory(SQLModel, table=True):
+    __tablename__ = "square_import_history"
+
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
+    business_id: str = Field(foreign_key="businesses.id", ondelete="CASCADE", index=True)
+    user_id: str = Field(foreign_key="users.id", ondelete="CASCADE")
+    entity_type: str = Field(index=True)  # "location", "item", "sales"
+    status: str = Field(default="success")  # "success", "partial", "failed"
+    created_count: int = Field(default=0)
+    updated_count: int = Field(default=0)
+    skipped_count: int = Field(default=0)
+    field_mappings: Optional[dict] = Field(default={}, sa_column=Column(JSON))
+    summary_log: Optional[dict] = Field(default={}, sa_column=Column(JSON))
+    created_at: datetime = Field(default_factory=datetime.utcnow)

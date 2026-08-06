@@ -105,3 +105,130 @@ export const getSquareCatalog = async (
   const response = await api.get(`/api/square/catalog`, { params });
   return response.data;
 };
+
+export interface SquareLocationAddress {
+  address_line_1?: string;
+  address_line_2?: string;
+  locality?: string;
+  administrative_district_level_1?: string;
+  postal_code?: string;
+  country?: string;
+}
+
+export interface SquareLocation {
+  id: string;
+  name: string;
+  status: string;
+  type?: string;
+  timezone?: string;
+  currency?: string;
+  country?: string;
+  merchant_id?: string;
+  address?: SquareLocationAddress;
+  [key: string]: unknown;
+}
+
+export interface LocationImportItemPreview {
+  square_id: string;
+  square_name: string;
+  square_address?: string;
+  square_status: string;
+  square_type?: string;
+  square_merchant_id?: string;
+  mapped_name: string;
+  mapped_address: string;
+  mapped_type: string;
+  mapped_is_warehouse: boolean;
+  mapped_is_active: boolean;
+  match_status: "new" | "duplicate";
+  match_reason?: string;
+  existing_location_id?: string;
+  existing_location_name?: string;
+  default_action: "create" | "update" | "skip";
+}
+
+export interface LocationImportPreviewResponse {
+  entity_type: string;
+  total_found: number;
+  new_count: number;
+  duplicate_count: number;
+  items: LocationImportItemPreview[];
+}
+
+export interface ExecuteLocationImportItem {
+  square_id: string;
+  square_name?: string;
+  mapped_name: string;
+  mapped_address?: string;
+  mapped_type: string;
+  mapped_is_warehouse: boolean;
+  mapped_is_active: boolean;
+  action: "create" | "update" | "skip";
+  existing_location_id?: string;
+}
+
+export interface SquareImportHistoryItem {
+  id: string;
+  business_id: string;
+  user_id: string;
+  entity_type: string;
+  status: string;
+  created_count: number;
+  updated_count: number;
+  skipped_count: number;
+  field_mappings?: Record<string, unknown>;
+  summary_log?: {
+    items?: Array<{
+      square_id?: string;
+      location_id?: string;
+      name?: string;
+      action?: string;
+    }>;
+  };
+  created_at: string;
+}
+
+export const getSquareLocations = async (
+  businessId: string
+): Promise<{ locations?: SquareLocation[] }> => {
+  const response = await api.get(`/api/square/locations`, {
+    params: { business_id: businessId },
+  });
+  return response.data;
+};
+
+export const previewSquareLocationImport = async (
+  businessId: string
+): Promise<LocationImportPreviewResponse> => {
+  const response = await api.post(`/api/square/import/locations/preview`, null, {
+    params: { business_id: businessId },
+  });
+  return response.data;
+};
+
+export const executeSquareLocationImport = async (
+  businessId: string,
+  items: ExecuteLocationImportItem[]
+): Promise<{
+  status: string;
+  created_count: number;
+  updated_count: number;
+  skipped_count: number;
+  history_id: string;
+}> => {
+  const response = await api.post(`/api/square/import/locations`, {
+    business_id: businessId,
+    items,
+  });
+  return response.data;
+};
+
+export const getSquareImportHistory = async (
+  businessId: string
+): Promise<{ history: SquareImportHistoryItem[] }> => {
+  const response = await api.get(`/api/square/import/history`, {
+    params: { business_id: businessId },
+  });
+  return response.data;
+};
+

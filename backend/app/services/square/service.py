@@ -169,3 +169,37 @@ def fetch_square_catalog(
         except Exception:
             detail = error_body
         raise RuntimeError(f"Square Catalog API Call Failed: {detail}")
+
+
+def fetch_square_locations(
+    access_token: str, env: Optional[str] = None
+) -> Dict[str, Any]:
+    """
+    Fetches locations list from Square API (GET /v2/locations).
+    """
+    base_url = get_square_base_url(env)
+    url = f"{base_url}/v2/locations"
+
+    req = urllib.request.Request(
+        url,
+        headers={
+            "Authorization": f"Bearer {access_token}",
+            "Square-Version": "2026-07-15",
+            "Content-Type": "application/json",
+        },
+        method="GET",
+    )
+
+    try:
+        with urllib.request.urlopen(req) as resp:
+            body = resp.read().decode("utf-8")
+            return json.loads(body)
+    except urllib.error.HTTPError as e:
+        error_body = e.read().decode("utf-8")
+        try:
+            err_json = json.loads(error_body)
+            detail = err_json.get("errors", [{}])[0].get("detail", error_body)
+        except Exception:
+            detail = error_body
+        raise RuntimeError(f"Square Locations API Call Failed: {detail}")
+

@@ -91,6 +91,7 @@ from app.models.misc import (  # noqa: F401
     ContactMessage,
     ExternalUserLead,
     SquareToken,
+    SquareImportHistory,
 )
 
 __all__ = [
@@ -152,4 +153,6 @@ __all__ = [
     "ContactMessage",
     "ExternalUserLead",
     "SquareToken",
+    "SquareImportHistory",
 ]
+

@@ -20,6 +20,8 @@ import {
   ShieldCheck,
   ChevronLeft,
   ChevronRight,
+  Sliders,
+  History,
 } from "lucide-react";
 
 import { useBusinessStore } from "@/stores/business-store";
@@ -31,6 +33,9 @@ import {
   SquareStatusResponse,
   CatalogObject,
 } from "@/lib/repositories/square.repository";
+
+import SquareImportWizard from "@/components/square/square-import-wizard";
+import SquareImportHistory from "@/components/square/square-import-history";
 
 const TYPE_FILTER_OPTIONS = [
   { value: "category,tax", label: "Categories & Taxes (Requested)" },
@@ -45,6 +50,8 @@ const ITEMS_PER_PAGE = 8;
 
 export default function SquareIntegrationPage() {
   const { activeBusinessId } = useBusinessStore();
+
+  const [activeTab, setActiveTab] = useState<"wizard" | "status" | "history">("wizard");
 
   const [statusLoading, setStatusLoading] = useState(true);
   const [status, setStatus] = useState<SquareStatusResponse>({
@@ -273,20 +280,22 @@ export default function SquareIntegrationPage() {
     );
   }
 
+  const busId = getTargetBusinessId();
+
   return (
     <div className="flex flex-col bg-white min-h-screen space-y-5 p-4 md:p-6 select-none">
-      <div className="bg-white border border-[#E2E8F0] rounded-2xl py-4 px-5 md:py-3.5 md:px-5 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm">
+      {/* Header Banner */}
+      <div className="bg-white border border-[#E2E8F0] rounded-2xl py-4 px-5 md:py-3.5 md:px-5 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-xs">
         <div className="flex items-center gap-3">
           <div className="p-2.5 bg-[#0a2924]/10 text-[#0a2924] rounded-xl">
             <Store className="h-6 w-6" />
           </div>
           <div>
             <h1 className="text-xl md:text-2xl font-extrabold text-zinc-900 tracking-tight">
-              Squareup Integration
+              Squareup Integration Hub
             </h1>
             <p className="text-xs text-zinc-500">
-              Connect your Square POS account via OAuth 2.0 and view merchant
-              catalog objects.
+              Manage your Square POS connection, run data import wizards, and inspect audit logs.
             </p>
           </div>
         </div>
@@ -295,7 +304,6 @@ export default function SquareIntegrationPage() {
           <div className="flex items-center gap-2">
             <button
               onClick={() => {
-                const busId = getTargetBusinessId();
                 if (busId) fetchCatalog(busId, selectedType);
               }}
               disabled={catalogLoading}
@@ -318,222 +326,268 @@ export default function SquareIntegrationPage() {
         )}
       </div>
 
-      {!status.connected ? (
-        <div className="bg-linear-to-r from-[#0a2924] via-[#0f3d35] to-zinc-900 text-white rounded-2xl p-7 shadow-md relative overflow-hidden">
-          <div className="max-w-2xl space-y-3 relative z-10">
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 text-emerald-300 text-xs font-semibold border border-white/10">
-              <ShieldCheck className="h-4 w-4 text-emerald-400" /> OAuth 2.0
-              Integration
-            </div>
-            <h2 className="text-2xl font-extrabold tracking-tight text-white">
-              Connect your Square Merchant Account
-            </h2>
-            <p className="text-zinc-300 text-xs leading-relaxed max-w-xl">
-              Authorize NexBrix to securely read your catalog items, categories,
-              and tax rates directly from Square API.
-            </p>
-            <div className="pt-2">
+      {/* Top Level Navigation Tabs */}
+      <div className="flex items-center gap-2 border-b border-zinc-200 pb-1">
+        <button
+          onClick={() => setActiveTab("wizard")}
+          className={`inline-flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-xl transition cursor-pointer ${
+            activeTab === "wizard"
+              ? "bg-[#0a2924] text-white shadow-xs"
+              : "text-zinc-600 hover:bg-zinc-100"
+          }`}
+        >
+          <Sliders className="h-4 w-4" /> Import Data Wizard
+        </button>
+
+        <button
+          onClick={() => setActiveTab("status")}
+          className={`inline-flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-xl transition cursor-pointer ${
+            activeTab === "status"
+              ? "bg-[#0a2924] text-white shadow-xs"
+              : "text-zinc-600 hover:bg-zinc-100"
+          }`}
+        >
+          <Store className="h-4 w-4" /> Connection & Catalog
+        </button>
+
+        <button
+          onClick={() => setActiveTab("history")}
+          className={`inline-flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-xl transition cursor-pointer ${
+            activeTab === "history"
+              ? "bg-[#0a2924] text-white shadow-xs"
+              : "text-zinc-600 hover:bg-zinc-100"
+          }`}
+        >
+          <History className="h-4 w-4" /> Import History Log
+        </button>
+      </div>
+
+      {/* TAB CONTENT 1: Import Wizard */}
+      {activeTab === "wizard" && (
+        <>
+          {!status.connected ? (
+            <div className="bg-linear-to-r from-[#0a2924] via-[#0f3d35] to-zinc-900 text-white rounded-2xl p-7 shadow-md space-y-4">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 text-emerald-300 text-xs font-semibold border border-white/10">
+                <ShieldCheck className="h-4 w-4 text-emerald-400" /> OAuth 2.0 Authorization Required
+              </div>
+              <h2 className="text-2xl font-extrabold text-white">Connect Your Square POS Account</h2>
+              <p className="text-zinc-300 text-xs max-w-xl">
+                You must connect your Square Merchant account before running the data import wizard.
+              </p>
               <button
                 onClick={handleConnect}
                 disabled={connecting}
                 className="inline-flex items-center gap-2 px-5 py-2.5 bg-white text-[#0a2924] hover:bg-zinc-100 font-extrabold text-xs rounded-xl transition shadow-sm cursor-pointer disabled:opacity-50"
               >
                 {connecting ? (
-                  <Loader2 className="h-4 w-4 animate-spin text-[#0a2924]" />
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin text-[#0a2924]" />
+                    Connecting...
+                  </>
                 ) : (
-                  <ExternalLink className="h-4 w-4 text-[#0a2924]" />
+                  <>
+                    Connect with Square <ExternalLink className="h-4 w-4" />
+                  </>
                 )}
-                Connect with Square
               </button>
             </div>
-          </div>
-        </div>
-      ) : (
-        <div className="bg-white rounded-2xl border border-[#E2E8F0] p-4 shadow-sm grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-emerald-50 text-emerald-600 rounded-xl border border-emerald-100">
-              <CheckCircle2 className="h-5 w-5" />
-            </div>
-            <div>
-              <div className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">
-                Connection Status
-              </div>
-              <div className="text-sm font-extrabold text-emerald-600">
-                Connected & Active
-              </div>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3 border-t md:border-t-0 md:border-l border-zinc-100 pt-3 md:pt-0 md:pl-5">
-            <div className="p-2.5 bg-zinc-50 text-zinc-700 rounded-xl">
-              <Store className="h-5 w-5" />
-            </div>
-            <div>
-              <div className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">
-                Merchant ID
-              </div>
-              <div className="text-xs font-mono font-bold text-zinc-900">
-                {status.merchant_id || "N/A"}
-              </div>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3 border-t md:border-t-0 md:border-l border-zinc-100 pt-3 md:pt-0 md:pl-5">
-            <div className="p-2.5 bg-zinc-50 text-zinc-700 rounded-xl">
-              <Code2 className="h-5 w-5" />
-            </div>
-            <div>
-              <div className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">
-                Environment
-              </div>
-              <div className="text-xs font-bold text-zinc-900 capitalize">
-                {status.environment || "sandbox"}
-              </div>
-            </div>
-          </div>
-        </div>
+          ) : (
+            <SquareImportWizard businessId={busId} />
+          )}
+        </>
       )}
 
-      {status.connected && (
-        <div className="bg-white rounded-2xl border border-[#E2E8F0] p-5 space-y-4 shadow-sm">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-zinc-100">
-            <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-base font-extrabold text-zinc-900 tracking-tight">
-                  Square Catalog Objects
+      {/* TAB CONTENT 2: Connection Status & Catalog Inspection */}
+      {activeTab === "status" && (
+        <div className="space-y-6">
+          {!status.connected ? (
+            <div className="bg-linear-to-r from-[#0a2924] via-[#0f3d35] to-zinc-900 text-white rounded-2xl p-7 shadow-md relative overflow-hidden">
+              <div className="max-w-2xl space-y-3 relative z-10">
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 text-emerald-300 text-xs font-semibold border border-white/10">
+                  <ShieldCheck className="h-4 w-4 text-emerald-400" /> OAuth 2.0 Integration
+                </div>
+                <h2 className="text-2xl font-extrabold tracking-tight text-white">
+                  Connect your Square Merchant Account
                 </h2>
-                <span className="px-2.5 py-0.5 text-xs bg-[#0a2924]/10 text-[#0a2924] font-bold rounded-full border border-[#0a2924]/20">
-                  {filteredCatalog.length} objects
-                </span>
+                <p className="text-zinc-300 text-xs leading-relaxed max-w-xl">
+                  Authorize NexBrix to securely read your catalog items, categories, and tax rates directly from Square API.
+                </p>
+                <div className="pt-2">
+                  <button
+                    onClick={handleConnect}
+                    disabled={connecting}
+                    className="inline-flex items-center gap-2 px-5 py-2.5 bg-white text-[#0a2924] hover:bg-zinc-100 font-extrabold text-xs rounded-xl transition shadow-sm cursor-pointer disabled:opacity-50"
+                  >
+                    {connecting ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin text-[#0a2924]" />
+                        Connecting to Square...
+                      </>
+                    ) : (
+                      <>
+                        Connect with Square <ExternalLink className="h-4 w-4" />
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
-              <p className="text-xs text-zinc-500 mt-0.5">
-                Catalog data retrieved from Square API (GET /v2/catalog/list).
-              </p>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-1.5">
-              {TYPE_FILTER_OPTIONS.map((opt) => (
-                <button
-                  key={opt.value}
-                  onClick={() => handleTypeChange(opt.value)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
-                    selectedType === opt.value
-                      ? "bg-[#0a2924] text-white shadow-xs"
-                      : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200"
-                  }`}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <div className="relative flex-1">
-              <Search className="h-4 w-4 text-zinc-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                placeholder="Search catalog objects by name, type, or ID..."
-                value={searchQuery}
-                onChange={(e) => {
-                  setSearchQuery(e.target.value);
-                  setCurrentPage(1);
-                }}
-                className="w-full pl-10 pr-4 py-2 text-xs bg-white border border-zinc-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-[#0a2924] focus:border-[#0a2924] text-zinc-900 placeholder:text-zinc-400"
-              />
-            </div>
-          </div>
-
-          {catalogLoading ? (
-            <div className="py-12 text-center space-y-2">
-              <Loader2 className="h-6 w-6 text-[#0a2924] animate-spin mx-auto" />
-              <p className="text-xs text-zinc-500 font-semibold">
-                Fetching catalog objects from Square API...
-              </p>
-            </div>
-          ) : filteredCatalog.length === 0 ? (
-            <div className="py-12 text-center space-y-2 border border-dashed border-zinc-200 rounded-xl bg-zinc-50/50">
-              <Package className="h-8 w-8 text-zinc-400 mx-auto" />
-              <div className="text-xs font-bold text-zinc-700">
-                No Catalog Objects Found
-              </div>
-              <p className="text-[11px] text-zinc-500 max-w-sm mx-auto">
-                No objects match your query or selected type filter.
-              </p>
             </div>
           ) : (
-            <div className="overflow-hidden rounded-xl border border-zinc-200">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-zinc-50 border-b border-zinc-200 text-zinc-600 font-bold uppercase tracking-wider">
-                  <tr>
-                    <th className="px-4 py-3">Type</th>
-                    <th className="px-4 py-3">Name</th>
-                    <th className="px-4 py-3">Object ID</th>
-                    <th className="px-4 py-3">Details</th>
-                    <th className="px-4 py-3 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-zinc-100 text-zinc-700 bg-white">
-                  {paginatedCatalog.map((item) => (
-                    <tr
-                      key={item.id}
-                      className="hover:bg-zinc-50/70 transition"
-                    >
-                      <td className="px-4 py-3">{getTypeBadge(item.type)}</td>
-                      <td className="px-4 py-3 font-extrabold text-zinc-900">
-                        {getObjectName(item)}
-                      </td>
-                      <td className="px-4 py-3 font-mono text-[11px] text-zinc-500">
-                        {item.id}
-                      </td>
-                      <td className="px-4 py-3 text-[11px] text-zinc-500">
-                        {getObjectDetails(item)}
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <button
-                          onClick={() => setActiveJsonObject(item)}
-                          className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold text-[#0a2924] bg-zinc-100 hover:bg-zinc-200 rounded-lg transition cursor-pointer"
-                        >
-                          <Code2 className="h-3.5 w-3.5 text-[#0a2924]" /> JSON
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="bg-emerald-50 border border-emerald-200/80 rounded-2xl p-5 shadow-2xs space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center">
+                    <CheckCircle2 className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-extrabold text-zinc-900 text-sm">Square Account Connected</h3>
+                      <span className="px-2 py-0.5 text-[10px] uppercase font-bold bg-emerald-200 text-emerald-900 rounded-full">
+                        {status.environment || "sandbox"}
+                      </span>
+                    </div>
+                    <p className="text-xs text-zinc-600 mt-0.5">
+                      Merchant ID: <span className="font-mono font-bold text-zinc-800">{status.merchant_id || "N/A"}</span>
+                    </p>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
 
-          {/* Pagination Controls */}
-          {filteredCatalog.length > ITEMS_PER_PAGE && (
-            <div className="flex items-center justify-between pt-2 border-t border-zinc-100 text-xs">
-              <div className="text-zinc-500 font-medium">
-                Page {currentPage} of {totalPages} ({filteredCatalog.length}{" "}
-                items)
+          {/* Catalog Inspection Table */}
+          {status.connected && (
+            <div className="bg-white border border-zinc-200 rounded-2xl p-5 shadow-xs space-y-4">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-base font-extrabold text-zinc-900 tracking-tight">
+                      Square Catalog Objects
+                    </h2>
+                    <span className="px-2.5 py-0.5 text-xs bg-[#0a2924]/10 text-[#0a2924] font-bold rounded-full border border-[#0a2924]/20">
+                      {filteredCatalog.length} objects
+                    </span>
+                  </div>
+                  <p className="text-xs text-zinc-500 mt-0.5">
+                    Catalog data retrieved from Square API (GET /v2/catalog/list).
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {TYPE_FILTER_OPTIONS.map((opt) => (
+                    <button
+                      key={opt.value}
+                      onClick={() => handleTypeChange(opt.value)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+                        selectedType === opt.value
+                          ? "bg-[#0a2924] text-white shadow-xs"
+                          : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200"
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                  disabled={currentPage === 1}
-                  className="p-1.5 border border-zinc-200 rounded-lg disabled:opacity-40 hover:bg-zinc-50 cursor-pointer"
-                >
-                  <ChevronLeft className="h-4 w-4 text-zinc-600" />
-                </button>
-                <button
-                  onClick={() =>
-                    setCurrentPage((p) => Math.min(totalPages, p + 1))
-                  }
-                  disabled={currentPage === totalPages}
-                  className="p-1.5 border border-zinc-200 rounded-lg disabled:opacity-40 hover:bg-zinc-50 cursor-pointer"
-                >
-                  <ChevronRight className="h-4 w-4 text-zinc-600" />
-                </button>
+
+              <div className="flex items-center gap-3">
+                <div className="relative flex-1">
+                  <Search className="h-4 w-4 text-zinc-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    placeholder="Search catalog objects by name, type, or ID..."
+                    value={searchQuery}
+                    onChange={(e) => {
+                      setSearchQuery(e.target.value);
+                      setCurrentPage(1);
+                    }}
+                    className="w-full pl-10 pr-4 py-2 text-xs bg-white border border-zinc-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-[#0a2924] text-zinc-900 placeholder:text-zinc-400"
+                  />
+                </div>
               </div>
+
+              {catalogLoading ? (
+                <div className="py-12 text-center space-y-2">
+                  <Loader2 className="h-6 w-6 text-[#0a2924] animate-spin mx-auto" />
+                  <p className="text-xs text-zinc-500 font-semibold">
+                    Fetching catalog objects from Square API...
+                  </p>
+                </div>
+              ) : filteredCatalog.length === 0 ? (
+                <div className="py-12 text-center space-y-2 border border-dashed border-zinc-200 rounded-xl bg-zinc-50/50">
+                  <Package className="h-8 w-8 text-zinc-400 mx-auto" />
+                  <div className="text-xs font-bold text-zinc-700">No Catalog Objects Found</div>
+                  <p className="text-[11px] text-zinc-500 max-w-sm mx-auto">
+                    No objects match your query or selected type filter.
+                  </p>
+                </div>
+              ) : (
+                <div className="overflow-hidden rounded-xl border border-zinc-200">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-zinc-50 border-b border-zinc-200 text-zinc-600 font-bold uppercase tracking-wider">
+                      <tr>
+                        <th className="px-4 py-3">Type</th>
+                        <th className="px-4 py-3">Name</th>
+                        <th className="px-4 py-3">Object ID</th>
+                        <th className="px-4 py-3">Details</th>
+                        <th className="px-4 py-3 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-zinc-100 text-zinc-700 bg-white">
+                      {paginatedCatalog.map((item) => (
+                        <tr key={item.id} className="hover:bg-zinc-50/70 transition">
+                          <td className="px-4 py-3">{getTypeBadge(item.type)}</td>
+                          <td className="px-4 py-3 font-extrabold text-zinc-900">{getObjectName(item)}</td>
+                          <td className="px-4 py-3 font-mono text-[11px] text-zinc-500">{item.id}</td>
+                          <td className="px-4 py-3 text-[11px] text-zinc-500">{getObjectDetails(item)}</td>
+                          <td className="px-4 py-3 text-right">
+                            <button
+                              onClick={() => setActiveJsonObject(item)}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold text-[#0a2924] bg-zinc-100 hover:bg-zinc-200 rounded-lg transition cursor-pointer"
+                            >
+                              <Code2 className="h-3.5 w-3.5 text-[#0a2924]" /> JSON
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {/* Pagination Controls */}
+              {filteredCatalog.length > ITEMS_PER_PAGE && (
+                <div className="flex items-center justify-between pt-2 border-t border-zinc-100 text-xs">
+                  <div className="text-zinc-500 font-medium">
+                    Page {currentPage} of {totalPages} ({filteredCatalog.length} items)
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                      disabled={currentPage === 1}
+                      className="p-1.5 border border-zinc-200 rounded-lg disabled:opacity-40 hover:bg-zinc-50 cursor-pointer"
+                    >
+                      <ChevronLeft className="h-4 w-4 text-zinc-600" />
+                    </button>
+                    <button
+                      onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                      disabled={currentPage === totalPages}
+                      className="p-1.5 border border-zinc-200 rounded-lg disabled:opacity-40 hover:bg-zinc-50 cursor-pointer"
+                    >
+                      <ChevronRight className="h-4 w-4 text-zinc-600" />
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
       )}
 
+      {/* TAB CONTENT 3: Import History */}
+      {activeTab === "history" && <SquareImportHistory businessId={busId} />}
+
+      {/* Raw JSON Modal */}
       {activeJsonObject && (
         <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-2xl w-full border border-zinc-200 shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
@@ -546,21 +600,13 @@ export default function SquareIntegrationPage() {
               </div>
               <button
                 onClick={() => setActiveJsonObject(null)}
-                className="p-1 text-zinc-400 hover:text-zinc-700 rounded-lg transition"
+                className="p-1 text-zinc-400 hover:text-zinc-700 rounded-lg transition cursor-pointer"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
-            <div className="p-5 overflow-y-auto bg-zinc-950 text-emerald-400 font-mono text-xs">
+            <div className="p-4 overflow-y-auto bg-zinc-950 text-emerald-400 font-mono text-xs leading-relaxed flex-1">
               <pre>{JSON.stringify(activeJsonObject, null, 2)}</pre>
-            </div>
-            <div className="px-5 py-3 bg-zinc-50 border-t border-zinc-100 text-right">
-              <button
-                onClick={() => setActiveJsonObject(null)}
-                className="px-4 py-1.5 bg-[#0a2924] text-white rounded-xl text-xs font-bold hover:bg-[#061d19] transition"
-              >
-                Close
-              </button>
             </div>
           </div>
         </div>
