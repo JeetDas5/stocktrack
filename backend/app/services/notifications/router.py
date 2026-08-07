@@ -1,15 +1,16 @@
-import json
 import os
+import json
+from typing import Optional
 from datetime import datetime
-from typing import Optional, List
-from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlmodel import Session, select, SQLModel
+from fastapi import APIRouter, Depends, HTTPException, Request
 
 from app.database import get_session
+
+from app.models import UserAssignment
 from app.models import (
     User,
     Timesheet,
-    RosterShift,
     PushSubscription,
     NotificationPreference,
     NotificationLog,
@@ -18,21 +19,20 @@ from app.services.auth.dependencies import get_current_user
 from app.services.notifications.vapid import get_or_create_vapid_keys
 
 try:
-    from pywebpush import webpush, WebPushException
+    from pywebpush import webpush
+
     PYWEBPUSH_AVAILABLE = True
 except ImportError:
     PYWEBPUSH_AVAILABLE = False
 
 router = APIRouter(tags=["Notifications"])
 
-VAPID_CLAIMS = {
-    "sub": os.getenv("VAPID_SUBJECT", "mailto:support@nexbrix.com")
-}
+VAPID_CLAIMS = {"sub": os.getenv("VAPID_SUBJECT", "mailto:support@nexbrix.com")}
 
 
 class SubscriptionPayload(SQLModel):
     endpoint: str
-    keys: dict  # {"p256dh": "...", "auth": "..."}
+    keys: dict
     user_agent: Optional[str] = None
 
 
@@ -54,7 +54,7 @@ def get_vapid_public_key():
 @router.get("/api/notifications/preferences")
 def get_notification_preferences(
     current_user: User = Depends(get_current_user),
-    session: Session = Depends(get_session)
+    session: Session = Depends(get_session),
 ):
     pref = session.exec(
         select(NotificationPreference).where(
@@ -67,7 +67,7 @@ def get_notification_preferences(
             user_id=current_user.id,
             timesheet_reminder_enabled=True,
             reminder_time="17:00",
-            timezone="UTC"
+            timezone="UTC",
         )
         session.add(pref)
         session.commit()
@@ -80,7 +80,7 @@ def get_notification_preferences(
 def update_notification_preferences(
     payload: PreferencePayload,
     current_user: User = Depends(get_current_user),
-    session: Session = Depends(get_session)
+    session: Session = Depends(get_session),
 ):
     pref = session.exec(
         select(NotificationPreference).where(
@@ -110,7 +110,7 @@ def subscribe_push(
     payload: SubscriptionPayload,
     request: Request,
     current_user: User = Depends(get_current_user),
-    session: Session = Depends(get_session)
+    session: Session = Depends(get_session),
 ):
     p256dh = payload.keys.get("p256dh")
     auth = payload.keys.get("auth")
@@ -121,9 +121,7 @@ def subscribe_push(
     user_agent = payload.user_agent or request.headers.get("user-agent", "")
 
     existing = session.exec(
-        select(PushSubscription).where(
-            PushSubscription.endpoint == payload.endpoint
-        )
+        select(PushSubscription).where(PushSubscription.endpoint == payload.endpoint)
     ).first()
 
     if existing:
@@ -144,7 +142,7 @@ def subscribe_push(
             p256dh=p256dh,
             auth=auth,
             user_agent=user_agent,
-            is_active=True
+            is_active=True,
         )
         session.add(sub)
         session.commit()
@@ -157,12 +155,12 @@ def subscribe_push(
 def unsubscribe_push(
     payload: SubscriptionPayload,
     current_user: User = Depends(get_current_user),
-    session: Session = Depends(get_session)
+    session: Session = Depends(get_session),
 ):
     existing = session.exec(
         select(PushSubscription).where(
             PushSubscription.endpoint == payload.endpoint,
-            PushSubscription.user_id == current_user.id
+            PushSubscription.user_id == current_user.id,
         )
     ).first()
 
@@ -187,14 +185,11 @@ def _send_web_push(subscription: PushSubscription, data: dict) -> bool:
         webpush(
             subscription_info={
                 "endpoint": subscription.endpoint,
-                "keys": {
-                    "p256dh": subscription.p256dh,
-                    "auth": subscription.auth
-                }
+                "keys": {"p256dh": subscription.p256dh, "auth": subscription.auth},
             },
             data=json.dumps(data),
             vapid_private_key=priv_key,
-            vapid_claims=VAPID_CLAIMS
+            vapid_claims=VAPID_CLAIMS,
         )
         return True
     except Exception as e:
@@ -208,23 +203,24 @@ def _send_web_push(subscription: PushSubscription, data: dict) -> bool:
 @router.post("/api/notifications/test-push")
 def send_test_push(
     current_user: User = Depends(get_current_user),
-    session: Session = Depends(get_session)
+    session: Session = Depends(get_session),
 ):
     subscriptions = session.exec(
         select(PushSubscription).where(
-            PushSubscription.user_id == current_user.id,
-            PushSubscription.is_active == True
+            PushSubscription.user_id == current_user.id, PushSubscription.is_active
         )
     ).all()
 
     if not subscriptions:
-        raise HTTPException(status_code=404, detail="No active push subscriptions found for user")
+        raise HTTPException(
+            status_code=404, detail="No active push subscriptions found for user"
+        )
 
     payload = {
         "title": "Timesheet Reminder Test",
         "body": "This is a test notification from NexBrix!",
         "icon": "/icons/icon-192x192.png",
-        "url": "/timesheets"
+        "url": "/timesheets",
     }
 
     sent_count = 0
@@ -241,14 +237,12 @@ def send_test_push(
     return {
         "status": "success",
         "sent_count": sent_count,
-        "total_subscriptions": len(subscriptions)
+        "total_subscriptions": len(subscriptions),
     }
 
 
 @router.post("/api/notifications/trigger-timesheet-reminders")
-def trigger_timesheet_reminders(
-    session: Session = Depends(get_session)
-):
+def trigger_timesheet_reminders(session: Session = Depends(get_session)):
     """
     Cron / Scheduler Endpoint to check staff who need to submit timesheets today.
     """
@@ -257,7 +251,7 @@ def trigger_timesheet_reminders(
     # 1. Fetch active preferences with timesheet_reminder_enabled == True
     preferences = session.exec(
         select(NotificationPreference).where(
-            NotificationPreference.timesheet_reminder_enabled == True
+            NotificationPreference.timesheet_reminder_enabled
         )
     ).all()
 
@@ -269,8 +263,7 @@ def trigger_timesheet_reminders(
         # 2. Check if timesheet already submitted today
         existing_ts = session.exec(
             select(Timesheet).where(
-                Timesheet.staff_id == user_id,
-                Timesheet.work_date == today_str
+                Timesheet.staff_id == user_id, Timesheet.work_date == today_str
             )
         ).first()
 
@@ -282,7 +275,8 @@ def trigger_timesheet_reminders(
             select(NotificationLog).where(
                 NotificationLog.user_id == user_id,
                 NotificationLog.notification_type == "TIMESHEET_REMINDER",
-                NotificationLog.sent_at >= datetime.utcnow().replace(hour=0, minute=0, second=0)
+                NotificationLog.sent_at
+                >= datetime.utcnow().replace(hour=0, minute=0, second=0),
             )
         ).first()
 
@@ -292,8 +286,7 @@ def trigger_timesheet_reminders(
         # 4. Fetch active subscriptions for user
         subs = session.exec(
             select(PushSubscription).where(
-                PushSubscription.user_id == user_id,
-                PushSubscription.is_active == True
+                PushSubscription.user_id == user_id, PushSubscription.is_active
             )
         ).all()
 
@@ -304,7 +297,7 @@ def trigger_timesheet_reminders(
             "title": "Timesheet Reminder",
             "body": "Don't forget to submit your timesheet for today!",
             "icon": "/icons/icon-192x192.png",
-            "url": "/timesheets"
+            "url": "/timesheets",
         }
 
         sent = 0
@@ -320,12 +313,13 @@ def trigger_timesheet_reminders(
             user_id=user_id,
             notification_type="TIMESHEET_REMINDER",
             status="sent" if sent > 0 else "failed",
-            details=f"Sent to {sent} active devices"
+            details=f"Sent to {sent} active devices",
         )
         session.add(log)
         triggered_users.append(user_id)
 
     session.commit()
+
 
 class BroadcastPayload(SQLModel):
     title: str
@@ -338,7 +332,7 @@ class BroadcastPayload(SQLModel):
 def broadcast_notification(
     payload: BroadcastPayload,
     current_user: User = Depends(get_current_user),
-    session: Session = Depends(get_session)
+    session: Session = Depends(get_session),
 ):
     """
     Owner/Manager endpoint to send custom push notifications to staff.
@@ -363,24 +357,31 @@ def broadcast_notification(
         target_user_ids = list(all_users)
 
     if not target_user_ids:
-        return {"status": "success", "sent_count": 0, "message": "No target users found"}
+        return {
+            "status": "success",
+            "sent_count": 0,
+            "message": "No target users found",
+        }
 
     # Fetch active subscriptions for target users
     subscriptions = session.exec(
         select(PushSubscription).where(
-            PushSubscription.user_id.in_(target_user_ids),
-            PushSubscription.is_active == True
+            PushSubscription.user_id.in_(target_user_ids), PushSubscription.is_active
         )
     ).all()
 
     if not subscriptions:
-        return {"status": "success", "sent_count": 0, "message": "No active subscriptions found for staff"}
+        return {
+            "status": "success",
+            "sent_count": 0,
+            "message": "No active subscriptions found for staff",
+        }
 
     push_data = {
         "title": payload.title,
         "body": payload.body,
         "icon": "/homescreen/android-chrome-192x192.png",
-        "url": payload.url or "/timesheets"
+        "url": payload.url or "/timesheets",
     }
 
     sent_count = 0
@@ -397,7 +398,7 @@ def broadcast_notification(
             user_id=sub.user_id,
             notification_type="OWNER_BROADCAST",
             status="sent" if success else "failed",
-            details=f"Title: {payload.title}"
+            details=f"Title: {payload.title}",
         )
         session.add(log)
 
@@ -407,6 +408,5 @@ def broadcast_notification(
         "status": "success",
         "sent_count": sent_count,
         "total_subscriptions": len(subscriptions),
-        "target_users_count": len(set(sub.user_id for sub in subscriptions))
+        "target_users_count": len(set(sub.user_id for sub in subscriptions)),
     }
-

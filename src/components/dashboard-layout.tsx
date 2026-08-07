@@ -102,6 +102,7 @@ export default function DashboardLayout({
   const [collapsedSubMenus, setCollapsedSubMenus] = useState<
     Record<string, boolean>
   >({});
+  const [activeBottomMenu, setActiveBottomMenu] = useState<string | null>(null);
 
   const [isReadOnly, setIsReadOnly] = useState<boolean>(true);
   const [userSearch, setUserSearch] = useState("");
@@ -498,7 +499,6 @@ export default function DashboardLayout({
       href: "/dashboard/square",
       icon: Building01Icon,
     },
-
   ];
 
   const reportsLinks: SidebarLink[] = [
@@ -693,6 +693,49 @@ export default function DashboardLayout({
   const filteredInventorySetupLinks = filterSidebarLinks(inventorySetupLinks);
   const filteredStaffLinks = filterSidebarLinks(staffLinks);
   const filteredAccountLinks = filterSidebarLinks(accountLinks);
+
+  const mobileInventoryLinks = [
+    ...filteredInventoryLinks,
+    ...filteredInventorySetupLinks,
+  ];
+  const mobileSalesLinks = filteredSalesLinks;
+  const mobileReportsLinks = filteredReportsLinks;
+
+  const mobileTimesheetLinks: SidebarSubLink[] = [];
+  const otherStaffLinks: SidebarLink[] = [];
+
+  filteredStaffLinks.forEach((link) => {
+    if (link.subLinks) {
+      const tsSubs = link.subLinks.filter((sub) =>
+        sub.href.includes("timesheet"),
+      );
+      const nonTsSubs = link.subLinks.filter(
+        (sub) => !sub.href.includes("timesheet"),
+      );
+      if (tsSubs.length > 0) {
+        mobileTimesheetLinks.push(...tsSubs);
+      }
+      if (nonTsSubs.length > 0) {
+        otherStaffLinks.push({ ...link, subLinks: nonTsSubs });
+      }
+    } else if (link.href) {
+      if (link.href.includes("timesheet")) {
+        mobileTimesheetLinks.push({
+          name: link.name,
+          href: link.href,
+          icon: link.icon,
+        });
+      } else {
+        otherStaffLinks.push(link);
+      }
+    }
+  });
+
+  const mobileMenuLinks = [
+    ...otherStaffLinks,
+    ...filteredBusinessSetupLinks,
+    ...filteredAccountLinks,
+  ];
 
   // if (typeof window !== "undefined" && profile) {
   //   const testRoutes = ["/dashboard/counts", "/dashboard/sales", "/dashboard/consumption", "/dashboard/stock-items"];
@@ -1398,7 +1441,6 @@ export default function DashboardLayout({
       )}
 
       <div className="flex-1 h-full flex flex-col relative bg-white min-w-0">
-        {/* Super Admin Impersonation Bar */}
         {(profile?.role === "super_admin" ||
           (typeof window !== "undefined" &&
             !!localStorage.getItem("nexbrix_impersonated_user_id"))) && (
@@ -1539,12 +1581,6 @@ export default function DashboardLayout({
         <header className="sticky top-0 z-15 bg-white border-b border-gray-soft w-full">
           <div className="max-w-[1600px] w-full mx-auto px-3 sm:px-6 py-2 flex items-center justify-between">
             <div className="flex items-center gap-2 sm:gap-4 flex-1 min-w-0">
-              <button
-                onClick={() => setMobileSidebarOpen(true)}
-                className="lg:hidden p-1.5 rounded-lg bg-gray-soft/30 text-gray-dark hover:text-black border border-gray-soft/50 transition-colors cursor-pointer"
-              >
-                <HugeiconsIcon icon={Menu01Icon} size={18} />
-              </button>
               {profile?.role !== "super_admin" &&
                 pathname !== "/dashboard/timesheet-review" &&
                 pathname !== "/dashboard/timesheet-reports" &&
@@ -1778,10 +1814,446 @@ export default function DashboardLayout({
           </div>
         </header>
 
-        <main className="flex-1 px-4 pt-4 max-w-[1600px] w-full mx-auto relative bg-white overflow-y-auto">
+        <main className="flex-1 px-4 pt-4 pb-20 lg:pb-4 max-w-[1600px] w-full mx-auto relative bg-white overflow-y-auto">
           {children}
         </main>
       </div>
+
+      {/* Mobile Bottom Navigation Bar & Permission-Gated In-Place Option Popovers */}
+      {activeBottomMenu && (
+        <div
+          className="fixed inset-0 z-40 bg-black/20 backdrop-blur-2xs lg:hidden"
+          onClick={() => setActiveBottomMenu(null)}
+        />
+      )}
+
+      {activeBottomMenu === "timesheet" && mobileTimesheetLinks.length > 0 && (
+        <div className="lg:hidden fixed bottom-16 left-3 sm:left-6 z-50 bg-white border border-gray-soft rounded-2xl shadow-2xl p-2 w-64 max-h-[60vh] overflow-y-auto animate-in fade-in slide-in-from-bottom-2 duration-200">
+          <div className="px-3 py-1.5 text-[11px] font-bold text-gray-muted uppercase tracking-wider border-b border-gray-soft mb-1">
+            Timesheet Options
+          </div>
+          <div className="space-y-0.5">
+            {mobileTimesheetLinks.map((sub) => (
+              <button
+                key={sub.href}
+                onClick={() => {
+                  router.push(sub.href);
+                  setActiveBottomMenu(null);
+                }}
+                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold transition-colors text-left cursor-pointer ${
+                  isActive(sub.href)
+                    ? "bg-primary-50 text-black font-bold"
+                    : "text-black hover:bg-gray-soft"
+                }`}
+              >
+                <HugeiconsIcon
+                  icon={sub.icon}
+                  size={16}
+                  className="text-black shrink-0"
+                />
+                <span>{sub.name}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {activeBottomMenu === "inventory" && mobileInventoryLinks.length > 0 && (
+        <div className="lg:hidden fixed bottom-16 left-3 sm:left-6 z-50 bg-white border border-gray-soft rounded-2xl shadow-2xl p-2 w-64 max-h-[60vh] overflow-y-auto animate-in fade-in slide-in-from-bottom-2 duration-200">
+          <div className="px-3 py-1.5 text-[11px] font-bold text-gray-muted uppercase tracking-wider border-b border-gray-soft mb-1">
+            Inventory Options
+          </div>
+          <div className="space-y-0.5">
+            {mobileInventoryLinks.map((link) => {
+              if (link.subLinks) {
+                return link.subLinks
+                  .filter((sub) => isLinkAllowed(sub.href))
+                  .map((sub) => (
+                    <button
+                      key={sub.href}
+                      onClick={() => {
+                        router.push(sub.href);
+                        setActiveBottomMenu(null);
+                      }}
+                      className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold transition-colors text-left cursor-pointer ${
+                        isActive(sub.href)
+                          ? "bg-primary-50 text-black font-bold"
+                          : "text-black hover:bg-gray-soft"
+                      }`}
+                    >
+                      <HugeiconsIcon
+                        icon={sub.icon}
+                        size={16}
+                        className="text-black shrink-0"
+                      />
+                      <span>{sub.name}</span>
+                    </button>
+                  ));
+              }
+              if (!link.href || !isLinkAllowed(link.href)) return null;
+              return (
+                <button
+                  key={link.href}
+                  onClick={() => {
+                    router.push(link.href!);
+                    setActiveBottomMenu(null);
+                  }}
+                  className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold transition-colors text-left cursor-pointer ${
+                    isActive(link.href!)
+                      ? "bg-primary-50 text-black font-bold"
+                      : "text-black hover:bg-gray-soft"
+                  }`}
+                >
+                  <HugeiconsIcon
+                    icon={link.icon}
+                    size={16}
+                    className="text-black shrink-0"
+                  />
+                  <span>{link.name}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {activeBottomMenu === "sales" && mobileSalesLinks.length > 0 && (
+        <div className="lg:hidden fixed bottom-16 left-1/3 -translate-x-1/3 z-50 bg-white border border-gray-soft rounded-2xl shadow-2xl p-2 w-64 max-h-[60vh] overflow-y-auto animate-in fade-in slide-in-from-bottom-2 duration-200">
+          <div className="px-3 py-1.5 text-[11px] font-bold text-gray-muted uppercase tracking-wider border-b border-gray-soft mb-1">
+            Sales Options
+          </div>
+          <div className="space-y-0.5">
+            {mobileSalesLinks.map((link) => {
+              if (!link.href || !isLinkAllowed(link.href)) return null;
+              return (
+                <button
+                  key={link.href}
+                  onClick={() => {
+                    router.push(link.href!);
+                    setActiveBottomMenu(null);
+                  }}
+                  className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold transition-colors text-left cursor-pointer ${
+                    isActive(link.href!)
+                      ? "bg-primary-50 text-black font-bold"
+                      : "text-black hover:bg-gray-soft"
+                  }`}
+                >
+                  <HugeiconsIcon
+                    icon={link.icon}
+                    size={16}
+                    className="text-black shrink-0"
+                  />
+                  <span>{link.name}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {activeBottomMenu === "reports" && mobileReportsLinks.length > 0 && (
+        <div className="lg:hidden fixed bottom-16 right-1/3 translate-x-1/3 z-50 bg-white border border-gray-soft rounded-2xl shadow-2xl p-2 w-64 max-h-[60vh] overflow-y-auto animate-in fade-in slide-in-from-bottom-2 duration-200">
+          <div className="px-3 py-1.5 text-[11px] font-bold text-gray-muted uppercase tracking-wider border-b border-gray-soft mb-1">
+            Reports Options
+          </div>
+          <div className="space-y-0.5">
+            {mobileReportsLinks.map((link) => {
+              if (!link.href || !isLinkAllowed(link.href)) return null;
+              return (
+                <button
+                  key={link.href}
+                  onClick={() => {
+                    router.push(link.href!);
+                    setActiveBottomMenu(null);
+                  }}
+                  className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold transition-colors text-left cursor-pointer ${
+                    isActive(link.href!)
+                      ? "bg-primary-50 text-black font-bold"
+                      : "text-black hover:bg-gray-soft"
+                  }`}
+                >
+                  <HugeiconsIcon
+                    icon={link.icon}
+                    size={16}
+                    className="text-black shrink-0"
+                  />
+                  <span>{link.name}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {activeBottomMenu === "more" && (
+        <div className="lg:hidden fixed bottom-16 right-3 sm:right-6 z-50 bg-white border border-gray-soft rounded-2xl shadow-2xl p-2 w-64 max-h-[60vh] overflow-y-auto animate-in fade-in slide-in-from-bottom-2 duration-200">
+          <div className="px-3 py-1.5 text-[11px] font-bold text-gray-muted uppercase tracking-wider border-b border-gray-soft mb-1">
+            Menu & Setup Options
+          </div>
+          <div className="space-y-0.5">
+            {[
+              ...otherStaffLinks,
+              ...filteredBusinessSetupLinks,
+              ...filteredAccountLinks,
+            ].map((link) => {
+              if (link.subLinks) {
+                return link.subLinks
+                  .filter((sub) => isLinkAllowed(sub.href))
+                  .map((sub) => (
+                    <button
+                      key={sub.href}
+                      onClick={() => {
+                        router.push(sub.href);
+                        setActiveBottomMenu(null);
+                      }}
+                      className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold transition-colors text-left cursor-pointer ${
+                        isActive(sub.href)
+                          ? "bg-primary-50 text-black font-bold"
+                          : "text-black hover:bg-gray-soft"
+                      }`}
+                    >
+                      <HugeiconsIcon
+                        icon={sub.icon}
+                        size={16}
+                        className="text-black shrink-0"
+                      />
+                      <span>{sub.name}</span>
+                    </button>
+                  ));
+              }
+              if (!link.href || !isLinkAllowed(link.href)) return null;
+              return (
+                <button
+                  key={link.href}
+                  onClick={() => {
+                    router.push(link.href!);
+                    setActiveBottomMenu(null);
+                  }}
+                  className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold transition-colors text-left cursor-pointer ${
+                    isActive(link.href!)
+                      ? "bg-primary-50 text-black font-bold"
+                      : "text-black hover:bg-gray-soft"
+                  }`}
+                >
+                  <HugeiconsIcon
+                    icon={link.icon}
+                    size={16}
+                    className="text-black shrink-0"
+                  />
+                  <span>{link.name}</span>
+                </button>
+              );
+            })}
+
+            {profile?.role === "super_admin" && (
+              <button
+                onClick={() => {
+                  router.push("/dashboard/super-admin");
+                  setActiveBottomMenu(null);
+                }}
+                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold transition-colors text-left cursor-pointer ${
+                  isActive("/dashboard/super-admin")
+                    ? "bg-primary-50 text-black font-bold"
+                    : "text-black hover:bg-gray-soft"
+                }`}
+              >
+                <HugeiconsIcon
+                  icon={ShieldIcon}
+                  size={16}
+                  className="text-black shrink-0"
+                />
+                <span>Super Admin</span>
+              </button>
+            )}
+
+            {isLinkAllowed("/dashboard/settings") && (
+              <button
+                onClick={() => {
+                  router.push("/dashboard/settings");
+                  setActiveBottomMenu(null);
+                }}
+                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold transition-colors text-left cursor-pointer ${
+                  isActive("/dashboard/settings")
+                    ? "bg-primary-50 text-black font-bold"
+                    : "text-black hover:bg-gray-soft"
+                }`}
+              >
+                <HugeiconsIcon
+                  icon={Settings01Icon}
+                  size={16}
+                  className="text-black shrink-0"
+                />
+                <span>Settings</span>
+              </button>
+            )}
+
+            <div className="border-t border-gray-soft my-1" />
+            <button
+              onClick={() => {
+                setActiveBottomMenu(null);
+                handleLogout();
+              }}
+              className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold text-red-600 hover:bg-red-50 transition-colors text-left cursor-pointer"
+            >
+              <HugeiconsIcon
+                icon={Logout01Icon}
+                size={16}
+                className="text-red-600 shrink-0"
+              />
+              <span>Log Out</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-soft px-2 py-1.5 pb-[calc(0.375rem+env(safe-area-inset-bottom,0))] flex items-center justify-around shadow-[0_-2px_10px_rgba(0,0,0,0.05)]">
+        {mobileTimesheetLinks.length > 0 && (
+          <button
+            onClick={() => {
+              if (mobileTimesheetLinks.length === 1) {
+                setActiveBottomMenu(null);
+                router.push(mobileTimesheetLinks[0].href);
+              } else {
+                setActiveBottomMenu(
+                  activeBottomMenu === "timesheet" ? null : "timesheet",
+                );
+              }
+            }}
+            className={`flex flex-col items-center gap-0.5 px-3 py-1 rounded-lg transition-colors cursor-pointer ${
+              activeBottomMenu === "timesheet" ||
+              pathname.startsWith("/dashboard/timesheet")
+                ? "text-black font-bold"
+                : "text-gray-muted hover:text-black font-medium"
+            }`}
+          >
+            <HugeiconsIcon
+              icon={ClipboardClockIcon}
+              size={20}
+              className={
+                activeBottomMenu === "timesheet" ||
+                pathname.startsWith("/dashboard/timesheet")
+                  ? "text-black"
+                  : "text-gray-muted"
+              }
+            />
+            <span className="text-[10px] tracking-tight">Timesheet</span>
+          </button>
+        )}
+
+        {mobileInventoryLinks.length > 0 && (
+          <button
+            onClick={() =>
+              setActiveBottomMenu(
+                activeBottomMenu === "inventory" ? null : "inventory",
+              )
+            }
+            className={`flex flex-col items-center gap-0.5 px-3 py-1 rounded-lg transition-colors cursor-pointer ${
+              activeBottomMenu === "inventory" ||
+              pathname.startsWith("/dashboard/counts") ||
+              pathname.startsWith("/dashboard/refill-planner") ||
+              pathname.startsWith("/dashboard/purchase-orders") ||
+              pathname.startsWith("/dashboard/deliveries") ||
+              pathname.startsWith("/dashboard/stock-transfers") ||
+              pathname.startsWith("/dashboard/stock-items") ||
+              pathname.startsWith("/dashboard/categories") ||
+              pathname.startsWith("/dashboard/suppliers") ||
+              pathname.startsWith("/dashboard/products")
+                ? "text-black font-bold"
+                : "text-gray-muted hover:text-black font-medium"
+            }`}
+          >
+            <HugeiconsIcon
+              icon={ListViewIcon}
+              size={20}
+              className={
+                activeBottomMenu === "inventory" ||
+                pathname.startsWith("/dashboard/counts") ||
+                pathname.startsWith("/dashboard/stock-items")
+                  ? "text-black"
+                  : "text-gray-muted"
+              }
+            />
+            <span className="text-[10px] tracking-tight">Inventory</span>
+          </button>
+        )}
+
+        {mobileSalesLinks.length > 0 && (
+          <button
+            onClick={() =>
+              setActiveBottomMenu(activeBottomMenu === "sales" ? null : "sales")
+            }
+            className={`flex flex-col items-center gap-0.5 px-3 py-1 rounded-lg transition-colors cursor-pointer ${
+              activeBottomMenu === "sales" ||
+              pathname.startsWith("/dashboard/sales") ||
+              pathname.startsWith("/dashboard/square")
+                ? "text-black font-bold"
+                : "text-gray-muted hover:text-black font-medium"
+            }`}
+          >
+            <HugeiconsIcon
+              icon={ShoppingCartIcon}
+              size={20}
+              className={
+                activeBottomMenu === "sales" ||
+                pathname.startsWith("/dashboard/sales")
+                  ? "text-black"
+                  : "text-gray-muted"
+              }
+            />
+            <span className="text-[10px] tracking-tight">Sales</span>
+          </button>
+        )}
+
+        {mobileReportsLinks.length > 0 && (
+          <button
+            onClick={() =>
+              setActiveBottomMenu(
+                activeBottomMenu === "reports" ? null : "reports",
+              )
+            }
+            className={`flex flex-col items-center gap-0.5 px-3 py-1 rounded-lg transition-colors cursor-pointer ${
+              activeBottomMenu === "reports" ||
+              pathname === "/dashboard/consumption" ||
+              pathname === "/dashboard/reconciliation"
+                ? "text-black font-bold"
+                : "text-gray-muted hover:text-black font-medium"
+            }`}
+          >
+            <HugeiconsIcon
+              icon={PieChart02Icon}
+              size={20}
+              className={
+                activeBottomMenu === "reports" ||
+                pathname === "/dashboard/consumption" ||
+                pathname === "/dashboard/reconciliation"
+                  ? "text-black"
+                  : "text-gray-muted"
+              }
+            />
+            <span className="text-[10px] tracking-tight">Reports</span>
+          </button>
+        )}
+
+        <button
+          onClick={() =>
+            setActiveBottomMenu(activeBottomMenu === "more" ? null : "more")
+          }
+          className={`flex flex-col items-center gap-0.5 px-3 py-1 rounded-lg transition-colors cursor-pointer ${
+            activeBottomMenu === "more"
+              ? "text-black font-bold"
+              : "text-gray-muted hover:text-black font-medium"
+          }`}
+        >
+          <HugeiconsIcon
+            icon={Menu01Icon}
+            size={20}
+            className={
+              activeBottomMenu === "more" ? "text-black" : "text-gray-muted"
+            }
+          />
+          <span className="text-[10px] tracking-tight">Menu</span>
+        </button>
+      </nav>
     </div>
   );
 }
