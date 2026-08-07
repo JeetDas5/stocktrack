@@ -21,6 +21,7 @@ import {
   saveTimesheetSettings,
   TimesheetSettings,
 } from "@/lib/repositories/timesheet-settings.repository";
+import { NotificationManager } from "@/components/notifications/NotificationManager";
 
 const AUTO_APPROVE_OPTIONS = [
   { value: "disabled", label: "Disabled" },
@@ -1022,6 +1023,10 @@ export default function TimesheetSettingsPage() {
                     </p>
                   </div>
                 </label>
+              </div>
+
+              <div className="p-6 border-t border-zinc-100">
+                <NotificationManager />
               </div>
             </div>
           </div>

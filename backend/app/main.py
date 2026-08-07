@@ -30,6 +30,7 @@ from app.services.timesheet_settings.router import router as timesheet_settings_
 from app.services.s3.router import router as s3_router
 from app.services.square.router import router as square_router
 from app.services.stock_transfers.router import router as stock_transfers_router
+from app.services.notifications.router import router as notifications_router
 
 app = FastAPI(
     title="NexBrix API",
@@ -90,6 +91,7 @@ app.include_router(contact_router)
 app.include_router(timesheet_settings_router)
 app.include_router(s3_router)
 app.include_router(square_router)
+app.include_router(notifications_router)
 
 
 

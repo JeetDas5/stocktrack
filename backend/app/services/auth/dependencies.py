@@ -123,6 +123,7 @@ def get_current_user(
             path.startswith("/api/auth/") or
             path.startswith("/api/s3/") or
             path.startswith("/api/square") or
+            path.startswith("/api/notifications") or
             (path.startswith("/api/staff/invitations/") and path.endswith("/register"))
         )
         
@@ -135,7 +136,7 @@ def get_current_user(
                 active_assignment = session.exec(
                     select(UserAssignment).where(
                         UserAssignment.user_id == user.id,
-                        UserAssignment.is_active == True
+                        UserAssignment.is_active
                     )
                 ).first()
                 if active_assignment and active_assignment.business_id:

@@ -68,3 +68,63 @@ self.addEventListener("fetch", (event) => {
       })
   );
 });
+
+// Push notification event listener
+self.addEventListener("push", (event) => {
+  let data = {
+    title: "NexBrix Notification",
+    body: "You have a new update.",
+    icon: "/homescreen/android-chrome-192x192.png",
+    url: "/timesheets"
+  };
+
+  if (event.data) {
+    try {
+      data = event.data.json();
+    } catch (e) {
+      data.body = event.data.text();
+    }
+  }
+
+  const options = {
+    body: data.body,
+    icon: data.icon || "/homescreen/android-chrome-192x192.png",
+    badge: "/homescreen/favicon.ico",
+    data: {
+      url: data.url || "/timesheets"
+    },
+    actions: [
+      { action: "open", title: "Open App" },
+      { action: "dismiss", title: "Dismiss" }
+    ]
+  };
+
+  event.waitUntil(
+    self.registration.showNotification(data.title, options)
+  );
+});
+
+// Notification click event listener
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+
+  if (event.action === "dismiss") {
+    return;
+  }
+
+  const targetUrl = event.notification.data?.url || "/timesheets";
+
+  event.waitUntil(
+    clients.matchAll({ type: "window", includeUncontrolled: true }).then((windowClients) => {
+      for (let client of windowClients) {
+        if (client.url.includes(targetUrl) && "focus" in client) {
+          return client.focus();
+        }
+      }
+      if (clients.openWindow) {
+        return clients.openWindow(targetUrl);
+      }
+    })
+  );
+});
+
