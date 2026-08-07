@@ -1581,16 +1581,6 @@ export default function DashboardLayout({
         <header className="sticky top-0 z-15 bg-white border-b border-gray-soft w-full">
           <div className="max-w-[1600px] w-full mx-auto px-3 sm:px-6 py-2 flex items-center justify-between">
             <div className="flex items-center gap-2 sm:gap-4 flex-1 min-w-0">
-              <button
-                onClick={() =>
-                  setActiveBottomMenu(
-                    activeBottomMenu === "more" ? null : "more",
-                  )
-                }
-                className="lg:hidden p-1.5 rounded-lg bg-gray-soft/30 text-gray-dark hover:text-black border border-gray-soft/50 transition-colors cursor-pointer"
-              >
-                <HugeiconsIcon icon={Menu01Icon} size={18} />
-              </button>
               {profile?.role !== "super_admin" &&
                 pathname !== "/dashboard/timesheet-review" &&
                 pathname !== "/dashboard/timesheet-reports" &&
