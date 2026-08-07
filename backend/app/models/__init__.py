@@ -94,6 +94,12 @@ from app.models.misc import (  # noqa: F401
     SquareImportHistory,
 )
 
+from app.models.notifications import (  # noqa: F401
+    PushSubscription,
+    NotificationPreference,
+    NotificationLog,
+)
+
 __all__ = [
     # user
     "User",
@@ -121,7 +127,6 @@ __all__ = [
     "StockCountStatus",
     "StockCountSession",
     "StockCountItem",
-    # purchase orders
     "PurchaseOrderStatus",
     "PurchaseOrder",
     "PurchaseOrderItem",
@@ -149,6 +154,10 @@ __all__ = [
     "RosterSettings",
     "TimesheetSettings",
     "RosterShift",
+    # notifications
+    "PushSubscription",
+    "NotificationPreference",
+    "NotificationLog",
     # misc
     "ContactMessage",
     "ExternalUserLead",
