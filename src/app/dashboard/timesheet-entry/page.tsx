@@ -2077,6 +2077,8 @@ export default function TimesheetEntryPage() {
           </div>
         </div>
 
+        <StaffNotificationCard />
+
         {/* Staff select */}
         {!isStaff && (
           <div className="w-full mb-3">
