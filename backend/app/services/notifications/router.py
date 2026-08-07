@@ -15,6 +15,7 @@ from app.models import (
     NotificationLog,
 )
 from app.services.auth.dependencies import get_current_user
+from app.services.notifications.vapid import get_or_create_vapid_keys
 
 try:
     from pywebpush import webpush, WebPushException
@@ -24,15 +25,6 @@ except ImportError:
 
 router = APIRouter(tags=["Notifications"])
 
-# Default VAPID keypair for development/testing if environment variables are not set
-DEFAULT_VAPID_PUBLIC_KEY = os.getenv(
-    "VAPID_PUBLIC_KEY",
-    "BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgT8Rj1p29zN_p_9sB4u_93D-p14r63Fv_x_x_x_x_x_x="
-)
-DEFAULT_VAPID_PRIVATE_KEY = os.getenv(
-    "VAPID_PRIVATE_KEY",
-    "a_private_vapid_key_string_placeholder"
-)
 VAPID_CLAIMS = {
     "sub": os.getenv("VAPID_SUBJECT", "mailto:support@nexbrix.com")
 }
@@ -52,8 +44,9 @@ class PreferencePayload(SQLModel):
 
 @router.get("/api/notifications/vapid-public-key")
 def get_vapid_public_key():
+    pub_key, _ = get_or_create_vapid_keys()
     return {
-        "publicKey": DEFAULT_VAPID_PUBLIC_KEY,
+        "publicKey": pub_key,
         "pywebpush_installed": PYWEBPUSH_AVAILABLE,
     }
 
@@ -188,6 +181,8 @@ def _send_web_push(subscription: PushSubscription, data: dict) -> bool:
         print(f"[Push Sim] Sent push to endpoint {subscription.endpoint}: {data}")
         return True
 
+    _, priv_key = get_or_create_vapid_keys()
+
     try:
         webpush(
             subscription_info={
@@ -198,16 +193,16 @@ def _send_web_push(subscription: PushSubscription, data: dict) -> bool:
                 }
             },
             data=json.dumps(data),
-            vapid_private_key=DEFAULT_VAPID_PRIVATE_KEY,
+            vapid_private_key=priv_key,
             vapid_claims=VAPID_CLAIMS
         )
         return True
     except Exception as e:
         print(f"[Push Failure] Endpoint {subscription.endpoint}: {e}")
-        # If subscription is no longer valid (e.g., 410 Gone / 404 Not Found)
+        # If subscription is expired/revoked (e.g. 410 Gone, 404 Not Found)
         if "410" in str(e) or "404" in str(e):
             return False
-        return True
+        return False
 
 
 @router.post("/api/notifications/test-push")

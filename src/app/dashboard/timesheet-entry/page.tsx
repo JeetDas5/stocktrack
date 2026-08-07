@@ -45,6 +45,7 @@ import {
   TimesheetSettings,
 } from "@/lib/repositories/timesheet-settings.repository";
 import { cn } from "@/lib/utils";
+import { StaffNotificationCard } from "@/components/notifications/StaffNotificationCard";
 
 interface ShiftRow {
   shiftId: string;
@@ -1302,6 +1303,8 @@ export default function TimesheetEntryPage() {
               </button>
             </div>
           </div>
+
+          <StaffNotificationCard />
 
           <div className="flex flex-col sm:flex-row gap-3 items-center justify-between">
             <div className="relative w-full sm:w-80">
