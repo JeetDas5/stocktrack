@@ -396,69 +396,6 @@ export default function DashboardLayout({
     router.push("/login");
   };
 
-  // const getHeaderBreadcrumb = (path: string) => {
-  //   switch (path) {
-  //     case "/dashboard/business":
-  //       return { title: "Businesses" };
-  //     case "/dashboard/locations":
-  //       return { title: "Locations" };
-  //     case "/dashboard/stock-items":
-  //       return { title: "Stock Items" };
-  //     case "/dashboard/categories":
-  //       return { title: "Categories" };
-  //     case "/dashboard/recipes":
-  //       return { title: "Recipes" };
-  //     case "/dashboard/suppliers":
-  //       return { title: "Suppliers" };
-  //     case "/dashboard/refill-planner":
-  //       return { title: "Refill Planner" };
-  //     case "/dashboard/deliveries":
-  //       return { title: "Deliveries" };
-  //     case "/dashboard/sales":
-  //       return { title: "Sales Entry" };
-  //     case "/dashboard/sales-imports":
-  //       return { title: "Sales Imports" };
-  //     case "/dashboard/consumption":
-  //       return { title: "Consumption Analysis" };
-  //     case "/dashboard/purchase-orders":
-  //       return { title: "Purchase Orders" };
-  //     case "/dashboard/reconciliation":
-  //       return { title: "Reconciliation" };
-  //     case "/dashboard/users":
-  //       return { title: "Users" };
-  //     case "/dashboard/staff-dashboard":
-  //       return { title: "Staff Dashboard" };
-  //     case "/dashboard/staff-directory":
-  //       return { title: "Staff Directory" };
-  //     case "/dashboard/timesheet-entry":
-  //       return { title: "Timesheet Entry" };
-  //     case "/dashboard/timesheet-review":
-  //       return { title: "Timesheet Review" };
-  //     case "/dashboard/timesheet-reports":
-  //       return { title: "Timesheet Reports" };
-  //     case "/dashboard/roaster-availablity":
-  //       return { title: "Availability Entry" };
-  //     case "/dashboard/availability-overview":
-  //       return { title: "Availability Overview" };
-  //     default:
-  //       return { title: "Dashboard" };
-  //   }
-  // };
-
-  // const pinnedLinks: SidebarLink[] = [
-  //   {
-  //     name: "Refill Planner",
-  //     href: "/dashboard/refill-planner",
-  //     icon: ClipboardList,
-  //   },
-  //   {
-  //     name: "Purchase Orders",
-  //     href: "/dashboard/purchase-orders",
-  //     icon: FileText,
-  //   },
-  //   { name: "Deliveries", href: "/dashboard/deliveries", icon: PackageOpen },
-  // ];
-
   const inventoryLinks: SidebarLink[] = [
     { name: "Stock Counts", href: "/dashboard/counts", icon: Layers01Icon },
     {
@@ -694,20 +631,19 @@ export default function DashboardLayout({
   const filteredStaffLinks = filterSidebarLinks(staffLinks);
   const filteredAccountLinks = filterSidebarLinks(accountLinks);
 
-  const mobileInventoryLinks = [
-    ...filteredInventoryLinks,
-    ...filteredInventorySetupLinks,
-  ];
-  const mobileSalesLinks = filteredSalesLinks;
-  const mobileReportsLinks = filteredReportsLinks;
-
   const mobileTimesheetLinks: SidebarSubLink[] = [];
+  const mobileMyReportsLinks: SidebarSubLink[] = [];
   const otherStaffLinks: SidebarLink[] = [];
 
   filteredStaffLinks.forEach((link) => {
     if (link.subLinks) {
-      const tsSubs = link.subLinks.filter((sub) =>
-        sub.href.includes("timesheet"),
+      const tsSubs = link.subLinks.filter(
+        (sub) =>
+          sub.href.includes("timesheet") &&
+          sub.href !== "/dashboard/timesheet-my-reports",
+      );
+      const myReportsSubs = link.subLinks.filter(
+        (sub) => sub.href === "/dashboard/timesheet-my-reports",
       );
       const nonTsSubs = link.subLinks.filter(
         (sub) => !sub.href.includes("timesheet"),
@@ -715,11 +651,20 @@ export default function DashboardLayout({
       if (tsSubs.length > 0) {
         mobileTimesheetLinks.push(...tsSubs);
       }
+      if (myReportsSubs.length > 0) {
+        mobileMyReportsLinks.push(...myReportsSubs);
+      }
       if (nonTsSubs.length > 0) {
         otherStaffLinks.push({ ...link, subLinks: nonTsSubs });
       }
     } else if (link.href) {
-      if (link.href.includes("timesheet")) {
+      if (link.href === "/dashboard/timesheet-my-reports") {
+        mobileMyReportsLinks.push({
+          name: link.name,
+          href: link.href,
+          icon: link.icon,
+        });
+      } else if (link.href.includes("timesheet")) {
         mobileTimesheetLinks.push({
           name: link.name,
           href: link.href,
@@ -731,45 +676,66 @@ export default function DashboardLayout({
     }
   });
 
-  const mobileMenuLinks = [
+  const flattenSubLinks = (links: SidebarLink[]): SidebarSubLink[] => {
+    const result: SidebarSubLink[] = [];
+    links.forEach((link) => {
+      if (link.subLinks) {
+        link.subLinks.forEach((sub) => {
+          if (
+            isLinkAllowed(sub.href) &&
+            !result.some((r) => r.href === sub.href)
+          ) {
+            result.push(sub);
+          }
+        });
+      } else if (
+        link.href &&
+        isLinkAllowed(link.href) &&
+        !result.some((r) => r.href === link.href)
+      ) {
+        result.push({
+          name: link.name,
+          href: link.href,
+          icon: link.icon,
+        });
+      }
+    });
+    return result;
+  };
+
+  const flatInventoryLinks = flattenSubLinks([
+    ...filteredInventoryLinks,
+    ...filteredInventorySetupLinks,
+  ]);
+  const flatSalesLinks = flattenSubLinks(filteredSalesLinks);
+  const flatReportsLinks = flattenSubLinks(filteredReportsLinks);
+  const flatMenuLinks = flattenSubLinks([
     ...otherStaffLinks,
     ...filteredBusinessSetupLinks,
     ...filteredAccountLinks,
-  ];
-
-  // if (typeof window !== "undefined" && profile) {
-  //   const testRoutes = ["/dashboard/counts", "/dashboard/sales", "/dashboard/consumption", "/dashboard/stock-items"];
-  //   const modules = profile?.modules || [];
-  //   const allowedHrefsDebug = sidebarPermissions[profile.role as keyof typeof sidebarPermissions] || [];
-  //   console.group("[SIDEBAR DEBUG]");
-  //   console.log("email:", profile?.email);
-  //   console.log("role:", profile?.role);
-  //   console.log("modules:", modules);
-  //   console.log("allowedHrefs for role:", allowedHrefsDebug);
-  //   console.log("allowedHrefs includes '*'?", allowedHrefsDebug.includes("*"));
-  //   testRoutes.forEach((route) => {
-  //     const hasRolePermission =
-  //       allowedHrefsDebug.includes("*") ||
-  //       allowedHrefsDebug.some((h: string) => route === h || route.startsWith(h + "/"));
-  //     const isCommon =
-  //       route === "/dashboard" ||
-  //       route === "/dashboard/business" || route.startsWith("/dashboard/business/") ||
-  //       route === "/dashboard/locations" || route.startsWith("/dashboard/locations/") ||
-  //       route === "/dashboard/profile" || route.startsWith("/dashboard/profile/");
-  //     const hasModule = modules.some((mod: string) =>
-  //       (MODULE_ROUTES_SIDEBAR[mod] || []).includes(route)
-  //     );
-  //     console.log(`${route}: roleOK=${hasRolePermission}, isCommon=${isCommon}, hasModule=${hasModule}, allowed=${isLinkAllowed(route)}`);
-  //   });
-  //   console.log("filteredInventoryLinks:", filteredInventoryLinks.length);
-  //   console.log("filteredSalesLinks:", filteredSalesLinks.length);
-  //   console.log("filteredReportsLinks:", filteredReportsLinks.length);
-  //   console.log("filteredInventorySetupLinks:", filteredInventorySetupLinks.length);
-  //   console.groupEnd();
-  // };
+  ]);
+  mobileMyReportsLinks.forEach((link) => {
+    if (!flatMenuLinks.some((l) => l.href === link.href)) {
+      flatMenuLinks.push(link);
+    }
+  });
+  if (profile?.role === "super_admin") {
+    flatMenuLinks.push({
+      name: "Super Admin",
+      href: "/dashboard/super-admin",
+      icon: ShieldIcon,
+    });
+  }
+  if (isLinkAllowed("/dashboard/settings")) {
+    flatMenuLinks.push({
+      name: "Settings",
+      href: "/dashboard/settings",
+      icon: Settings01Icon,
+    });
+  }
 
   const flatSidebarLinks: SidebarLink[] = [];
-  const otherLinks = [
+  const otherLinksForStaff = [
     ...inventoryLinks,
     ...salesLinks,
     ...reportsLinks,
@@ -778,7 +744,7 @@ export default function DashboardLayout({
     ...staffLinks,
     ...accountLinks,
   ];
-  otherLinks.forEach((link) => {
+  otherLinksForStaff.forEach((link) => {
     if (link.subLinks) {
       link.subLinks.forEach((sub) => {
         if (
@@ -851,6 +817,31 @@ export default function DashboardLayout({
     isCollapsed = false,
   ) => {
     if (link.subLinks) {
+      if (link.subLinks.length === 1) {
+        const sub = link.subLinks[0];
+        const active = isActive(sub.href);
+        return (
+          <Link
+            key={sub.href}
+            href={sub.href}
+            title={isCollapsed ? sub.name : undefined}
+            onClick={(e) => {
+              e.preventDefault();
+              router.push(sub.href);
+              setMobileSidebarOpen(false);
+            }}
+            className={`flex items-center ${isCollapsed ? "justify-center" : "justify-between"} px-3 py-2 rounded-lg text-black text-sm transition-all duration-400 cursor-pointer ${
+              active ? "bg-primary-50 font-bold" : "hover:bg-gray-soft"
+            }`}
+          >
+            <div className="flex items-center gap-2 text-[16px]">
+              <HugeiconsIcon icon={sub.icon} size={18} className="text-black" />
+              {!isCollapsed && <span>{sub.name}</span>}
+            </div>
+          </Link>
+        );
+      }
+
       if (isCollapsed) {
         return (
           <React.Fragment key={link.name}>
@@ -1585,7 +1576,8 @@ export default function DashboardLayout({
                 pathname !== "/dashboard/timesheet-review" &&
                 pathname !== "/dashboard/timesheet-reports" &&
                 pathname !== "/dashboard/timesheet-my-reports" &&
-                pathname !== "/dashboard/timesheet-entry" && (
+                pathname !== "/dashboard/timesheet-entry" &&
+                pathname !== "/dashboard/profile" && (
                   <>
                     <div className="flex items-center gap-1 sm:gap-2 min-w-0">
                       <div className="flex flex-col">
@@ -1827,7 +1819,7 @@ export default function DashboardLayout({
         />
       )}
 
-      {activeBottomMenu === "timesheet" && mobileTimesheetLinks.length > 0 && (
+      {activeBottomMenu === "timesheet" && mobileTimesheetLinks.length > 1 && (
         <div className="lg:hidden fixed bottom-16 left-3 sm:left-6 z-50 bg-white border border-gray-soft rounded-2xl shadow-2xl p-2 w-64 max-h-[60vh] overflow-y-auto animate-in fade-in slide-in-from-bottom-2 duration-200">
           <div className="px-3 py-1.5 text-[11px] font-bold text-gray-muted uppercase tracking-wider border-b border-gray-soft mb-1">
             Timesheet Options
@@ -1858,401 +1850,298 @@ export default function DashboardLayout({
         </div>
       )}
 
-      {activeBottomMenu === "inventory" && mobileInventoryLinks.length > 0 && (
+      {activeBottomMenu === "inventory" && flatInventoryLinks.length > 1 && (
         <div className="lg:hidden fixed bottom-16 left-3 sm:left-6 z-50 bg-white border border-gray-soft rounded-2xl shadow-2xl p-2 w-64 max-h-[60vh] overflow-y-auto animate-in fade-in slide-in-from-bottom-2 duration-200">
           <div className="px-3 py-1.5 text-[11px] font-bold text-gray-muted uppercase tracking-wider border-b border-gray-soft mb-1">
             Inventory Options
           </div>
           <div className="space-y-0.5">
-            {mobileInventoryLinks.map((link) => {
-              if (link.subLinks) {
-                return link.subLinks
-                  .filter((sub) => isLinkAllowed(sub.href))
-                  .map((sub) => (
-                    <button
-                      key={sub.href}
-                      onClick={() => {
-                        router.push(sub.href);
-                        setActiveBottomMenu(null);
-                      }}
-                      className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold transition-colors text-left cursor-pointer ${
-                        isActive(sub.href)
-                          ? "bg-primary-50 text-black font-bold"
-                          : "text-black hover:bg-gray-soft"
-                      }`}
-                    >
-                      <HugeiconsIcon
-                        icon={sub.icon}
-                        size={16}
-                        className="text-black shrink-0"
-                      />
-                      <span>{sub.name}</span>
-                    </button>
-                  ));
-              }
-              if (!link.href || !isLinkAllowed(link.href)) return null;
-              return (
-                <button
-                  key={link.href}
-                  onClick={() => {
-                    router.push(link.href!);
-                    setActiveBottomMenu(null);
-                  }}
-                  className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold transition-colors text-left cursor-pointer ${
-                    isActive(link.href!)
-                      ? "bg-primary-50 text-black font-bold"
-                      : "text-black hover:bg-gray-soft"
-                  }`}
-                >
-                  <HugeiconsIcon
-                    icon={link.icon}
-                    size={16}
-                    className="text-black shrink-0"
-                  />
-                  <span>{link.name}</span>
-                </button>
-              );
-            })}
+            {flatInventoryLinks.map((sub) => (
+              <button
+                key={sub.href}
+                onClick={() => {
+                  router.push(sub.href);
+                  setActiveBottomMenu(null);
+                }}
+                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold transition-colors text-left cursor-pointer ${
+                  isActive(sub.href)
+                    ? "bg-primary-50 text-black font-bold"
+                    : "text-black hover:bg-gray-soft"
+                }`}
+              >
+                <HugeiconsIcon
+                  icon={sub.icon}
+                  size={16}
+                  className="text-black shrink-0"
+                />
+                <span>{sub.name}</span>
+              </button>
+            ))}
           </div>
         </div>
       )}
 
-      {activeBottomMenu === "sales" && mobileSalesLinks.length > 0 && (
+      {activeBottomMenu === "sales" && flatSalesLinks.length > 1 && (
         <div className="lg:hidden fixed bottom-16 left-1/3 -translate-x-1/3 z-50 bg-white border border-gray-soft rounded-2xl shadow-2xl p-2 w-64 max-h-[60vh] overflow-y-auto animate-in fade-in slide-in-from-bottom-2 duration-200">
           <div className="px-3 py-1.5 text-[11px] font-bold text-gray-muted uppercase tracking-wider border-b border-gray-soft mb-1">
             Sales Options
           </div>
           <div className="space-y-0.5">
-            {mobileSalesLinks.map((link) => {
-              if (!link.href || !isLinkAllowed(link.href)) return null;
-              return (
-                <button
-                  key={link.href}
-                  onClick={() => {
-                    router.push(link.href!);
-                    setActiveBottomMenu(null);
-                  }}
-                  className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold transition-colors text-left cursor-pointer ${
-                    isActive(link.href!)
-                      ? "bg-primary-50 text-black font-bold"
-                      : "text-black hover:bg-gray-soft"
-                  }`}
-                >
-                  <HugeiconsIcon
-                    icon={link.icon}
-                    size={16}
-                    className="text-black shrink-0"
-                  />
-                  <span>{link.name}</span>
-                </button>
-              );
-            })}
+            {flatSalesLinks.map((sub) => (
+              <button
+                key={sub.href}
+                onClick={() => {
+                  router.push(sub.href);
+                  setActiveBottomMenu(null);
+                }}
+                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold transition-colors text-left cursor-pointer ${
+                  isActive(sub.href)
+                    ? "bg-primary-50 text-black font-bold"
+                    : "text-black hover:bg-gray-soft"
+                }`}
+              >
+                <HugeiconsIcon
+                  icon={sub.icon}
+                  size={16}
+                  className="text-black shrink-0"
+                />
+                <span>{sub.name}</span>
+              </button>
+            ))}
           </div>
         </div>
       )}
 
-      {activeBottomMenu === "reports" && mobileReportsLinks.length > 0 && (
+      {activeBottomMenu === "reports" && flatReportsLinks.length > 1 && (
         <div className="lg:hidden fixed bottom-16 right-1/3 translate-x-1/3 z-50 bg-white border border-gray-soft rounded-2xl shadow-2xl p-2 w-64 max-h-[60vh] overflow-y-auto animate-in fade-in slide-in-from-bottom-2 duration-200">
           <div className="px-3 py-1.5 text-[11px] font-bold text-gray-muted uppercase tracking-wider border-b border-gray-soft mb-1">
             Reports Options
           </div>
           <div className="space-y-0.5">
-            {mobileReportsLinks.map((link) => {
-              if (!link.href || !isLinkAllowed(link.href)) return null;
-              return (
-                <button
-                  key={link.href}
-                  onClick={() => {
-                    router.push(link.href!);
-                    setActiveBottomMenu(null);
-                  }}
-                  className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold transition-colors text-left cursor-pointer ${
-                    isActive(link.href!)
-                      ? "bg-primary-50 text-black font-bold"
-                      : "text-black hover:bg-gray-soft"
-                  }`}
-                >
-                  <HugeiconsIcon
-                    icon={link.icon}
-                    size={16}
-                    className="text-black shrink-0"
-                  />
-                  <span>{link.name}</span>
-                </button>
-              );
-            })}
+            {flatReportsLinks.map((sub) => (
+              <button
+                key={sub.href}
+                onClick={() => {
+                  router.push(sub.href);
+                  setActiveBottomMenu(null);
+                }}
+                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold transition-colors text-left cursor-pointer ${
+                  isActive(sub.href)
+                    ? "bg-primary-50 text-black font-bold"
+                    : "text-black hover:bg-gray-soft"
+                }`}
+              >
+                <HugeiconsIcon
+                  icon={sub.icon}
+                  size={16}
+                  className="text-black shrink-0"
+                />
+                <span>{sub.name}</span>
+              </button>
+            ))}
           </div>
         </div>
       )}
 
-      {activeBottomMenu === "more" && (
+      {activeBottomMenu === "more" && flatMenuLinks.length > 1 && (
         <div className="lg:hidden fixed bottom-16 right-3 sm:right-6 z-50 bg-white border border-gray-soft rounded-2xl shadow-2xl p-2 w-64 max-h-[60vh] overflow-y-auto animate-in fade-in slide-in-from-bottom-2 duration-200">
           <div className="px-3 py-1.5 text-[11px] font-bold text-gray-muted uppercase tracking-wider border-b border-gray-soft mb-1">
-            Menu & Setup Options
+            Menu Options
           </div>
           <div className="space-y-0.5">
-            {[
-              ...otherStaffLinks,
-              ...filteredBusinessSetupLinks,
-              ...filteredAccountLinks,
-            ].map((link) => {
-              if (link.subLinks) {
-                return link.subLinks
-                  .filter((sub) => isLinkAllowed(sub.href))
-                  .map((sub) => (
-                    <button
-                      key={sub.href}
-                      onClick={() => {
-                        router.push(sub.href);
-                        setActiveBottomMenu(null);
-                      }}
-                      className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold transition-colors text-left cursor-pointer ${
-                        isActive(sub.href)
-                          ? "bg-primary-50 text-black font-bold"
-                          : "text-black hover:bg-gray-soft"
-                      }`}
-                    >
-                      <HugeiconsIcon
-                        icon={sub.icon}
-                        size={16}
-                        className="text-black shrink-0"
-                      />
-                      <span>{sub.name}</span>
-                    </button>
-                  ));
-              }
-              if (!link.href || !isLinkAllowed(link.href)) return null;
-              return (
-                <button
-                  key={link.href}
-                  onClick={() => {
-                    router.push(link.href!);
-                    setActiveBottomMenu(null);
-                  }}
-                  className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold transition-colors text-left cursor-pointer ${
-                    isActive(link.href!)
-                      ? "bg-primary-50 text-black font-bold"
-                      : "text-black hover:bg-gray-soft"
-                  }`}
-                >
-                  <HugeiconsIcon
-                    icon={link.icon}
-                    size={16}
-                    className="text-black shrink-0"
-                  />
-                  <span>{link.name}</span>
-                </button>
-              );
-            })}
-
-            {profile?.role === "super_admin" && (
+            {flatMenuLinks.map((sub) => (
               <button
+                key={sub.href}
                 onClick={() => {
-                  router.push("/dashboard/super-admin");
+                  router.push(sub.href);
                   setActiveBottomMenu(null);
                 }}
                 className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold transition-colors text-left cursor-pointer ${
-                  isActive("/dashboard/super-admin")
+                  isActive(sub.href)
                     ? "bg-primary-50 text-black font-bold"
                     : "text-black hover:bg-gray-soft"
                 }`}
               >
                 <HugeiconsIcon
-                  icon={ShieldIcon}
+                  icon={sub.icon}
                   size={16}
                   className="text-black shrink-0"
                 />
-                <span>Super Admin</span>
+                <span>{sub.name}</span>
               </button>
-            )}
-
-            {isLinkAllowed("/dashboard/settings") && (
-              <button
-                onClick={() => {
-                  router.push("/dashboard/settings");
-                  setActiveBottomMenu(null);
-                }}
-                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold transition-colors text-left cursor-pointer ${
-                  isActive("/dashboard/settings")
-                    ? "bg-primary-50 text-black font-bold"
-                    : "text-black hover:bg-gray-soft"
-                }`}
-              >
-                <HugeiconsIcon
-                  icon={Settings01Icon}
-                  size={16}
-                  className="text-black shrink-0"
-                />
-                <span>Settings</span>
-              </button>
-            )}
-
-            <div className="border-t border-gray-soft my-1" />
-            <button
-              onClick={() => {
-                setActiveBottomMenu(null);
-                handleLogout();
-              }}
-              className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold text-red-600 hover:bg-red-50 transition-colors text-left cursor-pointer"
-            >
-              <HugeiconsIcon
-                icon={Logout01Icon}
-                size={16}
-                className="text-red-600 shrink-0"
-              />
-              <span>Log Out</span>
-            </button>
+            ))}
           </div>
         </div>
       )}
 
       <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-soft px-2 py-1.5 pb-[calc(0.375rem+env(safe-area-inset-bottom,0))] flex items-center justify-around shadow-[0_-2px_10px_rgba(0,0,0,0.05)]">
-        {mobileTimesheetLinks.length > 0 && (
-          <button
-            onClick={() => {
-              if (mobileTimesheetLinks.length === 1) {
-                setActiveBottomMenu(null);
-                router.push(mobileTimesheetLinks[0].href);
-              } else {
-                setActiveBottomMenu(
-                  activeBottomMenu === "timesheet" ? null : "timesheet",
-                );
-              }
-            }}
-            className={`flex flex-col items-center gap-0.5 px-3 py-1 rounded-lg transition-colors cursor-pointer ${
+        {mobileTimesheetLinks.length > 0 &&
+          (() => {
+            const single =
+              mobileTimesheetLinks.length === 1
+                ? mobileTimesheetLinks[0]
+                : null;
+            const tsActive =
               activeBottomMenu === "timesheet" ||
-              pathname.startsWith("/dashboard/timesheet")
-                ? "text-black font-bold"
-                : "text-gray-muted hover:text-black font-medium"
-            }`}
-          >
-            <HugeiconsIcon
-              icon={ClipboardClockIcon}
-              size={20}
-              className={
-                activeBottomMenu === "timesheet" ||
-                pathname.startsWith("/dashboard/timesheet")
-                  ? "text-black"
-                  : "text-gray-muted"
-              }
-            />
-            <span className="text-[10px] tracking-tight">Timesheet</span>
-          </button>
-        )}
+              pathname.startsWith("/dashboard/timesheet");
+            return (
+              <button
+                onClick={() => {
+                  if (single) {
+                    setActiveBottomMenu(null);
+                    router.push(single.href);
+                  } else {
+                    setActiveBottomMenu(
+                      activeBottomMenu === "timesheet" ? null : "timesheet",
+                    );
+                  }
+                }}
+                className={`flex flex-col items-center gap-0.5 px-3 py-1 rounded-lg transition-colors cursor-pointer ${tsActive ? "text-black font-bold" : "text-gray-muted hover:text-black font-medium"}`}
+              >
+                <HugeiconsIcon
+                  icon={single ? single.icon : ClipboardClockIcon}
+                  size={20}
+                  className={tsActive ? "text-black" : "text-gray-muted"}
+                />
+                <span className="text-[10px] tracking-tight">
+                  {single ? single.name : "Timesheet"}
+                </span>
+              </button>
+            );
+          })()}
 
-        {mobileInventoryLinks.length > 0 && (
-          <button
-            onClick={() =>
-              setActiveBottomMenu(
-                activeBottomMenu === "inventory" ? null : "inventory",
-              )
-            }
-            className={`flex flex-col items-center gap-0.5 px-3 py-1 rounded-lg transition-colors cursor-pointer ${
+        {flatInventoryLinks.length > 0 &&
+          (() => {
+            const single =
+              flatInventoryLinks.length === 1 ? flatInventoryLinks[0] : null;
+            const invActive =
               activeBottomMenu === "inventory" ||
-              pathname.startsWith("/dashboard/counts") ||
-              pathname.startsWith("/dashboard/refill-planner") ||
-              pathname.startsWith("/dashboard/purchase-orders") ||
-              pathname.startsWith("/dashboard/deliveries") ||
-              pathname.startsWith("/dashboard/stock-transfers") ||
-              pathname.startsWith("/dashboard/stock-items") ||
-              pathname.startsWith("/dashboard/categories") ||
-              pathname.startsWith("/dashboard/suppliers") ||
-              pathname.startsWith("/dashboard/products")
-                ? "text-black font-bold"
-                : "text-gray-muted hover:text-black font-medium"
-            }`}
-          >
-            <HugeiconsIcon
-              icon={ListViewIcon}
-              size={20}
-              className={
-                activeBottomMenu === "inventory" ||
-                pathname.startsWith("/dashboard/counts") ||
-                pathname.startsWith("/dashboard/stock-items")
-                  ? "text-black"
-                  : "text-gray-muted"
-              }
-            />
-            <span className="text-[10px] tracking-tight">Inventory</span>
-          </button>
-        )}
+              flatInventoryLinks.some((l) => pathname === l.href);
+            return (
+              <button
+                onClick={() => {
+                  if (single) {
+                    setActiveBottomMenu(null);
+                    router.push(single.href);
+                  } else {
+                    setActiveBottomMenu(
+                      activeBottomMenu === "inventory" ? null : "inventory",
+                    );
+                  }
+                }}
+                className={`flex flex-col items-center gap-0.5 px-3 py-1 rounded-lg transition-colors cursor-pointer ${invActive ? "text-black font-bold" : "text-gray-muted hover:text-black font-medium"}`}
+              >
+                <HugeiconsIcon
+                  icon={single ? single.icon : ListViewIcon}
+                  size={20}
+                  className={invActive ? "text-black" : "text-gray-muted"}
+                />
+                <span className="text-[10px] tracking-tight">
+                  {single ? single.name : "Inventory"}
+                </span>
+              </button>
+            );
+          })()}
 
-        {mobileSalesLinks.length > 0 && (
-          <button
-            onClick={() =>
-              setActiveBottomMenu(activeBottomMenu === "sales" ? null : "sales")
-            }
-            className={`flex flex-col items-center gap-0.5 px-3 py-1 rounded-lg transition-colors cursor-pointer ${
+        {flatSalesLinks.length > 0 &&
+          (() => {
+            const single =
+              flatSalesLinks.length === 1 ? flatSalesLinks[0] : null;
+            const salesActive =
               activeBottomMenu === "sales" ||
-              pathname.startsWith("/dashboard/sales") ||
-              pathname.startsWith("/dashboard/square")
-                ? "text-black font-bold"
-                : "text-gray-muted hover:text-black font-medium"
-            }`}
-          >
-            <HugeiconsIcon
-              icon={ShoppingCartIcon}
-              size={20}
-              className={
-                activeBottomMenu === "sales" ||
-                pathname.startsWith("/dashboard/sales")
-                  ? "text-black"
-                  : "text-gray-muted"
-              }
-            />
-            <span className="text-[10px] tracking-tight">Sales</span>
-          </button>
-        )}
+              flatSalesLinks.some((l) => pathname === l.href);
+            return (
+              <button
+                onClick={() => {
+                  if (single) {
+                    setActiveBottomMenu(null);
+                    router.push(single.href);
+                  } else {
+                    setActiveBottomMenu(
+                      activeBottomMenu === "sales" ? null : "sales",
+                    );
+                  }
+                }}
+                className={`flex flex-col items-center gap-0.5 px-3 py-1 rounded-lg transition-colors cursor-pointer ${salesActive ? "text-black font-bold" : "text-gray-muted hover:text-black font-medium"}`}
+              >
+                <HugeiconsIcon
+                  icon={single ? single.icon : ShoppingCartIcon}
+                  size={20}
+                  className={salesActive ? "text-black" : "text-gray-muted"}
+                />
+                <span className="text-[10px] tracking-tight">
+                  {single ? single.name : "Sales"}
+                </span>
+              </button>
+            );
+          })()}
 
-        {mobileReportsLinks.length > 0 && (
-          <button
-            onClick={() =>
-              setActiveBottomMenu(
-                activeBottomMenu === "reports" ? null : "reports",
-              )
-            }
-            className={`flex flex-col items-center gap-0.5 px-3 py-1 rounded-lg transition-colors cursor-pointer ${
+        {flatReportsLinks.length > 0 &&
+          (() => {
+            const single =
+              flatReportsLinks.length === 1 ? flatReportsLinks[0] : null;
+            const repActive =
               activeBottomMenu === "reports" ||
-              pathname === "/dashboard/consumption" ||
-              pathname === "/dashboard/reconciliation"
-                ? "text-black font-bold"
-                : "text-gray-muted hover:text-black font-medium"
-            }`}
-          >
-            <HugeiconsIcon
-              icon={PieChart02Icon}
-              size={20}
-              className={
-                activeBottomMenu === "reports" ||
-                pathname === "/dashboard/consumption" ||
-                pathname === "/dashboard/reconciliation"
-                  ? "text-black"
-                  : "text-gray-muted"
-              }
-            />
-            <span className="text-[10px] tracking-tight">Reports</span>
-          </button>
-        )}
+              flatReportsLinks.some((l) => pathname === l.href);
+            return (
+              <button
+                onClick={() => {
+                  if (single) {
+                    setActiveBottomMenu(null);
+                    router.push(single.href);
+                  } else {
+                    setActiveBottomMenu(
+                      activeBottomMenu === "reports" ? null : "reports",
+                    );
+                  }
+                }}
+                className={`flex flex-col items-center gap-0.5 px-3 py-1 rounded-lg transition-colors cursor-pointer ${repActive ? "text-black font-bold" : "text-gray-muted hover:text-black font-medium"}`}
+              >
+                <HugeiconsIcon
+                  icon={single ? single.icon : PieChart02Icon}
+                  size={20}
+                  className={repActive ? "text-black" : "text-gray-muted"}
+                />
+                <span className="text-[10px] tracking-tight">
+                  {single ? single.name : "Reports"}
+                </span>
+              </button>
+            );
+          })()}
 
-        <button
-          onClick={() =>
-            setActiveBottomMenu(activeBottomMenu === "more" ? null : "more")
-          }
-          className={`flex flex-col items-center gap-0.5 px-3 py-1 rounded-lg transition-colors cursor-pointer ${
-            activeBottomMenu === "more"
-              ? "text-black font-bold"
-              : "text-gray-muted hover:text-black font-medium"
-          }`}
-        >
-          <HugeiconsIcon
-            icon={Menu01Icon}
-            size={20}
-            className={
-              activeBottomMenu === "more" ? "text-black" : "text-gray-muted"
-            }
-          />
-          <span className="text-[10px] tracking-tight">Menu</span>
-        </button>
+        {flatMenuLinks.length > 0 &&
+          (() => {
+            const single = flatMenuLinks.length === 1 ? flatMenuLinks[0] : null;
+            const menuActive =
+              activeBottomMenu === "more" ||
+              (single
+                ? pathname === single.href
+                : flatMenuLinks.some((l) => pathname === l.href));
+            return (
+              <button
+                onClick={() => {
+                  if (single) {
+                    setActiveBottomMenu(null);
+                    router.push(single.href);
+                  } else {
+                    setActiveBottomMenu(
+                      activeBottomMenu === "more" ? null : "more",
+                    );
+                  }
+                }}
+                className={`flex flex-col items-center gap-0.5 px-3 py-1 rounded-lg transition-colors cursor-pointer ${menuActive ? "text-black font-bold" : "text-gray-muted hover:text-black font-medium"}`}
+              >
+                <HugeiconsIcon
+                  icon={single ? single.icon : Menu01Icon}
+                  size={20}
+                  className={menuActive ? "text-black" : "text-gray-muted"}
+                />
+                <span className="text-[10px] tracking-tight">
+                  {single ? single.name : "Menu"}
+                </span>
+              </button>
+            );
+          })()}
       </nav>
     </div>
   );

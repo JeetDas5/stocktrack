@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { toast } from "sonner";
 import React, { useEffect, useState, useMemo, useRef } from "react";
+import { useRouter } from "next/navigation";
 import {
   ChevronDown,
   Eye,
@@ -35,9 +36,10 @@ const GENDER_OPTIONS = [
 ] as const;
 
 export default function ProfilePage() {
-  const { profile, loading: authLoading, refreshProfile } = useAuth();
+  const { profile, loading: authLoading, refreshProfile, logout } = useAuth();
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const router = useRouter();
 
   const { activeBusinessId } = useBusinessStore();
   const { locations, fetchLocations } = useLocationStore();
@@ -69,10 +71,10 @@ export default function ProfilePage() {
   }, [profile, locations, myStaffProfile]);
 
   const [openSections, setOpenSections] = useState({
-    personal: true,
-    emergency: true,
-    payroll: true,
-    employment: true,
+    personal: false,
+    emergency: false,
+    payroll: false,
+    employment: false,
   });
 
   const [showTFN, setShowTFN] = useState(false);
@@ -1677,6 +1679,27 @@ export default function ProfilePage() {
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+
+        {/* Logout Button */}
+        <div className="bg-white border border-zinc-200 rounded-2xl shadow-xs overflow-hidden">
+          <div className="px-6 py-5 flex items-center justify-between">
+            <div>
+              <p className="text-sm font-extrabold text-zinc-900 tracking-wide uppercase">Sign Out</p>
+              <p className="text-xs text-zinc-400 font-semibold mt-0.5">You will be redirected to the login page.</p>
+            </div>
+            <button
+              type="button"
+              onClick={async () => {
+                await logout();
+                router.push("/login");
+              }}
+              className="flex items-center gap-2 bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-600 px-5 py-2.5 rounded-full text-xs font-bold uppercase tracking-wider transition-all duration-150 cursor-pointer shadow-xs"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h6a2 2 0 012 2v1" /></svg>
+              Logout
+            </button>
           </div>
         </div>
 
