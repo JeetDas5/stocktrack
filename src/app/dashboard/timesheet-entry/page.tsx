@@ -1286,19 +1286,10 @@ export default function TimesheetEntryPage() {
     <div className="bg-white min-h-0 flex flex-col w-full">
       <div className="hidden md:flex flex-col bg-white h-[calc(100vh-120px)] md:h-[85vh] min-h-0 relative pb-4">
         <div className="flex-1 min-h-0 flex flex-col space-y-4 pr-0 lg:pr-4">
-          <div className="bg-white border border-neutral-200 rounded-3xl p-5 sm:p-6 flex flex-col gap-4 shadow-sm">
-            <div className="flex items-center justify-between">
-              <h1 className="text-[24px] font-bold text-neutral-900 tracking-tight">
-                Enter Timesheet
-              </h1>
-              <Link
-                href="/dashboard/timesheet-my-reports"
-                className="inline-flex items-center gap-2 bg-white hover:bg-neutral-50 border border-neutral-300 text-neutral-900 px-4 py-2 rounded-md text-xs font-bold transition-all duration-200 shadow-2xs cursor-pointer"
-              >
-                <BarChart2 className="w-4 h-4 text-neutral-900 stroke-[2.5]" />
-                My Hours
-              </Link>
-            </div>
+          <div className="bg-white border border-neutral-200 rounded-3xl p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
+            <h1 className="text-[24px] font-bold text-neutral-900 tracking-tight">
+              Enter Timesheet
+            </h1>
             <div className="flex items-center gap-3">
               <div className="inline-flex items-center bg-[#BAEBCE] text-[#0A2924] font-semibold px-4.5 py-2 rounded-full text-xs">
                 Total Hours: {totalWeeklyHours.toFixed(1).replace(".0", "")}
@@ -1312,6 +1303,13 @@ export default function TimesheetEntryPage() {
                 <Copy className="w-3.5 h-3.5" />
                 Copy Previous Week
               </button>
+              <Link
+                href="/dashboard/timesheet-my-reports"
+                className="inline-flex items-center gap-2 bg-white hover:bg-neutral-50 border border-neutral-300 text-neutral-900 px-4 py-2 rounded-md text-xs font-bold transition-all duration-200 shadow-2xs cursor-pointer"
+              >
+                <BarChart2 className="w-4 h-4 text-neutral-900 stroke-[2.5]" />
+                My Hours
+              </Link>
             </div>
           </div>
 

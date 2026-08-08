@@ -632,8 +632,15 @@ export default function DashboardLayout({
   const filteredAccountLinks = filterSidebarLinks(accountLinks);
 
   const mobileTimesheetLinks: SidebarSubLink[] = [];
+  const mobileRosterLinks: SidebarSubLink[] = [];
   const mobileMyReportsLinks: SidebarSubLink[] = [];
   const otherStaffLinks: SidebarLink[] = [];
+
+  const isRosterHref = (href: string) =>
+    href.includes("roaster") ||
+    href.includes("availablity") ||
+    href.includes("availability") ||
+    href.includes("roster");
 
   filteredStaffLinks.forEach((link) => {
     if (link.subLinks) {
@@ -642,20 +649,24 @@ export default function DashboardLayout({
           sub.href.includes("timesheet") &&
           sub.href !== "/dashboard/timesheet-my-reports",
       );
+      const rosterSubs = link.subLinks.filter((sub) => isRosterHref(sub.href));
       const myReportsSubs = link.subLinks.filter(
         (sub) => sub.href === "/dashboard/timesheet-my-reports",
       );
-      const nonTsSubs = link.subLinks.filter(
-        (sub) => !sub.href.includes("timesheet"),
+      const nonTsOrRosterSubs = link.subLinks.filter(
+        (sub) => !sub.href.includes("timesheet") && !isRosterHref(sub.href),
       );
       if (tsSubs.length > 0) {
         mobileTimesheetLinks.push(...tsSubs);
       }
+      if (rosterSubs.length > 0) {
+        mobileRosterLinks.push(...rosterSubs);
+      }
       if (myReportsSubs.length > 0) {
         mobileMyReportsLinks.push(...myReportsSubs);
       }
-      if (nonTsSubs.length > 0) {
-        otherStaffLinks.push({ ...link, subLinks: nonTsSubs });
+      if (nonTsOrRosterSubs.length > 0) {
+        otherStaffLinks.push({ ...link, subLinks: nonTsOrRosterSubs });
       }
     } else if (link.href) {
       if (link.href === "/dashboard/timesheet-my-reports") {
@@ -666,6 +677,12 @@ export default function DashboardLayout({
         });
       } else if (link.href.includes("timesheet")) {
         mobileTimesheetLinks.push({
+          name: link.name,
+          href: link.href,
+          icon: link.icon,
+        });
+      } else if (isRosterHref(link.href)) {
+        mobileRosterLinks.push({
           name: link.name,
           href: link.href,
           icon: link.icon,
@@ -1850,6 +1867,37 @@ export default function DashboardLayout({
         </div>
       )}
 
+      {activeBottomMenu === "roster" && mobileRosterLinks.length > 1 && (
+        <div className="lg:hidden fixed bottom-16 left-3 sm:left-6 z-50 bg-white border border-gray-soft rounded-2xl shadow-2xl p-2 w-64 max-h-[60vh] overflow-y-auto animate-in fade-in slide-in-from-bottom-2 duration-200">
+          <div className="px-3 py-1.5 text-[11px] font-bold text-gray-muted uppercase tracking-wider border-b border-gray-soft mb-1">
+            Roster Options
+          </div>
+          <div className="space-y-0.5">
+            {mobileRosterLinks.map((sub) => (
+              <button
+                key={sub.href}
+                onClick={() => {
+                  router.push(sub.href);
+                  setActiveBottomMenu(null);
+                }}
+                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold transition-colors text-left cursor-pointer ${
+                  isActive(sub.href)
+                    ? "bg-primary-50 text-black font-bold"
+                    : "text-black hover:bg-gray-soft"
+                }`}
+              >
+                <HugeiconsIcon
+                  icon={sub.icon}
+                  size={16}
+                  className="text-black shrink-0"
+                />
+                <span>{sub.name}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {activeBottomMenu === "inventory" && flatInventoryLinks.length > 1 && (
         <div className="lg:hidden fixed bottom-16 left-3 sm:left-6 z-50 bg-white border border-gray-soft rounded-2xl shadow-2xl p-2 w-64 max-h-[60vh] overflow-y-auto animate-in fade-in slide-in-from-bottom-2 duration-200">
           <div className="px-3 py-1.5 text-[11px] font-bold text-gray-muted uppercase tracking-wider border-b border-gray-soft mb-1">
@@ -2005,6 +2053,41 @@ export default function DashboardLayout({
                 />
                 <span className="text-[10px] tracking-tight">
                   {single ? single.name : "Timesheet"}
+                </span>
+              </button>
+            );
+          })()}
+
+        {mobileRosterLinks.length > 0 &&
+          (() => {
+            const single =
+              mobileRosterLinks.length === 1 ? mobileRosterLinks[0] : null;
+            const rosterActive =
+              activeBottomMenu === "roster" ||
+              (single
+                ? pathname === single.href
+                : mobileRosterLinks.some((l) => pathname === l.href));
+            return (
+              <button
+                onClick={() => {
+                  if (single) {
+                    setActiveBottomMenu(null);
+                    router.push(single.href);
+                  } else {
+                    setActiveBottomMenu(
+                      activeBottomMenu === "roster" ? null : "roster",
+                    );
+                  }
+                }}
+                className={`flex flex-col items-center gap-0.5 px-3 py-1 rounded-lg transition-colors cursor-pointer ${rosterActive ? "text-black font-bold" : "text-gray-muted hover:text-black font-medium"}`}
+              >
+                <HugeiconsIcon
+                  icon={single ? single.icon : CalendarClockIcon}
+                  size={20}
+                  className={rosterActive ? "text-black" : "text-gray-muted"}
+                />
+                <span className="text-[10px] tracking-tight">
+                  {single ? single.name : "Roster"}
                 </span>
               </button>
             );
