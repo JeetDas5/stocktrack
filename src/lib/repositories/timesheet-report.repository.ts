@@ -17,6 +17,7 @@ interface BackendTimesheetReport {
   project?: string;
   total_hours: number;
   status: string;
+  is_paid?: boolean;
   created_at: string;
 }
 
@@ -36,6 +37,7 @@ const mapFromBackend = (t: BackendTimesheetReport): TimesheetReport => ({
   project: t.project,
   totalHours: t.total_hours,
   status: t.status,
+  isPaid: !!t.is_paid,
   createdAt: t.created_at,
 });
 

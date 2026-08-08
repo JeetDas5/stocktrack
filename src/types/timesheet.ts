@@ -13,6 +13,7 @@ export interface Timesheet {
   project?: string;
   totalHours: number;
   status: string;
+  isPaid?: boolean;
   createdAt?: string;
   updatedAt?: string;
 }

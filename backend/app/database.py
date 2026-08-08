@@ -138,6 +138,11 @@ def init_db():
                 "receiving_location_id": "VARCHAR",
             })
 
+            # ── timesheets ────────────────────────────────────────────────────
+            _add_columns_if_missing(session, inspector, "timesheets", {
+                "is_paid": "BOOLEAN DEFAULT FALSE",
+            })
+
     except Exception as e:
         print(f"Database migration note: {e}")
 

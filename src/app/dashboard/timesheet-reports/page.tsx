@@ -14,6 +14,7 @@ import {
 import { Location } from "@/types/inventory";
 import { Business } from "@/types/business";
 import { Dropdown } from "@/components/ui/dropdown";
+import { useAuth } from "@/providers/auth-provider";
 import { useBusinessStore } from "@/stores/business-store";
 import { TimesheetReport } from "@/types/timesheet-report";
 import DateRangePicker from "@/components/ui/date-range-picker";
@@ -24,6 +25,7 @@ import {
   getTimesheetSettings,
   TimesheetSettings,
 } from "@/lib/repositories/timesheet-settings.repository";
+import { updateTimesheetPaidStatus } from "@/lib/repositories/timesheet.repository";
 import {
   Select,
   SelectContent,
@@ -50,12 +52,21 @@ const ALL_COLUMNS = [
   { key: "project", label: "Project" },
   { key: "totalHours", label: "Total Hours" },
   { key: "status", label: "Status" },
+  { key: "isPaid", label: "Paid" },
 ] as const;
 
 export default function TimesheetReportsPage() {
+  const { profile } = useAuth();
   const { activeBusinessId } = useBusinessStore();
-  const { reports, loading, filters, setFilters, fetchReports, clearFilters } =
-    useTimesheetReportStore();
+  const {
+    reports,
+    loading,
+    filters,
+    setFilters,
+    fetchReports,
+    clearFilters,
+    updateReportPaidStatus,
+  } = useTimesheetReportStore();
 
   const [settings, setSettings] = useState<TimesheetSettings | null>(null);
   const [initLoading, setInitLoading] = useState(true);
@@ -69,6 +80,43 @@ export default function TimesheetReportsPage() {
 
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [allLocations, setAllLocations] = useState<Location[]>([]);
+  const [updatingPaidId, setUpdatingPaidId] = useState<string | null>(null);
+
+  const activeBusiness = useMemo(
+    () => businesses.find((b) => b.id === activeBusinessId),
+    [businesses, activeBusinessId],
+  );
+
+  const isAdminOrOwner = useMemo(() => {
+    if (!profile) return false;
+    if (profile.role === "super_admin" || profile.role === "admin") return true;
+    if (activeBusiness && activeBusiness.createdBy === profile.uid) return true;
+    return false;
+  }, [profile, activeBusiness]);
+
+  const handlePaidStatusToggle = async (report: TimesheetReport) => {
+    if (!isAdminOrOwner) return;
+    const newStatus = !report.isPaid;
+    setUpdatingPaidId(report.id);
+    try {
+      await updateTimesheetPaidStatus(report.businessId, report.id, newStatus);
+      updateReportPaidStatus(report.id, newStatus);
+      toast.success(
+        `Timesheet for ${report.staffName} marked as ${
+          newStatus ? "Paid" : "Unpaid"
+        }.`,
+      );
+    } catch (err: unknown) {
+      const errorDetail =
+        (err as { response?: { data?: { detail?: string } } })?.response?.data
+          ?.detail ||
+        (err as Error).message ||
+        "Failed to update paid status";
+      toast.error(errorDetail);
+    } finally {
+      setUpdatingPaidId(null);
+    }
+  };
 
   const [visibleColumns, setVisibleColumns] = useState<Record<string, boolean>>(
     {
@@ -81,6 +129,7 @@ export default function TimesheetReportsPage() {
       project: true,
       totalHours: true,
       status: true,
+      isPaid: true,
     },
   );
   const [isColumnMenuOpen, setIsColumnMenuOpen] = useState(false);
@@ -129,7 +178,6 @@ export default function TimesheetReportsPage() {
           setSettings(settingsData);
         }
 
-        // Fetch reports for all businesses initially
         await fetchReports("all");
       } catch (err) {
         console.error("Failed to load init data in reports:", err);
@@ -230,6 +278,11 @@ export default function TimesheetReportsPage() {
       const valA = a[sortField] ?? "";
       const valB = b[sortField] ?? "";
 
+      if (typeof valA === "boolean") {
+        const numA = valA ? 1 : 0;
+        const numB = valB ? 1 : 0;
+        return sortDirection === "asc" ? numA - numB : numB - numA;
+      }
       if (typeof valA === "string") {
         return sortDirection === "asc"
           ? valA.localeCompare(valB as string)
@@ -325,6 +378,7 @@ export default function TimesheetReportsPage() {
       "Project",
       "Total Hours",
       "Status",
+      "Paid Status",
     ];
 
     const rows = sortedReports.map((r) => [
@@ -342,6 +396,7 @@ export default function TimesheetReportsPage() {
         : r.status.toLowerCase() === "edited"
           ? "Resubmitted"
           : r.status.charAt(0).toUpperCase() + r.status.slice(1),
+      r.isPaid ? "Paid" : "Unpaid",
     ]);
 
     const csvContent =
@@ -378,6 +433,7 @@ export default function TimesheetReportsPage() {
       "Project",
       "Total Hours",
       "Status",
+      "Paid Status",
     ];
 
     const rows = sortedReports.map((r) => [
@@ -395,6 +451,7 @@ export default function TimesheetReportsPage() {
         : r.status.toLowerCase() === "edited"
           ? "Resubmitted"
           : r.status.charAt(0).toUpperCase() + r.status.slice(1),
+      r.isPaid ? "Paid" : "Unpaid",
     ]);
 
     let content =
@@ -855,6 +912,14 @@ export default function TimesheetReportsPage() {
                         Status
                       </th>
                     )}
+                    {visibleColumns.isPaid && (
+                      <th
+                        onClick={() => handleSort("isPaid")}
+                        className="py-4 px-6 font-semibold cursor-pointer hover:bg-neutral-50/80 transition duration-150 select-none text-center"
+                      >
+                        Paid
+                      </th>
+                    )}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-neutral-200 text-xs text-neutral-800 bg-white">
@@ -929,6 +994,49 @@ export default function TimesheetReportsPage() {
                                 ? "Resubmitted"
                                 : r.status}
                           </span>
+                        </td>
+                      )}
+                      {visibleColumns.isPaid && (
+                        <td className="py-4 px-6 text-center whitespace-nowrap">
+                          {isAdminOrOwner ? (
+                            <button
+                              type="button"
+                              disabled={updatingPaidId === r.id}
+                              onClick={() => handlePaidStatusToggle(r)}
+                              title="Click to toggle paid status"
+                              className={`text-[11px] font-bold px-3 py-1.5 rounded-full inline-flex items-center gap-1.5 border shadow-3xs transition-all duration-150 cursor-pointer disabled:opacity-50 ${
+                                r.isPaid
+                                  ? "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100"
+                                  : "bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100"
+                              }`}
+                            >
+                              {updatingPaidId === r.id ? (
+                                <Loader2 className="h-3 w-3 animate-spin text-current" />
+                              ) : (
+                                <span
+                                  className={`h-2 w-2 rounded-full shrink-0 ${
+                                    r.isPaid ? "bg-emerald-500" : "bg-amber-500"
+                                  }`}
+                                />
+                              )}
+                              <span>{r.isPaid ? "Paid" : "Unpaid"}</span>
+                            </button>
+                          ) : (
+                            <span
+                              className={`text-[11px] font-semibold px-3 py-1 rounded-full inline-flex items-center gap-1.5 border leading-none ${
+                                r.isPaid
+                                  ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                  : "bg-neutral-100 text-neutral-600 border-neutral-200"
+                              }`}
+                            >
+                              <span
+                                className={`h-1.5 w-1.5 rounded-full shrink-0 ${
+                                  r.isPaid ? "bg-emerald-500" : "bg-neutral-400"
+                                }`}
+                              />
+                              {r.isPaid ? "Paid" : "Unpaid"}
+                            </span>
+                          )}
                         </td>
                       )}
                     </tr>

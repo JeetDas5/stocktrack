@@ -44,6 +44,7 @@ class TimesheetOut(SQLModel):
     project: Optional[str] = None
     total_hours: float
     status: str
+    is_paid: bool = False
     created_at: datetime
 
 
@@ -63,6 +64,7 @@ class TimesheetReportOut(SQLModel):
     project: Optional[str] = None
     total_hours: float
     status: str
+    is_paid: bool = False
     created_at: datetime
 
 
@@ -356,6 +358,7 @@ def create_timesheet(
         project=ts.project,
         total_hours=ts.total_hours,
         status=ts.status,
+        is_paid=ts.is_paid,
         created_at=ts.created_at,
     )
 
@@ -460,6 +463,7 @@ def get_timesheets(
                 project=ts.project,
                 total_hours=ts.total_hours,
                 status=ts.status,
+                is_paid=ts.is_paid,
                 created_at=ts.created_at,
             )
         )
@@ -648,6 +652,7 @@ def update_timesheet(
         project=ts.project,
         total_hours=ts.total_hours,
         status=ts.status,
+        is_paid=ts.is_paid,
         created_at=ts.created_at,
     )
 
@@ -822,6 +827,73 @@ def update_timesheet_status(
         notes=ts.notes,
         total_hours=ts.total_hours,
         status=ts.status,
+        is_paid=ts.is_paid,
+        created_at=ts.created_at,
+    )
+
+
+class TimesheetPaidUpdate(SQLModel):
+    is_paid: bool
+
+
+@router.patch(
+    "/api/businesses/{business_id}/timesheets/{timesheet_id}/paid",
+    response_model=TimesheetOut,
+    summary="Update timesheet paid status",
+    description="Updates the paid status of a timesheet.",
+    responses={
+        200: {"description": "Timesheet paid status updated successfully."},
+        401: {"description": "Missing or invalid authorization credentials."},
+        403: {"description": "Not authorized to update timesheet paid status."},
+        404: {"description": "Timesheet not found."},
+    },
+)
+def update_timesheet_paid_status(
+    business_id: str,
+    timesheet_id: str,
+    data: TimesheetPaidUpdate,
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    verify_user_permission(
+        current_user, business_id, "timesheets.write", session=session
+    )
+
+    if check_is_staff(current_user, business_id, session):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Staff members cannot change timesheet paid status",
+        )
+
+    ts = session.get(Timesheet, timesheet_id)
+    if not ts or ts.business_id != business_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Timesheet not found"
+        )
+
+    ts.is_paid = data.is_paid
+    ts.updated_at = datetime.utcnow()
+
+    session.add(ts)
+    session.commit()
+    session.refresh(ts)
+
+    return TimesheetOut(
+        id=ts.id,
+        business_id=ts.business_id,
+        location_id=ts.location_id,
+        location_name=ts.location.name if ts.location else "Unknown Location",
+        staff_id=ts.staff_id,
+        staff_name=ts.staff.name if ts.staff else "Unknown Staff",
+        work_date=ts.work_date,
+        start_time=ts.start_time,
+        end_time=ts.end_time,
+        unpaid_break=ts.unpaid_break,
+        notes=ts.notes,
+        project=ts.project,
+        total_hours=ts.total_hours,
+        status=ts.status,
+        is_paid=ts.is_paid,
         created_at=ts.created_at,
     )
 
@@ -939,6 +1011,7 @@ def get_timesheet_reports(
                 project=ts.project,
                 total_hours=ts.total_hours,
                 status=ts.status,
+                is_paid=ts.is_paid,
                 created_at=ts.created_at,
             )
         )
