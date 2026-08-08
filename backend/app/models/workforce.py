@@ -20,6 +20,7 @@ class Timesheet(SQLModel, table=True):
     project: Optional[str] = Field(default=None)
     total_hours: float = Field(default=0.0)
     status: str = Field(default="submitted")
+    is_paid: bool = Field(default=False)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 

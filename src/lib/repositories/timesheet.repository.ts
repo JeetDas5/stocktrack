@@ -16,6 +16,7 @@ interface BackendTimesheet {
   project?: string;
   total_hours: number;
   status: string;
+  is_paid?: boolean;
   created_at: string;
 }
 
@@ -34,6 +35,7 @@ const mapFromBackend = (t: BackendTimesheet): Timesheet => ({
   project: t.project,
   totalHours: t.total_hours,
   status: t.status,
+  isPaid: !!t.is_paid,
   createdAt: t.created_at,
 });
 
@@ -91,6 +93,18 @@ export const updateTimesheetStatus = async (
   const response = await api.patch(
     `/api/businesses/${businessId}/timesheets/${timesheetId}/status`,
     { status }
+  );
+  return mapFromBackend(response.data);
+};
+
+export const updateTimesheetPaidStatus = async (
+  businessId: string,
+  timesheetId: string,
+  isPaid: boolean
+): Promise<Timesheet> => {
+  const response = await api.patch(
+    `/api/businesses/${businessId}/timesheets/${timesheetId}/paid`,
+    { is_paid: isPaid }
   );
   return mapFromBackend(response.data);
 };

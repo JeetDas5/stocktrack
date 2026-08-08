@@ -10,6 +10,7 @@ interface TimesheetReportState {
   setFilters: (filters: Partial<TimesheetReportFilters>) => void;
   fetchReports: (businessId: string) => Promise<void>;
   clearFilters: (defaultBusinessId: string) => void;
+  updateReportPaidStatus: (timesheetId: string, isPaid: boolean) => void;
 }
 
 const getInitialFilters = (defaultBusinessId: string): TimesheetReportFilters => {
@@ -59,5 +60,13 @@ export const useTimesheetReportStore = create<TimesheetReportState>((set, get) =
     set({
       filters: getInitialFilters(defaultBusinessId),
     });
+  },
+
+  updateReportPaidStatus: (timesheetId, isPaid) => {
+    set((state) => ({
+      reports: state.reports.map((r) =>
+        r.id === timesheetId ? { ...r, isPaid } : r
+      ),
+    }));
   },
 }));
